@@ -16,6 +16,7 @@ inline MyPositionStartupModes ResolveMyPositionStartupModes(bool autoStartFollow
 {
   MyPositionStartupModes modes{location::PendingPosition, initMode};
 
+  // Explicit map targets must not be replaced by the current position on launch.
   if (isLaunchByDeepLink)
     modes.m_desiredMode = location::NotFollow;
   else if (autoStartFollowAndRotate)
