@@ -11,8 +11,8 @@ struct MyPositionStartupModes
 };
 
 inline MyPositionStartupModes ResolveMyPositionStartupModes(bool autoStartFollowAndRotate, bool isLaunchByDeepLink,
-                                                             bool isFirstLaunch, bool isLongBackground,
-                                                             bool isInRouting, location::EMyPositionMode initMode)
+                                                            bool isFirstLaunch, bool isLongBackground, bool isInRouting,
+                                                            location::EMyPositionMode initMode)
 {
   MyPositionStartupModes modes{location::PendingPosition, initMode};
 
