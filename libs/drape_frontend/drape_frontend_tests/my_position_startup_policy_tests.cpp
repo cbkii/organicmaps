@@ -29,6 +29,12 @@ UNIT_TEST(DeepLinkTakesPrecedenceOverAutoFollow)
             location::PendingPosition, location::NotFollow);
 }
 
+UNIT_TEST(DeepLinkPreservesBehaviorWhenAutoFollowDisabled)
+{
+  TestModes(df::ResolveMyPositionStartupModes(false, true, false, false, false, location::NotFollowNoPosition),
+            location::PendingPosition, location::NotFollow);
+}
+
 UNIT_TEST(AutoFollowEnabledOverridesDefaultLaunchRules)
 {
   TestModes(df::ResolveMyPositionStartupModes(true, false, true, false, false, location::NotFollow),
@@ -45,5 +51,13 @@ UNIT_TEST(AutoFollowDisabledPreservesDefaultLaunchRules)
             location::PendingPosition, location::Follow);
   TestModes(df::ResolveMyPositionStartupModes(false, false, false, false, true, location::NotFollowNoPosition),
             location::PendingPosition, location::NotFollowNoPosition);
+}
+
+UNIT_TEST(AutoFollowRoutingStartupUsesFollowAndRotate)
+{
+  TestModes(df::ResolveMyPositionStartupModes(true, false, false, false, true, location::NotFollowNoPosition),
+            location::PendingPosition, location::FollowAndRotate);
+  TestModes(df::ResolveMyPositionStartupModes(false, false, false, false, true, location::FollowAndRotate),
+            location::PendingPosition, location::FollowAndRotate);
 }
 }  // namespace my_position_startup_policy_tests
