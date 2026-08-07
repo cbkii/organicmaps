@@ -61,6 +61,7 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
     init3dModePrefsCallbacks();
     initPerspectivePrefsCallbacks();
     initAutoZoomPrefsCallbacks();
+    initAutoFollowLocationOnLaunchPrefsCallbacks();
     initLoggingEnabledPrefsCallbacks();
     initEmulationBadStorage();
     initUseMobileDataPrefsCallbacks();
@@ -252,6 +253,17 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
     pref.setChecked(autozoomEnabled);
     pref.setOnPreferenceChangeListener((preference, newValue) -> {
       Framework.nativeSetAutoZoomEnabled((boolean) newValue);
+      return true;
+    });
+  }
+
+  private void initAutoFollowLocationOnLaunchPrefsCallbacks()
+  {
+    final TwoStatePreference pref = getPreference(getString(R.string.pref_auto_follow_location_on_launch));
+
+    pref.setChecked(Config.isAutoStartLocationFollowAndRotateEnabled());
+    pref.setOnPreferenceChangeListener((preference, newValue) -> {
+      Config.setAutoStartLocationFollowAndRotateEnabled((boolean) newValue);
       return true;
     });
   }
