@@ -9,12 +9,12 @@ on:
         type: string
       draft:
         description: 'Create the GitHub release as a draft'
-        required: true
+        required: false
         default: false
         type: boolean
       prerelease:
         description: 'Mark the GitHub release as a prerelease'
-        required: true
+        required: false
         default: false
         type: boolean
 
@@ -84,6 +84,19 @@ jobs:
         shell: bash
         run: bash ./configure.sh
 
+      - name: Validate release branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          default_branch="$(gh repo view "${GITHUB_REPOSITORY}" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+          if [[ "${GITHUB_REF_TYPE}" != "branch" || "${GITHUB_REF_NAME}" != "${default_branch}" ]]; then
+            echo "::error::Manual GH releases must run from the repository default branch (${default_branch}); selected ref is ${GITHUB_REF_TYPE}:${GITHUB_REF_NAME}."
+            exit 1
+          fi
+
       - name: Resolve release version
         id: version
         shell: bash
@@ -94,7 +107,6 @@ jobs:
           set -euo pipefail
 
           git fetch --force --tags origin
-
           requested="$(printf '%s' "${INPUT_VERSION}" | tr -d '[:space:]')"
 
           if [[ -n "${requested}" ]]; then
@@ -105,16 +117,18 @@ jobs:
             fi
             tag="v${requested}"
           else
+            release_tags="$(gh release list --limit 1000 --json tagName --jq '.[].tagName' 2>/dev/null || true)"
+            git_tags="$(git tag --list 'v*')"
             latest="$(
-              git tag --list 'v*' \
+              printf '%s\n%s\n' "${release_tags}" "${git_tags}" \
                 | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-                | sort -V \
+                | sort -Vu \
                 | tail -n1 \
                 || true
             )"
 
             if [[ -z "${latest}" ]]; then
-              tag="v0.0.1"
+              tag="v0.1.0"
             else
               core="${latest#v}"
               IFS='.' read -r major minor patch <<< "${core}"
@@ -126,7 +140,6 @@ jobs:
             echo "::error::Git tag '${tag}' already exists."
             exit 1
           fi
-
           if gh release view "${tag}" >/dev/null 2>&1; then
             echo "::error::GitHub release '${tag}' already exists."
             exit 1
@@ -140,19 +153,19 @@ jobs:
         id: signing
         shell: bash
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
           present=0
           for value in \
-            "${ANDROID_KEYSTORE_BASE64}" \
-            "${ANDROID_KEYSTORE_PASSWORD}" \
-            "${ANDROID_KEY_ALIAS}" \
-            "${ANDROID_KEY_PASSWORD}"; do
+            "${KEYSTORE_BASE64}" \
+            "${KEYSTORE_PASSWORD}" \
+            "${KEY_ALIAS}" \
+            "${KEY_PASSWORD}"; do
             if [[ -n "${value}" ]]; then
               present=$((present + 1))
             fi
@@ -163,18 +176,18 @@ jobs:
 
           if [[ "${present}" -eq 4 ]]; then
             keystore="${RUNNER_TEMP}/organicmaps-release.keystore"
-            printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${keystore}"
+            printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${keystore}"
             chmod 600 "${keystore}"
             echo "mode=custom" >> "${GITHUB_OUTPUT}"
             echo "keystore=${keystore}" >> "${GITHUB_OUTPUT}"
             echo "Using private release signing secrets."
           elif [[ "${present}" -eq 0 ]]; then
             keystore="${GITHUB_WORKSPACE}/android/app/debug.keystore"
-            echo "::warning::No Android signing secrets are configured. The Fdroid Beta APK will use Organic Maps' checked-in debug key so the workflow remains installable and repeatable. Configure all four ANDROID_KEYSTORE_* secrets before distributing beyond personal/testing use."
+            echo "::warning::No Android signing secrets are configured. The Fdroid Beta APK will use Organic Maps' checked-in debug key so the workflow remains installable and repeatable. Configure the existing KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD secrets before distributing beyond personal/testing use."
             echo "mode=debug" >> "${GITHUB_OUTPUT}"
             echo "keystore=${keystore}" >> "${GITHUB_OUTPUT}"
           else
-            echo "::error::Android signing secrets are incomplete. Configure all four of ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD, or remove all four to use the debug-key fallback."
+            echo "::error::Android signing secrets are incomplete. Configure all four of KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD, or remove all four to use the debug-key fallback."
             exit 1
           fi
 
@@ -183,18 +196,18 @@ jobs:
         env:
           SIGNING_MODE: ${{ steps.signing.outputs.mode }}
           KEYSTORE_PATH: ${{ steps.signing.outputs.keystore }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
           export ORG_GRADLE_PROJECT_spropStoreFile="${KEYSTORE_PATH}"
 
           if [[ "${SIGNING_MODE}" == "custom" ]]; then
-            export ORG_GRADLE_PROJECT_spropStorePassword="${ANDROID_KEYSTORE_PASSWORD}"
-            export ORG_GRADLE_PROJECT_spropKeyAlias="${ANDROID_KEY_ALIAS}"
-            export ORG_GRADLE_PROJECT_spropKeyPassword="${ANDROID_KEY_PASSWORD}"
+            export ORG_GRADLE_PROJECT_spropStorePassword="${KEYSTORE_PASSWORD}"
+            export ORG_GRADLE_PROJECT_spropKeyAlias="${KEY_ALIAS}"
+            export ORG_GRADLE_PROJECT_spropKeyPassword="${KEY_PASSWORD}"
           else
             export ORG_GRADLE_PROJECT_spropStorePassword="12345678"
             export ORG_GRADLE_PROJECT_spropKeyAlias="debug"
