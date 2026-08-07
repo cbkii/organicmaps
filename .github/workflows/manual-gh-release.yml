@@ -58,6 +58,7 @@ jobs:
 
           compile_sdk="$(sed -n 's/^propCompileSdkVersion=//p' android/gradle.properties | head -n1)"
           ndk_version="$(sed -n 's/^propNdkVersion=//p' android/gradle.properties | head -n1)"
+          build_tools_version="36.0.0"
           cmake_version="3.22.1"
 
           if [[ ! "${compile_sdk}" =~ ^[0-9]+$ ]] || [[ -z "${ndk_version}" ]]; then
@@ -69,7 +70,7 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-${compile_sdk}" \
-            "build-tools;${compile_sdk}.0.0" \
+            "build-tools;${build_tools_version}" \
             "cmake;${cmake_version}" \
             "ndk;${ndk_version}"
 
@@ -77,6 +78,7 @@ jobs:
           printf 'sdk.dir=%s\n' "${ANDROID_HOME}" > android/local.properties
 
           echo "compile_sdk=${compile_sdk}" >> "${GITHUB_OUTPUT}"
+          echo "build_tools_version=${build_tools_version}" >> "${GITHUB_OUTPUT}"
           echo "ndk_version=${ndk_version}" >> "${GITHUB_OUTPUT}"
           echo "cmake_version=${cmake_version}" >> "${GITHUB_OUTPUT}"
 
@@ -326,8 +328,17 @@ jobs:
           set -euo pipefail
 
           assets="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name')"
-          grep -Fx -- "${APK_NAME}" <<< "${assets}" >/dev/null
-          grep -Fx -- "${CHECKSUM_NAME}" <<< "${assets}" >/dev/null
+          missing=()
+
+          grep -Fx -- "${APK_NAME}" <<< "${assets}" >/dev/null || missing+=("${APK_NAME}")
+          grep -Fx -- "${CHECKSUM_NAME}" <<< "${assets}" >/dev/null || missing+=("${CHECKSUM_NAME}")
+
+          if [[ "${#missing[@]}" -ne 0 ]]; then
+            echo "::error::Release ${RELEASE_TAG} is missing expected asset(s): ${missing[*]}"
+            echo "Published assets:"
+            printf '%s\n' "${assets}"
+            exit 1
+          fi
 
       - name: Write release summary
         if: always()
