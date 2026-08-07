@@ -1,0 +1,227 @@
+name: Implement auto-follow location launch
+
+on:
+  push:
+    branches:
+      - feature/auto-follow-location-launch
+    paths:
+      - .github/workflows/implement-auto-follow-location.yml
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/auto-follow-location-launch
+
+      - name: Apply scoped implementation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one replacement target, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          # Persisted setting shared by Java and the C++ settings backend.
+          replace_once(
+              "android/sdk/src/main/java/app/organicmaps/sdk/util/Config.java",
+              '  private static final String KEY_PREF_ZOOM_BUTTONS = "ZoomButtonsEnabled";\n'
+              '  static final String KEY_PREF_STATISTICS = "StatisticsEnabled";\n',
+              '  private static final String KEY_PREF_ZOOM_BUTTONS = "ZoomButtonsEnabled";\n'
+              '  private static final String KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE = "AutoStartLocationFollowAndRotate";\n'
+              '  static final String KEY_PREF_STATISTICS = "StatisticsEnabled";\n')
+
+          replace_once(
+              "android/sdk/src/main/java/app/organicmaps/sdk/util/Config.java",
+              '  public static void setShowZoomButtons(boolean show)\n'
+              '  {\n'
+              '    setBool(KEY_PREF_ZOOM_BUTTONS, show);\n'
+              '  }\n\n'
+              '  public static void setStatisticsEnabled(boolean enabled)\n',
+              '  public static void setShowZoomButtons(boolean show)\n'
+              '  {\n'
+              '    setBool(KEY_PREF_ZOOM_BUTTONS, show);\n'
+              '  }\n\n'
+              '  public static boolean isAutoStartLocationFollowAndRotateEnabled()\n'
+              '  {\n'
+              '    return getBool(KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE, false);\n'
+              '  }\n\n'
+              '  public static void setAutoStartLocationFollowAndRotateEnabled(boolean enabled)\n'
+              '  {\n'
+              '    setBool(KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE, enabled);\n'
+              '  }\n\n'
+              '  public static void setStatisticsEnabled(boolean enabled)\n')
+
+          # Settings UI.
+          replace_once(
+              "android/app/src/main/java/app/organicmaps/settings/SettingsPrefsFragment.java",
+              '    initAutoZoomPrefsCallbacks();\n'
+              '    initLoggingEnabledPrefsCallbacks();\n',
+              '    initAutoZoomPrefsCallbacks();\n'
+              '    initAutoFollowLocationOnLaunchPrefsCallbacks();\n'
+              '    initLoggingEnabledPrefsCallbacks();\n')
+
+          replace_once(
+              "android/app/src/main/java/app/organicmaps/settings/SettingsPrefsFragment.java",
+              '  private void initPlayServicesPrefsCallbacks()\n',
+              '  private void initAutoFollowLocationOnLaunchPrefsCallbacks()\n'
+              '  {\n'
+              '    final TwoStatePreference pref = getPreference(getString(R.string.pref_auto_follow_location_on_launch));\n\n'
+              '    pref.setChecked(Config.isAutoStartLocationFollowAndRotateEnabled());\n'
+              '    pref.setOnPreferenceChangeListener((preference, newValue) -> {\n'
+              '      Config.setAutoStartLocationFollowAndRotateEnabled((boolean) newValue);\n'
+              '      return true;\n'
+              '    });\n'
+              '  }\n\n'
+              '  private void initPlayServicesPrefsCallbacks()\n')
+
+          replace_once(
+              "android/app/src/main/res/xml/prefs_main.xml",
+              '    <SwitchPreferenceCompat\n'
+              '      android:key="@string/pref_auto_zoom"\n'
+              '      android:title="@string/pref_map_auto_zoom"\n'
+              '      app:singleLineTitle="false"\n'
+              '      android:order="3" />\n'
+              '    <Preference\n'
+              '      android:key="@string/pref_tts_screen"\n'
+              '      android:title="@string/pref_tts_enable_title"\n'
+              '      app:singleLineTitle="false"\n'
+              '      android:persistent="false"\n'
+              '      android:order="4">\n'
+              '    </Preference>\n'
+              '    <PreferenceScreen\n'
+              '      android:key="@string/prefs_routing"\n'
+              '      android:order="5"\n',
+              '    <SwitchPreferenceCompat\n'
+              '      android:key="@string/pref_auto_zoom"\n'
+              '      android:title="@string/pref_map_auto_zoom"\n'
+              '      app:singleLineTitle="false"\n'
+              '      android:order="3" />\n'
+              '    <SwitchPreferenceCompat\n'
+              '      android:key="@string/pref_auto_follow_location_on_launch"\n'
+              '      android:title="@string/auto_follow_location_on_launch"\n'
+              '      android:summary="@string/auto_follow_location_on_launch_summary"\n'
+              '      android:defaultValue="false"\n'
+              '      app:singleLineTitle="false"\n'
+              '      android:order="4" />\n'
+              '    <Preference\n'
+              '      android:key="@string/pref_tts_screen"\n'
+              '      android:title="@string/pref_tts_enable_title"\n'
+              '      app:singleLineTitle="false"\n'
+              '      android:persistent="false"\n'
+              '      android:order="5">\n'
+              '    </Preference>\n'
+              '    <PreferenceScreen\n'
+              '      android:key="@string/prefs_routing"\n'
+              '      android:order="6"\n')
+
+          strings = Path("android/app/src/main/res/values/strings_auto_follow_location.xml")
+          if strings.exists():
+              raise SystemExit(f"{strings}: file already exists")
+          strings.write_text('''<?xml version="1.0" encoding="utf-8"?>\n<resources>\n  <string name="pref_auto_follow_location_on_launch" translatable="false">pref_auto_follow_location_on_launch</string>\n  <string name="auto_follow_location_on_launch">Follow current location on launch</string>\n  <string name="auto_follow_location_on_launch_summary">Automatically start location tracking and orient the map to your direction when opened.</string>\n</resources>\n''')
+
+          # Keep the startup decision pure so current behaviour and the opt-in override are directly testable.
+          policy = Path("libs/drape_frontend/my_position_startup_policy.hpp")
+          if policy.exists():
+              raise SystemExit(f"{policy}: file already exists")
+          policy.write_text('''#pragma once\n\n#include "platform/location.hpp"\n\nnamespace df\n{\nstruct MyPositionStartupModes\n{\n  location::EMyPositionMode m_mode;\n  location::EMyPositionMode m_desiredMode;\n};\n\ninline MyPositionStartupModes ResolveMyPositionStartupModes(bool autoStartFollowAndRotate, bool isLaunchByDeepLink,\n                                                             bool isFirstLaunch, bool isLongBackground,\n                                                             bool isInRouting, location::EMyPositionMode initMode)\n{\n  MyPositionStartupModes modes{location::PendingPosition, initMode};\n\n  if (isLaunchByDeepLink)\n    modes.m_desiredMode = location::NotFollow;\n  else if (autoStartFollowAndRotate)\n    modes.m_desiredMode = location::FollowAndRotate;\n  else if (isFirstLaunch || isLongBackground)\n    modes.m_desiredMode = location::Follow;\n  else if (!isInRouting && modes.m_desiredMode == location::NotFollowNoPosition)\n    modes.m_mode = location::NotFollowNoPosition;\n\n  return modes;\n}\n}  // namespace df\n''')
+
+          replace_once(
+              "libs/drape_frontend/my_position_controller.cpp",
+              '#include "drape_frontend/drape_notifier.hpp"\n'
+              '#include "drape_frontend/user_event_stream.hpp"\n',
+              '#include "drape_frontend/drape_notifier.hpp"\n'
+              '#include "drape_frontend/my_position_startup_policy.hpp"\n'
+              '#include "drape_frontend/user_event_stream.hpp"\n')
+
+          replace_once(
+              "libs/drape_frontend/my_position_controller.cpp",
+              '#include "platform/measurement_utils.hpp"\n',
+              '#include "platform/measurement_utils.hpp"\n'
+              '#include "platform/settings.hpp"\n')
+
+          replace_once(
+              "libs/drape_frontend/my_position_controller.cpp",
+              '#include <chrono>\n',
+              '#include <chrono>\n'
+              '#include <string_view>\n')
+
+          replace_once(
+              "libs/drape_frontend/my_position_controller.cpp",
+              'double const kMaxBlockAutoZoomTimeSec = 10.0;\n\n'
+              'int const kZoomThreshold = 10;\n',
+              'double const kMaxBlockAutoZoomTimeSec = 10.0;\n\n'
+              'std::string_view constexpr kAutoStartLocationFollowAndRotate = "AutoStartLocationFollowAndRotate";\n\n'
+              'int const kZoomThreshold = 10;\n')
+
+          replace_once(
+              "libs/drape_frontend/my_position_controller.cpp",
+              '  using namespace location;\n\n'
+              '  m_mode = PendingPosition;\n'
+              '  if (m_hints.m_isLaunchByDeepLink)\n'
+              '  {\n'
+              '    m_desiredInitMode = NotFollow;\n'
+              '  }\n'
+              '  else if (m_hints.m_isFirstLaunch)\n'
+              '  {\n'
+              '    m_desiredInitMode = Follow;\n'
+              '  }\n'
+              '  else if (params.m_timeInBackground >= kMaxTimeInBackgroundSec)\n'
+              '  {\n'
+              '    m_desiredInitMode = Follow;\n'
+              '  }\n'
+              '  else\n'
+              '  {\n'
+              '    m_desiredInitMode = params.m_initMode;\n\n'
+              '    // Do not start position if we ended previous session without it.\n'
+              '    if (!m_isInRouting && m_desiredInitMode == NotFollowNoPosition)\n'
+              '      m_mode = NotFollowNoPosition;\n'
+              '  }\n\n',
+              '  bool autoStartFollowAndRotate = false;\n'
+              '  (void)settings::Get(kAutoStartLocationFollowAndRotate, autoStartFollowAndRotate);\n'
+              '  auto const startupModes = ResolveMyPositionStartupModes(\n'
+              '      autoStartFollowAndRotate, m_hints.m_isLaunchByDeepLink, m_hints.m_isFirstLaunch,\n'
+              '      params.m_timeInBackground >= kMaxTimeInBackgroundSec, m_isInRouting, params.m_initMode);\n'
+              '  m_mode = startupModes.m_mode;\n'
+              '  m_desiredInitMode = startupModes.m_desiredMode;\n\n')
+
+          tests = Path("libs/drape_frontend/drape_frontend_tests/my_position_startup_policy_tests.cpp")
+          if tests.exists():
+              raise SystemExit(f"{tests}: file already exists")
+          tests.write_text('''#include "drape_frontend/my_position_startup_policy.hpp"\n\n#include "testing/testing.hpp"\n\nnamespace my_position_startup_policy_tests\n{\nvoid TestModes(df::MyPositionStartupModes const & modes, location::EMyPositionMode mode,\n               location::EMyPositionMode desiredMode)\n{\n  TEST_EQUAL(static_cast<int>(modes.m_mode), static_cast<int>(mode), ());\n  TEST_EQUAL(static_cast<int>(modes.m_desiredMode), static_cast<int>(desiredMode), ());\n}\n\nUNIT_TEST(AutoFollowDisabledPreservesStoppedLocation)\n{\n  TestModes(df::ResolveMyPositionStartupModes(false, false, false, false, false, location::NotFollowNoPosition),\n            location::NotFollowNoPosition, location::NotFollowNoPosition);\n}\n\nUNIT_TEST(AutoFollowEnabledOverridesStoppedLocation)\n{\n  TestModes(df::ResolveMyPositionStartupModes(true, false, false, false, false, location::NotFollowNoPosition),\n            location::PendingPosition, location::FollowAndRotate);\n}\n\nUNIT_TEST(DeepLinkTakesPrecedenceOverAutoFollow)\n{\n  TestModes(df::ResolveMyPositionStartupModes(true, true, false, false, false, location::NotFollowNoPosition),\n            location::PendingPosition, location::NotFollow);\n}\n\nUNIT_TEST(AutoFollowEnabledOverridesDefaultLaunchRules)\n{\n  TestModes(df::ResolveMyPositionStartupModes(true, false, true, false, false, location::NotFollow),\n            location::PendingPosition, location::FollowAndRotate);\n  TestModes(df::ResolveMyPositionStartupModes(true, false, false, true, false, location::NotFollow),\n            location::PendingPosition, location::FollowAndRotate);\n}\n\nUNIT_TEST(AutoFollowDisabledPreservesDefaultLaunchRules)\n{\n  TestModes(df::ResolveMyPositionStartupModes(false, false, true, false, false, location::NotFollow),\n            location::PendingPosition, location::Follow);\n  TestModes(df::ResolveMyPositionStartupModes(false, false, false, true, false, location::NotFollow),\n            location::PendingPosition, location::Follow);\n  TestModes(df::ResolveMyPositionStartupModes(false, false, false, false, true, location::NotFollowNoPosition),\n            location::PendingPosition, location::NotFollowNoPosition);\n}\n}  // namespace my_position_startup_policy_tests\n''')
+
+          replace_once(
+              "libs/drape_frontend/drape_frontend_tests/CMakeLists.txt",
+              '  frame_values_tests.cpp\n'
+              '  navigator_test.cpp\n',
+              '  frame_values_tests.cpp\n'
+              '  my_position_startup_policy_tests.cpp\n'
+              '  navigator_test.cpp\n')
+
+          # The workflow is scaffolding only; never leave it in the feature branch.
+          Path(".github/workflows/implement-auto-follow-location.yml").unlink()
+
+      - name: Validate patch shape
+        run: |
+          git diff --check
+          test ! -e .github/workflows/implement-auto-follow-location.yml
+          grep -q 'AutoStartLocationFollowAndRotate' android/sdk/src/main/java/app/organicmaps/sdk/util/Config.java
+          grep -q 'FollowAndRotate' libs/drape_frontend/my_position_startup_policy.hpp
+          grep -q 'my_position_startup_policy_tests.cpp' libs/drape_frontend/drape_frontend_tests/CMakeLists.txt
+
+      - name: Commit implementation
+        run: |
+          git config user.name "cbkii"
+          git config user.email "150587541+cbkii@users.noreply.github.com"
+          git add -A
+          git commit -s -m "[android] Add launch location-follow preference"
+          git push origin HEAD:feature/auto-follow-location-launch
