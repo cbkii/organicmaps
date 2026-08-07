@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <string name="pref_auto_follow_location_on_launch" translatable="false">pref_auto_follow_location_on_launch</string>
-  <string name="auto_follow_location_on_launch">Follow current location on launch</string>
-  <string name="auto_follow_location_on_launch_summary">Automatically start location tracking and orient the map to your direction when opened.</string>
-</resources>
