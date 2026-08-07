@@ -170,6 +170,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private SearchPageViewModel mSearchPageViewModel;
   private MapButtonsViewModel mMapButtonsViewModel;
   private MapButtonsController.LayoutMode mPreviousMapLayoutMode;
+  @Nullable
+  private Boolean mPreviousInCarOptimisedVisuals;
 
   @Nullable
   private WindowInsetsCompat mCurrentWindowInsets;
@@ -571,8 +573,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Global listener on the activity's semantic root, so insets are captured regardless
     // of which overlay views happen to be present at dispatch time.
     ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.coordinator), (view, windowInsets) -> {
-      final int trackRecorderOffset =
-          TrackRecorder.nativeIsTrackRecordingEnabled() ? dimen(this, R.dimen.map_button_size) : 0;
+      final int mapButtonSize = dimen(
+          this, Config.isInCarOptimisedVisualsEnabled() ? R.dimen.in_car_map_button_size : R.dimen.map_button_size);
+      final int trackRecorderOffset = TrackRecorder.nativeIsTrackRecordingEnabled() ? mapButtonSize : 0;
       final Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
       // Drive nav-bar height from the AndroidX visibility signal — pre-R FLAG_FULLSCREEN
       // hides only the status bar, so inferring from app state misreports the nav bar.
@@ -722,13 +725,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void initNavigationButtons(MapButtonsController.LayoutMode layoutMode)
   {
-    // Recreate the navigation buttons with the correct layout when it changes
-    if (mPreviousMapLayoutMode != layoutMode)
+    final boolean inCarOptimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
+    // Recreate the map controls when either their layout or their in-car sizing policy changes.
+    if (mPreviousMapLayoutMode != layoutMode || mPreviousInCarOptimisedVisuals == null
+        || mPreviousInCarOptimisedVisuals != inCarOptimisedVisuals)
     {
       FragmentTransaction transaction =
           getSupportFragmentManager().beginTransaction().replace(R.id.map_buttons, new MapButtonsController());
       transaction.commit();
       mPreviousMapLayoutMode = layoutMode;
+      mPreviousInCarOptimisedVisuals = inCarOptimisedVisuals;
     }
   }
 
@@ -939,6 +945,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     super.onResume();
     ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
+    initNavigationButtons();
     makeNavigationBarTransparentInLightMode();
     if (ChoosePositionMode.get() != ChoosePositionMode.None)
     {

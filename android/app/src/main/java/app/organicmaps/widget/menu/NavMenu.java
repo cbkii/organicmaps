@@ -4,6 +4,7 @@ import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.util.Pair;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -16,6 +17,7 @@ import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.sound.TtsPlayer;
+import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.util.Graphics;
 import app.organicmaps.util.ThemeUtils;
@@ -33,6 +35,9 @@ public class NavMenu implements DefaultLifecycleObserver
   private final View mHeaderFrame;
 
   private final ImageView mTts;
+  private final ImageView mSettings;
+  private final Button mStop;
+  private final View mContentFrame;
   private final View mSpeedViewContainer;
   private final TextView mSpeedValue;
   private final TextView mSpeedUnits;
@@ -109,13 +114,15 @@ public class NavMenu implements DefaultLifecycleObserver
     mRouteProgress = bottomFrame.findViewById(R.id.navigation_progress);
 
     // Bottom frame buttons
-    ImageView mSettings = bottomFrame.findViewById(R.id.settings);
+    mContentFrame = bottomFrame.findViewById(R.id.content_frame);
+    mSettings = bottomFrame.findViewById(R.id.settings);
     mSettings.setOnClickListener(v -> onSettingsClicked());
     mTts = bottomFrame.findViewById(R.id.tts_volume);
     mTts.setOnClickListener(v -> onTtsClicked());
-    Button stop = bottomFrame.findViewById(R.id.stop);
-    stop.setOnClickListener(v -> onStopClicked());
-    UiUtils.updateRedButton(stop);
+    mStop = bottomFrame.findViewById(R.id.stop);
+    mStop.setOnClickListener(v -> onStopClicked());
+    UiUtils.updateRedButton(mStop);
+    refreshInCarVisuals();
 
     TtsPlayer.addStateChangedListener(mTtsStateListener);
     mActivity.getLifecycle().addObserver(this);
@@ -182,6 +189,37 @@ public class NavMenu implements DefaultLifecycleObserver
   public int getBottomSheetState()
   {
     return mNavBottomSheetBehavior.getState();
+  }
+
+  public void refreshInCarVisuals()
+  {
+    final boolean enabled = Config.isInCarOptimisedVisualsEnabled();
+    final int contentHeight = mActivity.getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_nav_menu_content_height : R.dimen.nav_menu_content_height);
+    final int iconHeight = mActivity.getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_nav_icon_size : R.dimen.nav_icon_size);
+    final int buttonHeight = mActivity.getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_nav_button_height : R.dimen.nav_button_height);
+    final int stopMinWidth = mActivity.getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_nav_stop_min_width : R.dimen.start_button_width);
+
+    setViewHeight(mContentFrame, contentHeight);
+    setViewHeight(mTts, iconHeight);
+    setViewHeight(mSettings, iconHeight);
+    setViewHeight(mStop, buttonHeight);
+    mStop.setMinHeight(buttonHeight);
+    mStop.setMinWidth(stopMinWidth);
+    mTts.setScaleType(enabled ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER);
+    mSettings.setScaleType(enabled ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER);
+  }
+
+  private static void setViewHeight(@NonNull View view, int height)
+  {
+    final ViewGroup.LayoutParams params = view.getLayoutParams();
+    if (params.height == height)
+      return;
+    params.height = height;
+    view.setLayoutParams(params);
   }
 
   public void refreshTts()

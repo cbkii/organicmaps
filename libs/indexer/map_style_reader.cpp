@@ -27,6 +27,8 @@ std::string GetStyleRulesFamily(MapStyle mapStyle)
   case MapStyleVehicleLight: return "vehicle";
   case MapStyleOutdoorsLight:
   case MapStyleOutdoorsDark: return "outdoors";
+  case MapStyleInCarLight:
+  case MapStyleInCarDark: return "in_car";
   case MapStyleMerged: return "merged";
 
   case MapStyleCount: break;
@@ -56,10 +58,12 @@ std::string GetStyleResourcesSuffix(MapStyle mapStyle)
   {
   case MapStyleDefaultDark:
   case MapStyleVehicleDark:
-  case MapStyleOutdoorsDark: return kSuffixDark;
+  case MapStyleOutdoorsDark:
+  case MapStyleInCarDark: return kSuffixDark;
   case MapStyleDefaultLight:
   case MapStyleVehicleLight:
-  case MapStyleOutdoorsLight: return kSuffixLight;
+  case MapStyleOutdoorsLight:
+  case MapStyleInCarLight: return kSuffixLight;
   case MapStyleMerged: return {};
 
   case MapStyleCount: break;
@@ -84,7 +88,8 @@ MapStyle StyleReader::GetCurrentStyle() const
 
 bool StyleReader::IsCarNavigationStyle() const
 {
-  return m_mapStyle == MapStyle::MapStyleVehicleLight || m_mapStyle == MapStyle::MapStyleVehicleDark;
+  return m_mapStyle == MapStyle::MapStyleVehicleLight || m_mapStyle == MapStyle::MapStyleVehicleDark
+      || m_mapStyle == MapStyle::MapStyleInCarLight || m_mapStyle == MapStyle::MapStyleInCarDark;
 }
 
 ReaderPtr<Reader> StyleReader::GetDrawingRulesReader(MapStyle mapStyle) const

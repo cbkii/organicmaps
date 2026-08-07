@@ -224,6 +224,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   public void refresh()
   {
+    mNavMenu.refreshInCarVisuals();
     mNavMenu.refreshTts();
   }
 

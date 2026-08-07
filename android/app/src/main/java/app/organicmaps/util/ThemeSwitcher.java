@@ -130,7 +130,9 @@ public enum ThemeSwitcher
 
   private MapStyle calculateMapStyle(boolean dark)
   {
-    if (RoutingController.get().isVehicleNavigation())
+    if (Config.isInCarOptimisedVisualsEnabled())
+      return dark ? MapStyle.InCarDark : MapStyle.InCarClear;
+    else if (RoutingController.get().isVehicleNavigation())
       return dark ? MapStyle.VehicleDark : MapStyle.VehicleClear;
     else if (Framework.nativeIsOutdoorsLayerEnabled())
       return dark ? MapStyle.OutdoorsDark : MapStyle.OutdoorsClear;

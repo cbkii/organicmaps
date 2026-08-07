@@ -28,10 +28,12 @@ import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.routing.RoutingOptions;
 import app.organicmaps.sdk.routing.TransitRouteInfo;
+import app.organicmaps.sdk.util.Config;
 import app.organicmaps.settings.DrivingOptionsActivity;
 import app.organicmaps.util.UiUtils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 public class RoutingPlanFragment extends Fragment implements View.OnLayoutChangeListener, RoutingBottomMenuListener
 {
@@ -200,6 +202,65 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
         mViewModel.setRoutingBottomDistanceToTop(bottomSheet.getTop());
       }
     });
+  }
+
+  @Override
+  public void onResume()
+  {
+    super.onResume();
+    applyInCarOptimisedControlSizes();
+  }
+
+  private void applyInCarOptimisedControlSizes()
+  {
+    final boolean enabled = Config.isInCarOptimisedVisualsEnabled();
+    final int actionButtonSize = getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_routing_action_button_size : R.dimen.routing_action_button_size);
+    final int actionIconSize = getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_routing_action_button_icon_size : R.dimen.routing_action_button_icon_size);
+    final int minTouchTarget = getResources().getDimensionPixelSize(R.dimen.in_car_button_min_touch_target);
+
+    for (int id : new int[] {R.id.routing_btn_search, R.id.routing_btn_bookmarks, R.id.btn__save})
+    {
+      final View view = mRoutingRoot.findViewById(id);
+      if (view instanceof FloatingActionButton button)
+      {
+        button.setCustomSize(actionButtonSize);
+        button.setMaxImageSize(actionIconSize);
+        button.setMinimumWidth(enabled ? minTouchTarget : actionButtonSize);
+        button.setMinimumHeight(enabled ? minTouchTarget : actionButtonSize);
+      }
+    }
+
+    final int routerHeight = getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_routing_toolbar_cell_height : R.dimen.routing_toolbar_cell_height);
+    for (int id : new int[] {R.id.vehicle, R.id.pedestrian, R.id.transit, R.id.bicycle, R.id.ruler})
+      setViewHeight(mRouterTypes.findViewById(id), routerHeight);
+
+    final View closeButton = mRoutingTypesContainer.findViewById(R.id.back);
+    final int closeSize = getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_routing_close_button_size : R.dimen.routing_close_button_size);
+    setViewSize(closeButton, closeSize, closeSize);
+
+    mBottomButtonsMaxHeight = getResources().getDimensionPixelSize(
+        enabled ? R.dimen.in_car_routing_bottom_buttons_max_height : R.dimen.routing_bottom_buttons_max_height);
+    if (mFrame.getTop() != 0)
+      updateSheetLayout();
+  }
+
+  private static void setViewHeight(@NonNull View view, int height)
+  {
+    final ViewGroup.LayoutParams params = view.getLayoutParams();
+    params.height = height;
+    view.setLayoutParams(params);
+  }
+
+  private static void setViewSize(@NonNull View view, int width, int height)
+  {
+    final ViewGroup.LayoutParams params = view.getLayoutParams();
+    params.width = width;
+    params.height = height;
+    view.setLayoutParams(params);
   }
 
   @Override

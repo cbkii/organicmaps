@@ -139,6 +139,13 @@
     android:title="@string/prefs_group_route"
     android:order="3">
     <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_optimised_visuals"
+      android:title="@string/in_car_optimised_visuals_title"
+      android:summary="@string/in_car_optimised_visuals_summary"
+      app:singleLineTitle="false"
+      android:defaultValue="false"
+      android:order="0" />
+    <SwitchPreferenceCompat
       android:key="@string/pref_auto_night_in_navigation"
       android:title="@string/pref_auto_night_in_navigation_title"
       app:singleLineTitle="false"

@@ -71,6 +71,7 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
     initSearchPrivacyPrefsCallbacks();
     initScreenSleepEnabledPrefsCallbacks();
     initShowOnLockScreenPrefsCallbacks();
+    initInCarOptimisedVisualsPrefsCallbacks();
     initNightNavigationPrefsCallbacks();
   }
 
@@ -526,6 +527,19 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
         Config.setShowOnLockScreenEnabled(newVal);
         Utils.showOnLockScreen(newVal, requireActivity());
       }
+      return true;
+    });
+  }
+
+  private void initInCarOptimisedVisualsPrefsCallbacks()
+  {
+    final TwoStatePreference pref = getPreference(getString(R.string.pref_in_car_optimised_visuals));
+
+    pref.setChecked(Config.isInCarOptimisedVisualsEnabled());
+    pref.setOnPreferenceChangeListener((preference, newValue) -> {
+      final boolean enabled = (Boolean) newValue;
+      if (enabled != Config.isInCarOptimisedVisualsEnabled())
+        Config.setInCarOptimisedVisualsEnabled(enabled);
       return true;
     });
   }

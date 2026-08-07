@@ -151,6 +151,8 @@ public class MapButtonsController extends Fragment
     if (helpButton != null)
       helpButton.setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.help));
 
+    applyInCarOptimisedButtonSizes();
+
     mSearchWheel =
         new SearchWheel(mFrame,
                         (v)
@@ -228,6 +230,43 @@ public class MapButtonsController extends Fragment
       mBlinkingAnimator.setRepeatMode(ObjectAnimator.REVERSE);
       mBlinkingAnimator.start();
     }
+  }
+
+  private void applyInCarOptimisedButtonSizes()
+  {
+    if (!Config.isInCarOptimisedVisualsEnabled())
+      return;
+
+    final int buttonSize = getResources().getDimensionPixelSize(R.dimen.in_car_map_button_size);
+    final int iconSize = getResources().getDimensionPixelSize(R.dimen.in_car_map_button_icon_size);
+    final int zoomIconSize = getResources().getDimensionPixelSize(R.dimen.in_car_zoom_button_icon_size);
+    final int minTouchTarget = getResources().getDimensionPixelSize(R.dimen.in_car_button_min_touch_target);
+
+    final int[] regularButtons = {
+        R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button, R.id.menu_button, R.id.help_button,
+        R.id.track_recording_status};
+    for (int id : regularButtons)
+      resizeMapFab(mFrame.findViewById(id), buttonSize, iconSize, minTouchTarget);
+
+    resizeMapFab(mFrame.findViewById(R.id.nav_zoom_in), buttonSize, zoomIconSize, minTouchTarget);
+    resizeMapFab(mFrame.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
+
+    final View zoomIn = mFrame.findViewById(R.id.nav_zoom_in);
+    if (zoomIn != null && zoomIn.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
+    {
+      params.bottomMargin = getResources().getDimensionPixelSize(R.dimen.in_car_zoom_button_gap);
+      zoomIn.setLayoutParams(params);
+    }
+  }
+
+  private static void resizeMapFab(@Nullable View view, int buttonSize, int iconSize, int minTouchTarget)
+  {
+    if (!(view instanceof FloatingActionButton button))
+      return;
+    button.setCustomSize(buttonSize);
+    button.setMaxImageSize(iconSize);
+    button.setMinimumWidth(minTouchTarget);
+    button.setMinimumHeight(minTouchTarget);
   }
 
   private static int dpToPx(float dp, Context context)
