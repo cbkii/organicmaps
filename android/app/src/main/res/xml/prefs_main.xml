@@ -158,6 +158,7 @@
       android:title="@string/auto_follow_location_on_launch"
       android:summary="@string/auto_follow_location_on_launch_summary"
       android:defaultValue="false"
+      android:persistent="false"
       app:singleLineTitle="false"
       android:order="4" />
     <Preference
