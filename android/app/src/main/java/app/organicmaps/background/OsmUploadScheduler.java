@@ -3,7 +3,6 @@ package app.organicmaps.background;
 import android.content.Context;
 import androidx.annotation.NonNull;
 import app.organicmaps.BuildConfig;
-
 import java.lang.reflect.Method;
 
 /** Keeps shared application code independent of the optional WorkManager-backed worker. */
