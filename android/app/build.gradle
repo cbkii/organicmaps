@@ -250,15 +250,32 @@ dependencies {
   implementation project(':libs:api')
   implementation project(':libs:branding')
   implementation project(':libs:downloader')
-  implementation project(':libs:car')
-  implementation project(':libs:googleassistant')
   implementation project(':libs:routing')
   implementation project(':libs:utils')
 
   implementation project(':sdk')
-  implementation project(':sdk:car')
   implementation project(':sdk:widgets:lanes')
   implementation project(':sdk:widgets:speedlimit')
+
+  // Keep optional platform integrations on the compile classpath so shared source remains buildable,
+  // but only package them into the existing general-purpose flavours. The direct-display in-car build
+  // deliberately omits these runtime graphs and relies on R8 to remove unreachable shared entry points.
+  compileOnly project(':libs:car')
+  compileOnly project(':libs:googleassistant')
+  compileOnly project(':sdk:car')
+  compileOnly libs.androidx.car.app
+  compileOnly libs.androidx.car.app.projected
+  compileOnly libs.androidx.work
+
+  for (flavor in ['google', 'web', 'fdroid', 'huawei']) {
+    add("${flavor}Implementation", project(':libs:car'))
+    add("${flavor}Implementation", project(':libs:googleassistant'))
+    add("${flavor}Implementation", project(':sdk:car'))
+    add("${flavor}Implementation", libs.androidx.car.app)
+    add("${flavor}Implementation", libs.androidx.car.app.projected)
+    add("${flavor}Implementation", libs.androidx.work)
+  }
+
   // World maps
   googleImplementation project(':sdk:maps:world')
   huaweiImplementation project(':sdk:maps:world')
@@ -283,13 +300,10 @@ dependencies {
   implementation libs.androidx.core
   implementation libs.androidx.annotation
   implementation libs.androidx.appcompat
-  implementation libs.androidx.car.app
-  implementation libs.androidx.car.app.projected
   implementation libs.androidx.constraintlayout
   implementation libs.androidx.fragment
   implementation libs.androidx.preference
   implementation libs.androidx.recyclerview
-  implementation libs.androidx.work
   implementation libs.androidx.lifecycle
   implementation libs.google.material
   implementation libs.devnullorthrow.mpandroidchart
