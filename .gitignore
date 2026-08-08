@@ -196,3 +196,4 @@ iphone/metadata/**/keywords.txt
 
 # clangd cache
 .cache/clangd/
+/secrets/
