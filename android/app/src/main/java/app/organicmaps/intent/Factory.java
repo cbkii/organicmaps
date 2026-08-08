@@ -160,6 +160,9 @@ public class Factory
     @Override
     public boolean process(@NonNull Intent intent, @NonNull MwmActivity activity)
     {
+      if (BuildConfig.IS_IN_CAR)
+        return false;
+
       try
       {
         final Class<?> bridgeClass = Class.forName(BRIDGE_CLASS);
