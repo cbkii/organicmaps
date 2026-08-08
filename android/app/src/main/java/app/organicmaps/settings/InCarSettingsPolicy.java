@@ -17,6 +17,7 @@ final class InCarSettingsPolicy
   static void apply(@NonNull PreferenceFragmentCompat fragment)
   {
     bindAutoFollowOnLaunch(fragment);
+    bindOptimisedVisuals(fragment);
   }
 
   private static void bindAutoFollowOnLaunch(@NonNull PreferenceFragmentCompat fragment)
@@ -35,6 +36,25 @@ final class InCarSettingsPolicy
     switchPreference.setChecked(Config.isAutoStartLocationFollowAndRotateEnabled());
     switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
       Config.setAutoStartLocationFollowAndRotateEnabled((boolean) newValue);
+      return true;
+    });
+  }
+
+  private static void bindOptimisedVisuals(@NonNull PreferenceFragmentCompat fragment)
+  {
+    @Nullable
+    final Preference preference = fragment.findPreference(fragment.getString(R.string.pref_in_car_optimised_visuals));
+    if (preference == null)
+      return;
+
+    preference.setVisible(BuildConfig.IS_IN_CAR);
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+
+    final TwoStatePreference switchPreference = (TwoStatePreference) preference;
+    switchPreference.setChecked(Config.isInCarOptimisedVisualsEnabled());
+    switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
+      Config.setInCarOptimisedVisualsEnabled((boolean) newValue);
       return true;
     });
   }
