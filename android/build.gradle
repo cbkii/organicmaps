@@ -47,8 +47,12 @@ rootProject.ext {
     }
 
     if (hasInCarReleaseVersionName) {
-        if (!requestedTaskNames.any { it.contains('incar') && it.contains('release') }) {
-            throw new GradleException('in-car release version overrides may only be used with an InCar Release task')
+        def inCarReleaseTasks = requestedTaskNames.findAll { it.contains('incar') && it.contains('release') }
+        def otherReleaseTasks = requestedTaskNames.findAll { it.contains('release') && !it.contains('incar') }
+        if (inCarReleaseTasks.isEmpty() || !otherReleaseTasks.isEmpty()) {
+            throw new GradleException(
+                    'in-car release version overrides may only be used with InCar Release tasks; ' +
+                    "conflicting release tasks: ${otherReleaseTasks}")
         }
 
         def releaseVersionName = inCarReleaseVersionName.toString()
