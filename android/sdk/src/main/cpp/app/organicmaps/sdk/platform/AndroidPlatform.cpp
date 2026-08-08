@@ -158,7 +158,7 @@ void Platform::Initialize(JNIEnv * env, jobject context, jstring apkPath, jstrin
     std::string preferredGraphicsApi;
     if (!settings::Get("PreferredGraphicsAPI", preferredGraphicsApi))
     {
-      settings::Set("PreferredGraphicsAPI", "OpenGLES3");
+      settings::Set("PreferredGraphicsAPI", std::string{"OpenGLES3"});
       LOG(LINFO, ("Using OpenGLES3 as the in-car graphics API default"));
     }
   }
