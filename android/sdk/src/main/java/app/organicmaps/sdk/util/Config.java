@@ -31,6 +31,7 @@ public final class Config
   private static final String KEY_DOWNLOADER_AUTO = "AutoDownloadEnabled";
   private static final String KEY_PREF_ZOOM_BUTTONS = "ZoomButtonsEnabled";
   private static final String KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE = "AutoStartLocationFollowAndRotate";
+  private static final String KEY_PREF_IN_CAR_OPTIMISED_VISUALS = "InCarOptimisedVisuals";
   static final String KEY_PREF_STATISTICS = "StatisticsEnabled";
   private static final String KEY_PREF_USE_GS = "UseGoogleServices";
 
@@ -199,6 +200,16 @@ public final class Config
   public static void setAutoStartLocationFollowAndRotateEnabled(boolean enabled)
   {
     setBool(KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE, enabled);
+  }
+
+  public static boolean isInCarOptimisedVisualsEnabled()
+  {
+    return getBool(KEY_PREF_IN_CAR_OPTIMISED_VISUALS, false);
+  }
+
+  public static void setInCarOptimisedVisualsEnabled(boolean enabled)
+  {
+    setBool(KEY_PREF_IN_CAR_OPTIMISED_VISUALS, enabled);
   }
 
   public static void setStatisticsEnabled(boolean enabled)
