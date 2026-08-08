@@ -674,10 +674,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release delete "${RELEASE_TAG}" --cleanup-tag --yes; then
-            echo "Removed incomplete draft release ${RELEASE_TAG} and its tag."
+          is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq '.isDraft' 2>/dev/null || printf 'unknown')"
+          if [[ "${is_draft}" == "true" ]]; then
+            if gh release delete "${RELEASE_TAG}" --cleanup-tag --yes; then
+              echo "Removed incomplete draft release ${RELEASE_TAG} and its tag."
+            else
+              echo "::warning::Unable to remove incomplete draft release ${RELEASE_TAG}; manual cleanup may be required."
+            fi
+          elif [[ "${is_draft}" == "false" ]]; then
+            echo "::warning::Release ${RELEASE_TAG} is already public; rollback will not delete it."
           else
-            echo "::warning::Unable to remove incomplete draft release ${RELEASE_TAG}; manual cleanup may be required."
+            echo "::warning::Unable to determine release state for ${RELEASE_TAG}; refusing automatic deletion."
           fi
 
       - name: Write release summary
