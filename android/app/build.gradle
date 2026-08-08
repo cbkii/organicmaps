@@ -120,8 +120,8 @@ android {
     }
   }
 
-  // OSM background upload is WorkManager-backed. Keep that implementation completely out of the
-  // inCar source set so ART never has to resolve androidx.work types in the direct-display APK.
+  // Keep the WorkManager-backed OSM upload implementation out of the inCar source set so the
+  // direct-display APK has no hard bytecode references to androidx.work.
   sourceSets {
     def workManagerSourceDir = 'src/withWorkManager/java'
     google.java.srcDir workManagerSourceDir
@@ -155,7 +155,7 @@ android {
       storeFile file('debug.keystore')
       storePassword '12345678'
       keyAlias 'debug'
-      keyPassword 'debug'
+      keyPassword '12345678'
     }
 
     release {
@@ -192,7 +192,7 @@ android {
       minifyEnabled true
       shrinkResources = true
       // Includes the default ProGuard rules files that are packaged with the Android Gradle plugin.
-      // To learn more, see the documentation section about R8 configuration files.
+      // To learn more, go to the documentation section about R8 configuration files.
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 
       if (googleFirebaseServicesEnabled) {
@@ -209,7 +209,7 @@ android {
       minifyEnabled true
       shrinkResources = true
       // Includes the default ProGuard rules files that are packaged with the Android Gradle plugin.
-      // To learn more, see the documentation section about R8 configuration files.
+      // To learn more, go to the documentation section about R8 configuration files.
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 
       if (googleFirebaseServicesEnabled) {
@@ -416,7 +416,7 @@ tasks.register("prepareGoogleReleaseListing") {
   final targetFlavor = 'google'
   doLast {
     final sourceDir = new File("${projectDir}/src/$sourceFlavor/play/listings")
-    final targetDir = new File(targetDir, locale)
+    final targetDir = new File("${projectDir}/src/$targetFlavor/play/listings")
     final sourceFiles = fileTree(dir: sourceDir,
         include: '**/*.txt', exclude: "**/*-${targetFlavor}.txt")
     // Locales that exist in F-Droid listings but are not supported by Google Play.
