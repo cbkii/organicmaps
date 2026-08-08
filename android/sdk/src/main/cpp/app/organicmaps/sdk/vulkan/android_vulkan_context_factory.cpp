@@ -66,6 +66,11 @@ void AndroidVulkanContextFactory::SetVulkanSurface()
     m_drawContext->SetSurface(m_surface, m_surfaceFormat, m_surfaceCapabilities);
 
   m_windowSurfaceValid = true;
+  if (!m_graphicsApiLogged)
+  {
+    LOG(LINFO, ("Selected graphics API: Vulkan"));
+    m_graphicsApiLogged = true;
+  }
 }
 
 void AndroidVulkanContextFactory::ResetSurface(bool allowPipelineDump)
