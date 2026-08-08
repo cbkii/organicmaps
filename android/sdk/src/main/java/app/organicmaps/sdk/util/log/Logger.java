@@ -213,11 +213,20 @@ public final class Logger
   /// Used to safely read/zip the log files.
   static void runExclusively(@NonNull Runnable action)
   {
-    final LogFileWriter writer = sFileWriter;
+    LogFileWriter writer = sFileWriter;
     if (writer == null)
     {
-      action.run();
-      return;
+      synchronized (Logger.class)
+      {
+        writer = sFileWriter;
+        if (writer == null)
+        {
+          // getOrCreateFileWriter() uses the same lock, so a first writer cannot appear
+          // until this no-writer exclusive action has completed.
+          action.run();
+          return;
+        }
+      }
     }
     writer.runExclusively(action);
   }
