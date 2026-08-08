@@ -4,18 +4,21 @@
 #include "drape_frontend/animation_system.hpp"
 #include "drape_frontend/animation_utils.hpp"
 #include "drape_frontend/drape_notifier.hpp"
+#include "drape_frontend/my_position_startup_policy.hpp"
 #include "drape_frontend/user_event_stream.hpp"
 #include "drape_frontend/visual_params.hpp"
 
 #include "geometry/mercator.hpp"
 
 #include "platform/measurement_utils.hpp"
+#include "platform/settings.hpp"
 
 #include "base/math.hpp"
 
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <string_view>
 
 namespace df
 {
@@ -33,6 +36,8 @@ double const kMaxTimeInBackgroundSec = 60.0 * 60 * 30;  // 30 hours before start
 double const kMaxNotFollowRoutingTimeSec = 20.0;
 double const kMaxUpdateLocationInvervalSec = 30.0;
 double const kMaxBlockAutoZoomTimeSec = 10.0;
+
+std::string_view constexpr kAutoStartLocationFollowAndRotate = "AutoStartLocationFollowAndRotate";
 
 int const kZoomThreshold = 10;
 int const kMaxScaleZoomLevel = 16;
@@ -151,29 +156,13 @@ MyPositionController::MyPositionController(Params && params, ref_ptr<DrapeNotifi
   , m_blockAutoZoomNotifyId(DrapeNotifier::kInvalidId)
   , m_updateLocationNotifyId(DrapeNotifier::kInvalidId)
 {
-  using namespace location;
-
-  m_mode = PendingPosition;
-  if (m_hints.m_isLaunchByDeepLink)
-  {
-    m_desiredInitMode = NotFollow;
-  }
-  else if (m_hints.m_isFirstLaunch)
-  {
-    m_desiredInitMode = Follow;
-  }
-  else if (params.m_timeInBackground >= kMaxTimeInBackgroundSec)
-  {
-    m_desiredInitMode = Follow;
-  }
-  else
-  {
-    m_desiredInitMode = params.m_initMode;
-
-    // Do not start position if we ended previous session without it.
-    if (!m_isInRouting && m_desiredInitMode == NotFollowNoPosition)
-      m_mode = NotFollowNoPosition;
-  }
+  bool autoStartFollowAndRotate = false;
+  (void)settings::Get(kAutoStartLocationFollowAndRotate, autoStartFollowAndRotate);
+  auto const startupModes = ResolveMyPositionStartupModes(
+      autoStartFollowAndRotate, m_hints.m_isLaunchByDeepLink, m_hints.m_isFirstLaunch,
+      params.m_timeInBackground >= kMaxTimeInBackgroundSec, m_isInRouting, params.m_initMode);
+  m_mode = startupModes.m_mode;
+  m_desiredInitMode = startupModes.m_desiredMode;
 
   if (m_modeChangeCallback)
     m_modeChangeCallback(m_mode, m_isInRouting);
