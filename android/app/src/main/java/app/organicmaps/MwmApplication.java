@@ -18,7 +18,7 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ProcessLifecycleOwner;
 import androidx.preference.PreferenceManager;
-import app.organicmaps.background.OsmUploadWork;
+import app.organicmaps.background.OsmUploadScheduler;
 import app.organicmaps.downloader.DownloaderNotifier;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
@@ -67,7 +67,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     return mTopActivity != null ? mTopActivity.get() : null;
   }
 
-  @NonNull
+  @Nullable
   public SubwayManager getSubwayManager()
   {
     return getOrganicMaps().getSubwayManager();
@@ -214,7 +214,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     Logger.d(TAG);
 
     if (!BuildConfig.IS_IN_CAR)
-      OsmUploadWork.startActionUploadOsmChanges(this);
+      OsmUploadScheduler.schedule(this);
 
     if (!BuildConfig.IS_IN_CAR && !mDisplayManager.isDeviceDisplayUsed())
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
