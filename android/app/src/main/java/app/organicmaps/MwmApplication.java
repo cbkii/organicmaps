@@ -210,9 +210,10 @@ public class MwmApplication extends Application implements Application.ActivityL
   {
     Logger.d(TAG);
 
-    OsmUploadWork.startActionUploadOsmChanges(this);
+    if (!BuildConfig.IS_IN_CAR)
+      OsmUploadWork.startActionUploadOsmChanges(this);
 
-    if (!mDisplayManager.isDeviceDisplayUsed())
+    if (!BuildConfig.IS_IN_CAR && !mDisplayManager.isDeviceDisplayUsed())
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
     else if (RoutingController.get().isNavigating())
       Logger.i(LOCATION_TAG, "Navigation is in progress, keeping location in the background");
