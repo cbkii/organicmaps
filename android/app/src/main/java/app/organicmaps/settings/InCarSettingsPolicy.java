@@ -43,8 +43,7 @@ final class InCarSettingsPolicy
   private static void bindOptimisedVisuals(@NonNull PreferenceFragmentCompat fragment)
   {
     @Nullable
-    final Preference preference =
-        fragment.findPreference(fragment.getString(R.string.pref_in_car_optimised_visuals));
+    final Preference preference = fragment.findPreference(fragment.getString(R.string.pref_in_car_optimised_visuals));
     if (preference == null)
       return;
 
