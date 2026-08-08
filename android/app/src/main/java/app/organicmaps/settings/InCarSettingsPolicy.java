@@ -22,7 +22,8 @@ final class InCarSettingsPolicy
   private static void bindAutoFollowOnLaunch(@NonNull PreferenceFragmentCompat fragment)
   {
     @Nullable
-    final Preference preference = fragment.findPreference(fragment.getString(R.string.pref_auto_follow_location_on_launch));
+    final Preference preference =
+        fragment.findPreference(fragment.getString(R.string.pref_auto_follow_location_on_launch));
     if (preference == null)
       return;
 
