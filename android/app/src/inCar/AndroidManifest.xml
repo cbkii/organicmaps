@@ -16,6 +16,9 @@
         tools:node="remove"/>
 
     <activity
+        android:name="app.organicmaps.car.screens.permissions.RequestPermissionsActivity"
+        tools:node="remove"/>
+    <activity
         android:name="app.organicmaps.editor.EditorActivity"
         tools:node="remove"/>
     <activity
