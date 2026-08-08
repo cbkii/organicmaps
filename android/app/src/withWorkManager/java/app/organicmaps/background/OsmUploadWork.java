@@ -1,6 +1,7 @@
 package app.organicmaps.background;
 
 import android.content.Context;
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
@@ -14,6 +15,7 @@ import app.organicmaps.sdk.editor.Editor;
 import app.organicmaps.sdk.editor.OsmOAuth;
 import app.organicmaps.sdk.util.log.Logger;
 
+@Keep
 public class OsmUploadWork extends Worker
 {
   private static final String TAG = OsmUploadWork.class.getSimpleName();
