@@ -147,6 +147,14 @@ void Platform::Initialize(JNIEnv * env, jobject context, jstring apkPath, jstrin
   m_isInCar = flavor == "inCar";
   if (m_isInCar)
   {
+    bool autoStartLocationFollowAndRotate;
+    if (!settings::Get("AutoStartLocationFollowAndRotate", autoStartLocationFollowAndRotate))
+      settings::Set("AutoStartLocationFollowAndRotate", true);
+
+    bool inCarOptimisedVisuals;
+    if (!settings::Get("InCarOptimisedVisuals", inCarOptimisedVisuals))
+      settings::Set("InCarOptimisedVisuals", true);
+
     std::string preferredGraphicsApi;
     if (!settings::Get("PreferredGraphicsAPI", preferredGraphicsApi))
     {
@@ -223,9 +231,8 @@ void Platform::AndroidSecureStorage::Save(std::string const & key, std::string c
                             jni::TScopedLocalRef(env, jni::ToJavaString(env, value)).get());
 }
 
-bool Platform::AndroidSecureStorage::Load(std::string const & key, std::string & value)
+bool Platform::AndroidSecureStorage::Load(JNIEnv * env, std::string const & key, std::string & value)
 {
-  JNIEnv * env = jni::GetEnv();
   if (env == nullptr)
     return false;
 
@@ -242,6 +249,11 @@ bool Platform::AndroidSecureStorage::Load(std::string const & key, std::string &
 
   value = jni::ToNativeString(env, resultString);
   return true;
+}
+
+bool Platform::AndroidSecureStorage::Load(std::string const & key, std::string & value)
+{
+  return Load(jni::GetEnv(), key, value);
 }
 
 void Platform::AndroidSecureStorage::Remove(std::string const & key)
