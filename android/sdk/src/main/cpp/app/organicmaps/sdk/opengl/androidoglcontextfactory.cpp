@@ -91,7 +91,8 @@ AndroidOGLContextFactory::AndroidOGLContextFactory(JNIEnv * env, jobject jsurfac
     return;
   }
 
-  LOG(LINFO, ("Selected graphics API: OpenGLES3"));
+  if (IsValid())
+    LOG(LINFO, ("Selected graphics API: OpenGLES3"));
 }
 
 AndroidOGLContextFactory::~AndroidOGLContextFactory()
