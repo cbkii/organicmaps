@@ -30,6 +30,7 @@ public final class Config
 
   private static final String KEY_DOWNLOADER_AUTO = "AutoDownloadEnabled";
   private static final String KEY_PREF_ZOOM_BUTTONS = "ZoomButtonsEnabled";
+  private static final String KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE = "AutoStartLocationFollowAndRotate";
   static final String KEY_PREF_STATISTICS = "StatisticsEnabled";
   private static final String KEY_PREF_USE_GS = "UseGoogleServices";
 
@@ -188,6 +189,16 @@ public final class Config
   public static void setShowZoomButtons(boolean show)
   {
     setBool(KEY_PREF_ZOOM_BUTTONS, show);
+  }
+
+  public static boolean isAutoStartLocationFollowAndRotateEnabled()
+  {
+    return getBool(KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE, false);
+  }
+
+  public static void setAutoStartLocationFollowAndRotateEnabled(boolean enabled)
+  {
+    setBool(KEY_AUTO_START_LOCATION_FOLLOW_AND_ROTATE, enabled);
   }
 
   public static void setStatisticsEnabled(boolean enabled)
