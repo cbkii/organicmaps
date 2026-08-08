@@ -32,7 +32,6 @@ on:
       - skin_generator/**
       - tools/**
       - track_generator/**
-      - xcode/**
 
 env:
   JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64  # Java 17 is required for Android Gradle 8 plugin
@@ -75,13 +74,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flavor: [WebDebug, FdroidDebug]
+        flavor: [WebDebug, FdroidDebug, InCarProfileable]
         include:
           - flavor: WebDebug
             arch: arm64
             run-tests: true
           - flavor: FdroidDebug
             arch: arm32
+          - flavor: InCarProfileable
+            arch: arm64
+            verify-in-car: true
     # Cancels previous jobs if the same branch or PR was updated again.
     # Only cancel PR runs: master runs must finish to populate the shared ccache.
     concurrency:
@@ -130,6 +132,121 @@ jobs:
           cmake --version
           ninja --version
           ./gradlew -P${{ matrix.arch }} assemble${{ matrix.flavor }}
+
+      - name: Build arm64 FdroidProfileable comparison
+        if: matrix.verify-in-car == true
+        shell: bash
+        working-directory: android
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: ./gradlew -Parm64 assembleFdroidProfileable
+
+      - name: Verify in-car package and comparison
+        if: matrix.verify-in-car == true
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t in_car_apks < <(find android/app/build/outputs/apk/inCar/profileable -maxdepth 1 -type f -name '*.apk' | sort)
+          mapfile -t reference_apks < <(find android/app/build/outputs/apk/fdroid/profileable -maxdepth 1 -type f -name '*.apk' | sort)
+          if [[ "${#in_car_apks[@]}" -ne 1 || "${#reference_apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one InCarProfileable and one FdroidProfileable APK."
+            printf 'in-car: %s\n' "${in_car_apks[*]:-none}"
+            printf 'reference: %s\n' "${reference_apks[*]:-none}"
+            exit 1
+          fi
+
+          in_car_apk="${in_car_apks[0]}"
+          reference_apk="${reference_apks[0]}"
+          manifest="${RUNNER_TEMP}/in-car-manifest.xml"
+          dex_strings="${RUNNER_TEMP}/in-car-dex-strings.txt"
+
+          apkanalyzer manifest print "${in_car_apk}" > "${manifest}"
+          unzip -p "${in_car_apk}" 'classes*.dex' | strings > "${dex_strings}"
+
+          forbidden_manifest=(
+            'app.organicmaps.car.AndroidAutoService'
+            'androidx.car.app.NAVIGATION_TEMPLATES'
+            'androidx.car.app.ACCESS_SURFACE'
+            'app.organicmaps.editor.EditorActivity'
+            'app.organicmaps.editor.ProfileActivity'
+            'app.organicmaps.editor.FeatureCategoryActivity'
+            'app.organicmaps.editor.ReportActivity'
+            'app.organicmaps.editor.OsmLoginActivity'
+          )
+          for needle in "${forbidden_manifest[@]}"; do
+            if grep -Fq -- "${needle}" "${manifest}"; then
+              echo "::error::Forbidden in-car manifest entry remains: ${needle}"
+              exit 1
+            fi
+          done
+
+          required_manifest=(
+            'app.organicmaps.location.TrackRecordingService'
+            'app.organicmaps.DownloadResourcesActivity'
+          )
+          for needle in "${required_manifest[@]}"; do
+            if ! grep -Fq -- "${needle}" "${manifest}"; then
+              echo "::error::Required in-car manifest entry is missing: ${needle}"
+              exit 1
+            fi
+          done
+
+          forbidden_dex=(
+            'Lapp/organicmaps/car/'
+            'Landroidx/car/app/'
+            'Lapp/organicmaps/intent/GoogleAssistantIntentBridge;'
+            'Landroidx/work/'
+            'Lapp/organicmaps/editor/EditorActivity;'
+            'Lapp/organicmaps/editor/ProfileActivity;'
+            'Lapp/organicmaps/editor/FeatureCategoryActivity;'
+            'Lapp/organicmaps/editor/ReportActivity;'
+            'Lapp/organicmaps/editor/OsmLoginActivity;'
+          )
+          for needle in "${forbidden_dex[@]}"; do
+            if grep -Fq -- "${needle}" "${dex_strings}"; then
+              echo "::error::Forbidden in-car runtime class/package remains: ${needle}"
+              exit 1
+            fi
+          done
+
+          required_dex=(
+            'Lapp/organicmaps/location/TrackRecordingService;'
+            'Lapp/organicmaps/downloader/'
+            'Lcom/github/mikephil/charting/'
+          )
+          for needle in "${required_dex[@]}"; do
+            if ! grep -Fq -- "${needle}" "${dex_strings}"; then
+              echo "::error::Required in-car runtime package/class is missing: ${needle}"
+              exit 1
+            fi
+          done
+
+          mapfile -t abis < <(unzip -Z1 "${in_car_apk}" | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)
+          if [[ "${#abis[@]}" -ne 1 || "${abis[0]}" != 'arm64-v8a' ]]; then
+            echo "::error::Expected arm64-v8a-only InCarProfileable APK; found: ${abis[*]:-none}"
+            exit 1
+          fi
+
+          in_car_size="$(stat -c '%s' "${in_car_apk}")"
+          reference_size="$(stat -c '%s' "${reference_apk}")"
+          delta="$((in_car_size - reference_size))"
+          {
+            echo '### In-car package proof'
+            echo
+            echo "- InCarProfileable bytes: \`${in_car_size}\`"
+            echo "- FdroidProfileable bytes: \`${reference_size}\`"
+            echo "- In-car minus reference: \`${delta}\` bytes"
+            echo '- ABI: `arm64-v8a` only'
+            echo '- Android Auto manifest/runtime: absent'
+            echo '- Google Assistant bridge/runtime: absent'
+            echo '- WorkManager runtime: absent'
+            echo '- OSM editor Android activities: absent'
+            echo '- Track Recording: present'
+            echo '- Downloader: present'
+            echo '- MPAndroidChart/elevation chart runtime: present'
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Compile Wear Google Debug
         if: matrix.flavor == 'WebDebug'
