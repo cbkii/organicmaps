@@ -3,6 +3,14 @@ name: Manual GH Release
 on:
   workflow_dispatch:
     inputs:
+      product:
+        description: 'Android product to build'
+        required: true
+        default: fdroid
+        type: choice
+        options:
+          - fdroid
+          - in-car
       version:
         description: 'Release version/tag (for example v1.2.3). Leave blank to auto-increment the patch version.'
         required: false
@@ -99,6 +107,33 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve product variant
+        id: product
+        shell: bash
+        env:
+          INPUT_PRODUCT: ${{ inputs.product }}
+        run: |
+          set -euo pipefail
+
+          case "${INPUT_PRODUCT}" in
+            fdroid)
+              echo 'gradle_task=assembleFdroidBeta' >> "${GITHUB_OUTPUT}"
+              echo 'output_dir=android/app/build/outputs/apk/fdroid/beta' >> "${GITHUB_OUTPUT}"
+              echo 'variant=FdroidBeta' >> "${GITHUB_OUTPUT}"
+              echo 'asset_product=FdroidBeta' >> "${GITHUB_OUTPUT}"
+              ;;
+            in-car)
+              echo 'gradle_task=assembleInCarBeta' >> "${GITHUB_OUTPUT}"
+              echo 'output_dir=android/app/build/outputs/apk/inCar/beta' >> "${GITHUB_OUTPUT}"
+              echo 'variant=InCarBeta' >> "${GITHUB_OUTPUT}"
+              echo 'asset_product=in-car' >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo "::error::Unsupported product: ${INPUT_PRODUCT}"
+              exit 1
+              ;;
+          esac
+
       - name: Resolve release version
         id: version
         shell: bash
@@ -185,7 +220,7 @@ jobs:
             echo "Using private release signing secrets."
           elif [[ "${present}" -eq 0 ]]; then
             keystore="${GITHUB_WORKSPACE}/android/app/debug.keystore"
-            echo "::warning::No Android signing secrets are configured. The Fdroid Beta APK will use Organic Maps' checked-in debug key so the workflow remains installable and repeatable. Configure the existing KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD secrets before distributing beyond personal/testing use."
+            echo "::warning::No Android signing secrets are configured. The selected Beta APK will use Organic Maps' checked-in debug key so the workflow remains installable and repeatable. Configure the existing KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD secrets before distributing beyond personal/testing use."
             echo "mode=debug" >> "${GITHUB_OUTPUT}"
             echo "keystore=${keystore}" >> "${GITHUB_OUTPUT}"
           else
@@ -193,9 +228,10 @@ jobs:
             exit 1
           fi
 
-      - name: Build redistributable arm64 Fdroid Beta APK
+      - name: Build redistributable arm64 APK
         shell: bash
         env:
+          GRADLE_TASK: ${{ steps.product.outputs.gradle_task }}
           SIGNING_MODE: ${{ steps.signing.outputs.mode }}
           KEYSTORE_PATH: ${{ steps.signing.outputs.keystore }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -218,26 +254,28 @@ jobs:
 
           cd android
           chmod +x ./gradlew
-          ./gradlew --no-daemon --stacktrace assembleFdroidBeta -Parm64
+          ./gradlew --no-daemon --stacktrace "${GRADLE_TASK}" -Parm64
 
       - name: Verify and stage APK
         id: apk
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          OUTPUT_DIR: ${{ steps.product.outputs.output_dir }}
+          ASSET_PRODUCT: ${{ steps.product.outputs.asset_product }}
+          PRODUCT: ${{ inputs.product }}
         run: |
           set -euo pipefail
 
-          output_dir="android/app/build/outputs/apk/fdroid/beta"
-          mapfile -t apks < <(find "${output_dir}" -maxdepth 1 -type f -name '*.apk' | sort)
+          mapfile -t apks < <(find "${OUTPUT_DIR}" -maxdepth 1 -type f -name '*.apk' | sort)
 
           if [[ "${#apks[@]}" -ne 1 ]]; then
-            echo "::error::Expected exactly one Fdroid Beta APK in ${output_dir}, found ${#apks[@]}."
+            echo "::error::Expected exactly one APK in ${OUTPUT_DIR}, found ${#apks[@]}."
             printf '%s\n' "${apks[@]:-}"
             exit 1
           fi
 
-          apk_name="OrganicMaps-${RELEASE_TAG}-arm64-v8a-FdroidBeta.apk"
+          apk_name="OrganicMaps-${RELEASE_TAG}-arm64-v8a-${ASSET_PRODUCT}.apk"
           apk_path="${RUNNER_TEMP}/${apk_name}"
           cp "${apks[0]}" "${apk_path}"
 
@@ -263,6 +301,14 @@ jobs:
             exit 1
           fi
 
+          if [[ "${PRODUCT}" == 'in-car' ]]; then
+            package_name="$(aapt dump badging "${apk_path}" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -n1)"
+            if [[ "${package_name}" != 'app.organicmaps.incar.beta' ]]; then
+              echo "::error::Unexpected in-car Beta package id: ${package_name:-not found}"
+              exit 1
+            fi
+          fi
+
           checksum_name="${apk_name}.sha256"
           (
             cd "${RUNNER_TEMP}"
@@ -277,7 +323,7 @@ jobs:
       - name: Upload release build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrganicMaps-${{ steps.version.outputs.tag }}-arm64
+          name: OrganicMaps-${{ steps.version.outputs.tag }}-${{ steps.product.outputs.asset_product }}-arm64
           path: |
             ${{ steps.apk.outputs.apk_path }}
             ${{ steps.apk.outputs.checksum_path }}
@@ -348,14 +394,17 @@ jobs:
           RELEASE_URL: ${{ steps.release.outputs.url }}
           SIGNING_MODE: ${{ steps.signing.outputs.mode }}
           APK_NAME: ${{ steps.apk.outputs.apk_name }}
+          PRODUCT: ${{ inputs.product }}
+          VARIANT: ${{ steps.product.outputs.variant }}
         run: |
           {
             echo "# Manual GH Release"
             echo
             echo "- Result: \`${{ job.status }}\`"
             echo "- Tag: \`${RELEASE_TAG:-not resolved}\`"
+            echo "- Product: \`${PRODUCT}\`"
             echo "- APK: \`${APK_NAME:-not built}\`"
-            echo "- Variant: \`FdroidBeta\`"
+            echo "- Variant: \`${VARIANT:-not resolved}\`"
             echo "- ABI: \`arm64-v8a\`"
             echo "- Signing: \`${SIGNING_MODE:-not configured}\`"
             if [[ -n "${RELEASE_URL:-}" ]]; then
