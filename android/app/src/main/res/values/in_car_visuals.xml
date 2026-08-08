@@ -11,11 +11,10 @@
   <dimen name="routing_action_button_icon_size">28dp</dimen>
   <dimen name="routing_close_button_size">24dp</dimen>
 
-  <dimen name="in_car_routing_action_button_size">52dp</dimen>
-  <dimen name="in_car_routing_action_button_icon_size">34dp</dimen>
+  <dimen name="in_car_routing_action_button_size">48dp</dimen>
+  <dimen name="in_car_routing_action_button_icon_size">32dp</dimen>
   <dimen name="in_car_routing_toolbar_cell_height">48dp</dimen>
   <dimen name="in_car_routing_close_button_size">40dp</dimen>
-  <dimen name="in_car_routing_bottom_buttons_max_height">84dp</dimen>
 
   <dimen name="in_car_nav_icon_size">56dp</dimen>
   <dimen name="in_car_nav_button_height">48dp</dimen>
