@@ -24,6 +24,10 @@ public final class InCarVisuals
 
   private static void applyMapButtons(@NonNull Activity activity, boolean enabled)
   {
+    final View root = activity.findViewById(R.id.map_buttons);
+    if (root == null)
+      return;
+
     final int buttonSize = dimen(activity, enabled ? R.dimen.in_car_map_button_size : R.dimen.map_button_size);
     final int iconSize = dimen(activity, enabled ? R.dimen.in_car_map_button_icon_size : R.dimen.map_button_icon_size);
     final int zoomIconSize =
@@ -32,14 +36,18 @@ public final class InCarVisuals
 
     for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
-      resizeFab(activity.findViewById(id), buttonSize, iconSize, minTouchTarget);
+      resizeFab(root.findViewById(id), buttonSize, iconSize, minTouchTarget);
 
-    resizeFab(activity.findViewById(R.id.nav_zoom_in), buttonSize, zoomIconSize, minTouchTarget);
-    resizeFab(activity.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
+    resizeFab(root.findViewById(R.id.nav_zoom_in), buttonSize, zoomIconSize, minTouchTarget);
+    resizeFab(root.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
   }
 
   private static void applyRoutingControls(@NonNull Activity activity, boolean enabled)
   {
+    final View root = activity.findViewById(R.id.routing_root);
+    if (root == null)
+      return;
+
     final int actionButtonSize =
         dimen(activity, enabled ? R.dimen.in_car_routing_action_button_size : R.dimen.routing_action_button_size);
     final int actionIconSize = dimen(
@@ -48,27 +56,32 @@ public final class InCarVisuals
         dimen(activity, enabled ? R.dimen.in_car_button_min_touch_target : R.dimen.routing_action_button_size);
 
     for (int id : new int[] {R.id.routing_btn_search, R.id.routing_btn_bookmarks, R.id.btn__save})
-      resizeFab(activity.findViewById(id), actionButtonSize, actionIconSize, minTouchTarget);
+      resizeFab(root.findViewById(id), actionButtonSize, actionIconSize, minTouchTarget);
 
     final int routerHeight =
         dimen(activity, enabled ? R.dimen.in_car_routing_toolbar_cell_height : R.dimen.routing_toolbar_cell_height);
     for (int id : new int[] {R.id.vehicle, R.id.pedestrian, R.id.transit, R.id.bicycle, R.id.ruler})
-      setViewHeight(activity.findViewById(id), routerHeight);
+      setViewHeight(root.findViewById(id), routerHeight);
 
     final int closeSize =
         dimen(activity, enabled ? R.dimen.in_car_routing_close_button_size : R.dimen.routing_close_button_size);
-    setViewSize(activity.findViewById(R.id.back), closeSize, closeSize);
+    setViewSize(root.findViewById(R.id.back), closeSize, closeSize);
+    root.requestLayout();
   }
 
   private static void applyNavigationControls(@NonNull Activity activity, boolean enabled)
   {
+    final View root = activity.findViewById(R.id.nav_bottom_frame);
+    if (root == null)
+      return;
+
     final int contentHeight =
         dimen(activity, enabled ? R.dimen.in_car_nav_menu_content_height : R.dimen.nav_menu_content_height);
-    setViewHeight(activity.findViewById(R.id.content_frame), contentHeight);
+    setViewHeight(root.findViewById(R.id.content_frame), contentHeight);
 
     final int iconHeight = dimen(activity, enabled ? R.dimen.in_car_nav_icon_size : R.dimen.nav_icon_size);
-    final ImageView tts = activity.findViewById(R.id.tts_volume);
-    final ImageView settings = activity.findViewById(R.id.settings);
+    final ImageView tts = root.findViewById(R.id.tts_volume);
+    final ImageView settings = root.findViewById(R.id.settings);
     setViewHeight(tts, iconHeight);
     setViewHeight(settings, iconHeight);
     if (tts != null)
@@ -76,7 +89,7 @@ public final class InCarVisuals
     if (settings != null)
       settings.setScaleType(enabled ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER);
 
-    final Button stop = activity.findViewById(R.id.stop);
+    final Button stop = root.findViewById(R.id.stop);
     if (stop == null)
       return;
     final int buttonHeight = dimen(activity, enabled ? R.dimen.in_car_nav_button_height : R.dimen.nav_button_height);
@@ -84,6 +97,7 @@ public final class InCarVisuals
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
     stop.setMinWidth(stopMinWidth);
+    root.requestLayout();
   }
 
   private static int dimen(@NonNull Activity activity, int resId)
