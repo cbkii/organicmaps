@@ -1,21 +1,52 @@
 package app.organicmaps.util;
 
 import android.app.Activity;
+import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 import app.organicmaps.R;
+import app.organicmaps.sdk.util.Config;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /** Applies the optional fixed-display control dimensions to the currently mounted map UI. */
 public final class InCarVisuals
 {
+  private static final Set<FragmentActivity> OBSERVED_ACTIVITIES =
+      Collections.newSetFromMap(new WeakHashMap<>());
+
   private InCarVisuals() {}
 
-  public static void apply(@NonNull Activity activity, boolean enabled)
+  @UiThread
+  public static void applyAndObserve(@NonNull FragmentActivity activity)
+  {
+    apply(activity, Config.isInCarOptimisedVisualsEnabled());
+    if (!OBSERVED_ACTIVITIES.add(activity))
+      return;
+
+    activity.getSupportFragmentManager().registerFragmentLifecycleCallbacks(
+        new FragmentManager.FragmentLifecycleCallbacks() {
+          @Override
+          public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment,
+                                            @NonNull View view, @Nullable Bundle savedInstanceState)
+          {
+            apply(activity, Config.isInCarOptimisedVisualsEnabled());
+          }
+        },
+        true);
+  }
+
+  private static void apply(@NonNull Activity activity, boolean enabled)
   {
     applyMapButtons(activity, enabled);
     applyRoutingControls(activity, enabled);
