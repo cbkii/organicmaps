@@ -125,7 +125,7 @@
       android:title="@string/change_map_locale"
       app:singleLineTitle="false"
       android:persistent="false"
-        android:order="19"/>
+      android:order="19"/>
     <Preference
       android:key="@string/pref_bg_tiles_screen"
       android:title="@string/pref_bg_tiles_title"
@@ -161,16 +161,24 @@
       android:persistent="false"
       app:singleLineTitle="false"
       android:order="4" />
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_optimised_visuals"
+      android:title="@string/in_car_optimised_visuals_title"
+      android:summary="@string/in_car_optimised_visuals_summary"
+      android:defaultValue="false"
+      android:persistent="false"
+      app:singleLineTitle="false"
+      android:order="5" />
     <Preference
       android:key="@string/pref_tts_screen"
       android:title="@string/pref_tts_enable_title"
       app:singleLineTitle="false"
       android:persistent="false"
-      android:order="5">
+      android:order="6">
     </Preference>
     <PreferenceScreen
       android:key="@string/prefs_routing"
-      android:order="6"
+      android:order="7"
       android:title="@string/driving_options_title">
       <intent
         android:targetClass="app.organicmaps.settings.DrivingOptionsActivity"
