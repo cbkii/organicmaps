@@ -70,15 +70,9 @@ public final class OrganicMaps implements DefaultLifecycleObserver
     return mSensorHelper;
   }
 
-  @NonNull
+  @Nullable
   public SubwayManager getSubwayManager()
   {
-    if (mSubwayManager == null)
-    {
-      mSubwayManager = new SubwayManager(mContext);
-      if (mFrameworkInitialized)
-        mSubwayManager.initialize();
-    }
     return mSubwayManager;
   }
 
