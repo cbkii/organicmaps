@@ -145,6 +145,16 @@ void Platform::Initialize(JNIEnv * env, jobject context, jstring apkPath, jstrin
   LOG(LINFO, ("Build type name:", build));
 
   m_isInCar = flavor == "inCar";
+  if (m_isInCar)
+  {
+    std::string preferredGraphicsApi;
+    if (!settings::Get("PreferredGraphicsAPI", preferredGraphicsApi))
+    {
+      settings::Set("PreferredGraphicsAPI", "OpenGLES3");
+      LOG(LINFO, ("Using OpenGLES3 as the in-car graphics API default"));
+    }
+  }
+
   m_isTablet = isTablet;
   m_resourcesDir = jni::ToNativeString(env, apkPath);
   m_tmpDir = jni::ToNativeString(env, tmpPath);
