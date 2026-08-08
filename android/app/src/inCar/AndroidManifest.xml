@@ -15,6 +15,22 @@
         android:name="app.organicmaps.car.AndroidAutoService"
         tools:node="remove"/>
 
+    <activity
+        android:name="app.organicmaps.editor.EditorActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.ProfileActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.FeatureCategoryActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.ReportActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.OsmLoginActivity"
+        tools:node="remove"/>
+
     <meta-data
         android:name="com.google.android.gms.car.application"
         tools:node="remove"/>
