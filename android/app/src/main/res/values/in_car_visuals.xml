@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Moderate fixed-display touch-target increase for the optional in-car visual mode. -->
+  <dimen name="in_car_map_button_size">56dp</dimen>
+  <dimen name="in_car_map_button_icon_size">36dp</dimen>
+  <dimen name="in_car_zoom_button_icon_size">38dp</dimen>
+  <dimen name="in_car_button_min_touch_target">56dp</dimen>
+
+  <!-- Normal values mirror the current XML so runtime toggling can cleanly revert. -->
+  <dimen name="routing_action_button_size">40dp</dimen>
+  <dimen name="routing_action_button_icon_size">28dp</dimen>
+  <dimen name="routing_close_button_size">24dp</dimen>
+
+  <dimen name="in_car_routing_action_button_size">52dp</dimen>
+  <dimen name="in_car_routing_action_button_icon_size">34dp</dimen>
+  <dimen name="in_car_routing_toolbar_cell_height">48dp</dimen>
+  <dimen name="in_car_routing_close_button_size">40dp</dimen>
+  <dimen name="in_car_routing_bottom_buttons_max_height">84dp</dimen>
+
+  <dimen name="in_car_nav_icon_size">56dp</dimen>
+  <dimen name="in_car_nav_button_height">48dp</dimen>
+  <dimen name="in_car_nav_stop_min_width">112dp</dimen>
+  <dimen name="in_car_nav_menu_content_height">72dp</dimen>
+</resources>
