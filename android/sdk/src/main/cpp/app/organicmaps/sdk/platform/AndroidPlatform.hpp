@@ -28,6 +28,7 @@ public:
   void SetSettingsDir(std::string const & dir);
 
   bool HasAvailableSpaceForWriting(uint64_t size) const;
+  bool IsInCar() const { return m_isInCar; }
 
   class AndroidSecureStorage
   {
@@ -51,5 +52,6 @@ public:
 private:
   AndroidSecureStorage m_secureStorage;
   jobject m_context;
+  bool m_isInCar = false;
 };
 }  // namespace android
