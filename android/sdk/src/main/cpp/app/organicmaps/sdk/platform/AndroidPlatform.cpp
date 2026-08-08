@@ -144,6 +144,7 @@ void Platform::Initialize(JNIEnv * env, jobject context, jstring apkPath, jstrin
   LOG(LINFO, ("Flavor name:", flavor));
   LOG(LINFO, ("Build type name:", build));
 
+  m_isInCar = flavor == "inCar";
   m_isTablet = isTablet;
   m_resourcesDir = jni::ToNativeString(env, apkPath);
   m_tmpDir = jni::ToNativeString(env, tmpPath);
