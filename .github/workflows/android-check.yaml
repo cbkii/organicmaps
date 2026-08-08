@@ -79,11 +79,16 @@ jobs:
           - flavor: WebDebug
             arch: arm64
             run-tests: true
+            verify_in_car: false
+            artifact_path: android/app/build/outputs/apk/web/debug/OrganicMaps-*.apk
           - flavor: FdroidDebug
             arch: arm32
+            verify_in_car: false
+            artifact_path: android/app/build/outputs/apk/fdroid/debug/OrganicMaps-*.apk
           - flavor: InCarProfileable
             arch: arm64
-            verify-in-car: true
+            verify_in_car: true
+            artifact_path: android/app/build/outputs/apk/inCar/profileable/OrganicMaps-*.apk
     # Cancels previous jobs if the same branch or PR was updated again.
     # Only cancel PR runs: master runs must finish to populate the shared ccache.
     concurrency:
@@ -134,7 +139,7 @@ jobs:
           ./gradlew -P${{ matrix.arch }} assemble${{ matrix.flavor }}
 
       - name: Build arm64 FdroidProfileable comparison
-        if: matrix.verify-in-car == true
+        if: matrix.verify_in_car == true
         shell: bash
         working-directory: android
         env:
@@ -143,13 +148,39 @@ jobs:
         run: ./gradlew -Parm64 assembleFdroidProfileable
 
       - name: Verify in-car package and comparison
-        if: matrix.verify-in-car == true
+        if: matrix.verify_in_car == true
         shell: bash
         run: |
-          set -euo pipefail
+          proof_dir="${RUNNER_TEMP}/in-car-package-proof"
+          rm -rf "${proof_dir}"
+          if ! mkdir -p "${proof_dir}"; then
+            echo "::error::Unable to create in-car package proof directory."
+            exit 1
+          fi
 
-          mapfile -t in_car_apks < <(find android/app/build/outputs/apk/inCar/profileable -maxdepth 1 -type f -name '*.apk' | sort)
-          mapfile -t reference_apks < <(find android/app/build/outputs/apk/fdroid/profileable -maxdepth 1 -type f -name '*.apk' | sort)
+          in_car_unsorted="${proof_dir}/in-car-apks-unsorted.txt"
+          in_car_list="${proof_dir}/in-car-apks.txt"
+          reference_unsorted="${proof_dir}/reference-apks-unsorted.txt"
+          reference_list="${proof_dir}/reference-apks.txt"
+          if ! find android/app/build/outputs/apk/inCar/profileable -maxdepth 1 -type f -name '*.apk' -print > "${in_car_unsorted}"; then
+            echo "::error::Unable to enumerate InCarProfileable APKs."
+            exit 1
+          fi
+          if ! sort "${in_car_unsorted}" > "${in_car_list}"; then
+            echo "::error::Unable to sort InCarProfileable APK candidates."
+            exit 1
+          fi
+          if ! find android/app/build/outputs/apk/fdroid/profileable -maxdepth 1 -type f -name '*.apk' -print > "${reference_unsorted}"; then
+            echo "::error::Unable to enumerate FdroidProfileable APKs."
+            exit 1
+          fi
+          if ! sort "${reference_unsorted}" > "${reference_list}"; then
+            echo "::error::Unable to sort FdroidProfileable APK candidates."
+            exit 1
+          fi
+
+          mapfile -t in_car_apks < "${in_car_list}"
+          mapfile -t reference_apks < "${reference_list}"
           if [[ "${#in_car_apks[@]}" -ne 1 || "${#reference_apks[@]}" -ne 1 ]]; then
             echo "::error::Expected exactly one InCarProfileable and one FdroidProfileable APK."
             printf 'in-car: %s\n' "${in_car_apks[*]:-none}"
@@ -159,11 +190,54 @@ jobs:
 
           in_car_apk="${in_car_apks[0]}"
           reference_apk="${reference_apks[0]}"
-          manifest="${RUNNER_TEMP}/in-car-manifest.xml"
-          dex_strings="${RUNNER_TEMP}/in-car-dex-strings.txt"
+          manifest="${proof_dir}/in-car-manifest.xml"
+          zip_list="${proof_dir}/in-car-zip-list.txt"
+          dex_entries_file="${proof_dir}/dex-entries.txt"
+          dex_strings="${proof_dir}/in-car-dex-strings.txt"
+          abi_unsorted="${proof_dir}/abis-unsorted.txt"
+          abi_list="${proof_dir}/abis.txt"
 
-          apkanalyzer manifest print "${in_car_apk}" > "${manifest}"
-          unzip -p "${in_car_apk}" 'classes*.dex' | strings > "${dex_strings}"
+          apkanalyzer="$(command -v apkanalyzer || true)"
+          if [[ -z "${apkanalyzer}" ]]; then
+            apkanalyzer_candidates="${proof_dir}/apkanalyzer-candidates.txt"
+            apkanalyzer_sorted="${proof_dir}/apkanalyzer-candidates-sorted.txt"
+            if find "${ANDROID_HOME}/cmdline-tools" -type f -name apkanalyzer -perm -u+x -print > "${apkanalyzer_candidates}" 2>/dev/null; then
+              if sort -V "${apkanalyzer_candidates}" > "${apkanalyzer_sorted}"; then
+                apkanalyzer="$(tail -n1 "${apkanalyzer_sorted}")"
+              fi
+            fi
+          fi
+          if [[ -z "${apkanalyzer}" ]]; then
+            echo "::error::apkanalyzer was not found in PATH or the Android SDK."
+            exit 1
+          fi
+
+          if ! "${apkanalyzer}" manifest print "${in_car_apk}" > "${manifest}"; then
+            echo "::error::Unable to decode the InCarProfileable manifest."
+            exit 1
+          fi
+          if ! unzip -Z1 "${in_car_apk}" > "${zip_list}"; then
+            echo "::error::Unable to enumerate InCarProfileable APK entries."
+            exit 1
+          fi
+          grep -E '^classes([0-9]+)?\.dex$' "${zip_list}" > "${dex_entries_file}" || true
+          mapfile -t dex_entries < "${dex_entries_file}"
+          if [[ "${#dex_entries[@]}" -eq 0 ]]; then
+            echo "::error::No classes*.dex entries were found in InCarProfileable APK."
+            exit 1
+          fi
+          : > "${dex_strings}"
+          for dex_entry in "${dex_entries[@]}"; do
+            dex_file="${proof_dir}/$(basename "${dex_entry}")"
+            if ! unzip -p "${in_car_apk}" "${dex_entry}" > "${dex_file}"; then
+              echo "::error::Unable to extract ${dex_entry} from InCarProfileable APK."
+              exit 1
+            fi
+            if ! strings "${dex_file}" >> "${dex_strings}"; then
+              echo "::error::Unable to inspect ${dex_entry} strings."
+              exit 1
+            fi
+          done
 
           forbidden_manifest=(
             'app.organicmaps.car.AndroidAutoService'
@@ -223,7 +297,15 @@ jobs:
             fi
           done
 
-          mapfile -t abis < <(unzip -Z1 "${in_car_apk}" | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)
+          if ! sed -n 's#^lib/\([^/]*\)/.*#\1#p' "${zip_list}" > "${abi_unsorted}"; then
+            echo "::error::Unable to extract ABI entries from InCarProfileable APK."
+            exit 1
+          fi
+          if ! sort -u "${abi_unsorted}" > "${abi_list}"; then
+            echo "::error::Unable to normalise InCarProfileable ABI entries."
+            exit 1
+          fi
+          mapfile -t abis < "${abi_list}"
           if [[ "${#abis[@]}" -ne 1 || "${abis[0]}" != 'arm64-v8a' ]]; then
             echo "::error::Expected arm64-v8a-only InCarProfileable APK; found: ${abis[*]:-none}"
             exit 1
@@ -283,6 +365,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: android-${{ matrix.flavor }}
-          path: android/app/build/outputs/apk/**/OrganicMaps-*.apk
+          path: ${{ matrix.artifact_path }}
           if-no-files-found: error
           retention-days: 30
