@@ -2,11 +2,12 @@
 def taskName = getGradle().getStartParameter().getTaskRequests().toString().toLowerCase()
 def isFdroid = taskName.contains('fdroid')
 def isBeta = taskName.contains('beta')
+def isInCar = taskName.contains('incar')
 
 // Firebase Crashlytics compile-time feature flag: -Pfirebase=true|false
 def googleFirebaseServicesFlag = findProperty('firebase')
-// Enable Firebase for all beta flavors except fdroid only if google-services.json exists.
-def googleFirebaseServicesDefault = isBeta && !isFdroid && file("$projectDir/google-services.json").exists()
+// Enable Firebase for all beta flavors except fdroid/in-car only if google-services.json exists.
+def googleFirebaseServicesDefault = isBeta && !isFdroid && !isInCar && file("$projectDir/google-services.json").exists()
 ext.googleFirebaseServicesEnabled = googleFirebaseServicesFlag != null ?
     googleFirebaseServicesFlag == '' || googleFirebaseServicesFlag.toBoolean() :
     googleFirebaseServicesDefault
@@ -66,6 +67,7 @@ android {
     println('VersionCode: ' + versionCode)
     applicationId rootProject.ext.appId
     buildConfigField 'String', 'SUPPORT_MAIL', '"android@organicmaps.app"'
+    buildConfigField 'boolean', 'IS_IN_CAR', 'false'
     // Should be customized in flavors.
     buildConfigField 'String', 'REVIEW_URL', '""'
     resourceConfigurations += [project.ext.supportedLocalizations]
@@ -107,6 +109,14 @@ android {
       versionCode = HUAWEI_VERSION_CODE_BASE + android.defaultConfig.versionCode
       buildConfigField 'String', 'SUPPORT_MAIL', '"huawei@organicmaps.app"'
       buildConfigField 'String', 'REVIEW_URL', '"appmarket://details?id=app.organicmaps"'
+    }
+
+    inCar {
+      dimension 'default'
+      applicationIdSuffix '.incar'
+      versionName = android.defaultConfig.versionName + '-InCar'
+      buildConfigField 'String', 'SUPPORT_MAIL', '"apk@organicmaps.app"'
+      buildConfigField 'boolean', 'IS_IN_CAR', 'true'
     }
   }
 
@@ -321,7 +331,9 @@ def allowedPermissions = [
     // app.organicmaps.(debug|beta|profileable)
     // app.organicmaps.web
     // app.organicmaps.web.(debug|beta|profileable)
-    ~/name='app\.organicmaps(\.web)?(\.debug|\.beta|\.profileable)?\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/
+    // app.organicmaps.incar
+    // app.organicmaps.incar.(debug|beta|profileable)
+    ~/name='app\.organicmaps(\.web|\.incar)?(\.debug|\.beta|\.profileable)?\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/
 ]
 registerCheckApkPermissionsTasks(project, allowedPermissions)
 
