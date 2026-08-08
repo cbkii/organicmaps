@@ -22,8 +22,7 @@ import java.util.WeakHashMap;
 /** Applies the optional fixed-display control dimensions to the currently mounted map UI. */
 public final class InCarVisuals
 {
-  private static final Set<FragmentActivity> OBSERVED_ACTIVITIES =
-      Collections.newSetFromMap(new WeakHashMap<>());
+  private static final Set<FragmentActivity> OBSERVED_ACTIVITIES = Collections.newSetFromMap(new WeakHashMap<>());
 
   private InCarVisuals() {}
 
@@ -37,8 +36,8 @@ public final class InCarVisuals
     activity.getSupportFragmentManager().registerFragmentLifecycleCallbacks(
         new FragmentManager.FragmentLifecycleCallbacks() {
           @Override
-          public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment,
-                                            @NonNull View view, @Nullable Bundle savedInstanceState)
+          public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment, @NonNull View view,
+                                            @Nullable Bundle savedInstanceState)
           {
             apply(activity, Config.isInCarOptimisedVisualsEnabled());
           }
@@ -63,7 +62,8 @@ public final class InCarVisuals
     final int iconSize = dimen(activity, enabled ? R.dimen.in_car_map_button_icon_size : R.dimen.map_button_icon_size);
     final int zoomIconSize =
         dimen(activity, enabled ? R.dimen.in_car_zoom_button_icon_size : R.dimen.map_button_icon_size);
-    final int minTouchTarget = dimen(activity, enabled ? R.dimen.in_car_button_min_touch_target : R.dimen.map_button_size);
+    final int minTouchTarget =
+        dimen(activity, enabled ? R.dimen.in_car_button_min_touch_target : R.dimen.map_button_size);
 
     for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
