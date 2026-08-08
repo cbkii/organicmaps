@@ -8,6 +8,5 @@ public final class OsmUploadScheduler
 {
   private OsmUploadScheduler() {}
 
-  public static void schedule(@NonNull Context context)
-  {}
+  public static void schedule(@NonNull Context context) {}
 }
