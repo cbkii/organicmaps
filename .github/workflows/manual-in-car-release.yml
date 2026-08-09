@@ -60,6 +60,7 @@ jobs:
             echo "::error::In-car releases must run from the repository default branch (${default_branch}); selected ref is ${GITHUB_REF_TYPE}:${GITHUB_REF_NAME}."
             exit 1
           fi
+          echo "Release source: ${GITHUB_SHA}"
 
       - name: Resolve in-car version
         id: version
@@ -234,8 +235,30 @@ jobs:
             "cmake;${cmake_version}" \
             "ndk;${ndk_version}"
 
+          build_tools_dir="${ANDROID_HOME}/build-tools/${build_tools_version}"
+          if [[ ! -x "${build_tools_dir}/apksigner" ]]; then
+            echo "::error::Expected apksigner is missing: ${build_tools_dir}/apksigner"
+            exit 1
+          fi
+
+          apkanalyzer="$(command -v apkanalyzer || true)"
+          if [[ -z "${apkanalyzer}" ]]; then
+            apkanalyzer="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name apkanalyzer -perm -u+x -print 2>/dev/null | sort -V | tail -n1)"
+          fi
+          if [[ -z "${apkanalyzer}" || ! -x "${apkanalyzer}" ]]; then
+            echo "::error::apkanalyzer was not found in the configured Android SDK."
+            exit 1
+          fi
+
           echo "${ANDROID_HOME}/cmake/${cmake_version}/bin" >> "${GITHUB_PATH}"
+          echo "${build_tools_dir}" >> "${GITHUB_PATH}"
+          echo "ANDROID_BUILD_TOOLS_DIR=${build_tools_dir}" >> "${GITHUB_ENV}"
+          echo "APKANALYZER_BIN=${apkanalyzer}" >> "${GITHUB_ENV}"
           printf 'sdk.dir=%s\n' "${ANDROID_HOME}" > android/local.properties
+
+          echo "Android build-tools: ${build_tools_dir}"
+          "${build_tools_dir}/apksigner" version
+          echo "apkanalyzer: ${apkanalyzer}"
 
       - name: Configure Organic Maps
         shell: bash
@@ -348,153 +371,15 @@ jobs:
           apk_path="${RUNNER_TEMP}/${apk_name}"
           cp "${apks[0]}" "${apk_path}"
 
-          apksigner="$(
-            find "${ANDROID_HOME}/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner -perm -u+x \
-              | sort -V \
-              | tail -n1
-          )"
-          if [[ -z "${apksigner}" ]]; then
-            echo "::error::apksigner was not found in the Android SDK."
-            exit 1
-          fi
-
-          apkanalyzer="$(command -v apkanalyzer || true)"
-          if [[ -z "${apkanalyzer}" ]]; then
-            apkanalyzer="$(
-              find "${ANDROID_HOME}/cmdline-tools" -type f -name apkanalyzer -perm -u+x 2>/dev/null \
-                | sort -V \
-                | tail -n1
-            )"
-          fi
-          if [[ -z "${apkanalyzer}" ]]; then
-            echo "::error::apkanalyzer was not found in PATH or the Android SDK."
-            exit 1
-          fi
-
-          if ! unzip -tq "${apk_path}" >/dev/null; then
-            echo "::error::The staged InCarRelease APK failed ZIP integrity verification."
-            exit 1
-          fi
-
-          signer_output="${proof_dir}/apksigner.txt"
-          if ! "${apksigner}" verify --verbose --print-certs "${apk_path}" > "${signer_output}"; then
-            echo "::error::The staged InCarRelease APK failed signature verification."
-            cat "${signer_output}"
-            exit 1
-          fi
-
-          apk_cert_sha256="$(
-            sed -n 's/^Signer #1 certificate SHA-256 digest:[[:space:]]*//p' "${signer_output}" \
-              | head -n1 \
-              | tr -d ':' \
-              | tr '[:lower:]' '[:upper:]'
-          )"
-          if [[ "${apk_cert_sha256}" != "${EXPECTED_CERT_SHA256}" ]]; then
-            echo "::error::APK signer ${apk_cert_sha256:-not found} does not match the configured release certificate ${EXPECTED_CERT_SHA256}."
-            exit 1
-          fi
-
-          package_name="$("${apkanalyzer}" manifest application-id "${apk_path}")"
-          version_name="$("${apkanalyzer}" manifest version-name "${apk_path}")"
-          version_code="$("${apkanalyzer}" manifest version-code "${apk_path}")"
-          if [[ "${package_name}" != "app.organicmaps.incar" ]]; then
-            echo "::error::Unexpected InCarRelease package id: ${package_name:-not found}"
-            exit 1
-          fi
-          if [[ "${version_name}" != "${EXPECTED_VERSION_NAME}" ]]; then
-            echo "::error::Unexpected InCarRelease versionName: ${version_name:-not found}; expected ${EXPECTED_VERSION_NAME}."
-            exit 1
-          fi
-          if [[ "${version_code}" != "${EXPECTED_VERSION_CODE}" ]]; then
-            echo "::error::Unexpected InCarRelease versionCode: ${version_code:-not found}; expected ${EXPECTED_VERSION_CODE}."
-            exit 1
-          fi
-
-          manifest="${proof_dir}/manifest.xml"
-          zip_list="${proof_dir}/zip-list.txt"
-          dex_entries_file="${proof_dir}/dex-entries.txt"
-          dex_strings="${proof_dir}/dex-strings.txt"
-
-          "${apkanalyzer}" manifest print "${apk_path}" > "${manifest}"
-          unzip -Z1 "${apk_path}" > "${zip_list}"
-          grep -E '^classes([0-9]+)?\.dex$' "${zip_list}" > "${dex_entries_file}" || true
-          mapfile -t dex_entries < "${dex_entries_file}"
-          if [[ "${#dex_entries[@]}" -eq 0 ]]; then
-            echo "::error::No classes*.dex entries were found in InCarRelease APK."
-            exit 1
-          fi
-
-          : > "${dex_strings}"
-          for dex_entry in "${dex_entries[@]}"; do
-            dex_file="${proof_dir}/$(basename "${dex_entry}")"
-            unzip -p "${apk_path}" "${dex_entry}" > "${dex_file}"
-            strings "${dex_file}" >> "${dex_strings}"
-          done
-
-          forbidden_manifest=(
-            'app.organicmaps.car.AndroidAutoService'
-            'androidx.car.app.NAVIGATION_TEMPLATES'
-            'androidx.car.app.ACCESS_SURFACE'
-            'app.organicmaps.editor.EditorActivity'
-            'app.organicmaps.editor.ProfileActivity'
-            'app.organicmaps.editor.FeatureCategoryActivity'
-            'app.organicmaps.editor.ReportActivity'
-            'app.organicmaps.editor.OsmLoginActivity'
-          )
-          for needle in "${forbidden_manifest[@]}"; do
-            if grep -Fq -- "${needle}" "${manifest}"; then
-              echo "::error::Forbidden in-car manifest entry remains: ${needle}"
-              exit 1
-            fi
-          done
-
-          required_manifest=(
-            'app.organicmaps.location.TrackRecordingService'
-            'app.organicmaps.DownloadResourcesActivity'
-          )
-          for needle in "${required_manifest[@]}"; do
-            if ! grep -Fq -- "${needle}" "${manifest}"; then
-              echo "::error::Required in-car manifest entry is missing: ${needle}"
-              exit 1
-            fi
-          done
-
-          # Editor implementation can remain linked as an accepted residual; its in-car
-          # safety boundary is that editor Activities are absent from the manifest and
-          # entry paths are product-gated. Keep bytecode-absence checks for integrations
-          # that are intended to be physically absent from the in-car runtime graph.
-          forbidden_dex=(
-            'Lapp/organicmaps/car/'
-            'Landroidx/car/app/'
-            'Lapp/organicmaps/intent/GoogleAssistantIntentBridge;'
-            'Landroidx/work/'
-          )
-          for needle in "${forbidden_dex[@]}"; do
-            if grep -Fq -- "${needle}" "${dex_strings}"; then
-              echo "::error::Forbidden in-car runtime class/package remains: ${needle}"
-              exit 1
-            fi
-          done
-
-          required_dex=(
-            'Lapp/organicmaps/location/TrackRecordingService;'
-            'Lapp/organicmaps/downloader/'
-            'Lcom/github/mikephil/charting/'
-          )
-          for needle in "${required_dex[@]}"; do
-            if ! grep -Fq -- "${needle}" "${dex_strings}"; then
-              echo "::error::Required in-car runtime package/class is missing: ${needle}"
-              exit 1
-            fi
-          done
-
-          mapfile -t abis < <(
-            sed -n 's#^lib/\([^/]*\)/.*#\1#p' "${zip_list}" | sort -u
-          )
-          if [[ "${#abis[@]}" -ne 1 || "${abis[0]}" != "arm64-v8a" ]]; then
-            echo "::error::Expected arm64-v8a-only InCarRelease APK; found ABI(s): ${abis[*]:-none}"
-            exit 1
-          fi
+          bash android/tools/verify_in_car_apk.sh \
+            --apk "${apk_path}" \
+            --expected-package app.organicmaps.incar \
+            --expected-version-name "${EXPECTED_VERSION_NAME}" \
+            --expected-version-code "${EXPECTED_VERSION_CODE}" \
+            --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
+            --proof-dir "${proof_dir}" \
+            --summary-file "${GITHUB_STEP_SUMMARY}" \
+            --github-output "${GITHUB_OUTPUT}"
 
           if [[ -n "${PREVIOUS_TAG}" ]]; then
             previous_dir="${proof_dir}/previous"
@@ -514,18 +399,15 @@ jobs:
               echo "::error::Expected exactly one previous in-car APK for signer continuity; found ${#previous_apks[@]}."
               exit 1
             fi
-            previous_signer_output="${proof_dir}/previous-apksigner.txt"
-            "${apksigner}" verify --print-certs "${previous_apks[0]}" > "${previous_signer_output}"
-            previous_cert_sha256="$(
-              sed -n 's/^Signer #1 certificate SHA-256 digest:[[:space:]]*//p' "${previous_signer_output}" \
-                | head -n1 \
-                | tr -d ':' \
-                | tr '[:lower:]' '[:upper:]'
-            )"
-            if [[ "${previous_cert_sha256}" != "${apk_cert_sha256}" ]]; then
-              echo "::error::Signer continuity check failed: previous ${previous_cert_sha256:-not found}, current ${apk_cert_sha256}."
-              exit 1
-            fi
+
+            bash android/tools/verify_in_car_apk.sh \
+              --apk "${previous_apks[0]}" \
+              --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
+              --proof-dir "${previous_dir}/signer-proof" \
+              --signature-only
+            echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo '- Signer continuity: first in-car release' >> "${GITHUB_STEP_SUMMARY}"
           fi
 
           checksum_name="${apk_name}.sha256"
@@ -534,35 +416,11 @@ jobs:
             cd "${RUNNER_TEMP}"
             sha256sum "${apk_name}" > "${checksum_name}"
           )
-          apk_sha256="$(awk '{print $1}' "${checksum_path}")"
 
           echo "apk_name=${apk_name}" >> "${GITHUB_OUTPUT}"
           echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
           echo "checksum_name=${checksum_name}" >> "${GITHUB_OUTPUT}"
           echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
-          echo "apk_sha256=${apk_sha256}" >> "${GITHUB_OUTPUT}"
-          echo "cert_sha256=${apk_cert_sha256}" >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "### In-car release proof"
-            echo
-            echo "- Package: \`${package_name}\`"
-            echo "- versionName: \`${version_name}\`"
-            echo "- versionCode: \`${version_code}\`"
-            echo "- ABI: \`arm64-v8a\` only"
-            echo "- Signer SHA-256: \`${apk_cert_sha256}\`"
-            echo "- APK SHA-256: \`${apk_sha256}\`"
-            echo "- Android Auto manifest/runtime: absent"
-            echo "- Google Assistant bridge/runtime: absent"
-            echo "- WorkManager runtime: absent"
-            echo "- OSM editor Activity manifest surface: absent"
-            echo "- Required navigation/runtime surfaces: present"
-            if [[ -n "${PREVIOUS_TAG}" ]]; then
-              echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified"
-            else
-              echo "- Signer continuity: first in-car release"
-            fi
-          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload verified build artifact
         uses: actions/upload-artifact@v4
