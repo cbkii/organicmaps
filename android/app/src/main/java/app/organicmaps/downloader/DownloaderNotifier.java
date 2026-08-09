@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
@@ -28,10 +29,13 @@ public class DownloaderNotifier
 
   private static final String CHANNEL_ID = "downloader";
   public static final int NOTIFICATION_ID = 1;
+  private static final long PROGRESS_NOTIFICATION_UPDATE_INTERVAL_MS = 750;
 
   private final Context mContext;
   private NotificationCompat.Builder mProgressNotificationBuilder = null;
   private String mNotificationCountryId = null;
+  private boolean mHasPublishedProgress;
+  private long mLastProgressNotificationTimeMs;
 
   public DownloaderNotifier(Context context)
   {
@@ -98,8 +102,16 @@ public class DownloaderNotifier
       return;
     }
 
+    final long nowMs = SystemClock.elapsedRealtime();
+    final boolean countryChanged = !Objects.equals(countryId, mNotificationCountryId);
+    if (mHasPublishedProgress && !countryChanged
+        && nowMs - mLastProgressNotificationTimeMs < PROGRESS_NOTIFICATION_UPDATE_INTERVAL_MS)
+      return;
+
     NotificationManagerCompat.from(mContext).notify(NOTIFICATION_ID,
                                                     buildProgressNotification(countryId, maxProgress, progress));
+    mHasPublishedProgress = true;
+    mLastProgressNotificationTimeMs = nowMs;
   }
 
   @NonNull
