@@ -36,29 +36,35 @@ class ContrastCheck:
 DAY_CHECKS = (
     ContrastCheck("primary text on cards", "text_dark", "bg_cards", 7.0),
     ContrastCheck("secondary text on cards", "text_dark_subtitle", "bg_cards", 7.0),
+    ContrastCheck("dialog body text on cards", "black_secondary", "bg_cards", 7.0),
     ContrastCheck("hint text on cards", "text_dark_hint", "bg_cards", 4.5),
-    ContrastCheck("primary icons on floating chrome", "icon_tint", "bg_menu", 4.5),
+    ContrastCheck("theme map-button icons", "black_54", "bg_menu", 7.0),
     ContrastCheck("secondary icons on floating chrome", "icon_tint_light", "bg_menu", 4.5),
     ContrastCheck("essential dividers on cards", "divider", "bg_cards", 3.0),
     ContrastCheck("primary CTA", "button_accent_text", "button_accent_normal", 5.5),
     ContrastCheck("pressed primary CTA", "button_accent_text", "button_accent_pressed", 5.5),
     ContrastCheck("destructive CTA", "button_red_text", "button_red_normal", 5.5),
     ContrastCheck("selected routing mode", "routing_button_activated_tint", "routing_tab_active_bg", 5.0),
+    ContrastCheck("routing bottom FAB icon", "black_54", "routing_bottom_button_tint", 7.0),
     ContrastCheck("light hint on primary chrome", "text_light_hint", "bg_primary", 4.5),
 )
 
 NIGHT_CHECKS = (
     ContrastCheck("primary text on cards", "text_light", "bg_cards", 7.0),
     ContrastCheck("secondary text on cards", "text_light_subtitle", "bg_cards", 7.0),
+    ContrastCheck("dialog body text on cards", "white_secondary", "bg_cards", 7.0),
     ContrastCheck("hint text on cards", "text_light_hint", "bg_cards", 4.5),
-    ContrastCheck("legacy dialog hint on cards", "text_dark_hint", "bg_cards", 4.5),
-    ContrastCheck("primary icons on floating chrome", "icon_tint", "bg_menu", 7.0),
+    ContrastCheck("legacy dialog control on cards", "text_dark_hint", "bg_cards", 4.5),
+    ContrastCheck("inverse primary text", "text_dark", "in_car_inverse_surface", 7.0),
+    ContrastCheck("inverse secondary text", "text_dark_subtitle", "in_car_inverse_surface", 7.0),
+    ContrastCheck("theme map-button icons", "white_secondary", "bg_menu", 7.0),
     ContrastCheck("secondary icons on floating chrome", "icon_tint_light", "bg_menu", 4.5),
     ContrastCheck("essential dividers on cards", "divider", "bg_cards", 3.0),
     ContrastCheck("primary CTA", "button_accent_text", "button_accent_normal", 5.5),
     ContrastCheck("pressed primary CTA", "button_accent_text", "button_accent_pressed", 4.5),
     ContrastCheck("destructive CTA", "button_red_text", "button_red_normal", 5.5),
     ContrastCheck("selected routing mode", "routing_button_activated_tint", "routing_tab_active_bg", 5.5),
+    ContrastCheck("routing bottom FAB icon", "white_secondary", "routing_bottom_button_tint", 7.0),
 )
 
 OPAQUE_SURFACES = ("bg_window", "bg_cards", "bg_menu")
@@ -117,18 +123,21 @@ def build_palette(repo_root: Path, night: bool) -> dict[str, str]:
 
 def parse_hex_color(value: str) -> Rgba:
     digits = value.removeprefix("#")
-    if len(digits) == 3:  # RGB
-        red, green, blue = (int(char * 2, 16) for char in digits)
-        alpha = 255
-    elif len(digits) == 4:  # ARGB
-        alpha, red, green, blue = (int(char * 2, 16) for char in digits)
-    elif len(digits) == 6:  # RRGGBB
-        red, green, blue = (int(digits[index : index + 2], 16) for index in (0, 2, 4))
-        alpha = 255
-    elif len(digits) == 8:  # AARRGGBB
-        alpha, red, green, blue = (int(digits[index : index + 2], 16) for index in (0, 2, 4, 6))
-    else:
-        raise PaletteError(f"unsupported colour literal: {value}")
+    try:
+        if len(digits) == 3:  # RGB
+            red, green, blue = (int(char * 2, 16) for char in digits)
+            alpha = 255
+        elif len(digits) == 4:  # ARGB
+            alpha, red, green, blue = (int(char * 2, 16) for char in digits)
+        elif len(digits) == 6:  # RRGGBB
+            red, green, blue = (int(digits[index : index + 2], 16) for index in (0, 2, 4))
+            alpha = 255
+        elif len(digits) == 8:  # AARRGGBB
+            alpha, red, green, blue = (int(digits[index : index + 2], 16) for index in (0, 2, 4, 6))
+        else:
+            raise PaletteError(f"unsupported colour literal: {value}")
+    except ValueError as exc:
+        raise PaletteError(f"invalid colour literal: {value}") from exc
 
     return Rgba(red / 255.0, green / 255.0, blue / 255.0, alpha / 255.0)
 
