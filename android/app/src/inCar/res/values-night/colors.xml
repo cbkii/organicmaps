@@ -4,6 +4,7 @@
   <color name="in_car_surface_base">#FF202124</color>
   <color name="in_car_surface_raised">#FF2B2D30</color>
   <color name="in_car_surface_overlay">#FF2B2D30</color>
+  <color name="in_car_inverse_surface">#FFF1F3F4</color>
 
   <color name="in_car_text_primary">#FFF1F3F4</color>
   <color name="in_car_text_secondary">#FFDADCE0</color>
@@ -25,8 +26,14 @@
   <color name="text_light">@color/in_car_text_primary</color>
   <color name="text_light_subtitle">@color/in_car_text_secondary</color>
   <color name="text_light_hint">@color/in_car_text_hint</color>
-  <!-- Fullscreen dialog chrome still references this legacy dark-hint token in night mode. -->
+  <!-- Night's base theme uses these for inverse text, so they must remain dark. -->
+  <color name="text_dark">#FF202124</color>
+  <color name="text_dark_subtitle">#FF3C4043</color>
+  <!-- Fullscreen dialog chrome separately uses this token as a control foreground in night mode. -->
   <color name="text_dark_hint">@color/in_car_text_hint</color>
+  <!-- Long-standing theme attributes still address these tokens directly. -->
+  <color name="white_secondary">@color/in_car_text_secondary</color>
+  <color name="white_54">@color/in_car_text_hint</color>
 
   <color name="base_accent">@color/in_car_selection_accent</color>
   <color name="base_accent_pressed">@color/in_car_action_primary_pressed</color>
@@ -58,6 +65,7 @@
   <color name="routing_button_tint">@color/in_car_icon_primary</color>
   <color name="routing_button_activated_tint">@color/in_car_selection_foreground</color>
   <color name="routing_tab_active_bg">@color/in_car_selection_accent</color>
+  <!-- Despite its legacy name, this token is the FAB backgroundTint; icons use ?iconTint. -->
   <color name="routing_bottom_button_tint">@color/in_car_surface_raised</color>
   <color name="routing_bottom_manage_route_background">@color/in_car_surface_raised</color>
   <color name="routing_bottom_button_bg">@color/in_car_surface_raised</color>
