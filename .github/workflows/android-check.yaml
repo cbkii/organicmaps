@@ -147,40 +147,15 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: ./gradlew -Parm64 assembleFdroidProfileable
 
-      - name: Verify in-car package and comparison
+      - name: Verify InCarProfileable package
         if: matrix.verify_in_car == true
         shell: bash
         run: |
           proof_dir="${RUNNER_TEMP}/in-car-package-proof"
-          rm -rf "${proof_dir}"
-          if ! mkdir -p "${proof_dir}"; then
-            echo "::error::Unable to create in-car package proof directory."
-            exit 1
-          fi
+          mkdir -p "${proof_dir}"
 
-          in_car_unsorted="${proof_dir}/in-car-apks-unsorted.txt"
-          in_car_list="${proof_dir}/in-car-apks.txt"
-          reference_unsorted="${proof_dir}/reference-apks-unsorted.txt"
-          reference_list="${proof_dir}/reference-apks.txt"
-          if ! find android/app/build/outputs/apk/inCar/profileable -maxdepth 1 -type f -name '*.apk' -print > "${in_car_unsorted}"; then
-            echo "::error::Unable to enumerate InCarProfileable APKs."
-            exit 1
-          fi
-          if ! sort "${in_car_unsorted}" > "${in_car_list}"; then
-            echo "::error::Unable to sort InCarProfileable APK candidates."
-            exit 1
-          fi
-          if ! find android/app/build/outputs/apk/fdroid/profileable -maxdepth 1 -type f -name '*.apk' -print > "${reference_unsorted}"; then
-            echo "::error::Unable to enumerate FdroidProfileable APKs."
-            exit 1
-          fi
-          if ! sort "${reference_unsorted}" > "${reference_list}"; then
-            echo "::error::Unable to sort FdroidProfileable APK candidates."
-            exit 1
-          fi
-
-          mapfile -t in_car_apks < "${in_car_list}"
-          mapfile -t reference_apks < "${reference_list}"
+          mapfile -t in_car_apks < <(find android/app/build/outputs/apk/inCar/profileable -maxdepth 1 -type f -name '*.apk' -print | sort)
+          mapfile -t reference_apks < <(find android/app/build/outputs/apk/fdroid/profileable -maxdepth 1 -type f -name '*.apk' -print | sort)
           if [[ "${#in_car_apks[@]}" -ne 1 || "${#reference_apks[@]}" -ne 1 ]]; then
             echo "::error::Expected exactly one InCarProfileable and one FdroidProfileable APK."
             printf 'in-car: %s\n' "${in_car_apks[*]:-none}"
@@ -188,146 +163,130 @@ jobs:
             exit 1
           fi
 
-          in_car_apk="${in_car_apks[0]}"
-          reference_apk="${reference_apks[0]}"
-          manifest="${proof_dir}/in-car-manifest.xml"
-          zip_list="${proof_dir}/in-car-zip-list.txt"
-          dex_entries_file="${proof_dir}/dex-entries.txt"
-          dex_strings="${proof_dir}/in-car-dex-strings.txt"
-          abi_unsorted="${proof_dir}/abis-unsorted.txt"
-          abi_list="${proof_dir}/abis.txt"
+          bash android/tools/verify_in_car_apk.sh \
+            --apk "${in_car_apks[0]}" \
+            --expected-package app.organicmaps.incar.profileable \
+            --proof-dir "${proof_dir}" \
+            --summary-file "${GITHUB_STEP_SUMMARY}"
 
-          apkanalyzer="$(command -v apkanalyzer || true)"
-          if [[ -z "${apkanalyzer}" ]]; then
-            apkanalyzer_candidates="${proof_dir}/apkanalyzer-candidates.txt"
-            apkanalyzer_sorted="${proof_dir}/apkanalyzer-candidates-sorted.txt"
-            if find "${ANDROID_HOME}/cmdline-tools" -type f -name apkanalyzer -perm -u+x -print > "${apkanalyzer_candidates}" 2>/dev/null; then
-              if sort -V "${apkanalyzer_candidates}" > "${apkanalyzer_sorted}"; then
-                apkanalyzer="$(tail -n1 "${apkanalyzer_sorted}")"
-              fi
-            fi
-          fi
-          if [[ -z "${apkanalyzer}" ]]; then
-            echo "::error::apkanalyzer was not found in PATH or the Android SDK."
-            exit 1
-          fi
-
-          if ! "${apkanalyzer}" manifest print "${in_car_apk}" > "${manifest}"; then
-            echo "::error::Unable to decode the InCarProfileable manifest."
-            exit 1
-          fi
-          if ! unzip -Z1 "${in_car_apk}" > "${zip_list}"; then
-            echo "::error::Unable to enumerate InCarProfileable APK entries."
-            exit 1
-          fi
-          grep -E '^classes([0-9]+)?\.dex$' "${zip_list}" > "${dex_entries_file}" || true
-          mapfile -t dex_entries < "${dex_entries_file}"
-          if [[ "${#dex_entries[@]}" -eq 0 ]]; then
-            echo "::error::No classes*.dex entries were found in InCarProfileable APK."
-            exit 1
-          fi
-          : > "${dex_strings}"
-          for dex_entry in "${dex_entries[@]}"; do
-            dex_file="${proof_dir}/$(basename "${dex_entry}")"
-            if ! unzip -p "${in_car_apk}" "${dex_entry}" > "${dex_file}"; then
-              echo "::error::Unable to extract ${dex_entry} from InCarProfileable APK."
-              exit 1
-            fi
-            if ! strings "${dex_file}" >> "${dex_strings}"; then
-              echo "::error::Unable to inspect ${dex_entry} strings."
-              exit 1
-            fi
-          done
-
-          forbidden_manifest=(
-            'app.organicmaps.car.AndroidAutoService'
-            'androidx.car.app.NAVIGATION_TEMPLATES'
-            'androidx.car.app.ACCESS_SURFACE'
-            'app.organicmaps.editor.EditorActivity'
-            'app.organicmaps.editor.ProfileActivity'
-            'app.organicmaps.editor.FeatureCategoryActivity'
-            'app.organicmaps.editor.ReportActivity'
-            'app.organicmaps.editor.OsmLoginActivity'
-          )
-          for needle in "${forbidden_manifest[@]}"; do
-            if grep -Fq -- "${needle}" "${manifest}"; then
-              echo "::error::Forbidden in-car manifest entry remains: ${needle}"
-              exit 1
-            fi
-          done
-
-          required_manifest=(
-            'app.organicmaps.location.TrackRecordingService'
-            'app.organicmaps.DownloadResourcesActivity'
-          )
-          for needle in "${required_manifest[@]}"; do
-            if ! grep -Fq -- "${needle}" "${manifest}"; then
-              echo "::error::Required in-car manifest entry is missing: ${needle}"
-              exit 1
-            fi
-          done
-
-          # Editor implementation can remain linked as an accepted residual; its in-car
-          # safety boundary is that editor Activities are absent from the manifest and
-          # entry paths are product-gated. Keep bytecode-absence checks for integrations
-          # that are intended to be physically absent from the in-car runtime graph.
-          forbidden_dex=(
-            'Lapp/organicmaps/car/'
-            'Landroidx/car/app/'
-            'Lapp/organicmaps/intent/GoogleAssistantIntentBridge;'
-            'Landroidx/work/'
-          )
-          for needle in "${forbidden_dex[@]}"; do
-            if grep -Fq -- "${needle}" "${dex_strings}"; then
-              echo "::error::Forbidden in-car runtime class/package remains: ${needle}"
-              exit 1
-            fi
-          done
-
-          required_dex=(
-            'Lapp/organicmaps/location/TrackRecordingService;'
-            'Lapp/organicmaps/downloader/'
-            'Lcom/github/mikephil/charting/'
-          )
-          for needle in "${required_dex[@]}"; do
-            if ! grep -Fq -- "${needle}" "${dex_strings}"; then
-              echo "::error::Required in-car runtime package/class is missing: ${needle}"
-              exit 1
-            fi
-          done
-
-          if ! sed -n 's#^lib/\([^/]*\)/.*#\1#p' "${zip_list}" > "${abi_unsorted}"; then
-            echo "::error::Unable to extract ABI entries from InCarProfileable APK."
-            exit 1
-          fi
-          if ! sort -u "${abi_unsorted}" > "${abi_list}"; then
-            echo "::error::Unable to normalise InCarProfileable ABI entries."
-            exit 1
-          fi
-          mapfile -t abis < "${abi_list}"
-          if [[ "${#abis[@]}" -ne 1 || "${abis[0]}" != 'arm64-v8a' ]]; then
-            echo "::error::Expected arm64-v8a-only InCarProfileable APK; found: ${abis[*]:-none}"
-            exit 1
-          fi
-
-          in_car_size="$(stat -c '%s' "${in_car_apk}")"
-          reference_size="$(stat -c '%s' "${reference_apk}")"
+          in_car_size="$(stat -c '%s' "${in_car_apks[0]}")"
+          reference_size="$(stat -c '%s' "${reference_apks[0]}")"
           delta="$((in_car_size - reference_size))"
           {
-            echo '### In-car package proof'
+            echo
+            echo '### In-car profileable comparison'
             echo
             echo "- InCarProfileable bytes: \`${in_car_size}\`"
             echo "- FdroidProfileable bytes: \`${reference_size}\`"
             echo "- In-car minus reference: \`${delta}\` bytes"
-            echo '- ABI: `arm64-v8a` only'
-            echo '- Android Auto manifest/runtime: absent'
-            echo '- Google Assistant bridge/runtime: absent'
-            echo '- WorkManager runtime: absent'
-            echo '- OSM editor Activity manifest surface: absent'
-            echo '- Track Recording: present'
-            echo '- Downloader: present'
-            echo '- MPAndroidChart/elevation chart runtime: present'
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Configure CI release signing
+        if: matrix.verify_in_car == true
+        id: ci_release_signing
+        shell: bash
+        run: |
+          keystore="${RUNNER_TEMP}/in-car-ci-release.keystore"
+          store_password='organicmaps-ci'
+          alias_name='organicmaps-ci'
+          key_password='organicmaps-ci'
+
+          if ! keytool -genkeypair -noprompt \
+              -keystore "${keystore}" \
+              -storepass "${store_password}" \
+              -keypass "${key_password}" \
+              -alias "${alias_name}" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 1 \
+              -dname 'CN=Organic Maps In-Car CI, OU=CI, O=Organic Maps, L=CI, ST=CI, C=AU'; then
+            echo "::error::Unable to create the ephemeral InCarRelease CI signing key."
+            exit 1
+          fi
+          chmod 600 "${keystore}"
+
+          keytool_output="${RUNNER_TEMP}/in-car-ci-keytool.txt"
+          if ! keytool -list -v \
+              -keystore "${keystore}" \
+              -alias "${alias_name}" \
+              -storepass "${store_password}" > "${keytool_output}" 2>&1; then
+            echo "::error::Unable to inspect the ephemeral InCarRelease CI signing key."
+            exit 1
+          fi
+          cert_sha256="$(sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' "${keytool_output}" | head -n1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "${cert_sha256}" =~ ^[0-9A-F]{64}$ ]]; then
+            echo "::error::Unable to resolve the ephemeral InCarRelease CI signer fingerprint."
+            exit 1
+          fi
+
+          : > android/app/secure.properties
+          echo "keystore=${keystore}" >> "${GITHUB_OUTPUT}"
+          echo "store_password=${store_password}" >> "${GITHUB_OUTPUT}"
+          echo "alias=${alias_name}" >> "${GITHUB_OUTPUT}"
+          echo "key_password=${key_password}" >> "${GITHUB_OUTPUT}"
+          echo "cert_sha256=${cert_sha256}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build release-equivalent arm64 InCarRelease
+        if: matrix.verify_in_car == true
+        shell: bash
+        working-directory: android
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          KEYSTORE_PATH: ${{ steps.ci_release_signing.outputs.keystore }}
+          KEYSTORE_PASSWORD: ${{ steps.ci_release_signing.outputs.store_password }}
+          KEY_ALIAS: ${{ steps.ci_release_signing.outputs.alias }}
+          KEY_PASSWORD: ${{ steps.ci_release_signing.outputs.key_password }}
+        run: |
+          export ORG_GRADLE_PROJECT_spropStoreFile="${KEYSTORE_PATH}"
+          export ORG_GRADLE_PROJECT_spropStorePassword="${KEYSTORE_PASSWORD}"
+          export ORG_GRADLE_PROJECT_spropKeyAlias="${KEY_ALIAS}"
+          export ORG_GRADLE_PROJECT_spropKeyPassword="${KEY_PASSWORD}"
+          ./gradlew --no-daemon --stacktrace \
+            -Parm64 \
+            -PinCarReleaseVersionName=0.0.0 \
+            -PinCarReleaseVersionCode=1000000000 \
+            assembleInCarRelease
+
+      - name: Verify release-equivalent InCarRelease
+        if: matrix.verify_in_car == true
+        shell: bash
+        run: |
+          proof_dir="${RUNNER_TEMP}/in-car-release-ci-proof"
+          mkdir -p "${proof_dir}"
+          mapfile -t release_apks < <(find android/app/build/outputs/apk/inCar/release -maxdepth 1 -type f -name '*.apk' -print | sort)
+          if [[ "${#release_apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one release-equivalent InCarRelease APK; found ${#release_apks[@]}."
+            printf '%s\n' "${release_apks[@]:-}"
+            exit 1
+          fi
+
+          bash android/tools/verify_in_car_apk.sh \
+            --apk "${release_apks[0]}" \
+            --expected-package app.organicmaps.incar \
+            --expected-version-name 0.0.0-InCar \
+            --expected-version-code 1000000000 \
+            --expected-cert-sha256 "${{ steps.ci_release_signing.outputs.cert_sha256 }}" \
+            --proof-dir "${proof_dir}" \
+            --summary-file "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload release-equivalent InCarRelease APK
+        if: matrix.verify_in_car == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-InCarRelease-ci
+          path: android/app/build/outputs/apk/inCar/release/OrganicMaps-*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove CI release signing material
+        if: always() && matrix.verify_in_car == true
+        shell: bash
+        run: |
+          rm -f \
+            android/app/secure.properties \
+            "${RUNNER_TEMP}/in-car-ci-release.keystore" \
+            "${RUNNER_TEMP}/in-car-ci-keytool.txt"
 
       - name: Compile Wear Google Debug
         if: matrix.flavor == 'WebDebug'
