@@ -16,6 +16,9 @@ on:
       - android/tools/resolve_in_car_release_version.py
       - android/tools/tests/test_resolve_in_car_release_version.py
 
+permissions:
+  contents: read
+
 jobs:
   version-resolver:
     name: Verify InCar release version resolver
@@ -23,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Compile resolver
         shell: bash
