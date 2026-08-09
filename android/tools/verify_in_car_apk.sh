@@ -7,6 +7,8 @@ Usage: verify_in_car_apk.sh --apk PATH --expected-package PACKAGE [options]
 Options:
   --expected-version-name VALUE
   --expected-version-code VALUE
+  --expected-min-sdk VALUE       (default: 21)
+  --expected-target-sdk VALUE    (default: 36)
   --expected-cert-sha256 HEX
   --proof-dir PATH
   --summary-file PATH
@@ -76,19 +78,23 @@ normalise_sha256() {
   printf '%s' "$1" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]'
 }
 
-extract_signer_sha256() {
+extract_signer_sha256s() {
   local signer_output="$1"
-  local line
-  line="$(grep -i -m1 -E '^[[:space:]]*Signer #1 certificate SHA-256 digest:[[:space:]]*[0-9a-f:]+' "${signer_output}" || true)"
-  [[ -n "${line}" ]] || return 1
-  line="${line#*:}"
-  normalise_sha256 "${line}"
+  sed -nE \
+    -e 's/^[[:space:]]*Signer( #[0-9]+)? certificate SHA-256 digest:[[:space:]]*([0-9A-Fa-f:]+)[[:space:]]*$/\2/p' \
+    -e 's/^[[:space:]]*V[1-4] Signer:[[:space:]]*certificate SHA-256 digest:[[:space:]]*([0-9A-Fa-f:]+)[[:space:]]*$/\1/p' \
+    "${signer_output}" \
+    | tr -d ':' \
+    | tr '[:lower:]' '[:upper:]' \
+    | sort -u
 }
 
 apk=""
 expected_package=""
 expected_version_name=""
 expected_version_code=""
+expected_min_sdk="21"
+expected_target_sdk="36"
 expected_cert_sha256=""
 proof_dir=""
 summary_file=""
@@ -115,6 +121,16 @@ while [[ $# -gt 0 ]]; do
     --expected-version-code)
       require_value "$1" "${2:-}"
       expected_version_code="$2"
+      shift 2
+      ;;
+    --expected-min-sdk)
+      require_value "$1" "${2:-}"
+      expected_min_sdk="$2"
+      shift 2
+      ;;
+    --expected-target-sdk)
+      require_value "$1" "${2:-}"
+      expected_target_sdk="$2"
       shift 2
       ;;
     --expected-cert-sha256)
@@ -156,6 +172,12 @@ done
 if [[ "${signature_only}" != true ]]; then
   [[ -n "${expected_package}" ]] || fail "--expected-package is required unless --signature-only is used."
 fi
+if [[ ! "${expected_min_sdk}" =~ ^[0-9]+$ ]]; then
+  fail "Expected minSdk is not numeric: ${expected_min_sdk}"
+fi
+if [[ ! "${expected_target_sdk}" =~ ^[0-9]+$ ]]; then
+  fail "Expected targetSdk is not numeric: ${expected_target_sdk}"
+fi
 if [[ -n "${expected_cert_sha256}" && ! "${expected_cert_sha256}" =~ ^[0-9A-F]{64}$ ]]; then
   fail "Expected signer SHA-256 is not a 64-digit hexadecimal fingerprint."
 fi
@@ -173,16 +195,40 @@ if ! "${apksigner}" verify --verbose --print-certs "${apk}" > "${signer_output}"
   fail "APK signature verification failed."
 fi
 
-apk_cert_sha256="$(extract_signer_sha256 "${signer_output}" || true)"
-if [[ ! "${apk_cert_sha256}" =~ ^[0-9A-F]{64}$ ]]; then
-  cat "${signer_output}" >&2
-  fail "Unable to parse the APK signer SHA-256 fingerprint from apksigner output."
-fi
-if [[ -n "${expected_cert_sha256}" && "${apk_cert_sha256}" != "${expected_cert_sha256}" ]]; then
-  fail "APK signer ${apk_cert_sha256} does not match the expected release certificate ${expected_cert_sha256}."
+mapfile -t apk_cert_sha256s < <(extract_signer_sha256s "${signer_output}")
+for digest in "${apk_cert_sha256s[@]}"; do
+  if [[ ! "${digest}" =~ ^[0-9A-F]{64}$ ]]; then
+    cat "${signer_output}" >&2
+    fail "apksigner returned an invalid signer SHA-256 fingerprint: ${digest}"
+  fi
+done
+
+apk_cert_sha256=""
+if [[ -n "${expected_cert_sha256}" ]]; then
+  for digest in "${apk_cert_sha256s[@]}"; do
+    if [[ "${digest}" == "${expected_cert_sha256}" ]]; then
+      apk_cert_sha256="${digest}"
+      break
+    fi
+  done
+  if [[ -z "${apk_cert_sha256}" ]]; then
+    cat "${signer_output}" >&2
+    if [[ "${#apk_cert_sha256s[@]}" -eq 0 ]]; then
+      fail "Unable to parse a signer SHA-256 fingerprint from apksigner output for certificate continuity verification."
+    fi
+    fail "APK signer(s) ${apk_cert_sha256s[*]} do not match the expected release certificate ${expected_cert_sha256}."
+  fi
+elif [[ "${#apk_cert_sha256s[@]}" -eq 1 ]]; then
+  apk_cert_sha256="${apk_cert_sha256s[0]}"
+elif [[ "${#apk_cert_sha256s[@]}" -gt 1 ]]; then
+  apk_cert_sha256="multiple:${apk_cert_sha256s[*]}"
 fi
 
 if [[ "${signature_only}" == true ]]; then
+  if [[ -z "${apk_cert_sha256}" ]]; then
+    cat "${signer_output}" >&2
+    fail "APK signature is valid, but no signer SHA-256 fingerprint could be parsed."
+  fi
   printf 'Signer SHA-256: %s\n' "${apk_cert_sha256}"
   if [[ -n "${github_output}" ]]; then
     printf 'cert_sha256=%s\n' "${apk_cert_sha256}" >> "${github_output}"
@@ -206,6 +252,8 @@ unzip -Z1 "${apk}" > "${zip_list}" || fail "Unable to enumerate APK entries."
 package_name="$("${apkanalyzer}" manifest application-id "${apk}" | tr -d '\r')" || fail "Unable to read APK application id."
 version_name="$("${apkanalyzer}" manifest version-name "${apk}" | tr -d '\r')" || fail "Unable to read APK versionName."
 version_code="$("${apkanalyzer}" manifest version-code "${apk}" | tr -d '\r')" || fail "Unable to read APK versionCode."
+min_sdk="$("${apkanalyzer}" manifest min-sdk "${apk}" | tr -d '\r')" || fail "Unable to read APK minSdkVersion."
+target_sdk="$("${apkanalyzer}" manifest target-sdk "${apk}" | tr -d '\r')" || fail "Unable to read APK targetSdkVersion."
 
 [[ "${package_name}" == "${expected_package}" ]] || fail "Unexpected in-car package id: ${package_name:-not found}; expected ${expected_package}."
 if [[ -n "${expected_version_name}" && "${version_name}" != "${expected_version_name}" ]]; then
@@ -213,6 +261,12 @@ if [[ -n "${expected_version_name}" && "${version_name}" != "${expected_version_
 fi
 if [[ -n "${expected_version_code}" && "${version_code}" != "${expected_version_code}" ]]; then
   fail "Unexpected in-car versionCode: ${version_code:-not found}; expected ${expected_version_code}."
+fi
+if [[ "${min_sdk}" != "${expected_min_sdk}" ]]; then
+  fail "Unexpected in-car minSdkVersion: ${min_sdk:-not found}; expected ${expected_min_sdk}."
+fi
+if [[ "${target_sdk}" != "${expected_target_sdk}" ]]; then
+  fail "Unexpected in-car targetSdkVersion: ${target_sdk:-not found}; expected ${expected_target_sdk}."
 fi
 
 forbidden_manifest=(
@@ -274,6 +328,9 @@ mapfile -t abis < <(sed -n 's#^lib/\([^/]*\)/.*#\1#p' "${zip_list}" | sort -u)
 if [[ "${#abis[@]}" -ne 1 || "${abis[0]}" != 'arm64-v8a' ]]; then
   fail "Expected arm64-v8a-only in-car APK; found ABI(s): ${abis[*]:-none}"
 fi
+if ! grep -Fxq -- 'lib/arm64-v8a/liborganicmaps.so' "${zip_list}"; then
+  fail "Required native runtime library is missing: lib/arm64-v8a/liborganicmaps.so"
+fi
 
 apk_sha256="$(sha256sum "${apk}" | awk '{print toupper($1)}')" || fail "Unable to calculate APK SHA-256."
 
@@ -282,7 +339,11 @@ if [[ -n "${github_output}" ]]; then
     printf 'package_name=%s\n' "${package_name}"
     printf 'version_name=%s\n' "${version_name}"
     printf 'version_code=%s\n' "${version_code}"
-    printf 'cert_sha256=%s\n' "${apk_cert_sha256}"
+    printf 'min_sdk=%s\n' "${min_sdk}"
+    printf 'target_sdk=%s\n' "${target_sdk}"
+    if [[ -n "${apk_cert_sha256}" ]]; then
+      printf 'cert_sha256=%s\n' "${apk_cert_sha256}"
+    fi
     printf 'apk_sha256=%s\n' "${apk_sha256}"
   } >> "${github_output}"
 fi
@@ -294,8 +355,15 @@ if [[ -n "${summary_file}" ]]; then
     echo "- Package: \`${package_name}\`"
     echo "- versionName: \`${version_name}\`"
     echo "- versionCode: \`${version_code}\`"
+    echo "- minSdkVersion: \`${min_sdk}\`"
+    echo "- targetSdkVersion: \`${target_sdk}\`"
     echo '- ABI: `arm64-v8a` only'
-    echo "- Signer SHA-256: \`${apk_cert_sha256}\`"
+    echo '- Native runtime: `lib/arm64-v8a/liborganicmaps.so` present'
+    if [[ -n "${apk_cert_sha256}" ]]; then
+      echo "- Signer SHA-256: \`${apk_cert_sha256}\`"
+    else
+      echo '- APK signature: verified (`apksigner` fingerprint not required for this check)'
+    fi
     echo "- APK SHA-256: \`${apk_sha256}\`"
     echo '- Android Auto manifest/runtime: absent'
     echo '- Google Assistant bridge/runtime: absent'
@@ -310,5 +378,11 @@ printf 'Verified in-car APK: %s\n' "${apk}"
 printf 'Package: %s\n' "${package_name}"
 printf 'versionName: %s\n' "${version_name}"
 printf 'versionCode: %s\n' "${version_code}"
-printf 'Signer SHA-256: %s\n' "${apk_cert_sha256}"
+printf 'minSdkVersion: %s\n' "${min_sdk}"
+printf 'targetSdkVersion: %s\n' "${target_sdk}"
+if [[ -n "${apk_cert_sha256}" ]]; then
+  printf 'Signer SHA-256: %s\n' "${apk_cert_sha256}"
+else
+  printf 'APK signature: verified\n'
+fi
 printf 'APK SHA-256: %s\n' "${apk_sha256}"
