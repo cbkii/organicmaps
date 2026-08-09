@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Night keeps luminance low but preserves strong foreground/surface separation. -->
+  <color name="in_car_surface_base">#FF202124</color>
+  <color name="in_car_surface_raised">#FF2B2D30</color>
+  <color name="in_car_surface_overlay">#FF2B2D30</color>
+
+  <color name="in_car_text_primary">#FFF1F3F4</color>
+  <color name="in_car_text_secondary">#FFDADCE0</color>
+  <color name="in_car_text_hint">#FFBDC1C6</color>
+  <color name="in_car_disabled_foreground">#FF9AA0A6</color>
+  <color name="in_car_icon_primary">#FFF1F3F4</color>
+  <color name="in_car_icon_secondary">#FFBDC1C6</color>
+  <color name="in_car_divider">#FF80868B</color>
+
+  <color name="in_car_selection_accent">#FF4BB9E6</color>
+  <color name="in_car_selection_foreground">#FF202124</color>
+  <color name="in_car_action_primary">#FF4BB9E6</color>
+  <color name="in_car_action_primary_pressed">#FF3C9BBE</color>
+  <color name="in_car_action_disabled">#FF4A4D50</color>
+  <color name="in_car_destructive">#FFC5221F</color>
+  <color name="in_car_destructive_pressed">#FFA61B14</color>
+
+  <!-- Shared semantic tokens overridden only for the inCar night configuration. -->
+  <color name="text_light">@color/in_car_text_primary</color>
+  <color name="text_light_subtitle">@color/in_car_text_secondary</color>
+  <color name="text_light_hint">@color/in_car_text_hint</color>
+  <!-- Night's base theme uses these for inverse text, so they must remain dark. -->
+  <color name="text_dark">#FF202124</color>
+  <color name="text_dark_subtitle">#FF3C4043</color>
+  <!-- Fullscreen dialog chrome separately uses this token as a control foreground in night mode. -->
+  <color name="text_dark_hint">@color/in_car_text_hint</color>
+  <!-- Day aliases for legacy black tokens must not re-resolve through light night semantic colours. -->
+  <color name="black_secondary">#FF3C4043</color>
+  <color name="black_54">#FF3C4043</color>
+  <color name="black_38">#FF54585C</color>
+  <!-- Long-standing night theme attributes still address these white tokens directly. -->
+  <color name="white_secondary">@color/in_car_text_secondary</color>
+  <color name="white_54">@color/in_car_text_hint</color>
+
+  <color name="base_accent">@color/in_car_selection_accent</color>
+  <color name="base_accent_pressed">@color/in_car_action_primary_pressed</color>
+  <color name="base_accent_transparent">#334BB9E6</color>
+  <color name="icon_tint">@color/in_car_icon_primary</color>
+  <color name="icon_tint_light">@color/in_car_icon_secondary</color>
+  <color name="divider">@color/in_car_divider</color>
+
+  <color name="bg_window">@color/in_car_surface_base</color>
+  <color name="bg_cards">@color/in_car_surface_raised</color>
+  <color name="bg_panel">@color/in_car_surface_base</color>
+  <color name="bg_menu">@color/in_car_surface_overlay</color>
+
+  <color name="button_text">@color/in_car_text_primary</color>
+  <color name="button_text_disabled">@color/in_car_disabled_foreground</color>
+  <color name="button_accent_normal">@color/in_car_action_primary</color>
+  <color name="button_accent_pressed">@color/in_car_action_primary_pressed</color>
+  <color name="button_accent_disabled">@color/in_car_action_disabled</color>
+  <color name="button_accent_text">#FF202124</color>
+  <color name="button_accent_text_disabled">@color/in_car_text_hint</color>
+
+  <color name="button_red">@color/in_car_destructive</color>
+  <color name="button_red_normal">@color/in_car_destructive</color>
+  <color name="button_red_pressed">@color/in_car_destructive_pressed</color>
+  <color name="button_red_disabled">@color/in_car_action_disabled</color>
+  <color name="button_red_text">#FFFFFFFF</color>
+  <color name="button_red_text_disabled">@color/in_car_text_hint</color>
+
+  <color name="routing_button_tint">@color/in_car_icon_primary</color>
+  <color name="routing_button_activated_tint">@color/in_car_selection_foreground</color>
+  <color name="routing_tab_active_bg">@color/in_car_selection_accent</color>
+  <!-- Despite its legacy name, this token is the FAB backgroundTint; icons use ?iconTint. -->
+  <color name="routing_bottom_button_tint">@color/in_car_surface_raised</color>
+  <color name="routing_bottom_manage_route_background">@color/in_car_surface_raised</color>
+  <color name="routing_bottom_button_bg">@color/in_car_surface_raised</color>
+
+  <color name="material_calendar_surface_dark">@color/in_car_surface_raised</color>
+</resources>
