@@ -115,9 +115,11 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     title.setText(current.getTitle());
     final boolean primaryRouteTo = BuildConfig.IS_IN_CAR && current.getType() == ButtonType.ROUTE_TO;
     @AttrRes
-    final int tint = primaryRouteTo                                  ? R.attr.accentButtonTextColor
-                     : current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive
-                                                                       : R.attr.iconTint;
+    int tint = R.attr.iconTint;
+    if (primaryRouteTo)
+      tint = R.attr.accentButtonTextColor;
+    else if (current.getType() == ButtonType.BOOKMARK_DELETE)
+      tint = R.attr.iconTintActive;
     icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
 
     if (primaryRouteTo)
