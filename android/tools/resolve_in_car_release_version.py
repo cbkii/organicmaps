@@ -67,6 +67,8 @@ class Resolution:
     previous_tag: str
 
     def as_lines(self) -> tuple[str, ...]:
+        # Contract: manual-in-car-release.yml accepts exactly these output keys.
+        # Update its parser at the same time if this tuple changes.
         return (
             f"version={self.version.text}",
             f"version_code={self.version.version_code}",
