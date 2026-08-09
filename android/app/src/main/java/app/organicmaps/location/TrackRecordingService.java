@@ -244,7 +244,7 @@ public class TrackRecordingService extends Service implements LocationListener
   @Override
   public void onLocationUpdated(@NonNull Location location)
   {
-    Logger.i(TAG, "Location is being updated in Track Recording service");
+    Logger.d(TAG, "Location is being updated in Track Recording service");
 
     if (mWarningNotification)
     {
