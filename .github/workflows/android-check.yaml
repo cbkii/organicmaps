@@ -44,6 +44,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v6
 
+      - name: Verify InCar chrome contrast
+        shell: bash
+        run: python3 android/tools/verify_in_car_contrast.py
+
       - name: Lint
         shell: bash
         working-directory: android
