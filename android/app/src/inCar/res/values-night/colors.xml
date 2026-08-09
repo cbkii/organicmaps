@@ -14,6 +14,7 @@
   <color name="in_car_divider">#FF80868B</color>
 
   <color name="in_car_selection_accent">#FF4BB9E6</color>
+  <color name="in_car_selection_foreground">#FF202124</color>
   <color name="in_car_action_primary">#FF4BB9E6</color>
   <color name="in_car_action_primary_pressed">#FF3C9BBE</color>
   <color name="in_car_action_disabled">#FF4A4D50</color>
@@ -29,6 +30,7 @@
 
   <color name="base_accent">@color/in_car_selection_accent</color>
   <color name="base_accent_pressed">@color/in_car_action_primary_pressed</color>
+  <color name="base_accent_transparent">#334BB9E6</color>
   <color name="icon_tint">@color/in_car_icon_primary</color>
   <color name="icon_tint_light">@color/in_car_icon_secondary</color>
   <color name="divider">@color/in_car_divider</color>
@@ -54,8 +56,8 @@
   <color name="button_red_text_disabled">@color/in_car_text_hint</color>
 
   <color name="routing_button_tint">@color/in_car_icon_primary</color>
-  <color name="routing_button_activated_tint">@color/in_car_selection_accent</color>
-  <color name="routing_tab_active_bg">@color/in_car_surface_raised</color>
+  <color name="routing_button_activated_tint">@color/in_car_selection_foreground</color>
+  <color name="routing_tab_active_bg">@color/in_car_selection_accent</color>
   <color name="routing_bottom_button_tint">@color/in_car_surface_raised</color>
   <color name="routing_bottom_manage_route_background">@color/in_car_surface_raised</color>
   <color name="routing_bottom_button_bg">@color/in_car_surface_raised</color>
