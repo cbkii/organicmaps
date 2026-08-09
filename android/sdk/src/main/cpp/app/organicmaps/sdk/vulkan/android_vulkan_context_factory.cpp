@@ -29,6 +29,11 @@ void AndroidVulkanContextFactory::SetSurface(JNIEnv * env, jobject jsurface)
   }
 
   SetVulkanSurface();
+  if (!m_windowSurfaceValid)
+  {
+    ANativeWindow_release(m_nativeWindow);
+    m_nativeWindow = nullptr;
+  }
 }
 
 void AndroidVulkanContextFactory::SetVulkanSurface()
@@ -56,11 +61,22 @@ void AndroidVulkanContextFactory::SetVulkanSurface()
   if (statusCode != VK_SUCCESS)
   {
     LOG_ERROR_VK_CALL(vkGetPhysicalDeviceSurfaceSupportKHR, statusCode);
+    ResetVulkanSurface(false /* allowPipelineDump */);
     return;
   }
-  CHECK_EQUAL(supportsPresent, VK_TRUE, ());
+  if (supportsPresent != VK_TRUE)
+  {
+    LOG(LWARNING, ("Vulkan surface does not support presentation"));
+    ResetVulkanSurface(false /* allowPipelineDump */);
+    return;
+  }
 
-  CHECK(QuerySurfaceSize(), ());
+  if (!QuerySurfaceSize())
+  {
+    LOG(LWARNING, ("Failed to query Vulkan surface size"));
+    ResetVulkanSurface(false /* allowPipelineDump */);
+    return;
+  }
 
   if (m_drawContext)
     m_drawContext->SetSurface(m_surface, m_surfaceFormat, m_surfaceCapabilities);
@@ -86,14 +102,14 @@ void AndroidVulkanContextFactory::ResetSurface(bool allowPipelineDump)
 
 void AndroidVulkanContextFactory::ResetVulkanSurface(bool allowPipelineDump)
 {
-  if (!m_windowSurfaceValid)
-    return;
-
-  if (m_drawContext)
+  if (m_windowSurfaceValid && m_drawContext)
     m_drawContext->ResetSurface(allowPipelineDump);
 
-  vkDestroySurfaceKHR(m_vulkanInstance, m_surface, nullptr);
-  m_surface = 0;
+  if (m_surface != VK_NULL_HANDLE)
+  {
+    vkDestroySurfaceKHR(m_vulkanInstance, m_surface, nullptr);
+    m_surface = VK_NULL_HANDLE;
+  }
   m_windowSurfaceValid = false;
 }
 
