@@ -46,7 +46,9 @@ jobs:
 
       - name: Verify InCar chrome contrast
         shell: bash
-        run: python3 android/tools/verify_in_car_contrast.py
+        run: |
+          python3 -m py_compile android/tools/verify_in_car_contrast.py
+          python3 android/tools/verify_in_car_contrast.py
 
       - name: Lint
         shell: bash
