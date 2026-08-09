@@ -51,6 +51,8 @@ public class BaseMwmDialogFragment extends DialogFragment
       return;
 
     final Dialog dialog = getDialog();
+    // Keep this fallback for dialog fragments hosted by activities that do not install InCarVisuals' Mwm observer.
+    // fitDialog() is bounds-idempotent, so Mwm-hosted dialogs can safely reach it through both lifecycle paths.
     if (dialog != null)
       InCarVisuals.fitDialog(requireActivity(), dialog);
   }
