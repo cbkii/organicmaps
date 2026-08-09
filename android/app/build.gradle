@@ -439,7 +439,7 @@ tasks.register("prepareGoogleReleaseListing") {
     // Locales that exist in F-Droid listings but are not supported by Google Play.
     final googleUnsupportedLocales = ['as', 'bo', 'bs', 'jv', 'mai', 'mi', 'or', 'ug', 'uz']
     sourceFiles.each { File sourceFile ->
-      final locale = file.parentFile.getName()
+      final locale = sourceFile.parentFile.getName()
       if (locale in googleUnsupportedLocales)
         return
       final targetLocaleDir = new File(targetDir, locale)
