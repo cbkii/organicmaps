@@ -1,13 +1,16 @@
 package app.organicmaps.base;
 
 import android.app.Application;
+import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StyleRes;
 import androidx.fragment.app.DialogFragment;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
+import app.organicmaps.util.InCarVisuals;
 
 public class BaseMwmDialogFragment extends DialogFragment
 {
@@ -38,6 +41,32 @@ public class BaseMwmDialogFragment extends DialogFragment
     if (style != STYLE_NORMAL || theme != 0)
       // noinspection WrongConstant
       setStyle(style, theme);
+  }
+
+  @Override
+  public void onStart()
+  {
+    super.onStart();
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+
+    final Dialog dialog = getDialog();
+    // Keep this fallback for dialog fragments hosted by activities that do not install InCarVisuals' Mwm observer.
+    // fitDialog() is bounds-idempotent, so Mwm-hosted dialogs can safely reach it through both lifecycle paths.
+    if (dialog != null)
+      InCarVisuals.fitDialog(requireActivity(), dialog);
+  }
+
+  @Override
+  public void onStop()
+  {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final Dialog dialog = getDialog();
+      if (dialog != null)
+        InCarVisuals.releaseDialog(dialog);
+    }
+    super.onStop();
   }
 
   @NonNull

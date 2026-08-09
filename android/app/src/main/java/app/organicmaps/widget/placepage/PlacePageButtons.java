@@ -1,5 +1,8 @@
 package app.organicmaps.widget.placepage;
 
+import android.content.res.ColorStateList;
+import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -7,15 +10,20 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.AttrRes;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.util.Graphics;
+import app.organicmaps.util.ThemeUtils;
 import app.organicmaps.util.WindowInsetUtils.PaddingInsetsListener;
 import app.organicmaps.util.bottomsheet.MenuBottomSheetFragment;
 import java.util.ArrayList;
@@ -44,7 +52,8 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
   {
     super.onViewCreated(view, savedInstanceState);
     mButtonsContainer = view.findViewById(R.id.container);
-    // Only bottom padding is required for the place-page buttons row.
+    // Only bottom padding is required for the place-page buttons row. InCar adds its visual baseline
+    // spacing inside the container, so this listener remains responsible only for the actual window inset.
     ViewCompat.setOnApplyWindowInsetsListener(
         view, PaddingInsetsListener.onlyBottom(WindowInsetsCompat.Type.systemBars()
                                                | WindowInsetsCompat.Type.displayCutout()));
@@ -110,9 +119,24 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     TextView title = parent.findViewById(R.id.title);
 
     title.setText(current.getTitle());
-    @AttrRes
-    final int tint = current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive : R.attr.iconTint;
-    icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
+    final boolean primaryRouteTo = BuildConfig.IS_IN_CAR && current.getType() == ButtonType.ROUTE_TO;
+    final ColorStateList primaryColors = primaryRouteTo ? resolveColorStateList(R.attr.accentButtonTextColor) : null;
+    if (primaryRouteTo && primaryColors != null)
+      icon.setImageDrawable(tintDrawable(current.getIcon(), primaryColors));
+    else
+    {
+      @AttrRes
+      final int tint = current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive : R.attr.iconTint;
+      icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
+    }
+
+    if (primaryRouteTo)
+    {
+      parent.setBackgroundResource(ThemeUtils.getResource(requireContext(), R.attr.primaryButtonBackground));
+      if (primaryColors != null)
+        title.setTextColor(primaryColors);
+    }
+
     parent.setOnClickListener((view) -> {
       if (current.getType() == ButtonType.MORE)
         showMoreBottomSheet();
@@ -120,6 +144,31 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
         mItemListener.onPlacePageButtonClick(current.getType());
     });
     return parent;
+  }
+
+  @Nullable
+  private ColorStateList resolveColorStateList(@AttrRes int attr)
+  {
+    final TypedArray values = requireContext().obtainStyledAttributes(new int[] {attr});
+    try
+    {
+      return values.getColorStateList(0);
+    }
+    finally
+    {
+      values.recycle();
+    }
+  }
+
+  @Nullable
+  private Drawable tintDrawable(@DrawableRes int resId, @NonNull ColorStateList colors)
+  {
+    final Drawable drawable = AppCompatResources.getDrawable(requireContext(), resId);
+    if (drawable == null)
+      return null;
+    final Drawable tinted = DrawableCompat.wrap(drawable).mutate();
+    DrawableCompat.setTintList(tinted, colors);
+    return tinted;
   }
 
   @Override

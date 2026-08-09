@@ -6,6 +6,12 @@
   <dimen name="in_car_zoom_button_icon_size">38dp</dimen>
   <dimen name="in_car_button_min_touch_target">56dp</dimen>
 
+  <!-- Compact in-car dimensions keep 48dp touch targets while returning map space to constrained windows. -->
+  <dimen name="in_car_compact_map_button_size">48dp</dimen>
+  <dimen name="in_car_compact_map_button_icon_size">32dp</dimen>
+  <dimen name="in_car_compact_zoom_button_icon_size">34dp</dimen>
+  <dimen name="in_car_compact_button_min_touch_target">48dp</dimen>
+
   <!-- Normal values mirror the current XML so runtime toggling can cleanly revert. -->
   <dimen name="routing_action_button_size">40dp</dimen>
   <dimen name="routing_action_button_icon_size">28dp</dimen>
@@ -14,10 +20,29 @@
   <dimen name="in_car_routing_action_button_size">48dp</dimen>
   <dimen name="in_car_routing_action_button_icon_size">32dp</dimen>
   <dimen name="in_car_routing_toolbar_cell_height">48dp</dimen>
-  <dimen name="in_car_routing_close_button_size">40dp</dimen>
+  <dimen name="in_car_routing_close_button_size">52dp</dimen>
+
+  <dimen name="in_car_compact_routing_action_button_size">48dp</dimen>
+  <dimen name="in_car_compact_routing_action_button_icon_size">30dp</dimen>
+  <dimen name="in_car_compact_routing_toolbar_cell_height">48dp</dimen>
 
   <dimen name="in_car_nav_icon_size">56dp</dimen>
   <dimen name="in_car_nav_button_height">48dp</dimen>
   <dimen name="in_car_nav_stop_min_width">112dp</dimen>
   <dimen name="in_car_nav_menu_content_height">72dp</dimen>
+
+  <dimen name="in_car_compact_nav_icon_size">48dp</dimen>
+  <dimen name="in_car_compact_nav_button_height">48dp</dimen>
+  <dimen name="in_car_compact_nav_stop_min_width">96dp</dimen>
+  <dimen name="in_car_compact_nav_menu_content_height">60dp</dimen>
+
+  <!-- Close controls are mandatory InCar usability, independent of the optional optimised-visuals toggle. -->
+  <dimen name="in_car_place_page_close_button_size">52dp</dimen>
+  <dimen name="in_car_compact_close_button_size">48dp</dimen>
+  <dimen name="in_car_close_icon_size">30dp</dimen>
+  <dimen name="in_car_compact_close_icon_size">28dp</dimen>
+
+  <!-- Keep floating dialogs inside reduced TS18/vendor windows without affecting normal flavours. -->
+  <dimen name="in_car_dialog_window_margin">16dp</dimen>
+  <dimen name="in_car_dialog_max_width">560dp</dimen>
 </resources>
