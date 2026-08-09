@@ -43,14 +43,12 @@ public class InCarVisualsTest
   @Test
   public void invalidWidthFallsBackToFull()
   {
-    assertEquals(InCarVisuals.WindowProfile.FULL,
-                 InCarVisuals.classifyWindow(0, InCarVisuals.COMPACT_HEIGHT_DP - 1));
+    assertEquals(InCarVisuals.WindowProfile.FULL, InCarVisuals.classifyWindow(0, InCarVisuals.COMPACT_HEIGHT_DP - 1));
   }
 
   @Test
   public void invalidHeightFallsBackToFull()
   {
-    assertEquals(InCarVisuals.WindowProfile.FULL,
-                 InCarVisuals.classifyWindow(InCarVisuals.COMPACT_WIDTH_DP - 1, 0));
+    assertEquals(InCarVisuals.WindowProfile.FULL, InCarVisuals.classifyWindow(InCarVisuals.COMPACT_WIDTH_DP - 1, 0));
   }
 }
