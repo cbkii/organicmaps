@@ -31,8 +31,7 @@ public class InCarVisualsTest
   public void compactBothBelowThresholds()
   {
     assertEquals(InCarVisuals.WindowProfile.COMPACT_BOTH,
-                 InCarVisuals.classifyWindow(InCarVisuals.COMPACT_WIDTH_DP - 1,
-                                             InCarVisuals.COMPACT_HEIGHT_DP - 1));
+                 InCarVisuals.classifyWindow(InCarVisuals.COMPACT_WIDTH_DP - 1, InCarVisuals.COMPACT_HEIGHT_DP - 1));
   }
 
   @Test
