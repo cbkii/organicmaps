@@ -108,6 +108,17 @@ public final class InCarVisuals
                   fitDialog(activity, dialog);
               }
             }
+
+            @Override
+            public void onFragmentStopped(@NonNull FragmentManager fm, @NonNull Fragment fragment)
+            {
+              if (fragment instanceof DialogFragment dialogFragment)
+              {
+                final Dialog dialog = dialogFragment.getDialog();
+                if (dialog != null)
+                  releaseDialog(dialog);
+              }
+            }
           },
           true);
     }
@@ -126,7 +137,7 @@ public final class InCarVisuals
     if (attributes.width == ViewGroup.LayoutParams.MATCH_PARENT
         && attributes.height == ViewGroup.LayoutParams.MATCH_PARENT)
     {
-      clearDialogFit(dialog);
+      releaseDialog(dialog);
       return;
     }
 
@@ -181,6 +192,14 @@ public final class InCarVisuals
     decor.getViewTreeObserver().addOnPreDrawListener(measureListener);
   }
 
+  @UiThread
+  public static void releaseDialog(@NonNull Dialog dialog)
+  {
+    final DialogFitState state = DIALOG_FITS.remove(dialog);
+    if (state != null)
+      clearPendingDialogFit(state);
+  }
+
   private static void verifyClampedDialog(@NonNull Dialog dialog, @NonNull Window window, @NonNull View decor,
                                           @NonNull DialogFitState state, int targetWidth, int availableHeight)
   {
@@ -204,13 +223,6 @@ public final class InCarVisuals
     state.decor = decor;
     state.pendingPreDraw = verificationListener;
     decor.getViewTreeObserver().addOnPreDrawListener(verificationListener);
-  }
-
-  private static void clearDialogFit(@NonNull Dialog dialog)
-  {
-    final DialogFitState state = DIALOG_FITS.remove(dialog);
-    if (state != null)
-      clearPendingDialogFit(state);
   }
 
   private static void clearPendingDialogFit(@NonNull DialogFitState state)
@@ -337,8 +349,11 @@ public final class InCarVisuals
   private static void applyMapButtons(@NonNull Activity activity, @NonNull View scope, boolean enabled,
                                       @NonNull WindowProfile profile)
   {
-    final View root = scope.findViewById(R.id.map_buttons);
-    if (root == null)
+    final View mapButtonsContainer = scope.findViewById(R.id.map_buttons);
+    final View root = mapButtonsContainer != null ? mapButtonsContainer : scope;
+    // MapButtonsController replaces the FragmentContainerView child at runtime. Its fragment root does not carry
+    // the map_buttons id, so recognise that subtree by the inner-right frame shared by both map-button layouts.
+    if (root.findViewById(R.id.map_buttons_inner_right) == null)
       return;
 
     final boolean compact = isCompact(profile);
