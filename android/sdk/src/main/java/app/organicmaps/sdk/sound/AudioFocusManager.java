@@ -43,7 +43,7 @@ final class AudioFocusManager
     mOnAudioFocusLost = onAudioFocusLost;
     // The direct-display in-car build is an ordinary app, not the platform-wide telephony/audio owner.
     // Keep navigation focus/attributes but leave global AudioManager mode under the head unit's authority.
-    mManageAudioMode = !Config.getApplicationId().endsWith(".incar");
+    mManageAudioMode = !Config.getApplicationId().contains(".incar");
     // Keep in sync with AUDIO_ATTRIBUTES above.
     final AudioAttributesCompat audioAttributesCompat =
         new AudioAttributesCompat.Builder()
