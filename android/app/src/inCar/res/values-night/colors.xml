@@ -4,7 +4,6 @@
   <color name="in_car_surface_base">#FF202124</color>
   <color name="in_car_surface_raised">#FF2B2D30</color>
   <color name="in_car_surface_overlay">#FF2B2D30</color>
-  <color name="in_car_inverse_surface">#FFF1F3F4</color>
 
   <color name="in_car_text_primary">#FFF1F3F4</color>
   <color name="in_car_text_secondary">#FFDADCE0</color>
