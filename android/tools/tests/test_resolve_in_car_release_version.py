@@ -67,6 +67,14 @@ class ResolveInCarReleaseVersionTest(unittest.TestCase):
         result = resolver.resolve("in-car-v0.1.0", "v1.2.3", "patch")
         self.assertEqual("1.2.3", result.version.text)
 
+    def test_output_keys_match_workflow_contract(self) -> None:
+        result = resolver.resolve("in-car-v0.1.0", "2026.08.09", "patch")
+        keys = [line.split("=", 1)[0] for line in result.as_lines()]
+        self.assertEqual(
+            ["version", "version_code", "version_name", "tag", "previous_tag"],
+            keys,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
