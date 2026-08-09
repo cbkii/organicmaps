@@ -1,0 +1,38 @@
+name: Manual In-Car Release Check
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/manual-in-car-release.yml
+      - .github/workflows/manual-in-car-release-check.yml
+      - android/tools/resolve_in_car_release_version.py
+      - android/tools/tests/test_resolve_in_car_release_version.py
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/manual-in-car-release.yml
+      - .github/workflows/manual-in-car-release-check.yml
+      - android/tools/resolve_in_car_release_version.py
+      - android/tools/tests/test_resolve_in_car_release_version.py
+
+permissions:
+  contents: read
+
+jobs:
+  version-resolver:
+    name: Verify InCar release version resolver
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Compile resolver
+        shell: bash
+        run: python3 -m py_compile android/tools/resolve_in_car_release_version.py
+
+      - name: Test resolver
+        shell: bash
+        run: python3 -X dev -W default android/tools/tests/test_resolve_in_car_release_version.py
