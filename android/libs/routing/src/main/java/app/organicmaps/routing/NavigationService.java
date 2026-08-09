@@ -17,6 +17,8 @@ import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.SystemClock;
+import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
@@ -48,6 +50,7 @@ public class NavigationService extends Service implements LocationListener
 
   private static final String CHANNEL_ID = "NAVIGATION";
   private static final int NOTIFICATION_ID = 12345678;
+  private static final long NOTIFICATION_UPDATE_INTERVAL_MS = 1000;
 
   private static OrganicMaps sOrganicMaps;
   @Nullable
@@ -67,6 +70,12 @@ public class NavigationService extends Service implements LocationListener
   private int mLastTurnResId;
   @Nullable
   private Bitmap mLastTurnBitmap;
+
+  private boolean mHasPublishedNavigationUpdate;
+  private long mLastNotificationUpdateTimeMs;
+  private int mLastNotificationTurnResId;
+  @Nullable
+  private String mLastNotificationStreet;
 
   public static void setOrganicMaps(@NonNull OrganicMaps organicMaps)
   {
@@ -185,6 +194,10 @@ public class NavigationService extends Service implements LocationListener
     Logger.i(TAG);
 
     mNotificationBuilder = null;
+    mHasPublishedNavigationUpdate = false;
+    mLastNotificationUpdateTimeMs = 0;
+    mLastNotificationTurnResId = 0;
+    mLastNotificationStreet = null;
     sOrganicMaps.getLocationHelper().removeListener(this);
     TtsPlayer.INSTANCE.stop();
 
@@ -267,6 +280,25 @@ public class NavigationService extends Service implements LocationListener
     return null;
   }
 
+  private boolean shouldPublishNavigationUpdate(int turnResId, @Nullable String nextStreet, long nowMs)
+  {
+    if (!mHasPublishedNavigationUpdate)
+      return true;
+
+    if (turnResId != mLastNotificationTurnResId || !TextUtils.equals(nextStreet, mLastNotificationStreet))
+      return true;
+
+    return nowMs - mLastNotificationUpdateTimeMs >= NOTIFICATION_UPDATE_INTERVAL_MS;
+  }
+
+  private void recordPublishedNavigationUpdate(int turnResId, @Nullable String nextStreet, long nowMs)
+  {
+    mHasPublishedNavigationUpdate = true;
+    mLastNotificationUpdateTimeMs = nowMs;
+    mLastNotificationTurnResId = turnResId;
+    mLastNotificationStreet = nextStreet;
+  }
+
   @Override
   @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
   public void onLocationUpdated(@NonNull Location location)
@@ -306,11 +338,15 @@ public class NavigationService extends Service implements LocationListener
         && ActivityCompat.checkSelfPermission(this, POST_NOTIFICATIONS) != PERMISSION_GRANTED)
       return;
 
+    final int turnResId = routingInfo.carDirection.getTurnRes(routingInfo.exitNum);
+    final long nowMs = SystemClock.elapsedRealtime();
+    if (!shouldPublishNavigationUpdate(turnResId, routingInfo.nextStreet, nowMs))
+      return;
+
     final NotificationCompat.Builder notificationBuilder = getNotificationBuilder(this)
                                                                .setContentTitle(routingInfo.distToTurn.toString(this))
                                                                .setContentText(routingInfo.nextStreet);
 
-    final int turnResId = routingInfo.carDirection.getTurnRes(routingInfo.exitNum);
     if (turnResId != mLastTurnResId || mLastTurnBitmap == null)
     {
       final Drawable drawable = AppCompatResources.getDrawable(this, turnResId);
@@ -329,7 +365,8 @@ public class NavigationService extends Service implements LocationListener
     if (sCarNotificationExtender != null)
       notificationBuilder.extend(sCarNotificationExtender);
 
-    // The notification object must be re-created for every update.
+    // The notification object must be re-created for every published update.
     NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notificationBuilder.build());
+    recordPublishedNavigationUpdate(turnResId, routingInfo.nextStreet, nowMs);
   }
 }
