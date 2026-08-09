@@ -14,8 +14,10 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.util.Graphics;
+import app.organicmaps.util.ThemeUtils;
 import app.organicmaps.util.WindowInsetUtils.PaddingInsetsListener;
 import app.organicmaps.util.bottomsheet.MenuBottomSheetFragment;
 import java.util.ArrayList;
@@ -44,7 +46,8 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
   {
     super.onViewCreated(view, savedInstanceState);
     mButtonsContainer = view.findViewById(R.id.container);
-    // Only bottom padding is required for the place-page buttons row.
+    // Only bottom padding is required for the place-page buttons row. InCar adds its visual baseline
+    // spacing inside the container, so this listener remains responsible only for the actual window inset.
     ViewCompat.setOnApplyWindowInsetsListener(
         view, PaddingInsetsListener.onlyBottom(WindowInsetsCompat.Type.systemBars()
                                                | WindowInsetsCompat.Type.displayCutout()));
@@ -110,9 +113,19 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     TextView title = parent.findViewById(R.id.title);
 
     title.setText(current.getTitle());
+    final boolean primaryRouteTo = BuildConfig.IS_IN_CAR && current.getType() == ButtonType.ROUTE_TO;
     @AttrRes
-    final int tint = current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive : R.attr.iconTint;
+    final int tint = primaryRouteTo ? R.attr.accentButtonTextColor
+                                    : current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive
+                                                                                     : R.attr.iconTint;
     icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
+
+    if (primaryRouteTo)
+    {
+      parent.setBackgroundResource(ThemeUtils.getResource(requireContext(), R.attr.primaryButtonBackground));
+      title.setTextColor(ThemeUtils.getColor(requireContext(), R.attr.accentButtonTextColor));
+    }
+
     parent.setOnClickListener((view) -> {
       if (current.getType() == ButtonType.MORE)
         showMoreBottomSheet();
