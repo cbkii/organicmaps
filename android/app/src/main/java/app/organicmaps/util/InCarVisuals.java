@@ -5,14 +5,20 @@ import android.app.Dialog;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.WebView;
+import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ScrollView;
+import androidx.annotation.DimenRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -33,6 +39,7 @@ public final class InCarVisuals
   static final int COMPACT_HEIGHT_DP = 480;
 
   private static final Map<FragmentActivity, Observation> OBSERVATIONS = new WeakHashMap<>();
+  private static final Map<Dialog, DialogFitState> DIALOG_FITS = new WeakHashMap<>();
 
   @VisibleForTesting
   enum WindowProfile {
@@ -49,6 +56,16 @@ public final class InCarVisuals
     boolean optimisedVisuals;
     int width = -1;
     int height = -1;
+  }
+
+  private static final class DialogFitState
+  {
+    int targetWidth = -1;
+    int availableHeight = -1;
+    @Nullable
+    View decor;
+    @Nullable
+    ViewTreeObserver.OnPreDrawListener pendingPreDraw;
   }
 
   private InCarVisuals() {}
@@ -68,7 +85,7 @@ public final class InCarVisuals
       {
         content.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
           if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
-            v.post(() -> applyForCurrentBounds(activity, state, false));
+            v.post(() -> applyForCurrentBounds(activity, state));
         });
       }
 
@@ -78,7 +95,7 @@ public final class InCarVisuals
             public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment,
                                               @NonNull View view, @Nullable Bundle savedInstanceState)
             {
-              applyForCurrentBounds(activity, state, true);
+              applyToFragmentView(activity, state, view);
             }
 
             @Override
@@ -95,7 +112,7 @@ public final class InCarVisuals
           true);
     }
 
-    applyForCurrentBounds(activity, observation, true);
+    applyForCurrentBounds(activity, observation);
   }
 
   @UiThread
@@ -108,7 +125,10 @@ public final class InCarVisuals
     final WindowManager.LayoutParams attributes = window.getAttributes();
     if (attributes.width == ViewGroup.LayoutParams.MATCH_PARENT
         && attributes.height == ViewGroup.LayoutParams.MATCH_PARENT)
+    {
+      clearDialogFit(dialog);
       return;
+    }
 
     final View content = activity.findViewById(android.R.id.content);
     if (content == null || content.getWidth() <= 0 || content.getHeight() <= 0)
@@ -121,27 +141,135 @@ public final class InCarVisuals
       return;
 
     final int targetWidth = Math.min(availableWidth, dimen(activity, R.dimen.in_car_dialog_max_width));
+    DialogFitState fitState = DIALOG_FITS.get(dialog);
+    if (fitState == null)
+    {
+      fitState = new DialogFitState();
+      DIALOG_FITS.put(dialog, fitState);
+    }
+
+    if (fitState.targetWidth == targetWidth && fitState.availableHeight == availableHeight)
+      return;
+
+    clearPendingDialogFit(fitState);
+    fitState.targetWidth = targetWidth;
+    fitState.availableHeight = availableHeight;
+
+    // First measure the dialog at its target width and natural height. Height is only clamped when the
+    // resulting layout contains a vertical scroll surface; otherwise fail open rather than silently clipping.
     window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
-
     final View decor = window.getDecorView();
-    decor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+    fitState.decor = decor;
+    final DialogFitState state = fitState;
+    final ViewTreeObserver.OnPreDrawListener measureListener = new ViewTreeObserver.OnPreDrawListener() {
       @Override
-      public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop,
-                                 int oldRight, int oldBottom)
+      public boolean onPreDraw()
       {
-        v.removeOnLayoutChangeListener(this);
-        if (!dialog.isShowing())
-          return;
+        clearPendingDialogFit(state);
+        if (!dialog.isShowing() || state.targetWidth != targetWidth || state.availableHeight != availableHeight)
+          return true;
 
-        final int height = bottom - top;
-        if (height > availableHeight)
-          v.post(() -> window.setLayout(targetWidth, availableHeight));
+        if (decor.getHeight() <= availableHeight || !hasPotentialVerticalScroll(decor))
+          return true;
+
+        window.setLayout(targetWidth, availableHeight);
+        verifyClampedDialog(dialog, window, decor, state, targetWidth, availableHeight);
+        return false;
       }
-    });
+    };
+    state.pendingPreDraw = measureListener;
+    decor.getViewTreeObserver().addOnPreDrawListener(measureListener);
   }
 
-  private static void applyForCurrentBounds(@NonNull FragmentActivity activity, @NonNull Observation observation,
-                                            boolean force)
+  private static void verifyClampedDialog(@NonNull Dialog dialog, @NonNull Window window, @NonNull View decor,
+                                          @NonNull DialogFitState state, int targetWidth, int availableHeight)
+  {
+    final ViewTreeObserver.OnPreDrawListener verificationListener = new ViewTreeObserver.OnPreDrawListener() {
+      @Override
+      public boolean onPreDraw()
+      {
+        clearPendingDialogFit(state);
+        if (!dialog.isShowing() || state.targetWidth != targetWidth || state.availableHeight != availableHeight)
+          return true;
+
+        if (hasActiveVerticalScroll(decor))
+          return true;
+
+        // The fixed-height layout did not expose a working vertical scroll path. Revert to the natural height
+        // rather than leave any content or action row silently unreachable in a reduced vendor window.
+        window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
+        return false;
+      }
+    };
+    state.decor = decor;
+    state.pendingPreDraw = verificationListener;
+    decor.getViewTreeObserver().addOnPreDrawListener(verificationListener);
+  }
+
+  private static void clearDialogFit(@NonNull Dialog dialog)
+  {
+    final DialogFitState state = DIALOG_FITS.remove(dialog);
+    if (state != null)
+      clearPendingDialogFit(state);
+  }
+
+  private static void clearPendingDialogFit(@NonNull DialogFitState state)
+  {
+    if (state.decor != null && state.pendingPreDraw != null)
+    {
+      final ViewTreeObserver observer = state.decor.getViewTreeObserver();
+      if (observer.isAlive())
+        observer.removeOnPreDrawListener(state.pendingPreDraw);
+    }
+    state.decor = null;
+    state.pendingPreDraw = null;
+  }
+
+  private static boolean hasPotentialVerticalScroll(@NonNull View view)
+  {
+    if (view instanceof ScrollView || view instanceof NestedScrollView || view instanceof AbsListView
+        || view instanceof WebView || view.isScrollContainer())
+      return true;
+
+    if (!(view instanceof ViewGroup group))
+      return false;
+    for (int i = 0; i < group.getChildCount(); ++i)
+    {
+      if (hasPotentialVerticalScroll(group.getChildAt(i)))
+        return true;
+    }
+    return false;
+  }
+
+  private static boolean hasActiveVerticalScroll(@NonNull View view)
+  {
+    if (view.canScrollVertically(-1) || view.canScrollVertically(1))
+      return true;
+
+    if (!(view instanceof ViewGroup group))
+      return false;
+    for (int i = 0; i < group.getChildCount(); ++i)
+    {
+      if (hasActiveVerticalScroll(group.getChildAt(i)))
+        return true;
+    }
+    return false;
+  }
+
+  private static void applyToFragmentView(@NonNull FragmentActivity activity, @NonNull Observation observation,
+                                          @NonNull View view)
+  {
+    final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
+    if (observation.profile == null || optimisedVisuals != observation.optimisedVisuals)
+    {
+      applyForCurrentBounds(activity, observation);
+      return;
+    }
+
+    apply(activity, view, optimisedVisuals, observation.profile);
+  }
+
+  private static void applyForCurrentBounds(@NonNull FragmentActivity activity, @NonNull Observation observation)
   {
     final View content = activity.findViewById(android.R.id.content);
     final int width = content == null ? 0 : content.getWidth();
@@ -150,17 +278,16 @@ public final class InCarVisuals
     final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
 
     final boolean boundsChanged = width != observation.width || height != observation.height;
-    final boolean controlsChanged =
-        force || profile != observation.profile || optimisedVisuals != observation.optimisedVisuals;
+    final boolean controlsChanged = profile != observation.profile || optimisedVisuals != observation.optimisedVisuals;
 
     observation.width = width;
     observation.height = height;
     observation.profile = profile;
     observation.optimisedVisuals = optimisedVisuals;
 
-    if (controlsChanged)
-      apply(activity, optimisedVisuals, profile);
-    if (force || boundsChanged)
+    if (controlsChanged && content != null)
+      apply(activity, content, optimisedVisuals, profile);
+    if (boundsChanged)
       fitVisibleDialogs(activity.getSupportFragmentManager(), activity);
   }
 
@@ -198,33 +325,33 @@ public final class InCarVisuals
     return profile != WindowProfile.FULL;
   }
 
-  private static void apply(@NonNull Activity activity, boolean enabled, @NonNull WindowProfile profile)
+  private static void apply(@NonNull Activity activity, @NonNull View scope, boolean enabled,
+                            @NonNull WindowProfile profile)
   {
-    applyMapButtons(activity, enabled, profile);
-    applyRoutingControls(activity, enabled, profile);
-    applyNavigationControls(activity, enabled, profile);
-    applyPlacePageControls(activity, profile);
+    applyMapButtons(activity, scope, enabled, profile);
+    applyRoutingControls(activity, scope, enabled, profile);
+    applyNavigationControls(activity, scope, enabled, profile);
+    applyPlacePageControls(activity, scope, profile);
   }
 
-  private static void applyMapButtons(@NonNull Activity activity, boolean enabled, @NonNull WindowProfile profile)
+  private static void applyMapButtons(@NonNull Activity activity, @NonNull View scope, boolean enabled,
+                                      @NonNull WindowProfile profile)
   {
-    final View root = activity.findViewById(R.id.map_buttons);
+    final View root = scope.findViewById(R.id.map_buttons);
     if (root == null)
       return;
 
     final boolean compact = isCompact(profile);
-    final int buttonSize =
-        dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_map_button_size : R.dimen.in_car_map_button_size)
-                                : R.dimen.map_button_size);
-    final int iconSize = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_map_button_icon_size
-                                                            : R.dimen.in_car_map_button_icon_size)
-                                                 : R.dimen.map_button_icon_size);
-    final int zoomIconSize = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_zoom_button_icon_size
-                                                                : R.dimen.in_car_zoom_button_icon_size)
-                                                     : R.dimen.map_button_icon_size);
-    final int minTouchTarget = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_button_min_touch_target
-                                                                  : R.dimen.in_car_button_min_touch_target)
-                                                       : R.dimen.map_button_size);
+    final int buttonSize = selectDimen(activity, enabled, compact, R.dimen.map_button_size,
+                                       R.dimen.in_car_map_button_size, R.dimen.in_car_compact_map_button_size);
+    final int iconSize = selectDimen(activity, enabled, compact, R.dimen.map_button_icon_size,
+                                     R.dimen.in_car_map_button_icon_size, R.dimen.in_car_compact_map_button_icon_size);
+    final int zoomIconSize = selectDimen(activity, enabled, compact, R.dimen.map_button_icon_size,
+                                         R.dimen.in_car_zoom_button_icon_size,
+                                         R.dimen.in_car_compact_zoom_button_icon_size);
+    final int minTouchTarget = selectDimen(activity, enabled, compact, R.dimen.map_button_size,
+                                           R.dimen.in_car_button_min_touch_target,
+                                           R.dimen.in_car_compact_button_min_touch_target);
 
     for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
@@ -234,30 +361,30 @@ public final class InCarVisuals
     resizeFab(root.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
   }
 
-  private static void applyRoutingControls(@NonNull Activity activity, boolean enabled, @NonNull WindowProfile profile)
+  private static void applyRoutingControls(@NonNull Activity activity, @NonNull View scope, boolean enabled,
+                                           @NonNull WindowProfile profile)
   {
-    final View root = activity.findViewById(R.id.routing_root);
+    final View root = scope.findViewById(R.id.routing_root);
     if (root == null)
       return;
 
     final boolean compact = isCompact(profile);
-    final int actionButtonSize = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_routing_action_button_size
-                                                                    : R.dimen.in_car_routing_action_button_size)
-                                                         : R.dimen.routing_action_button_size);
-    final int actionIconSize =
-        dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_routing_action_button_icon_size
-                                           : R.dimen.in_car_routing_action_button_icon_size)
-                                : R.dimen.routing_action_button_icon_size);
-    final int minTouchTarget = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_button_min_touch_target
-                                                                  : R.dimen.in_car_button_min_touch_target)
-                                                       : R.dimen.routing_action_button_size);
+    final int actionButtonSize = selectDimen(activity, enabled, compact, R.dimen.routing_action_button_size,
+                                             R.dimen.in_car_routing_action_button_size,
+                                             R.dimen.in_car_compact_routing_action_button_size);
+    final int actionIconSize = selectDimen(activity, enabled, compact, R.dimen.routing_action_button_icon_size,
+                                           R.dimen.in_car_routing_action_button_icon_size,
+                                           R.dimen.in_car_compact_routing_action_button_icon_size);
+    final int minTouchTarget = selectDimen(activity, enabled, compact, R.dimen.routing_action_button_size,
+                                           R.dimen.in_car_button_min_touch_target,
+                                           R.dimen.in_car_compact_button_min_touch_target);
 
     for (int id : new int[] {R.id.routing_btn_search, R.id.routing_btn_bookmarks, R.id.btn__save})
       resizeFab(root.findViewById(id), actionButtonSize, actionIconSize, minTouchTarget);
 
-    final int routerHeight = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_routing_toolbar_cell_height
-                                                                : R.dimen.in_car_routing_toolbar_cell_height)
-                                                     : R.dimen.routing_toolbar_cell_height);
+    final int routerHeight = selectDimen(activity, enabled, compact, R.dimen.routing_toolbar_cell_height,
+                                         R.dimen.in_car_routing_toolbar_cell_height,
+                                         R.dimen.in_car_compact_routing_toolbar_cell_height);
     for (int id : new int[] {R.id.vehicle, R.id.pedestrian, R.id.transit, R.id.bicycle, R.id.ruler})
       setViewHeight(root.findViewById(id), routerHeight);
 
@@ -267,22 +394,21 @@ public final class InCarVisuals
     root.requestLayout();
   }
 
-  private static void applyNavigationControls(@NonNull Activity activity, boolean enabled,
+  private static void applyNavigationControls(@NonNull Activity activity, @NonNull View scope, boolean enabled,
                                               @NonNull WindowProfile profile)
   {
-    final View root = activity.findViewById(R.id.nav_bottom_frame);
+    final View root = scope.findViewById(R.id.nav_bottom_frame);
     if (root == null)
       return;
 
     final boolean compact = isCompact(profile);
-    final int contentHeight = dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_nav_menu_content_height
-                                                                 : R.dimen.in_car_nav_menu_content_height)
-                                                      : R.dimen.nav_menu_content_height);
+    final int contentHeight = selectDimen(activity, enabled, compact, R.dimen.nav_menu_content_height,
+                                          R.dimen.in_car_nav_menu_content_height,
+                                          R.dimen.in_car_compact_nav_menu_content_height);
     setViewHeight(root.findViewById(R.id.content_frame), contentHeight);
 
-    final int iconHeight =
-        dimen(activity, enabled ? (compact ? R.dimen.in_car_compact_nav_icon_size : R.dimen.in_car_nav_icon_size)
-                                : R.dimen.nav_icon_size);
+    final int iconHeight = selectDimen(activity, enabled, compact, R.dimen.nav_icon_size, R.dimen.in_car_nav_icon_size,
+                                       R.dimen.in_car_compact_nav_icon_size);
     final ImageView tts = root.findViewById(R.id.tts_volume);
     final ImageView settings = root.findViewById(R.id.settings);
     setViewHeight(tts, iconHeight);
@@ -295,21 +421,20 @@ public final class InCarVisuals
     final Button stop = root.findViewById(R.id.stop);
     if (stop == null)
       return;
-    final int buttonHeight = dimen(
-        activity, enabled ? (compact ? R.dimen.in_car_compact_nav_button_height : R.dimen.in_car_nav_button_height)
-                          : R.dimen.nav_button_height);
-    final int stopMinWidth = dimen(
-        activity, enabled ? (compact ? R.dimen.in_car_compact_nav_stop_min_width : R.dimen.in_car_nav_stop_min_width)
-                          : R.dimen.start_button_width);
+    final int buttonHeight = selectDimen(activity, enabled, compact, R.dimen.nav_button_height,
+                                         R.dimen.in_car_nav_button_height, R.dimen.in_car_compact_nav_button_height);
+    final int stopMinWidth = selectDimen(activity, enabled, compact, R.dimen.start_button_width,
+                                         R.dimen.in_car_nav_stop_min_width, R.dimen.in_car_compact_nav_stop_min_width);
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
     stop.setMinWidth(stopMinWidth);
     root.requestLayout();
   }
 
-  private static void applyPlacePageControls(@NonNull Activity activity, @NonNull WindowProfile profile)
+  private static void applyPlacePageControls(@NonNull Activity activity, @NonNull View scope,
+                                             @NonNull WindowProfile profile)
   {
-    final MaterialButton close = activity.findViewById(R.id.close_button);
+    final MaterialButton close = scope.findViewById(R.id.close_button);
     if (close == null)
       return;
 
@@ -340,7 +465,13 @@ public final class InCarVisuals
     }
   }
 
-  private static int dimen(@NonNull Activity activity, int resId)
+  private static int selectDimen(@NonNull Activity activity, boolean enabled, boolean compact, @DimenRes int normal,
+                                 @DimenRes int inCar, @DimenRes int inCarCompact)
+  {
+    return dimen(activity, enabled ? (compact ? inCarCompact : inCar) : normal);
+  }
+
+  private static int dimen(@NonNull Activity activity, @DimenRes int resId)
   {
     return activity.getResources().getDimensionPixelSize(resId);
   }
