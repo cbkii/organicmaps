@@ -2,6 +2,7 @@ package app.organicmaps.widget.placepage;
 
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,8 +10,11 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.AttrRes;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
@@ -116,20 +120,21 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
 
     title.setText(current.getTitle());
     final boolean primaryRouteTo = BuildConfig.IS_IN_CAR && current.getType() == ButtonType.ROUTE_TO;
-    @AttrRes
-    int tint = R.attr.iconTint;
-    if (primaryRouteTo)
-      tint = R.attr.accentButtonTextColor;
-    else if (current.getType() == ButtonType.BOOKMARK_DELETE)
-      tint = R.attr.iconTintActive;
-    icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
+    final ColorStateList primaryColors = primaryRouteTo ? resolveColorStateList(R.attr.accentButtonTextColor) : null;
+    if (primaryRouteTo && primaryColors != null)
+      icon.setImageDrawable(tintDrawable(current.getIcon(), primaryColors));
+    else
+    {
+      @AttrRes
+      final int tint = current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive : R.attr.iconTint;
+      icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
+    }
 
     if (primaryRouteTo)
     {
       parent.setBackgroundResource(ThemeUtils.getResource(requireContext(), R.attr.primaryButtonBackground));
-      final ColorStateList textColors = resolveColorStateList(R.attr.accentButtonTextColor);
-      if (textColors != null)
-        title.setTextColor(textColors);
+      if (primaryColors != null)
+        title.setTextColor(primaryColors);
     }
 
     parent.setOnClickListener((view) -> {
@@ -153,6 +158,17 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     {
       values.recycle();
     }
+  }
+
+  @Nullable
+  private Drawable tintDrawable(@DrawableRes int resId, @NonNull ColorStateList colors)
+  {
+    final Drawable drawable = AppCompatResources.getDrawable(requireContext(), resId);
+    if (drawable == null)
+      return null;
+    final Drawable tinted = DrawableCompat.wrap(drawable).mutate();
+    DrawableCompat.setTintList(tinted, colors);
+    return tinted;
   }
 
   @Override
