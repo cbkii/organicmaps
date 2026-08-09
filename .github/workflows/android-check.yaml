@@ -71,6 +71,9 @@ jobs:
   android-check:
     name: Build Android Debug
     runs-on: ubuntu-latest
+    env:
+      CI_IN_CAR_RELEASE_VERSION: '0.0.0'
+      CI_IN_CAR_RELEASE_VERSION_CODE: '1000000000'
     strategy:
       fail-fast: false
       matrix:
@@ -244,8 +247,8 @@ jobs:
           export ORG_GRADLE_PROJECT_spropKeyPassword="${KEY_PASSWORD}"
           ./gradlew --no-daemon --stacktrace \
             -Parm64 \
-            -PinCarReleaseVersionName=0.0.0 \
-            -PinCarReleaseVersionCode=1000000000 \
+            -PinCarReleaseVersionName="${CI_IN_CAR_RELEASE_VERSION}" \
+            -PinCarReleaseVersionCode="${CI_IN_CAR_RELEASE_VERSION_CODE}" \
             assembleInCarRelease
 
       - name: Verify release-equivalent InCarRelease
@@ -264,8 +267,8 @@ jobs:
           bash android/tools/verify_in_car_apk.sh \
             --apk "${release_apks[0]}" \
             --expected-package app.organicmaps.incar \
-            --expected-version-name 0.0.0-InCar \
-            --expected-version-code 1000000000 \
+            --expected-version-name "${CI_IN_CAR_RELEASE_VERSION}-InCar" \
+            --expected-version-code "${CI_IN_CAR_RELEASE_VERSION_CODE}" \
             --expected-cert-sha256 "${{ steps.ci_release_signing.outputs.cert_sha256 }}" \
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
