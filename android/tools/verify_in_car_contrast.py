@@ -43,7 +43,7 @@ DAY_CHECKS = (
     ContrastCheck("primary CTA", "button_accent_text", "button_accent_normal", 5.5),
     ContrastCheck("pressed primary CTA", "button_accent_text", "button_accent_pressed", 5.5),
     ContrastCheck("destructive CTA", "button_red_text", "button_red_normal", 5.5),
-    ContrastCheck("selected routing icon", "routing_button_activated_tint", "bg_cards", 4.5),
+    ContrastCheck("selected routing mode", "routing_button_activated_tint", "routing_tab_active_bg", 5.0),
     ContrastCheck("light hint on primary chrome", "text_light_hint", "bg_primary", 4.5),
 )
 
@@ -58,7 +58,7 @@ NIGHT_CHECKS = (
     ContrastCheck("primary CTA", "button_accent_text", "button_accent_normal", 5.5),
     ContrastCheck("pressed primary CTA", "button_accent_text", "button_accent_pressed", 4.5),
     ContrastCheck("destructive CTA", "button_red_text", "button_red_normal", 5.5),
-    ContrastCheck("selected routing icon", "routing_button_activated_tint", "bg_cards", 4.5),
+    ContrastCheck("selected routing mode", "routing_button_activated_tint", "routing_tab_active_bg", 5.5),
 )
 
 OPAQUE_SURFACES = ("bg_window", "bg_cards", "bg_menu")
