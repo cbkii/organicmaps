@@ -270,14 +270,34 @@ public class StoragePathManager
     }
   }
 
+  private static boolean containsFileRecursively(@NonNull File dir, @NonNull FilenameFilter fileFilter)
+  {
+    final File[] list = dir.listFiles();
+    if (list == null)
+    {
+      Logger.w(TAG, "containsFileRecursively listFiles() returned null for " + dir.getPath());
+      return false;
+    }
+
+    for (File child : list)
+    {
+      if (child.isDirectory())
+      {
+        if (containsFileRecursively(child, fileFilter))
+          return true;
+      }
+      else if (child.length() > 0 && fileFilter.accept(dir, child.getName()))
+        return true;
+    }
+    return false;
+  }
+
   /**
    * Determine whether the storage contains map files.
    */
   private static boolean containsMapData(String storagePath)
   {
-    return StorageUtils.getDirSizeRecursively(new File(storagePath),
-                                              (dir, filename) -> filename.endsWith(DATA_FILE_EXT))
-  > 0;
+    return containsFileRecursively(new File(storagePath), (dir, filename) -> filename.endsWith(DATA_FILE_EXT));
   }
 
   /**
@@ -377,10 +397,9 @@ public class StoragePathManager
       if (!MapManager.nativeMoveFile(oldFiles[i].getPath(), newFiles[i].getPath()))
       {
         Logger.e(TAG, "Failed to move " + oldFiles[i].getPath() + " to " + newFiles[i].getPath());
-        // In the case of failure delete all new files.  Old files will
-        // be lost if new files were just moved from old locations.
-        // TODO: Delete old files only after all of them were copied to the new location.
-        StorageUtils.removeFilesInDirectory(newDir, newFiles);
+        // Keep files that were already moved to the destination. Deleting them here can destroy the only
+        // remaining copy after nativeMoveFile() has removed the corresponding source file.
+        Logger.w(TAG, "Leaving successfully moved destination files intact after partial move failure");
         return false;
       }
     }
