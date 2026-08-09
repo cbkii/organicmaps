@@ -1,5 +1,6 @@
 package app.organicmaps.maplayer;
 
+import app.organicmaps.BuildConfig;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.maplayer.Mode;
 import java.util.ArrayList;
@@ -14,7 +15,8 @@ public class LayersUtils
     availableLayers.add(Mode.ISOLINES);
     availableLayers.add(Mode.HIKING);
     availableLayers.add(Mode.CYCLING);
-    availableLayers.add(Mode.SUBWAY);
+    if (!BuildConfig.IS_IN_CAR)
+      availableLayers.add(Mode.SUBWAY);
     // The Satellite toggle is a quick on/off for an already-configured source; configuration lives in
     // Settings, so only offer the button once a server URL is set.
     if (!Framework.nativeGetBackgroundTilesUrl().isEmpty())

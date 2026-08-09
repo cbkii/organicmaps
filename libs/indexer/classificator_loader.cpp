@@ -53,6 +53,8 @@ VariantsT FamilyVariants(MapStyle style)
   case MapStyleVehicleDark: return {MapStyleVehicleLight, MapStyleVehicleDark};
   case MapStyleOutdoorsLight:
   case MapStyleOutdoorsDark: return {MapStyleOutdoorsLight, MapStyleOutdoorsDark};
+  case MapStyleInCarLight:
+  case MapStyleInCarDark: return {MapStyleInCarLight, MapStyleInCarDark};
   case MapStyleMerged: return {MapStyleMerged};
   case MapStyleCount: break;
   }

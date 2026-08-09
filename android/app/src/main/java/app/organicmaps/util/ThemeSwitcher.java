@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiContext;
 import androidx.appcompat.app.AppCompatDelegate;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.downloader.DownloaderStatusIcon;
 import app.organicmaps.sdk.Framework;
@@ -130,6 +131,8 @@ public enum ThemeSwitcher
 
   private MapStyle calculateMapStyle(boolean dark)
   {
+    if (BuildConfig.IS_IN_CAR && Config.isInCarOptimisedVisualsEnabled())
+      return dark ? MapStyle.InCarDark : MapStyle.InCarClear;
     if (RoutingController.get().isVehicleNavigation())
       return dark ? MapStyle.VehicleDark : MapStyle.VehicleClear;
     else if (Framework.nativeIsOutdoorsLayerEnabled())

@@ -33,10 +33,53 @@ def getVersion() {
     return new Tuple2(versionCode, versionName)
 }
 
+def inCarReleaseVersionName = findProperty('inCarReleaseVersionName')
+def inCarReleaseVersionCode = findProperty('inCarReleaseVersionCode')
+def requestedTaskNames = gradle.startParameter.taskNames.collect { it.toLowerCase() }
+
 rootProject.ext {
     def ver = getVersion()
-    versionCode = ver.V1
-    versionName = ver.V2
+    def hasInCarReleaseVersionName = inCarReleaseVersionName != null
+    def hasInCarReleaseVersionCode = inCarReleaseVersionCode != null
+
+    if (hasInCarReleaseVersionName != hasInCarReleaseVersionCode) {
+        throw new GradleException('inCarReleaseVersionName and inCarReleaseVersionCode must be supplied together')
+    }
+
+    if (hasInCarReleaseVersionName) {
+        def releasePackagingTasks = requestedTaskNames.findAll { task ->
+            task.contains('release') && ['assemble', 'bundle', 'package'].any { task.contains(it) }
+        }
+        def inCarReleaseTasks = releasePackagingTasks.findAll { it.contains('incar') }
+        def otherReleaseTasks = releasePackagingTasks.findAll { !it.contains('incar') }
+        if (inCarReleaseTasks.isEmpty() || !otherReleaseTasks.isEmpty()) {
+            throw new GradleException(
+                    'in-car release version overrides may only be used with InCar Release packaging tasks; ' +
+                    "conflicting release packaging tasks: ${otherReleaseTasks}")
+        }
+
+        def releaseVersionName = inCarReleaseVersionName.toString()
+        def releaseVersionCodeText = inCarReleaseVersionCode.toString()
+        if (!(releaseVersionName ==~ /(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)/)) {
+            throw new GradleException("Invalid inCarReleaseVersionName '${releaseVersionName}'; expected MAJOR.MINOR.PATCH")
+        }
+        if (!(releaseVersionCodeText ==~ /[0-9]+/)) {
+            throw new GradleException("Invalid inCarReleaseVersionCode '${releaseVersionCodeText}'; expected a positive integer")
+        }
+
+        def releaseVersionCode = Integer.parseInt(releaseVersionCodeText)
+        if (releaseVersionCode < 1 || releaseVersionCode > 2_100_000_000) {
+            throw new GradleException("inCarReleaseVersionCode ${releaseVersionCode} is outside Android's supported range")
+        }
+
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
+        println("In-car release version override: ${versionName} (${versionCode})")
+    } else {
+        versionCode = ver.V1
+        versionName = ver.V2
+    }
+
     appId = 'app.organicmaps'
     CI = System.getenv("CI") != null
 }

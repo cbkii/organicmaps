@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.base.BaseMwmFragmentActivity;
 import app.organicmaps.sdk.editor.Editor;
 import app.organicmaps.sdk.editor.data.FeatureCategory;
@@ -17,6 +18,8 @@ public class FeatureCategoryActivity
 
   public static void start(@NonNull Context context, double lat, double lon)
   {
+    if (BuildConfig.IS_IN_CAR)
+      return;
     context.startActivity(new Intent(context, FeatureCategoryActivity.class)
                               .putExtra(EXTRA_POSITION_LAT, lat)
                               .putExtra(EXTRA_POSITION_LON, lon));
@@ -31,6 +34,12 @@ public class FeatureCategoryActivity
   @Override
   public void onFeatureCategorySelected(FeatureCategory category)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      finish();
+      return;
+    }
+
     final Intent in = getIntent();
     final double lat = in.getDoubleExtra(EXTRA_POSITION_LAT, 0);
     final double lon = in.getDoubleExtra(EXTRA_POSITION_LON, 0);

@@ -70,11 +70,17 @@ abstract class CheckApkPermissions extends DefaultTask {
   }
 }
 
-ext.registerCheckApkPermissionsTasks = { Project project, List<String> allowedPermissions ->
+// allowedPermissions may be either a static list or a closure receiving the variant name and
+// returning that variant's exact expected permission list.
+ext.registerCheckApkPermissionsTasks = { Project project, allowedPermissions ->
   project.androidComponents.onVariants(project.androidComponents.selector().all()) { variant ->
     def variantName = variant.name
     def capitalizedVariantName = variantName.capitalize()
     def taskName = "check${capitalizedVariantName}ApkPermissions"
+    def variantAllowedPermissions = allowedPermissions instanceof Closure ?
+        allowedPermissions.call(variantName) : allowedPermissions
+    if (!(variantAllowedPermissions instanceof List))
+      throw new GradleException("Allowed permissions for ${variantName} must be a List")
 
     def singleArtifactApk = Class.forName(
         'com.android.build.api.artifact.SingleArtifact$APK',
@@ -88,7 +94,7 @@ ext.registerCheckApkPermissionsTasks = { Project project, List<String> allowedPe
 
       task.apkDirectory.set(apkArtifact)
       task.allowedPermissions = project.objects.listProperty(Pattern).value(
-          allowedPermissions.collect { it instanceof Pattern ? it : Pattern.compile(it) }
+          variantAllowedPermissions.collect { it instanceof Pattern ? it : Pattern.compile(it) }
       )
       task.aapt2Executable = project.androidComponents.sdkComponents.aapt2.get().executable.getAsFile()
     }

@@ -2,11 +2,12 @@
 def taskName = getGradle().getStartParameter().getTaskRequests().toString().toLowerCase()
 def isFdroid = taskName.contains('fdroid')
 def isBeta = taskName.contains('beta')
+def isInCar = taskName.contains('incar')
 
 // Firebase Crashlytics compile-time feature flag: -Pfirebase=true|false
 def googleFirebaseServicesFlag = findProperty('firebase')
-// Enable Firebase for all beta flavors except fdroid only if google-services.json exists.
-def googleFirebaseServicesDefault = isBeta && !isFdroid && file("$projectDir/google-services.json").exists()
+// Enable Firebase for all beta flavors except fdroid/in-car only if google-services.json exists.
+def googleFirebaseServicesDefault = isBeta && !isFdroid && !isInCar && file("$projectDir/google-services.json").exists()
 ext.googleFirebaseServicesEnabled = googleFirebaseServicesFlag != null ?
     googleFirebaseServicesFlag == '' || googleFirebaseServicesFlag.toBoolean() :
     googleFirebaseServicesDefault
@@ -66,6 +67,7 @@ android {
     println('VersionCode: ' + versionCode)
     applicationId rootProject.ext.appId
     buildConfigField 'String', 'SUPPORT_MAIL', '"android@organicmaps.app"'
+    buildConfigField 'boolean', 'IS_IN_CAR', 'false'
     // Should be customized in flavors.
     buildConfigField 'String', 'REVIEW_URL', '""'
     resourceConfigurations += [project.ext.supportedLocalizations]
@@ -108,6 +110,24 @@ android {
       buildConfigField 'String', 'SUPPORT_MAIL', '"huawei@organicmaps.app"'
       buildConfigField 'String', 'REVIEW_URL', '"appmarket://details?id=app.organicmaps"'
     }
+
+    inCar {
+      dimension 'default'
+      applicationIdSuffix '.incar'
+      versionName = android.defaultConfig.versionName + '-InCar'
+      buildConfigField 'String', 'SUPPORT_MAIL', '"apk@organicmaps.app"'
+      buildConfigField 'boolean', 'IS_IN_CAR', 'true'
+    }
+  }
+
+  // Keep the WorkManager-backed OSM upload implementation out of the inCar source set so the
+  // direct-display APK has no hard bytecode references to androidx.work.
+  sourceSets {
+    def workManagerSourceDir = 'src/withWorkManager/java'
+    google.java.srcDir workManagerSourceDir
+    web.java.srcDir workManagerSourceDir
+    fdroid.java.srcDir workManagerSourceDir
+    huawei.java.srcDir workManagerSourceDir
   }
 
   playConfigs {
@@ -240,15 +260,31 @@ dependencies {
   implementation project(':libs:api')
   implementation project(':libs:branding')
   implementation project(':libs:downloader')
-  implementation project(':libs:car')
-  implementation project(':libs:googleassistant')
   implementation project(':libs:routing')
   implementation project(':libs:utils')
 
   implementation project(':sdk')
-  implementation project(':sdk:car')
   implementation project(':sdk:widgets:lanes')
   implementation project(':sdk:widgets:speedlimit')
+
+  // Keep optional platform integrations on the compile classpath so shared source remains buildable,
+  // but only package them into the existing general-purpose flavours. The direct-display in-car build
+  // deliberately omits these runtime graphs and relies on R8 to remove unreachable shared entry points.
+  compileOnly project(':libs:car')
+  compileOnly project(':libs:googleassistant')
+  compileOnly project(':sdk:car')
+  compileOnly libs.androidx.car.app
+  compileOnly libs.androidx.car.app.projected
+
+  for (flavor in ['google', 'web', 'fdroid', 'huawei']) {
+    add("${flavor}Implementation", project(':libs:car'))
+    add("${flavor}Implementation", project(':libs:googleassistant'))
+    add("${flavor}Implementation", project(':sdk:car'))
+    add("${flavor}Implementation", libs.androidx.car.app)
+    add("${flavor}Implementation", libs.androidx.car.app.projected)
+    add("${flavor}Implementation", libs.androidx.work)
+  }
+
   // World maps
   googleImplementation project(':sdk:maps:world')
   huaweiImplementation project(':sdk:maps:world')
@@ -273,13 +309,10 @@ dependencies {
   implementation libs.androidx.core
   implementation libs.androidx.annotation
   implementation libs.androidx.appcompat
-  implementation libs.androidx.car.app
-  implementation libs.androidx.car.app.projected
   implementation libs.androidx.constraintlayout
   implementation libs.androidx.fragment
   implementation libs.androidx.preference
   implementation libs.androidx.recyclerview
-  implementation libs.androidx.work
   implementation libs.androidx.lifecycle
   implementation libs.google.material
   implementation libs.devnullorthrow.mpandroidchart
@@ -321,9 +354,28 @@ def allowedPermissions = [
     // app.organicmaps.(debug|beta|profileable)
     // app.organicmaps.web
     // app.organicmaps.web.(debug|beta|profileable)
-    ~/name='app\.organicmaps(\.web)?(\.debug|\.beta|\.profileable)?\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/
+    // app.organicmaps.incar
+    // app.organicmaps.incar.(debug|beta|profileable)
+    ~/name='app\.organicmaps(\.web|\.incar)?(\.debug|\.beta|\.profileable)?\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/
 ]
-registerCheckApkPermissionsTasks(project, allowedPermissions)
+
+// The direct-display inCar flavour deliberately omits Android Auto projected integration and
+// the WorkManager runtime graph. Keep the permission checker exact, but use the permission set
+// that this flavour is actually designed to package; ordinary app/storage permissions stay intact.
+def inCarExcludedPermissions = [
+    "name='androidx.car.app.NAVIGATION_TEMPLATES'",
+    "name='androidx.car.app.ACCESS_SURFACE'",
+    "name='android.permission.RECEIVE_BOOT_COMPLETED'",
+] as Set
+
+registerCheckApkPermissionsTasks(project) { variantName ->
+  if (!variantName.startsWith('inCar'))
+    return allowedPermissions
+
+  return allowedPermissions.findAll { permission ->
+    !inCarExcludedPermissions.contains(permission.toString())
+  }
+}
 
 
 androidComponents {

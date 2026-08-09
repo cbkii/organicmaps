@@ -7,8 +7,10 @@ import android.content.Intent;
 import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.core.content.IntentCompat;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
+import app.organicmaps.api.GoogleAssistantSearchHandler;
 import app.organicmaps.editor.OsmLoginActivity;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.Map;
@@ -23,6 +25,7 @@ import app.organicmaps.sdk.search.SearchEngine;
 import app.organicmaps.sdk.util.StorageUtils;
 import app.organicmaps.sdk.util.concurrency.ThreadPool;
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 
@@ -129,6 +132,9 @@ public class Factory
       }
       case RequestType.OAUTH2:
       {
+        if (BuildConfig.IS_IN_CAR)
+          return false;
+
         SearchEngine.INSTANCE.cancelInteractiveSearch();
         target.forceCloseSearchFragment();
 
@@ -147,12 +153,30 @@ public class Factory
     }
   }
 
-  public static class GoggleAssistanceIntentProcessor extends GoogleAssistantIntentHandler implements IntentProcessor
+  public static class GoggleAssistanceIntentProcessor implements IntentProcessor
   {
+    private static final String BRIDGE_CLASS = "app.organicmaps.intent.GoogleAssistantIntentBridge";
+
     @Override
     public boolean process(@NonNull Intent intent, @NonNull MwmActivity activity)
     {
-      return handleIntent(intent, (query, searchOnMap) -> activity.showSearch(query, null, searchOnMap));
+      if (BuildConfig.IS_IN_CAR)
+        return false;
+
+      try
+      {
+        final Class<?> bridgeClass = Class.forName(BRIDGE_CLASS);
+        final Object bridge = bridgeClass.getDeclaredConstructor().newInstance();
+        final Method process = bridgeClass.getMethod("process", Intent.class, GoogleAssistantSearchHandler.class);
+        final GoogleAssistantSearchHandler handler =
+            (query, searchOnMap) -> activity.showSearch(query, null, searchOnMap);
+        return Boolean.TRUE.equals(process.invoke(bridge, intent, handler));
+      }
+      catch (ReflectiveOperationException | LinkageError e)
+      {
+        // The integration module is deliberately absent from builds such as in-car.
+        return false;
+      }
     }
   }
 }

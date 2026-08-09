@@ -31,6 +31,7 @@ abstract class BaseXmlSettingsFragment extends PreferenceFragmentCompat
   public void onCreatePreferences(Bundle bundle, String root)
   {
     setPreferencesFromResource(getXmlResources(), root);
+    InCarSettingsPolicy.apply(this);
   }
 
   @Override

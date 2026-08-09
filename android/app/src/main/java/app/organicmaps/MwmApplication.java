@@ -18,7 +18,7 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ProcessLifecycleOwner;
 import androidx.preference.PreferenceManager;
-import app.organicmaps.background.OsmUploadWork;
+import app.organicmaps.background.OsmUploadScheduler;
 import app.organicmaps.downloader.DownloaderNotifier;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
@@ -34,6 +34,7 @@ import app.organicmaps.sdk.maplayer.subway.SubwayManager;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.log.Logger;
+import app.organicmaps.util.InCarVisuals;
 import app.organicmaps.util.ThemeSwitcher;
 import app.organicmaps.util.Utils;
 import java.io.IOException;
@@ -66,7 +67,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     return mTopActivity != null ? mTopActivity.get() : null;
   }
 
-  @NonNull
+  @Nullable
   public SubwayManager getSubwayManager()
   {
     return getOrganicMaps().getSubwayManager();
@@ -124,7 +125,7 @@ public class MwmApplication extends Application implements Application.ActivityL
 
     PreferenceManager.setDefaultValues(this, R.xml.prefs_main, false);
     mOrganicMaps = new OrganicMaps(getApplicationContext(), BuildConfig.FLAVOR, BuildConfig.APPLICATION_ID,
-                                   BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME);
+                                   BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME, BuildConfig.IS_IN_CAR);
 
     DownloaderNotifier.createNotificationChannel(this);
     initNavigationService();
@@ -173,6 +174,8 @@ public class MwmApplication extends Application implements Application.ActivityL
     Logger.d(TAG, "activity = " + activity);
     Utils.showOnLockScreen(Config.isShowOnLockScreenEnabled(), activity);
     getSensorHelper().setRotation(activity.getWindowManager().getDefaultDisplay().getRotation());
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
+      InCarVisuals.applyAndObserve(mapActivity);
     mTopActivity = new WeakReference<>(activity);
   }
 
@@ -210,9 +213,10 @@ public class MwmApplication extends Application implements Application.ActivityL
   {
     Logger.d(TAG);
 
-    OsmUploadWork.startActionUploadOsmChanges(this);
+    if (!BuildConfig.IS_IN_CAR)
+      OsmUploadScheduler.schedule(this);
 
-    if (!mDisplayManager.isDeviceDisplayUsed())
+    if (!BuildConfig.IS_IN_CAR && !mDisplayManager.isDeviceDisplayUsed())
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
     else if (RoutingController.get().isNavigating())
       Logger.i(LOCATION_TAG, "Navigation is in progress, keeping location in the background");

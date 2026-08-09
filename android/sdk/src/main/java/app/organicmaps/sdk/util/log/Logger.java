@@ -24,7 +24,8 @@ public final class Logger
   private static final String TAG = Logger.class.getSimpleName();
   private static final String CORE_TAG = "OMcore";
   private static final String FILENAME = "app.log";
-  private static final LogFileWriter FILE_WRITER = new LogFileWriter();
+  @Nullable
+  private static volatile LogFileWriter sFileWriter;
 
   public static void v(String tag)
   {
@@ -151,11 +152,31 @@ public final class Logger
       {
         sb.insert(0, String.valueOf(getLevelChar(level)) + '/' + tag + ": ");
         final String data = threadName + sb.toString();
+        final LogFileWriter writer = getOrCreateFileWriter();
         if (level >= Log.ERROR)
-          FILE_WRITER.writeSync(logsFolder, data);
+          writer.writeSync(logsFolder, data);
         else
-          FILE_WRITER.writeAsync(logsFolder, level, data);
+          writer.writeAsync(logsFolder, level, data);
       }
+    }
+  }
+
+  @NonNull
+  private static LogFileWriter getOrCreateFileWriter()
+  {
+    LogFileWriter writer = sFileWriter;
+    if (writer != null)
+      return writer;
+
+    synchronized (Logger.class)
+    {
+      writer = sFileWriter;
+      if (writer == null)
+      {
+        writer = new LogFileWriter();
+        sFileWriter = writer;
+      }
+      return writer;
     }
   }
 
@@ -175,12 +196,16 @@ public final class Logger
 
   static void flushFileLogs()
   {
-    FILE_WRITER.flush();
+    final LogFileWriter writer = sFileWriter;
+    if (writer != null)
+      writer.flush();
   }
 
   static void closeFileLogs()
   {
-    FILE_WRITER.close();
+    final LogFileWriter writer = sFileWriter;
+    if (writer != null)
+      writer.close();
   }
 
   /// Runs the action while holding the file writer lock and with the buffer flushed to disk,
@@ -188,7 +213,22 @@ public final class Logger
   /// Used to safely read/zip the log files.
   static void runExclusively(@NonNull Runnable action)
   {
-    FILE_WRITER.runExclusively(action);
+    LogFileWriter writer = sFileWriter;
+    if (writer == null)
+    {
+      synchronized (Logger.class)
+      {
+        writer = sFileWriter;
+        if (writer == null)
+        {
+          // getOrCreateFileWriter() uses the same lock, so a first writer cannot appear
+          // until this no-writer exclusive action has completed.
+          action.run();
+          return;
+        }
+      }
+    }
+    writer.runExclusively(action);
   }
 
   private static class LogEntry

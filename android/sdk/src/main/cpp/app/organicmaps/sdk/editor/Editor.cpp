@@ -1,7 +1,8 @@
-﻿#include <jni.h>
+#include <jni.h>
 
 #include "app/organicmaps/sdk/Framework.hpp"
 #include "app/organicmaps/sdk/core/jni_helper.hpp"
+#include "app/organicmaps/sdk/platform/AndroidPlatform.hpp"
 
 #include "editor/osm_editor.hpp"
 
@@ -40,6 +41,11 @@ jfieldID g_localStreetFieldDef;
 jfieldID g_localStreetFieldLoc;
 jclass g_namesDataSourceClassID;
 jmethodID g_namesDataSourceConstructorID;
+
+bool IsEditingDisabled()
+{
+  return android::Platform::Instance().IsInCar();
+}
 
 jobject ToJavaName(JNIEnv * env, osm::LocalizedName const & name)
 {
@@ -161,7 +167,7 @@ JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeSaveEditedFeatur
 
 JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeShouldShowEditPlace(JNIEnv *, jclass)
 {
-  if (!frm()->HasPlacePageInfo())
+  if (IsEditingDisabled() || !frm()->HasPlacePageInfo())
     return static_cast<jboolean>(false);
 
   return g_framework->GetPlacePageInfo().ShouldShowEditPlace();
@@ -169,7 +175,7 @@ JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeShouldShowEditPl
 
 JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeShouldShowAddBusiness(JNIEnv *, jclass)
 {
-  if (!frm()->HasPlacePageInfo())
+  if (IsEditingDisabled() || !frm()->HasPlacePageInfo())
     return static_cast<jboolean>(false);
 
   return g_framework->GetPlacePageInfo().ShouldShowAddBusiness();
@@ -177,7 +183,7 @@ JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeShouldShowAddBus
 
 JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeShouldShowAddPlace(JNIEnv *, jclass)
 {
-  if (!frm()->HasPlacePageInfo())
+  if (IsEditingDisabled() || !frm()->HasPlacePageInfo())
     return static_cast<jboolean>(false);
 
   return g_framework->GetPlacePageInfo().ShouldShowAddPlace();
@@ -185,7 +191,7 @@ JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeShouldShowAddPla
 
 JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeCanEditPlace(JNIEnv *, jclass)
 {
-  if (!frm()->HasPlacePageInfo())
+  if (IsEditingDisabled() || !frm()->HasPlacePageInfo())
     return static_cast<jboolean>(false);
 
   return g_framework->GetPlacePageInfo().CanEditPlace();
@@ -321,6 +327,9 @@ JNIEXPORT void Java_app_organicmaps_sdk_editor_Editor_nativeClearLocalEdits(JNIE
 
 JNIEXPORT void Java_app_organicmaps_sdk_editor_Editor_nativeStartEdit(JNIEnv *, jclass)
 {
+  if (IsEditingDisabled())
+    return;
+
   ::Framework * fr = frm();
   if (!fr->HasPlacePageInfo())
   {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!--
+    The shared Android Auto permission layout is linked before R8/resource shrinking. The direct-display
+    inCar variant removes RequestPermissionsActivity from its manifest and deliberately keeps libs:car
+    off the runtime dependency graph, so the car library's copy of this string is unavailable to AAPT.
+    Keep this neutral inCar-only compile-time fallback; release-like shrinking removes the unreachable
+    activity, layout, and resource from the packaged APK.
+  -->
+  <string name="aa_request_permission_activity_text">Location permissions are required.</string>
+</resources>

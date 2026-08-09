@@ -26,8 +26,7 @@ public final class OsmOAuth
     }
   }
 
-  @SuppressWarnings("NotNullFieldNotInitialized")
-  @NonNull
+  @Nullable
   private static SharedPreferences mPrefs;
 
   private static final String PREF_OSM_TOKEN = "OsmToken"; // Unused after migration from OAuth1 to OAuth2
@@ -45,27 +44,28 @@ public final class OsmOAuth
 
   public static boolean isAuthorized()
   {
-    return mPrefs.contains(PREF_OSM_OAUTH2_TOKEN);
+    return mPrefs != null && mPrefs.contains(PREF_OSM_OAUTH2_TOKEN);
   }
 
   public static boolean containsOAuth1Credentials()
   {
-    return mPrefs.contains(PREF_OSM_TOKEN) && mPrefs.contains(PREF_OSM_SECRET);
+    return mPrefs != null && mPrefs.contains(PREF_OSM_TOKEN) && mPrefs.contains(PREF_OSM_SECRET);
   }
 
   public static void clearOAuth1Credentials()
   {
-    mPrefs.edit().remove(PREF_OSM_TOKEN).remove(PREF_OSM_SECRET).apply();
+    if (mPrefs != null)
+      mPrefs.edit().remove(PREF_OSM_TOKEN).remove(PREF_OSM_SECRET).apply();
   }
 
   public static String getAuthToken()
   {
-    return mPrefs.getString(PREF_OSM_OAUTH2_TOKEN, "");
+    return mPrefs != null ? mPrefs.getString(PREF_OSM_OAUTH2_TOKEN, "") : "";
   }
 
   public static String getUsername()
   {
-    return mPrefs.getString(PREF_OSM_USERNAME, "");
+    return mPrefs != null ? mPrefs.getString(PREF_OSM_USERNAME, "") : "";
   }
 
   public static Bitmap getProfilePicture()
@@ -76,11 +76,14 @@ public final class OsmOAuth
 
   public static void setAuthorization(String oauthToken, String username)
   {
-    mPrefs.edit().putString(PREF_OSM_OAUTH2_TOKEN, oauthToken).putString(PREF_OSM_USERNAME, username).apply();
+    if (mPrefs != null)
+      mPrefs.edit().putString(PREF_OSM_OAUTH2_TOKEN, oauthToken).putString(PREF_OSM_USERNAME, username).apply();
   }
 
   public static void clearAuthorization()
   {
+    if (mPrefs == null)
+      return;
     mPrefs.edit()
         .remove(PREF_OSM_TOKEN)
         .remove(PREF_OSM_SECRET)
@@ -158,9 +161,10 @@ public final class OsmOAuth
       editsCount[0] = OsmOAuth.nativeGetOsmChangesetsCount(token);
     });
     if (editsCount[0] < 0)
-      return mPrefs.getInt(PREF_OSM_CHANGESETS_COUNT, 0);
+      return mPrefs != null ? mPrefs.getInt(PREF_OSM_CHANGESETS_COUNT, 0) : 0;
 
-    mPrefs.edit().putInt(PREF_OSM_CHANGESETS_COUNT, editsCount[0]).apply();
+    if (mPrefs != null)
+      mPrefs.edit().putInt(PREF_OSM_CHANGESETS_COUNT, editsCount[0]).apply();
     return editsCount[0];
   }
 }

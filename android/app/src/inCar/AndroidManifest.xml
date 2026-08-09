@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+  <uses-permission
+      android:name="androidx.car.app.NAVIGATION_TEMPLATES"
+      tools:node="remove"/>
+  <uses-permission
+      android:name="androidx.car.app.ACCESS_SURFACE"
+      tools:node="remove"/>
+
+  <application>
+    <service
+        android:name="app.organicmaps.car.AndroidAutoService"
+        tools:node="remove"/>
+
+    <activity
+        android:name="app.organicmaps.car.screens.permissions.RequestPermissionsActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.EditorActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.ProfileActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.FeatureCategoryActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.ReportActivity"
+        tools:node="remove"/>
+    <activity
+        android:name="app.organicmaps.editor.OsmLoginActivity"
+        tools:node="remove"/>
+
+    <meta-data
+        android:name="com.google.android.gms.car.application"
+        tools:node="remove"/>
+    <meta-data
+        android:name="androidx.car.app.minCarApiLevel"
+        tools:node="remove"/>
+  </application>
+</manifest>

@@ -11,6 +11,7 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.TwoStatePreference;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.downloader.OnmapDownloader;
@@ -50,6 +51,13 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final Preference profile = findPreference(getString(R.string.pref_osm_profile));
+      if (profile != null)
+        profile.setVisible(false);
+    }
 
     initStoragePrefCallbacks();
     initMeasureUnitsPrefsCallbacks();
@@ -95,6 +103,9 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
 
   private void updateProfileSettingsPrefsSummary()
   {
+    if (BuildConfig.IS_IN_CAR)
+      return;
+
     final Preference pref = getPreference(getString(R.string.pref_osm_profile));
     if (OsmOAuth.isAuthorized())
     {
@@ -122,7 +133,7 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
     final String key = preference.getKey();
     if (key != null)
     {
-      if (key.equals(getString(R.string.pref_osm_profile)))
+      if (!BuildConfig.IS_IN_CAR && key.equals(getString(R.string.pref_osm_profile)))
       {
         startActivity(new Intent(requireActivity(), ProfileActivity.class));
       }

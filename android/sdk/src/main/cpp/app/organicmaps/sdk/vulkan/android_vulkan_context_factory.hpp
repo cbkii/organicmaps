@@ -28,5 +28,6 @@ private:
 
   ANativeWindow * m_nativeWindow = nullptr;
   bool m_windowSurfaceValid = false;
+  bool m_graphicsApiLogged = false;
 };
 }  // namespace android

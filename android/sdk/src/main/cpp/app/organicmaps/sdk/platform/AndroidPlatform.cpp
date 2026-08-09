@@ -144,6 +144,25 @@ void Platform::Initialize(JNIEnv * env, jobject context, jstring apkPath, jstrin
   LOG(LINFO, ("Flavor name:", flavor));
   LOG(LINFO, ("Build type name:", build));
 
+  m_isInCar = flavor == "inCar";
+  if (m_isInCar)
+  {
+    bool autoStartLocationFollowAndRotate;
+    if (!settings::Get("AutoStartLocationFollowAndRotate", autoStartLocationFollowAndRotate))
+      settings::Set("AutoStartLocationFollowAndRotate", true);
+
+    bool inCarOptimisedVisuals;
+    if (!settings::Get("InCarOptimisedVisuals", inCarOptimisedVisuals))
+      settings::Set("InCarOptimisedVisuals", true);
+
+    std::string preferredGraphicsApi;
+    if (!settings::Get("PreferredGraphicsAPI", preferredGraphicsApi))
+    {
+      settings::Set("PreferredGraphicsAPI", std::string{"OpenGLES3"});
+      LOG(LINFO, ("Using OpenGLES3 as the in-car graphics API default"));
+    }
+  }
+
   m_isTablet = isTablet;
   m_resourcesDir = jni::ToNativeString(env, apkPath);
   m_tmpDir = jni::ToNativeString(env, tmpPath);

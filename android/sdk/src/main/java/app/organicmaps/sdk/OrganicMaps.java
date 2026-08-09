@@ -3,6 +3,7 @@ package app.organicmaps.sdk;
 import android.content.Context;
 import android.content.SharedPreferences;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ProcessLifecycleOwner;
@@ -42,10 +43,12 @@ public final class OrganicMaps implements DefaultLifecycleObserver
   @NonNull
   private final SharedPreferences mPreferences;
 
+  private final boolean mInCar;
+
   @NonNull
   private final IsolinesManager mIsolinesManager;
-  @NonNull
-  private final SubwayManager mSubwayManager;
+  @Nullable
+  private SubwayManager mSubwayManager;
 
   @NonNull
   private final LocationHelper mLocationHelper;
@@ -67,7 +70,7 @@ public final class OrganicMaps implements DefaultLifecycleObserver
     return mSensorHelper;
   }
 
-  @NonNull
+  @Nullable
   public SubwayManager getSubwayManager()
   {
     return mSubwayManager;
@@ -94,8 +97,15 @@ public final class OrganicMaps implements DefaultLifecycleObserver
   public OrganicMaps(@NonNull Context context, @NonNull String flavor, @NonNull String applicationId, int versionCode,
                      @NonNull String versionName)
   {
+    this(context, flavor, applicationId, versionCode, versionName, false);
+  }
+
+  public OrganicMaps(@NonNull Context context, @NonNull String flavor, @NonNull String applicationId, int versionCode,
+                     @NonNull String versionName, boolean inCar)
+  {
     mFlavor = flavor;
     mVersionName = versionName;
+    mInCar = inCar;
     mContext = context.getApplicationContext();
     mPreferences = mContext.getSharedPreferences(context.getString(R.string.pref_file_name), Context.MODE_PRIVATE);
 
@@ -108,7 +118,8 @@ public final class OrganicMaps implements DefaultLifecycleObserver
     nativeSetSettingsDir(settingsPath);
 
     Config.init(mPreferences, mFlavor, applicationId, versionCode, mVersionName);
-    OsmOAuth.init(mPreferences);
+    if (!mInCar)
+      OsmOAuth.init(mPreferences);
     SharedPropertiesUtils.init(mPreferences);
     LogsManager.INSTANCE.initFileLogging(mContext, mPreferences);
 
@@ -117,9 +128,10 @@ public final class OrganicMaps implements DefaultLifecycleObserver
     Icon.loadDefaultIcons(mContext.getResources(), mContext.getPackageName());
 
     mSensorHelper = new SensorHelper(mContext);
-    mLocationHelper = new LocationHelper(mContext, mSensorHelper);
+    mLocationHelper = new LocationHelper(mContext, mSensorHelper, mInCar);
     mIsolinesManager = new IsolinesManager();
-    mSubwayManager = new SubwayManager(mContext);
+    if (!mInCar)
+      mSubwayManager = new SubwayManager(mContext);
 
     ConnectionState.INSTANCE.initialize(mContext);
   }
@@ -201,7 +213,8 @@ public final class OrganicMaps implements DefaultLifecycleObserver
     TtsPlayer.INSTANCE.initialize(mContext);
     RoutingController.get().initialize(mLocationHelper);
     TrafficManager.INSTANCE.initialize();
-    mSubwayManager.initialize();
+    if (mSubwayManager != null)
+      mSubwayManager.initialize();
     mIsolinesManager.initialize();
     ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
 
