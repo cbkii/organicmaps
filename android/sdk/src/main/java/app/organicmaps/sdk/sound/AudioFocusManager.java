@@ -9,6 +9,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media.AudioAttributesCompat;
 import androidx.media.AudioFocusRequestCompat;
 import androidx.media.AudioManagerCompat;
+import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.log.Logger;
 
 final class AudioFocusManager
@@ -33,12 +34,16 @@ final class AudioFocusManager
   private final OnAudioFocusLost mOnAudioFocusLost;
   @NonNull
   private final AudioFocusRequestCompat mAudioFocusRequest;
+  private final boolean mManageAudioMode;
   private boolean mPlaybackAllowed = false;
 
   public AudioFocusManager(@NonNull Context context, @NonNull OnAudioFocusLost onAudioFocusLost)
   {
     mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     mOnAudioFocusLost = onAudioFocusLost;
+    // The direct-display in-car build is an ordinary app, not the platform-wide telephony/audio owner.
+    // Keep navigation focus/attributes but leave global AudioManager mode under the head unit's authority.
+    mManageAudioMode = !Config.getApplicationId().endsWith(".incar");
     // Keep in sync with AUDIO_ATTRIBUTES above.
     final AudioAttributesCompat audioAttributesCompat =
         new AudioAttributesCompat.Builder()
@@ -61,6 +66,9 @@ final class AudioFocusManager
       return false;
     }
 
+    if (!mManageAudioMode)
+      return true;
+
     if (isBluetoothScoDeviceUsed())
     {
       Logger.d(TAG, "Bluetooth SCO device is used for audio output");
@@ -68,14 +76,15 @@ final class AudioFocusManager
     }
     else
       mAudioManager.setMode(AudioManager.MODE_NORMAL);
-    return mPlaybackAllowed;
+    return true;
   }
 
   public void releaseAudioFocus()
   {
     AudioManagerCompat.abandonAudioFocusRequest(mAudioManager, mAudioFocusRequest);
     mPlaybackAllowed = false;
-    mAudioManager.setMode(AudioManager.MODE_NORMAL);
+    if (mManageAudioMode)
+      mAudioManager.setMode(AudioManager.MODE_NORMAL);
   }
 
   public boolean isMusicActive()
