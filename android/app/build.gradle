@@ -358,7 +358,24 @@ def allowedPermissions = [
     // app.organicmaps.incar.(debug|beta|profileable)
     ~/name='app\.organicmaps(\.web|\.incar)?(\.debug|\.beta|\.profileable)?\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/
 ]
-registerCheckApkPermissionsTasks(project, allowedPermissions)
+
+// The direct-display inCar flavour deliberately omits Android Auto projected integration and
+// the WorkManager runtime graph. Keep the permission checker exact, but use the permission set
+// that this flavour is actually designed to package; ordinary app/storage permissions stay intact.
+def inCarExcludedPermissions = [
+    "name='androidx.car.app.NAVIGATION_TEMPLATES'",
+    "name='androidx.car.app.ACCESS_SURFACE'",
+    "name='android.permission.RECEIVE_BOOT_COMPLETED'",
+] as Set
+
+registerCheckApkPermissionsTasks(project) { variantName ->
+  if (!variantName.startsWith('inCar'))
+    return allowedPermissions
+
+  return allowedPermissions.findAll { permission ->
+    !inCarExcludedPermissions.contains(permission.toString())
+  }
+}
 
 
 androidComponents {
@@ -422,7 +439,7 @@ tasks.register("prepareGoogleReleaseListing") {
     // Locales that exist in F-Droid listings but are not supported by Google Play.
     final googleUnsupportedLocales = ['as', 'bo', 'bs', 'jv', 'mai', 'mi', 'or', 'ug', 'uz']
     sourceFiles.each { File sourceFile ->
-      final locale = sourceFile.parentFile.getName()
+      final locale = file.parentFile.getName()
       if (locale in googleUnsupportedLocales)
         return
       final targetLocaleDir = new File(targetDir, locale)
