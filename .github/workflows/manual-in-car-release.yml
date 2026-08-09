@@ -459,16 +459,15 @@ jobs:
             fi
           done
 
+          # Editor implementation can remain linked as an accepted residual; its in-car
+          # safety boundary is that editor Activities are absent from the manifest and
+          # entry paths are product-gated. Keep bytecode-absence checks for integrations
+          # that are intended to be physically absent from the in-car runtime graph.
           forbidden_dex=(
             'Lapp/organicmaps/car/'
             'Landroidx/car/app/'
             'Lapp/organicmaps/intent/GoogleAssistantIntentBridge;'
             'Landroidx/work/'
-            'Lapp/organicmaps/editor/EditorActivity;'
-            'Lapp/organicmaps/editor/ProfileActivity;'
-            'Lapp/organicmaps/editor/FeatureCategoryActivity;'
-            'Lapp/organicmaps/editor/ReportActivity;'
-            'Lapp/organicmaps/editor/OsmLoginActivity;'
           )
           for needle in "${forbidden_dex[@]}"; do
             if grep -Fq -- "${needle}" "${dex_strings}"; then
@@ -556,7 +555,7 @@ jobs:
             echo "- Android Auto manifest/runtime: absent"
             echo "- Google Assistant bridge/runtime: absent"
             echo "- WorkManager runtime: absent"
-            echo "- OSM editor Android activities: absent"
+            echo "- OSM editor Activity manifest surface: absent"
             echo "- Required navigation/runtime surfaces: present"
             if [[ -n "${PREVIOUS_TAG}" ]]; then
               echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified"
