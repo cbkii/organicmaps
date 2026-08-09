@@ -57,6 +57,18 @@ public class BaseMwmDialogFragment extends DialogFragment
       InCarVisuals.fitDialog(requireActivity(), dialog);
   }
 
+  @Override
+  public void onStop()
+  {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final Dialog dialog = getDialog();
+      if (dialog != null)
+        InCarVisuals.releaseDialog(dialog);
+    }
+    super.onStop();
+  }
+
   @NonNull
   protected Application getAppContextOrThrow()
   {
