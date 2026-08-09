@@ -24,7 +24,7 @@
 
   <dimen name="in_car_compact_routing_action_button_size">48dp</dimen>
   <dimen name="in_car_compact_routing_action_button_icon_size">30dp</dimen>
-  <dimen name="in_car_compact_routing_toolbar_cell_height">40dp</dimen>
+  <dimen name="in_car_compact_routing_toolbar_cell_height">48dp</dimen>
 
   <dimen name="in_car_nav_icon_size">56dp</dimen>
   <dimen name="in_car_nav_button_height">48dp</dimen>
