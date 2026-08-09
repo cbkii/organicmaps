@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!--
+    Direct-display automotive chrome. Keep these roles separate from the map palette:
+    action surfaces need reliable foreground contrast, while selection accents remain
+    free to be a little brighter. All app-chrome surfaces are intentionally opaque so
+    moving map content cannot reduce control readability through them.
+  -->
+  <color name="in_car_surface_base">#FFF1F3F4</color>
+  <color name="in_car_surface_raised">#FFFFFFFF</color>
+  <color name="in_car_surface_overlay">#FFFFFFFF</color>
+
+  <color name="in_car_text_primary">#FF202124</color>
+  <color name="in_car_text_secondary">#FF3C4043</color>
+  <color name="in_car_text_hint">#FF5F6368</color>
+  <color name="in_car_disabled_foreground">#FF54585C</color>
+  <color name="in_car_icon_primary">#FF3C4043</color>
+  <color name="in_car_icon_secondary">#FF5F6368</color>
+  <color name="in_car_divider">#FF80868B</color>
+
+  <color name="in_car_selection_accent">#FF0072B1</color>
+  <color name="in_car_action_primary">#FF0067A8</color>
+  <color name="in_car_action_primary_pressed">#FF005C99</color>
+  <color name="in_car_action_disabled">#FFDADCE0</color>
+  <color name="in_car_destructive">#FFB3261E</color>
+  <color name="in_car_destructive_pressed">#FF8C1D18</color>
+
+  <!-- Shared semantic tokens overridden only for the inCar source set. -->
+  <color name="text_dark">@color/in_car_text_primary</color>
+  <color name="text_dark_subtitle">@color/in_car_text_secondary</color>
+  <color name="text_dark_hint">@color/in_car_text_hint</color>
+  <!-- Light-on-dark/green secondary text is also used by navigation and toolbar chrome. -->
+  <color name="text_light_subtitle">#E6FFFFFF</color>
+  <color name="text_light_hint">#CCFFFFFF</color>
+
+  <color name="base_accent">@color/in_car_selection_accent</color>
+  <color name="base_accent_pressed">@color/in_car_action_primary_pressed</color>
+  <color name="icon_tint">@color/in_car_icon_primary</color>
+  <color name="icon_tint_light">@color/in_car_icon_secondary</color>
+  <color name="divider">@color/in_car_divider</color>
+
+  <color name="bg_window">@color/in_car_surface_base</color>
+  <color name="bg_cards">@color/in_car_surface_raised</color>
+  <color name="bg_panel">@color/in_car_surface_base</color>
+  <color name="bg_menu">@color/in_car_surface_overlay</color>
+
+  <color name="button_text_disabled">@color/in_car_text_hint</color>
+  <color name="button_accent_normal">@color/in_car_action_primary</color>
+  <color name="button_accent_pressed">@color/in_car_action_primary_pressed</color>
+  <color name="button_accent_disabled">@color/in_car_action_disabled</color>
+  <color name="button_accent_text">#FFFFFFFF</color>
+  <color name="button_accent_text_disabled">@color/in_car_disabled_foreground</color>
+
+  <color name="button_red">@color/in_car_destructive</color>
+  <color name="button_red_normal">@color/in_car_destructive</color>
+  <color name="button_red_pressed">@color/in_car_destructive_pressed</color>
+  <color name="button_red_disabled">@color/in_car_action_disabled</color>
+  <color name="button_red_text">#FFFFFFFF</color>
+  <color name="button_red_text_disabled">@color/in_car_disabled_foreground</color>
+
+  <color name="routing_button_tint">@color/in_car_icon_primary</color>
+  <color name="routing_button_activated_tint">@color/in_car_selection_accent</color>
+  <color name="routing_tab_active_bg">@color/in_car_surface_raised</color>
+  <color name="routing_bottom_button_tint">@color/in_car_surface_base</color>
+  <color name="routing_bottom_manage_route_background">@color/in_car_surface_base</color>
+  <color name="routing_bottom_button_bg">@color/in_car_surface_base</color>
+</resources>
