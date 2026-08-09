@@ -33,6 +33,7 @@
   <!-- Some long-standing theme attributes still address these alpha-era tokens directly. -->
   <color name="black_secondary">@color/in_car_text_secondary</color>
   <color name="black_54">@color/in_car_icon_primary</color>
+  <color name="black_38">@color/in_car_disabled_foreground</color>
   <!-- Light-on-dark/green secondary text is also used by navigation and toolbar chrome. -->
   <color name="text_light_subtitle">#E6FFFFFF</color>
   <color name="text_light_hint">#CCFFFFFF</color>
