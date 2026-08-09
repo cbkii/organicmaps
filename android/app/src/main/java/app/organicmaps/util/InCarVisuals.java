@@ -68,7 +68,7 @@ public final class InCarVisuals
       {
         content.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
           if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
-            applyForCurrentBounds(activity, state, false);
+            v.post(() -> applyForCurrentBounds(activity, state, false));
         });
       }
 
@@ -124,11 +124,19 @@ public final class InCarVisuals
     window.setLayout(targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
 
     final View decor = window.getDecorView();
-    decor.post(() -> {
-      if (!dialog.isShowing())
-        return;
-      final int height = decor.getMeasuredHeight();
-      window.setLayout(targetWidth, height > availableHeight ? availableHeight : ViewGroup.LayoutParams.WRAP_CONTENT);
+    decor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+      @Override
+      public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop,
+                                 int oldRight, int oldBottom)
+      {
+        v.removeOnLayoutChangeListener(this);
+        if (!dialog.isShowing())
+          return;
+
+        final int height = bottom - top;
+        if (height > availableHeight)
+          v.post(() -> window.setLayout(targetWidth, availableHeight));
+      }
     });
   }
 
