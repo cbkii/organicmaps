@@ -1,5 +1,7 @@
 package app.organicmaps.widget.placepage;
 
+import android.content.res.ColorStateList;
+import android.content.res.TypedArray;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -125,7 +127,9 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     if (primaryRouteTo)
     {
       parent.setBackgroundResource(ThemeUtils.getResource(requireContext(), R.attr.primaryButtonBackground));
-      title.setTextColor(ThemeUtils.getColor(requireContext(), R.attr.accentButtonTextColor));
+      final ColorStateList textColors = resolveColorStateList(R.attr.accentButtonTextColor);
+      if (textColors != null)
+        title.setTextColor(textColors);
     }
 
     parent.setOnClickListener((view) -> {
@@ -135,6 +139,20 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
         mItemListener.onPlacePageButtonClick(current.getType());
     });
     return parent;
+  }
+
+  @Nullable
+  private ColorStateList resolveColorStateList(@AttrRes int attr)
+  {
+    final TypedArray values = requireContext().obtainStyledAttributes(new int[] {attr});
+    try
+    {
+      return values.getColorStateList(0);
+    }
+    finally
+    {
+      values.recycle();
+    }
   }
 
   @Override
