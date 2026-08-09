@@ -157,7 +157,11 @@ void AndroidOGLContextFactory::ResetSurface()
   {
     std::unique_lock<std::mutex> lock(m_initializationMutex);
     if (m_initializationCounter > 0 && m_initializationCounter < kGLThreadsCount)
+    {
+      LOG(LDEBUG, ("Waiting for GL initialization barrier before surface reset", m_initializationCounter));
       m_initializationCondition.wait(lock, [this] { return m_isInitialized; });
+      LOG(LDEBUG, ("GL initialization barrier released for surface reset"));
+    }
     m_initializationCounter = 0;
     m_isInitialized = false;
   }
@@ -276,7 +280,9 @@ void AndroidOGLContextFactory::WaitForInitialization(dp::GraphicsContext *)
   }
   else
   {
+    LOG(LDEBUG, ("Waiting for peer GL context initialization", m_initializationCounter));
     m_initializationCondition.wait(lock, [this] { return m_isInitialized; });
+    LOG(LDEBUG, ("GL context initialization barrier released"));
   }
 }
 
