@@ -58,6 +58,8 @@ NIGHT_CHECKS = (
     ContrastCheck("legacy dialog control on cards", "text_dark_hint", "bg_cards", 4.5),
     ContrastCheck("inverse primary text", "text_dark", "text_light", 7.0),
     ContrastCheck("inverse secondary text", "text_dark_subtitle", "text_light", 7.0),
+    ContrastCheck("legacy black secondary on inverse surface", "black_secondary", "text_light", 7.0),
+    ContrastCheck("legacy black icon on inverse surface", "black_54", "text_light", 7.0),
     ContrastCheck("theme map-button icons", "white_secondary", "bg_menu", 7.0),
     ContrastCheck("secondary icons on floating chrome", "icon_tint_light", "bg_menu", 4.5),
     ContrastCheck("essential dividers on cards", "divider", "bg_cards", 3.0),
