@@ -30,6 +30,9 @@
   <color name="text_dark">@color/in_car_text_primary</color>
   <color name="text_dark_subtitle">@color/in_car_text_secondary</color>
   <color name="text_dark_hint">@color/in_car_text_hint</color>
+  <!-- Some long-standing theme attributes still address these alpha-era tokens directly. -->
+  <color name="black_secondary">@color/in_car_text_secondary</color>
+  <color name="black_54">@color/in_car_icon_primary</color>
   <!-- Light-on-dark/green secondary text is also used by navigation and toolbar chrome. -->
   <color name="text_light_subtitle">#E6FFFFFF</color>
   <color name="text_light_hint">#CCFFFFFF</color>
@@ -63,6 +66,7 @@
   <color name="routing_button_tint">@color/in_car_icon_primary</color>
   <color name="routing_button_activated_tint">@color/in_car_selection_foreground</color>
   <color name="routing_tab_active_bg">@color/in_car_selection_accent</color>
+  <!-- Despite its legacy name, this token is the FAB backgroundTint; icons use ?iconTint. -->
   <color name="routing_bottom_button_tint">@color/in_car_surface_base</color>
   <color name="routing_bottom_manage_route_background">@color/in_car_surface_base</color>
   <color name="routing_bottom_button_bg">@color/in_car_surface_base</color>
