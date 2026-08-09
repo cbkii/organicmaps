@@ -13,7 +13,7 @@ on:
           - minor
           - major
       version:
-        description: 'Explicit in-car version (MAJOR.MINOR.PATCH). Overrides bump when set.'
+        description: 'Optional MAJOR.MINOR.PATCH. Date-style 2026.08.09 is accepted and normalised; leave blank to auto-bump.'
         required: false
         type: string
       draft:
@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 200
           fetch-tags: true
@@ -74,26 +74,6 @@ jobs:
 
           git fetch --force --tags origin
 
-          parse_semver() {
-            local value="$1"
-            if [[ ! "${value}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-              return 1
-            fi
-            major="${BASH_REMATCH[1]}"
-            minor="${BASH_REMATCH[2]}"
-            patch="${BASH_REMATCH[3]}"
-            if (( major > 999 || minor > 999 || patch > 999 )); then
-              return 1
-            fi
-          }
-
-          version_code_for() {
-            local major="$1"
-            local minor="$2"
-            local patch="$3"
-            echo $((1000000000 + major * 1000000 + minor * 1000 + patch))
-          }
-
           latest="$(
             git tag --list 'in-car-v*' \
               | grep -E '^in-car-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
@@ -101,73 +81,41 @@ jobs:
               | tail -n1 \
               || true
           )"
-          previous_tag="${latest}"
-          previous_code=0
-          if [[ -n "${latest}" ]]; then
-            previous_version="${latest#in-car-v}"
-            if ! parse_semver "${previous_version}"; then
-              echo "::error::Unable to parse latest in-car tag: ${latest}"
-              exit 1
-            fi
-            previous_code="$(version_code_for "${major}" "${minor}" "${patch}")"
-          fi
 
-          requested="$(printf '%s' "${INPUT_VERSION}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          requested="${requested#in-car-v}"
-          requested="${requested#v}"
-
-          if [[ -n "${requested}" ]]; then
-            if ! parse_semver "${requested}"; then
-              echo "::error::Invalid explicit version '${INPUT_VERSION}'. Use MAJOR.MINOR.PATCH with each component between 0 and 999 and no leading zeroes."
-              exit 1
-            fi
-            version="${major}.${minor}.${patch}"
-          elif [[ -z "${latest}" ]]; then
-            version="0.1.0"
-            parse_semver "${version}"
-          else
-            parse_semver "${latest#in-car-v}"
-            case "${INPUT_BUMP}" in
-              patch)
-                if (( patch >= 999 )); then
-                  echo "::error::Patch component is already 999; choose a minor or major bump."
-                  exit 1
-                fi
-                patch=$((patch + 1))
-                ;;
-              minor)
-                if (( minor >= 999 )); then
-                  echo "::error::Minor component is already 999; choose a major bump."
-                  exit 1
-                fi
-                minor=$((minor + 1))
-                patch=0
-                ;;
-              major)
-                if (( major >= 999 )); then
-                  echo "::error::Major component is already 999; no larger encoded in-car version is available."
-                  exit 1
-                fi
-                major=$((major + 1))
-                minor=0
-                patch=0
-                ;;
-              *)
-                echo "::error::Unsupported bump '${INPUT_BUMP}'."
-                exit 1
-                ;;
-            esac
-            version="${major}.${minor}.${patch}"
-          fi
-
-          parse_semver "${version}"
-          version_code="$(version_code_for "${major}" "${minor}" "${patch}")"
-          if (( version_code <= previous_code )); then
-            echo "::error::Requested in-car version ${version} is not newer than ${previous_tag}."
+          if ! resolution="$(
+            python3 android/tools/resolve_in_car_release_version.py \
+              --latest-tag "${latest}" \
+              --requested "${INPUT_VERSION}" \
+              --bump "${INPUT_BUMP}"
+          )"; then
+            echo "::error::Unable to resolve the requested in-car release version."
             exit 1
           fi
 
-          tag="in-car-v${version}"
+          version=""
+          version_code=""
+          version_name=""
+          tag=""
+          previous_tag=""
+          while IFS='=' read -r key value; do
+            case "${key}" in
+              version) version="${value}" ;;
+              version_code) version_code="${value}" ;;
+              version_name) version_name="${value}" ;;
+              tag) tag="${value}" ;;
+              previous_tag) previous_tag="${value}" ;;
+              *)
+                echo "::error::Unexpected version resolver output key '${key}'."
+                exit 1
+                ;;
+            esac
+          done <<< "${resolution}"
+
+          if [[ -z "${version}" || -z "${version_code}" || -z "${version_name}" || -z "${tag}" ]]; then
+            echo "::error::Version resolver returned incomplete output."
+            exit 1
+          fi
+
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
             echo "::error::Git tag '${tag}' already exists."
             exit 1
@@ -177,15 +125,58 @@ jobs:
             exit 1
           fi
 
+          if [[ -n "${previous_tag}" ]]; then
+            if ! previous_assets="$(gh release view "${previous_tag}" --json assets --jq '.assets[].name')"; then
+              echo "::error::Previous in-car tag ${previous_tag} has no readable GitHub release."
+              exit 1
+            fi
+            previous_version="${previous_tag#in-car-v}"
+            previous_apk="OrganicMaps-InCar-v${previous_version}-arm64-v8a.apk"
+            previous_checksum="${previous_apk}.sha256"
+            if ! grep -Fxq -- "${previous_apk}" <<< "${previous_assets}"; then
+              echo "::error::Previous release ${previous_tag} is missing ${previous_apk}; refusing to continue without signer-continuity input."
+              exit 1
+            fi
+            if ! grep -Fxq -- "${previous_checksum}" <<< "${previous_assets}"; then
+              echo "::error::Previous release ${previous_tag} is missing ${previous_checksum}; refusing to build from an incomplete release baseline."
+              exit 1
+            fi
+          fi
+
+          requested="$(printf '%s' "${INPUT_VERSION}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          requested="${requested#in-car-v}"
+          requested="${requested#v}"
+          if [[ -n "${requested}" && "${requested}" != "${version}" ]]; then
+            echo "::notice::Normalised explicit in-car version '${INPUT_VERSION}' to '${version}'."
+          fi
+
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "version_code=${version_code}" >> "${GITHUB_OUTPUT}"
-          echo "version_name=${version}-InCar" >> "${GITHUB_OUTPUT}"
+          echo "version_name=${version_name}" >> "${GITHUB_OUTPUT}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           echo "previous_tag=${previous_tag}" >> "${GITHUB_OUTPUT}"
 
           echo "Resolved in-car release: ${tag}"
           echo "Android versionCode: ${version_code}"
-          echo "Android versionName: ${version}-InCar"
+          echo "Android versionName: ${version_name}"
+
+      - name: Validate release secrets
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=()
+          [[ -n "${KEYSTORE_BASE64}" ]] || missing+=(KEYSTORE_BASE64)
+          [[ -n "${KEYSTORE_PASSWORD}" ]] || missing+=(KEYSTORE_PASSWORD)
+          [[ -n "${KEY_ALIAS}" ]] || missing+=(KEY_ALIAS)
+          [[ -n "${KEY_PASSWORD}" ]] || missing+=(KEY_PASSWORD)
+          if [[ "${#missing[@]}" -ne 0 ]]; then
+            echo "::error::Missing required release signing secret(s): ${missing[*]}"
+            exit 1
+          fi
 
       - name: Install native build dependencies
         shell: bash
@@ -274,16 +265,6 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-
-          missing=()
-          [[ -n "${KEYSTORE_BASE64}" ]] || missing+=(KEYSTORE_BASE64)
-          [[ -n "${KEYSTORE_PASSWORD}" ]] || missing+=(KEYSTORE_PASSWORD)
-          [[ -n "${KEY_ALIAS}" ]] || missing+=(KEY_ALIAS)
-          [[ -n "${KEY_PASSWORD}" ]] || missing+=(KEY_PASSWORD)
-          if [[ "${#missing[@]}" -ne 0 ]]; then
-            echo "::error::Missing required release signing secret(s): ${missing[*]}"
-            exit 1
-          fi
 
           keystore="${RUNNER_TEMP}/organicmaps-in-car-release.keystore"
           if ! printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${keystore}"; then
@@ -384,10 +365,6 @@ jobs:
           if [[ -n "${PREVIOUS_TAG}" ]]; then
             previous_dir="${proof_dir}/previous"
             mkdir -p "${previous_dir}"
-            if ! gh release view "${PREVIOUS_TAG}" >/dev/null 2>&1; then
-              echo "::error::Previous in-car tag ${PREVIOUS_TAG} has no GitHub release; refusing to break signer continuity."
-              exit 1
-            fi
             if ! gh release download "${PREVIOUS_TAG}" \
                 --pattern 'OrganicMaps-InCar-v*-arm64-v8a.apk' \
                 --dir "${previous_dir}"; then
@@ -423,7 +400,7 @@ jobs:
           echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload verified build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OrganicMaps-InCar-v${{ steps.version.outputs.version }}-arm64-v8a
           path: |
