@@ -80,6 +80,7 @@ public class PlacePageController
   private boolean mShouldCollapse;
   // Enabled after the sheet reaches COLLAPSED; prevents dismiss during initial open animation.
   private boolean mEasyDismissEnabled;
+  private boolean mHostWindowReflowPending;
   private int mDistanceToTop;
 
   private ValueAnimator mCustomPeekHeightAnimator;
@@ -170,6 +171,11 @@ public class PlacePageController
 
     ViewCompat.setOnApplyWindowInsetsListener(mPlacePage, (v, windowInsets) -> {
       mCurrentWindowInsets = windowInsets;
+      if (mHostWindowReflowPending)
+        v.postOnAnimation(() -> {
+          if (mHostWindowReflowPending)
+            reflowHostWindowBounds(HOST_WINDOW_REFLOW_RETRIES);
+        });
       return windowInsets;
     });
 
@@ -437,9 +443,13 @@ public class PlacePageController
       mViewModel.setPlacePageWidth(mPlacePage.getWidth());
     mDistanceToTop = mPlacePage.getTop();
     mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
+    mHostWindowReflowPending = true;
     ViewCompat.requestApplyInsets(mPlacePage);
 
-    mPlacePage.postOnAnimation(() -> reflowHostWindowBounds(HOST_WINDOW_REFLOW_RETRIES));
+    mPlacePage.postOnAnimation(() -> {
+      if (mHostWindowReflowPending)
+        reflowHostWindowBounds(HOST_WINDOW_REFLOW_RETRIES);
+    });
   }
 
   private void reflowHostWindowBounds(int retriesRemaining)
@@ -459,6 +469,7 @@ public class PlacePageController
     mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
     setPeekHeight();
     PlacePageUtils.updateMapViewport(mCoordinator, mDistanceToTop, mViewportMinHeight);
+    mHostWindowReflowPending = false;
   }
 
   @Override
@@ -810,6 +821,7 @@ public class PlacePageController
   @Override
   public void onDestroyView()
   {
+    mHostWindowReflowPending = false;
     if (mCustomPeekHeightAnimator != null)
     {
       mCustomPeekHeightAnimator.cancel();
