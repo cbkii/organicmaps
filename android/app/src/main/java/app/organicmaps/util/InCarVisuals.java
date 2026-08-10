@@ -423,7 +423,8 @@ public final class InCarVisuals
 
       final boolean mapMismatch =
           hasValidBounds(expectedWidth, expectedHeight) && (mapWidth != expectedWidth || mapHeight != expectedHeight);
-      final boolean surfacePending = hasValidBounds(mapWidth, mapHeight) && !hasValidBounds(surfaceWidth, surfaceHeight);
+      final boolean surfacePending =
+          hasValidBounds(mapWidth, mapHeight) && !hasValidBounds(surfaceWidth, surfaceHeight);
       final boolean surfaceMismatch =
           hasValidBounds(surfaceWidth, surfaceHeight) && (surfaceWidth != mapWidth || surfaceHeight != mapHeight);
       final boolean nativePending =
@@ -453,8 +454,8 @@ public final class InCarVisuals
       Logger.w(TAG, "Window convergence still pending: gen=" + expected.generation + " expected=" + expectedWidth + "x"
                         + expectedHeight + " map=" + mapWidth + "x" + mapHeight + " surface=" + surfaceWidth + "x"
                         + surfaceHeight + " native=" + nativeWidth + "x" + nativeHeight + " mapMismatch=" + mapMismatch
-                        + " surfacePending=" + surfacePending + " surfaceMismatch=" + surfaceMismatch + " nativePending="
-                        + nativePending + " nativeMismatch=" + nativeMismatch);
+                        + " surfacePending=" + surfacePending + " surfaceMismatch=" + surfaceMismatch
+                        + " nativePending=" + nativePending + " nativeMismatch=" + nativeMismatch);
     };
     observation.pendingVerification = verification;
     content.postOnAnimation(verification);
@@ -578,7 +579,7 @@ public final class InCarVisuals
       return "null";
     final Set<String> categories = intent.getCategories();
     return "{action=" + intent.getAction() + ",component=" + intent.getComponent() + ",categories="
-         + (categories == null ? "[]" : categories) + ",flags=0x" + Integer.toHexString(intent.getFlags()) + "}";
+      + (categories == null ? "[]" : categories) + ",flags=0x" + Integer.toHexString(intent.getFlags()) + "}";
   }
 
   private static void notifyPlacePageWindowChanged(@NonNull FragmentManager fragmentManager)
