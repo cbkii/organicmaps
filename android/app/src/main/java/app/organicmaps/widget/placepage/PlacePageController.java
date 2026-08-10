@@ -456,7 +456,8 @@ public class PlacePageController
     if (mPendingHostWindowReflow != null)
       mPlacePage.removeCallbacks(mPendingHostWindowReflow);
 
-    final Runnable reflow = () -> {
+    final Runnable reflow = () ->
+    {
       mPendingHostWindowReflow = null;
       reflowHostWindowBounds(generation, retriesRemaining);
     };
