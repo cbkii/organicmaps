@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import android.view.Surface;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import app.organicmaps.sdk.display.DisplayType;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.util.Assert;
@@ -67,6 +68,8 @@ public final class Map
 
   private int mHeight;
   private int mWidth;
+  private int mLastAppliedSurfaceWidth;
+  private int mLastAppliedSurfaceHeight;
   private boolean mRequireResize;
   private boolean mSurfaceCreated;
   private boolean mSurfaceAttached;
@@ -190,6 +193,8 @@ public final class Map
       return;
     }
     sCurrentDpi = surfaceDpi;
+    mLastAppliedSurfaceWidth = surfaceFrame.width();
+    mLastAppliedSurfaceHeight = surfaceFrame.height();
 
     if (firstStart)
       UiThread.runLater(mLocationHelper::onExitFromFirstRun);
@@ -210,17 +215,33 @@ public final class Map
       return;
     }
 
-    Logger.d(TAG, "mSurfaceCreated = " + mSurfaceCreated);
-    if (!mSurfaceCreated || (!mRequireResize && isSurfaceCreating))
+    final int width = surfaceFrame.width();
+    final int height = surfaceFrame.height();
+    Logger.d(TAG, "mSurfaceCreated = " + mSurfaceCreated + ", size = " + width + "x" + height);
+    if (!shouldApplySurfaceChange(mSurfaceCreated, mRequireResize, isSurfaceCreating, width, height,
+                                  mLastAppliedSurfaceWidth, mLastAppliedSurfaceHeight))
       return;
 
-    nativeSurfaceChanged(surface, surfaceFrame.width(), surfaceFrame.height());
+    nativeSurfaceChanged(surface, width, height);
+    mLastAppliedSurfaceWidth = width;
+    mLastAppliedSurfaceHeight = height;
 
     mRequireResize = false;
-    setupWidgets(context, surfaceFrame.width(), surfaceFrame.height());
+    setupWidgets(context, width, height);
     nativeApplyWidgets();
     if (mMapRenderingListener != null)
       mMapRenderingListener.onRenderingRestored();
+  }
+
+  @VisibleForTesting
+  static boolean shouldApplySurfaceChange(boolean surfaceCreated, boolean requireResize, boolean isSurfaceCreating,
+                                          int width, int height, int lastAppliedWidth, int lastAppliedHeight)
+  {
+    if (!surfaceCreated || width <= 0 || height <= 0)
+      return false;
+    if (requireResize || !isSurfaceCreating)
+      return true;
+    return width != lastAppliedWidth || height != lastAppliedHeight;
   }
 
   public void onSurfaceDestroyed(boolean activityIsChangingConfigurations)
@@ -282,6 +303,16 @@ public final class Map
   public boolean isContextCreated()
   {
     return mSurfaceCreated;
+  }
+
+  int getLastAppliedSurfaceWidth()
+  {
+    return mLastAppliedSurfaceWidth;
+  }
+
+  int getLastAppliedSurfaceHeight()
+  {
+    return mLastAppliedSurfaceHeight;
   }
 
   public static void onScroll(double distanceX, double distanceY)
