@@ -59,8 +59,8 @@ public class InCarVisualsTest
   {
     InCarVisuals.WindowProfile profile = InCarVisuals.resolveWindowProfile(null, 0, 0);
     assertNull(profile);
-    profile = InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP - 1,
-                                                InCarVisuals.COMPACT_HEIGHT_DP);
+    profile =
+        InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP - 1, InCarVisuals.COMPACT_HEIGHT_DP);
     assertEquals(InCarVisuals.WindowProfile.COMPACT_WIDTH, profile);
   }
 
@@ -68,13 +68,11 @@ public class InCarVisualsTest
   public void compactThroughTransientInvalidToFull()
   {
     InCarVisuals.WindowProfile profile =
-        InCarVisuals.resolveWindowProfile(null, InCarVisuals.COMPACT_WIDTH_DP - 1,
-                                          InCarVisuals.COMPACT_HEIGHT_DP - 1);
+        InCarVisuals.resolveWindowProfile(null, InCarVisuals.COMPACT_WIDTH_DP - 1, InCarVisuals.COMPACT_HEIGHT_DP - 1);
     assertEquals(InCarVisuals.WindowProfile.COMPACT_BOTH, profile);
     profile = InCarVisuals.resolveWindowProfile(profile, 0, 0);
     assertEquals(InCarVisuals.WindowProfile.COMPACT_BOTH, profile);
-    profile =
-        InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP, InCarVisuals.COMPACT_HEIGHT_DP);
+    profile = InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP, InCarVisuals.COMPACT_HEIGHT_DP);
     assertEquals(InCarVisuals.WindowProfile.FULL, profile);
   }
 
@@ -86,8 +84,8 @@ public class InCarVisualsTest
     assertEquals(InCarVisuals.WindowProfile.FULL, profile);
     profile = InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP, 0);
     assertEquals(InCarVisuals.WindowProfile.FULL, profile);
-    profile = InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP,
-                                                InCarVisuals.COMPACT_HEIGHT_DP - 1);
+    profile =
+        InCarVisuals.resolveWindowProfile(profile, InCarVisuals.COMPACT_WIDTH_DP, InCarVisuals.COMPACT_HEIGHT_DP - 1);
     assertEquals(InCarVisuals.WindowProfile.COMPACT_HEIGHT, profile);
   }
 
