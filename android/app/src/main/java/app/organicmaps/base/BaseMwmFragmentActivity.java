@@ -2,6 +2,7 @@ package app.organicmaps.base;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.os.Bundle;
@@ -16,10 +17,13 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentFactory;
 import androidx.fragment.app.FragmentManager;
+import app.organicmaps.BuildConfig;
+import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.SplashActivity;
 import app.organicmaps.sdk.util.log.Logger;
+import app.organicmaps.util.InCarVisuals;
 import java.util.Objects;
 
 public abstract class BaseMwmFragmentActivity extends AppCompatActivity
@@ -51,6 +55,49 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
     }
 
     onSafeCreate(savedInstanceState);
+    reconcileInCarMap(InCarVisuals.TransitionReason.CREATE);
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent)
+  {
+    super.onNewIntent(intent);
+    reconcileInCarMap(InCarVisuals.TransitionReason.NEW_INTENT);
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus)
+  {
+    super.onWindowFocusChanged(hasFocus);
+    if (hasFocus)
+      reconcileInCarMap(InCarVisuals.TransitionReason.WINDOW_FOCUS);
+  }
+
+  @Override
+  public void onMultiWindowModeChanged(boolean isInMultiWindowMode, @NonNull Configuration newConfig)
+  {
+    super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
+    reconcileInCarMap(InCarVisuals.TransitionReason.MULTI_WINDOW);
+  }
+
+  @Override
+  public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, @NonNull Configuration newConfig)
+  {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+    reconcileInCarMap(InCarVisuals.TransitionReason.PIP_MODE);
+  }
+
+  @Override
+  public void onConfigurationChanged(@NonNull Configuration newConfig)
+  {
+    super.onConfigurationChanged(newConfig);
+    reconcileInCarMap(InCarVisuals.TransitionReason.CONFIGURATION);
+  }
+
+  private void reconcileInCarMap(@NonNull InCarVisuals.TransitionReason reason)
+  {
+    if (BuildConfig.IS_IN_CAR && this instanceof MwmActivity)
+      InCarVisuals.reconcile(this, reason);
   }
 
   /**
@@ -95,6 +142,9 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   @Override
   protected final void onDestroy()
   {
+    if (BuildConfig.IS_IN_CAR && this instanceof MwmActivity)
+      InCarVisuals.release(this);
+
     super.onDestroy();
 
     if (!mSafeCreated)
