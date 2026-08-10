@@ -6,6 +6,7 @@ import android.content.ContextWrapper;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
@@ -125,6 +126,28 @@ public class MapView extends SurfaceView
   {
     super.performClick();
     return false;
+  }
+
+  public int getSurfaceFrameWidth()
+  {
+    final Rect frame = getHolder().getSurfaceFrame();
+    return frame == null ? 0 : frame.width();
+  }
+
+  public int getSurfaceFrameHeight()
+  {
+    final Rect frame = getHolder().getSurfaceFrame();
+    return frame == null ? 0 : frame.height();
+  }
+
+  public int getLastAppliedSurfaceWidth()
+  {
+    return mMap.getLastAppliedSurfaceWidth();
+  }
+
+  public int getLastAppliedSurfaceHeight()
+  {
+    return mMap.getLastAppliedSurfaceHeight();
   }
 
   @NonNull
