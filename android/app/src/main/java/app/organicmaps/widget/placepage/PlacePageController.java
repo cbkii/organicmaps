@@ -57,6 +57,7 @@ public class PlacePageController
   private static final String PLACE_PAGE_FRAGMENT_TAG = "PLACE_PAGE";
   // Slide offset threshold below collapsed (0.0) at which the sheet is dismissed.
   private static final float EASY_DISMISS_SLIDE_THRESHOLD = -0.15f;
+  private static final int HOST_WINDOW_REFLOW_RETRIES = 2;
 
   private BottomSheetBehavior<View> mPlacePageBehavior;
   private NestedScrollView mPlacePage;
@@ -211,6 +212,8 @@ public class PlacePageController
       return;
     mCustomPeekHeightAnimator.cancel();
     mCustomPeekHeightAnimator = null;
+    if (mCoordinator != null && mCoordinator.getHeight() > 0)
+      setPlacePageHeightBounds();
   }
 
   private void onHiddenInternal()
@@ -436,16 +439,26 @@ public class PlacePageController
     mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
     ViewCompat.requestApplyInsets(mPlacePage);
 
-    mPlacePage.post(() -> {
-      if (!isAdded() || mPlacePage == null || mCoordinator == null || mCoordinator.getHeight() <= 0)
-        return;
-      if (mPlacePage.getWidth() > 0)
-        mViewModel.setPlacePageWidth(mPlacePage.getWidth());
-      mDistanceToTop = mPlacePage.getTop();
-      mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
-      setPeekHeight();
-      PlacePageUtils.updateMapViewport(mCoordinator, mDistanceToTop, mViewportMinHeight);
-    });
+    mPlacePage.postOnAnimation(() -> reflowHostWindowBounds(HOST_WINDOW_REFLOW_RETRIES));
+  }
+
+  private void reflowHostWindowBounds(int retriesRemaining)
+  {
+    if (!isAdded() || mPlacePage == null || mCoordinator == null)
+      return;
+    if (mCoordinator.getHeight() <= 0)
+    {
+      if (retriesRemaining > 0)
+        mPlacePage.postOnAnimation(() -> reflowHostWindowBounds(retriesRemaining - 1));
+      return;
+    }
+
+    if (mPlacePage.getWidth() > 0)
+      mViewModel.setPlacePageWidth(mPlacePage.getWidth());
+    mDistanceToTop = mPlacePage.getTop();
+    mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
+    setPeekHeight();
+    PlacePageUtils.updateMapViewport(mCoordinator, mDistanceToTop, mViewportMinHeight);
   }
 
   @Override
