@@ -579,7 +579,7 @@ public final class InCarVisuals
       return "null";
     final Set<String> categories = intent.getCategories();
     return "{action=" + intent.getAction() + ",component=" + intent.getComponent() + ",categories="
-      + (categories == null ? "[]" : categories) + ",flags=0x" + Integer.toHexString(intent.getFlags()) + "}";
+  + (categories == null ? "[]" : categories) + ",flags=0x" + Integer.toHexString(intent.getFlags()) + "}";
   }
 
   private static void notifyPlacePageWindowChanged(@NonNull FragmentManager fragmentManager)
