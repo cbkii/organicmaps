@@ -41,7 +41,8 @@ import java.util.WeakHashMap;
 
 /**
  * Owns InCar app-side window convergence and applies the fixed-display control dimensions to the currently mounted UI.
- * The system/launcher remains the authority for task bounds; this class only reconciles Organic Maps inside those bounds.
+ * The system/launcher remains the authority for task bounds; this class only reconciles Organic Maps inside those
+ * bounds.
  */
 public final class InCarVisuals
 {
@@ -57,7 +58,8 @@ public final class InCarVisuals
   private static final Map<FragmentActivity, Observation> OBSERVATIONS = new WeakHashMap<>();
   private static final Map<Dialog, DialogFitState> DIALOG_FITS = new WeakHashMap<>();
 
-  public enum TransitionReason {
+  public enum TransitionReason
+  {
     CREATE,
     RESUME,
     NEW_INTENT,
@@ -218,7 +220,8 @@ public final class InCarVisuals
     {
       observation.content = content;
       final Observation state = observation;
-      observation.layoutListener = (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+      observation.layoutListener = (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+      {
         if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
           scheduleReconcile(activity, state, TransitionReason.ROOT_LAYOUT);
       };
@@ -285,7 +288,8 @@ public final class InCarVisuals
     observation.pendingRetry = null;
     observation.pendingVerification = null;
     final long requestGeneration = ++observation.requestGeneration;
-    final Runnable reconcileRunnable = () -> {
+    final Runnable reconcileRunnable = () ->
+    {
       observation.pendingReconcile = null;
       if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
         return;
@@ -301,7 +305,8 @@ public final class InCarVisuals
     if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
       return;
 
-    final View content = observation.content != null ? observation.content : activity.findViewById(android.R.id.content);
+    final View content =
+        observation.content != null ? observation.content : activity.findViewById(android.R.id.content);
     if (content == null)
     {
       scheduleInvalidBoundsRetry(activity, observation, reason, requestGeneration, retriesRemaining, 0, 0);
@@ -331,11 +336,11 @@ public final class InCarVisuals
     final boolean boundsChanged =
         previous == null || hasMaterialBoundsChange(previous.contentWidthPx, previous.contentHeightPx, width, height);
     final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
-    final boolean controlsChanged = previous == null || profile != previous.profile
-                                 || optimisedVisuals != observation.optimisedVisuals;
+    final boolean controlsChanged =
+        previous == null || profile != previous.profile || optimisedVisuals != observation.optimisedVisuals;
 
-    final WindowSnapshot snapshot = createSnapshot(activity, ++observation.snapshotGeneration, width, height, widthDp,
-                                                   heightDp, profile);
+    final WindowSnapshot snapshot =
+        createSnapshot(activity, ++observation.snapshotGeneration, width, height, widthDp, heightDp, profile);
     observation.snapshot = snapshot;
     observation.optimisedVisuals = optimisedVisuals;
 
@@ -349,9 +354,9 @@ public final class InCarVisuals
       ViewCompat.requestApplyInsets(coordinator != null ? coordinator : content);
       content.requestLayout();
       fitVisibleDialogs(activity.getSupportFragmentManager(), activity);
-      notifyPlacePageWindowChanged(activity.getSupportFragmentManager());
-      scheduleConvergenceVerification(activity, observation, requestGeneration,
-                                      MAX_CONVERGENCE_VERIFICATION_FRAMES);
+      if (boundsChanged)
+        notifyPlacePageWindowChanged(activity.getSupportFragmentManager());
+      scheduleConvergenceVerification(activity, observation, requestGeneration, MAX_CONVERGENCE_VERIFICATION_FRAMES);
     }
 
     if (boundsChanged || controlsChanged || explicitConvergenceTrigger)
@@ -364,8 +369,8 @@ public final class InCarVisuals
   {
     if (retriesRemaining <= 0)
     {
-      Logger.w(TAG, "Window bounds remain unmeasured after bounded retry: reason=" + reason + " request="
-                        + requestGeneration + " content=" + width + "x" + height + " previousProfile="
+      Logger.w(TAG, "Window bounds remain unmeasured after bounded retry: reason=" + reason
+                        + " request=" + requestGeneration + " content=" + width + "x" + height + " previousProfile="
                         + (observation.snapshot == null ? "UNKNOWN" : observation.snapshot.profile));
       return;
     }
@@ -374,7 +379,8 @@ public final class InCarVisuals
     if (content == null)
       return;
 
-    final Runnable retry = () -> {
+    final Runnable retry = () ->
+    {
       observation.pendingRetry = null;
       if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
         return;
@@ -392,7 +398,8 @@ public final class InCarVisuals
     if (content == null || framesRemaining <= 0)
       return;
 
-    final Runnable verification = () -> {
+    final Runnable verification = () ->
+    {
       observation.pendingVerification = null;
       if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
         return;
@@ -403,10 +410,10 @@ public final class InCarVisuals
       if (expected == null || mapView == null)
         return;
 
-      final int expectedWidth = mapContainer != null && mapContainer.getWidth() > 0 ? mapContainer.getWidth()
-                                                                                   : expected.contentWidthPx;
-      final int expectedHeight = mapContainer != null && mapContainer.getHeight() > 0 ? mapContainer.getHeight()
-                                                                                       : expected.contentHeightPx;
+      final int expectedWidth =
+          mapContainer != null && mapContainer.getWidth() > 0 ? mapContainer.getWidth() : expected.contentWidthPx;
+      final int expectedHeight =
+          mapContainer != null && mapContainer.getHeight() > 0 ? mapContainer.getHeight() : expected.contentHeightPx;
       final int mapWidth = mapView.getWidth();
       final int mapHeight = mapView.getHeight();
       final int surfaceWidth = mapView.getSurfaceFrameWidth();
@@ -416,12 +423,17 @@ public final class InCarVisuals
 
       final boolean mapMismatch =
           hasValidBounds(expectedWidth, expectedHeight) && (mapWidth != expectedWidth || mapHeight != expectedHeight);
+      final boolean surfacePending = hasValidBounds(mapWidth, mapHeight) && !hasValidBounds(surfaceWidth, surfaceHeight);
       final boolean surfaceMismatch =
           hasValidBounds(surfaceWidth, surfaceHeight) && (surfaceWidth != mapWidth || surfaceHeight != mapHeight);
-      final boolean nativeMismatch = hasValidBounds(surfaceWidth, surfaceHeight) && hasValidBounds(nativeWidth, nativeHeight)
+      final boolean nativePending =
+          hasValidBounds(surfaceWidth, surfaceHeight) && !hasValidBounds(nativeWidth, nativeHeight);
+      final boolean nativeMismatch = hasValidBounds(surfaceWidth, surfaceHeight)
+                                  && hasValidBounds(nativeWidth, nativeHeight)
                                   && (nativeWidth != surfaceWidth || nativeHeight != surfaceHeight);
+      final boolean pending = mapMismatch || surfacePending || surfaceMismatch || nativePending || nativeMismatch;
 
-      if (!mapMismatch && !surfaceMismatch && !nativeMismatch)
+      if (!pending)
       {
         Logger.d(TAG, "Window convergence verified: gen=" + expected.generation + " map=" + mapWidth + "x" + mapHeight
                           + " surface=" + surfaceWidth + "x" + surfaceHeight + " native=" + nativeWidth + "x"
@@ -441,7 +453,8 @@ public final class InCarVisuals
       Logger.w(TAG, "Window convergence still pending: gen=" + expected.generation + " expected=" + expectedWidth + "x"
                         + expectedHeight + " map=" + mapWidth + "x" + mapHeight + " surface=" + surfaceWidth + "x"
                         + surfaceHeight + " native=" + nativeWidth + "x" + nativeHeight + " mapMismatch=" + mapMismatch
-                        + " surfaceMismatch=" + surfaceMismatch + " nativeMismatch=" + nativeMismatch);
+                        + " surfacePending=" + surfacePending + " surfaceMismatch=" + surfaceMismatch + " nativePending="
+                        + nativePending + " nativeMismatch=" + nativeMismatch);
     };
     observation.pendingVerification = verification;
     content.postOnAnimation(verification);
@@ -523,8 +536,8 @@ public final class InCarVisuals
   }
 
   @NonNull
-  private static WindowSnapshot createSnapshot(@NonNull FragmentActivity activity, long generation, int width, int height,
-                                               int widthDp, int heightDp, @NonNull WindowProfile profile)
+  private static WindowSnapshot createSnapshot(@NonNull FragmentActivity activity, long generation, int width,
+                                               int height, int widthDp, int heightDp, @NonNull WindowProfile profile)
   {
     final Configuration config = activity.getResources().getConfiguration();
     final boolean supportsWindowModes = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
@@ -540,20 +553,21 @@ public final class InCarVisuals
 
     return new WindowSnapshot(generation, width, height, widthDp, heightDp, profile, activity.getTaskId(),
                               System.identityHashCode(activity), multiWindow, pictureInPicture, config.screenWidthDp,
-                              config.screenHeightDp, config.orientation, mapWidth, mapHeight, surfaceWidth, surfaceHeight,
-                              nativeWidth, nativeHeight);
+                              config.screenHeightDp, config.orientation, mapWidth, mapHeight, surfaceWidth,
+                              surfaceHeight, nativeWidth, nativeHeight);
   }
 
   private static void logSnapshot(@NonNull FragmentActivity activity, @NonNull TransitionReason reason,
                                   @NonNull WindowSnapshot snapshot)
   {
     Logger.i(TAG, "reason=" + reason + " gen=" + snapshot.generation + " task=" + snapshot.taskId + " activity="
-                      + snapshot.activityInstanceId + " lifecycle=" + activity.getLifecycle().getCurrentState() + " multi="
-                      + snapshot.multiWindow + " pip=" + snapshot.pictureInPicture + " config=" + snapshot.configWidthDp
-                      + "x" + snapshot.configHeightDp + "/" + snapshot.orientation + " content=" + snapshot.contentWidthPx
-                      + "x" + snapshot.contentHeightPx + " dp=" + snapshot.widthDp + "x" + snapshot.heightDp + " map="
-                      + snapshot.mapWidthPx + "x" + snapshot.mapHeightPx + " surface=" + snapshot.surfaceWidthPx + "x"
-                      + snapshot.surfaceHeightPx + " native=" + snapshot.nativeWidthPx + "x" + snapshot.nativeHeightPx
+                      + snapshot.activityInstanceId + " lifecycle=" + activity.getLifecycle().getCurrentState()
+                      + " multi=" + snapshot.multiWindow + " pip=" + snapshot.pictureInPicture
+                      + " config=" + snapshot.configWidthDp + "x" + snapshot.configHeightDp + "/"
+                      + snapshot.orientation + " content=" + snapshot.contentWidthPx + "x" + snapshot.contentHeightPx
+                      + " dp=" + snapshot.widthDp + "x" + snapshot.heightDp + " map=" + snapshot.mapWidthPx + "x"
+                      + snapshot.mapHeightPx + " surface=" + snapshot.surfaceWidthPx + "x" + snapshot.surfaceHeightPx
+                      + " native=" + snapshot.nativeWidthPx + "x" + snapshot.nativeHeightPx
                       + " profile=" + snapshot.profile + " intent=" + describeIntent(activity.getIntent()));
   }
 
