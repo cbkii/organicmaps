@@ -205,6 +205,14 @@ public class PlacePageController
     }
   }
 
+  private void cancelCustomPeekHeightAnimationForResize()
+  {
+    if (mCustomPeekHeightAnimator == null)
+      return;
+    mCustomPeekHeightAnimator.cancel();
+    mCustomPeekHeightAnimator = null;
+  }
+
   private void onHiddenInternal()
   {
     // Must remove fragments before nativeDeactivatePopup() — the native call may
@@ -408,6 +416,35 @@ public class PlacePageController
           mPlacePage.setScrollY(0);
       }
       mShouldCollapse = false;
+    });
+  }
+
+  /** Recompute cached bottom-sheet geometry after the host window receives new bounds. */
+  public void onHostWindowBoundsChanged()
+  {
+    if (!isAdded() || mPlacePage == null || mPlacePageContainer == null || mCoordinator == null)
+      return;
+
+    cancelCustomPeekHeightAnimationForResize();
+    final Resources res = getResources();
+    mViewportMinHeight = res.getDimensionPixelSize(R.dimen.viewport_min_height);
+    mButtonsHeight = (int) res.getDimension(R.dimen.place_page_buttons_height);
+    mMaxButtons = res.getInteger(R.integer.pp_buttons_max);
+    if (mPlacePage.getWidth() > 0)
+      mViewModel.setPlacePageWidth(mPlacePage.getWidth());
+    mDistanceToTop = mPlacePage.getTop();
+    mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
+    ViewCompat.requestApplyInsets(mPlacePage);
+
+    mPlacePage.post(() -> {
+      if (!isAdded() || mPlacePage == null || mCoordinator == null || mCoordinator.getHeight() <= 0)
+        return;
+      if (mPlacePage.getWidth() > 0)
+        mViewModel.setPlacePageWidth(mPlacePage.getWidth());
+      mDistanceToTop = mPlacePage.getTop();
+      mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
+      setPeekHeight();
+      PlacePageUtils.updateMapViewport(mCoordinator, mDistanceToTop, mViewportMinHeight);
     });
   }
 
