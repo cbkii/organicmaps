@@ -75,17 +75,17 @@ public:
       , m_trafficEnabled(trafficEnabled)
       , m_isolinesEnabled(isolinesEnabled)
       , m_blockTapEvents(blockTapEvents)
-      , m_showChoosePositionMark(showChoosePositionMark)
-      , m_boundAreaTriangles(std::move(boundAreaTriangles))
-      , m_isRoutingActive(isRoutingActive)
-      , m_isAutozoomEnabled(isAutozoomEnabled)
-      , m_simplifiedTrafficColors(simplifiedTrafficColors)
-      , m_backgroundMode(backgroundMode)
-      , m_satelliteAreaOpacity(satelliteAreaOpacity)
-      , m_arrow3dCustomDecl(std::move(arrow3dCustomDecl))
-      , m_overlaysShowStatsCallback(std::move(overlaysShowStatsCallback))
-      , m_onGraphicsContextInitialized(std::move(onGraphicsContextInitialized))
-      , m_renderInjectionHandler(std::move(renderInjectionHandler))
+      , m_showChoosePositionMark(params.m_showChoosePositionMark)
+      , m_boundAreaTriangles(std::move(params.m_boundAreaTriangles))
+      , m_isRoutingActive(params.m_isRoutingActive)
+      , m_isAutozoomEnabled(params.m_isAutozoomEnabled)
+      , m_simplifiedTrafficColors(params.m_simplifiedTrafficColors)
+      , m_backgroundMode(params.m_backgroundMode)
+      , m_satelliteAreaOpacity(params.m_satelliteAreaOpacity)
+      , m_arrow3dCustomDecl(std::move(params.m_arrow3dCustomDecl))
+      , m_overlaysShowStatsCallback(std::move(params.m_overlaysShowStatsCallback))
+      , m_onGraphicsContextInitialized(params.m_onGraphicsContextInitialized)
+      , m_renderInjectionHandler(std::move(params.m_renderInjectionHandler))
     {}
 
     dp::ApiVersion m_apiVersion;
@@ -186,7 +186,7 @@ public:
   void DeactivateRouteFollowing();
   void SetSubrouteVisibility(dp::DrapeID subrouteId, bool isVisible);
   dp::DrapeID AddRoutePreviewSegment(m2::PointD const & startPt, m2::PointD const & finishPt);
-  void RemoveRoutePreviewSegment(dp::DrapeID subrouteId);
+  void RemoveRoutePreviewSegment(dp::DrapeID segmentId);
   void RemoveAllRoutePreviewSegments();
 
   void SetWidgetLayout(gui::TWidgetsLayoutInfo && info);
