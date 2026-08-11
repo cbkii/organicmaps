@@ -392,12 +392,15 @@ void MyPositionController::NextMode(ScreenBase const & screen)
 
 void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool isNavigable, ScreenBase const & screen)
 {
+  m2::PointD const newPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
+  double const displacementMeters =
+      m_isPositionAssigned ? mercator::DistanceOnEarth(m_position, newPosition) : 0.0;
   if (driving_policy::ShouldHoldFreeDrivingCamera(m_isInRouting, m_isDrivingView, m_isPositionAssigned,
-                                                  info.HasSpeed(), info.m_speed))
+                                                  info.HasSpeed(), info.m_speed, displacementMeters))
   {
-    // Framework/routing/search already received the raw fix. Keep it for the eventual exit/re-route, but do not feed
-    // it back through the camera-position listener or the stopped vehicle would appear to wander.
-    m_lastHeldDrivingPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
+    // Framework/routing/search already received the raw fix. Keep nearby low-speed jitter out of the camera, but
+    // retain the newest raw position for a later meaningful move, Driving View exit or route start.
+    m_lastHeldDrivingPosition = newPosition;
     m_hasLastHeldDrivingPosition = true;
     RefreshLocationFreshness(info);
     return;
@@ -408,7 +411,7 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
   double const oldAzimut = GetDrawableAzimut();
 
   m2::RectD const rect = mercator::MetersToXY(info.m_longitude, info.m_latitude, info.m_horizontalAccuracy);
-  m_position = mercator::FromLatLon(info.m_latitude, info.m_longitude);
+  m_position = newPosition;
   m_errorRadius = rect.SizeX() * 0.5;
   m_horizontalAccuracy = info.m_horizontalAccuracy;
 

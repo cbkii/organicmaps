@@ -270,6 +270,7 @@ public class MwmApplication extends Application implements Application.ActivityL
   {
     NavigationService.createNotificationChannel(this);
     NavigationService.setOrganicMaps(getOrganicMaps());
+    NavigationService.setTtsFallbackSoundResource(BuildConfig.IS_IN_CAR ? R.raw.in_car_tts_fallback : 0);
 
     final int FLAG_IMMUTABLE = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ? 0 : PendingIntent.FLAG_IMMUTABLE;
     final Intent contentIntent = new Intent(this, MwmActivity.class);

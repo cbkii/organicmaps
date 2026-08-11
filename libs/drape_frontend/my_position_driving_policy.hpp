@@ -5,6 +5,7 @@
 namespace df::driving_policy
 {
 double constexpr kStationarySpeedMps = 5.0 / 3.6;
+double constexpr kStationaryHoldRadiusMeters = 30.0;
 
 inline bool IsNavigationStyleCameraActive(bool isRouting, bool isDrivingView)
 {
@@ -25,9 +26,11 @@ inline bool ShouldUseAutoZoom(location::EMyPositionMode mode, bool isRouting, bo
 }
 
 inline bool ShouldHoldFreeDrivingCamera(bool isRouting, bool isDrivingView, bool positionAssigned, bool hasSpeed,
-                                        double speedMps)
+                                        double speedMps, double displacementMeters)
 {
   if (isRouting || !isDrivingView || !positionAssigned)
+    return false;
+  if (displacementMeters >= kStationaryHoldRadiusMeters)
     return false;
   return !hasSpeed || speedMps < kStationarySpeedMps;
 }

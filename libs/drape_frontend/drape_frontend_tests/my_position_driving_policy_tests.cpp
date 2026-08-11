@@ -35,11 +35,21 @@ UNIT_TEST(MyPositionDrivingPolicy_AutoZoom)
 UNIT_TEST(MyPositionDrivingPolicy_StationaryHoldOnlyInFreeDriving)
 {
   double const below = kStationarySpeedMps - 0.01;
-  TEST(ShouldHoldFreeDrivingCamera(false, true, true, true, below), ());
-  TEST(ShouldHoldFreeDrivingCamera(false, true, true, false, -1.0), ());
-  TEST(!ShouldHoldFreeDrivingCamera(false, true, true, true, kStationarySpeedMps), ());
-  TEST(!ShouldHoldFreeDrivingCamera(false, true, false, true, below), ());
-  TEST(!ShouldHoldFreeDrivingCamera(true, true, true, true, below), ());
-  TEST(!ShouldHoldFreeDrivingCamera(false, false, true, true, below), ());
+  double const insideHoldRadius = kStationaryHoldRadiusMeters - 0.1;
+  TEST(ShouldHoldFreeDrivingCamera(false, true, true, true, below, insideHoldRadius), ());
+  TEST(ShouldHoldFreeDrivingCamera(false, true, true, false, -1.0, insideHoldRadius), ());
+  TEST(!ShouldHoldFreeDrivingCamera(false, true, true, true, kStationarySpeedMps, insideHoldRadius), ());
+  TEST(!ShouldHoldFreeDrivingCamera(false, true, false, true, below, insideHoldRadius), ());
+  TEST(!ShouldHoldFreeDrivingCamera(true, true, true, true, below, insideHoldRadius), ());
+  TEST(!ShouldHoldFreeDrivingCamera(false, false, true, true, below, insideHoldRadius), ());
+}
+
+UNIT_TEST(MyPositionDrivingPolicy_StationaryHoldReleasesOnMeaningfulDisplacement)
+{
+  double const below = kStationarySpeedMps - 0.01;
+  TEST(ShouldHoldFreeDrivingCamera(false, true, true, true, below, kStationaryHoldRadiusMeters - 0.1), ());
+  TEST(!ShouldHoldFreeDrivingCamera(false, true, true, true, below, kStationaryHoldRadiusMeters), ());
+  TEST(!ShouldHoldFreeDrivingCamera(false, true, true, true, below, 33.0), ());
+  TEST(!ShouldHoldFreeDrivingCamera(false, true, true, false, -1.0, 33.0), ());
 }
 }  // namespace
