@@ -131,7 +131,7 @@
     android:paddingStart="12dp"
     android:paddingEnd="12dp"
     android:text="--"
-    android:textColor="@color/text_dark"
+    android:textColor="?iconTint"
     android:textSize="21sp"
     android:textStyle="bold"
     android:visibility="gone"
