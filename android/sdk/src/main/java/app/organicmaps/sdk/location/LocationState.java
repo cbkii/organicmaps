@@ -31,13 +31,8 @@ public final class LocationState
   public static final int FOLLOW = 3;
   public static final int FOLLOW_AND_ROTATE = 4;
 
-  // These constants should correspond to values defined in platform/location.hpp
-  // Leave 0-value as no any error.
-  // private static final int ERROR_UNKNOWN = 0;
-  // private static final int ERROR_NOT_SUPPORTED = 1;
   public static final int ERROR_DENIED = 2;
   public static final int ERROR_GPS_OFF = 3;
-  // public static final int ERROR_TIMEOUT = 4; // Unused on Android (only used on Qt)
 
   public static native void nativeSwitchToNextMode();
   @Value
@@ -51,7 +46,16 @@ public final class LocationState
   static native void nativeLocationUpdated(long time, double lat, double lon, float accuracyH, double altitude,
                                            float accuracyV, float speed, float bearing);
 
+  private static native void nativeSetDrivingViewEnabled(boolean enabled, boolean autoReturn, boolean recenter);
+
   private LocationState() {}
+
+  public static void setDrivingViewEnabled(boolean enabled, boolean autoReturn, boolean recenter)
+  {
+    if (!Map.isEngineCreated())
+      return;
+    nativeSetDrivingViewEnabled(enabled, autoReturn, recenter);
+  }
 
   @Value
   public static int getMode()
