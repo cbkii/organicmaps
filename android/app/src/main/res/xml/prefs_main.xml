@@ -5,6 +5,13 @@
   xmlns:tools="http://schemas.android.com/tools">
 
   <Preference
+    android:key="@string/pref_in_car_settings"
+    android:title="@string/in_car_settings_title"
+    android:summary="@string/in_car_settings_summary"
+    android:order="0"
+    app:fragment="app.organicmaps.settings.InCarSettingsFragment"
+    app:singleLineTitle="false" />
+  <Preference
     android:key="@string/pref_osm_profile"
     android:title="@string/profile"
     tools:summary="LongLongUsernameHere"
