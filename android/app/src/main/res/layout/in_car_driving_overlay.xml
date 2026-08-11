@@ -24,7 +24,7 @@
     android:paddingEnd="14dp"
     android:paddingBottom="7dp"
     android:text="--"
-    android:textColor="@color/text_dark"
+    android:textColor="?iconTint"
     android:textSize="24sp"
     android:textStyle="bold" />
 
