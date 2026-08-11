@@ -150,7 +150,8 @@ public final class InCarQuickDestination
     final InCarQuickDestination decoded = decode(destination.encode());
     if (decoded == null)
       return false;
-    final boolean sameLabels = destination.mTitle.equals(decoded.mTitle) && destination.mSubtitle.equals(decoded.mSubtitle);
+    final boolean sameLabels =
+        destination.mTitle.equals(decoded.mTitle) && destination.mSubtitle.equals(decoded.mSubtitle);
     final boolean sameLat = Double.doubleToLongBits(destination.mLat) == Double.doubleToLongBits(decoded.mLat);
     final boolean sameLon = Double.doubleToLongBits(destination.mLon) == Double.doubleToLongBits(decoded.mLon);
     return sameLabels && sameLat && sameLon;
