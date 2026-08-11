@@ -17,8 +17,8 @@ inline bool ShouldAutoReturn(bool isRouting, bool isDrivingView, bool drivingAut
   return isRouting || (isDrivingView && drivingAutoReturn);
 }
 
-inline bool ShouldUseAutoZoom(location::EMyPositionMode mode, bool isRouting, bool isDrivingView,
-                              bool routingAutoZoom, bool blocked)
+inline bool ShouldUseAutoZoom(location::EMyPositionMode mode, bool isRouting, bool isDrivingView, bool routingAutoZoom,
+                              bool blocked)
 {
   if (mode != location::FollowAndRotate || blocked)
     return false;
