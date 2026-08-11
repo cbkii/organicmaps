@@ -119,22 +119,13 @@
     app:layout_constraintStart_toStartOf="@id/nav_next_turn_container"
     app:layout_constraintTop_toBottomOf="@id/nav_next_turn_container" />
 
-  <TextView
-    android:id="@+id/in_car_nav_speed"
+  <ViewStub
+    android:id="@+id/in_car_nav_speed_stub"
+    android:inflatedId="@id/in_car_nav_speed"
+    android:layout="@layout/in_car_nav_speed"
     android:layout_width="wrap_content"
     android:layout_height="48dp"
     android:layout_marginStart="@dimen/margin_half"
-    android:background="@drawable/in_car_speed_background"
-    android:elevation="@dimen/nav_elevation"
-    android:gravity="center"
-    android:minWidth="96dp"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:text="--"
-    android:textColor="?iconTint"
-    android:textSize="21sp"
-    android:textStyle="bold"
-    android:visibility="gone"
     app:layout_constraintBottom_toBottomOf="@id/nav_speed_limit"
     app:layout_constraintStart_toEndOf="@id/nav_speed_limit"
     app:layout_constraintTop_toTopOf="@id/nav_speed_limit" />
