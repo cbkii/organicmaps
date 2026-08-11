@@ -135,7 +135,6 @@ public:
 
   void ScaleAndSetCenter(m2::PointD const & centerPt, double scaleFactor, bool isAnim, bool trackVisibleViewport);
 
-  // If zoom == -1 then current zoom will not be changed.
   void SetModelViewCenter(m2::PointD const & centerPt, int zoom, bool isAnim, bool trackVisibleViewport);
   void SetModelViewRect(m2::RectD const & rect, bool applyRotation, int zoom, bool isAnim, bool useVisibleViewport);
   void SetModelViewAnyRect(m2::AnyRectD const & rect, bool isAnim, bool useVisibleViewport);
@@ -164,6 +163,7 @@ public:
   void SwitchMyPositionNextMode();
   void LoseLocation();
   void StopLocationFollow();
+  void SetDrivingView(bool enabled, bool autoReturn, bool recenter);
 
   using TapEventInfoHandler = FrontendRenderer::TapEventInfoHandler;
   void SetTapEventInfoListener(TapEventInfoHandler && fn);
@@ -174,8 +174,6 @@ public:
                     bool isAnim, bool isGeometrySelectionAllowed, bool isSelectionShapeVisible);
   void DeselectObject(bool restoreViewport);
 
-  /// Highlights @p lines as overlay geometry on top of the current selection, using @p color.
-  /// Replaces any previously highlighted lines. No-op if no selection is active.
   void SetSelectionLines(SelectionInfo && info);
 
   dp::DrapeID AddSubroute(SubrouteConstPtr subroute);
@@ -223,8 +221,6 @@ public:
   void ClearTransitSchemeCache(MwmSet::MwmId const & mwmId);
   void ClearAllTransitSchemeCache();
 
-  /// Shows a single route's transit view (lines + stops) on the transit scheme layer.
-  /// Replaces any previously shown route transit. No-op if the info is empty.
   void ShowRouteTransit(TransitInfo && info);
   void HideRouteTransit();
 
@@ -235,15 +231,9 @@ public:
   void RunScenario(ScenarioManager::ScenarioData && scenarioData, ScenarioManager::ScenarioCallback const & onStartFn,
                    ScenarioManager::ScenarioCallback const & onFinishFn);
 
-  /// @name Custom features are features that we render in a different way.
-  /// Value in the map shows if the feature is skipped in process of geometry generation.
-  /// For all custom features (if they are overlays) statistics will be gathered.
-  /// @todo Not used now, suspect that it was used for some Ads POIs.
-  /// @{
   void SetCustomFeatures(df::CustomFeatures && ids);
   void RemoveCustomFeatures(MwmSet::MwmId const & mwmId);
   void RemoveAllCustomFeatures();
-  /// @}
 
   void SetPosteffectEnabled(PostprocessRenderer::Effect effect, bool enabled);
   void EnableDebugRectRendering(bool enabled);
