@@ -57,6 +57,7 @@ public class PlacePageController
   private static final String PLACE_PAGE_FRAGMENT_TAG = "PLACE_PAGE";
   // Slide offset threshold below collapsed (0.0) at which the sheet is dismissed.
   private static final float EASY_DISMISS_SLIDE_THRESHOLD = -0.15f;
+  private static final int HOST_WINDOW_REFLOW_RETRIES = 2;
 
   private BottomSheetBehavior<View> mPlacePageBehavior;
   private NestedScrollView mPlacePage;
@@ -79,6 +80,10 @@ public class PlacePageController
   private boolean mShouldCollapse;
   // Enabled after the sheet reaches COLLAPSED; prevents dismiss during initial open animation.
   private boolean mEasyDismissEnabled;
+  private boolean mHostWindowReflowPending;
+  private long mHostWindowReflowGeneration;
+  @Nullable
+  private Runnable mPendingHostWindowReflow;
   private int mDistanceToTop;
 
   private ValueAnimator mCustomPeekHeightAnimator;
@@ -169,6 +174,8 @@ public class PlacePageController
 
     ViewCompat.setOnApplyWindowInsetsListener(mPlacePage, (v, windowInsets) -> {
       mCurrentWindowInsets = windowInsets;
+      if (mHostWindowReflowPending)
+        scheduleHostWindowReflow(mHostWindowReflowGeneration, HOST_WINDOW_REFLOW_RETRIES);
       return windowInsets;
     });
 
@@ -203,6 +210,16 @@ public class PlacePageController
       mCustomPeekHeightAnimator.end();
       setPlacePageHeightBounds();
     }
+  }
+
+  private void cancelCustomPeekHeightAnimationForResize()
+  {
+    if (mCustomPeekHeightAnimator == null)
+      return;
+    mCustomPeekHeightAnimator.cancel();
+    mCustomPeekHeightAnimator = null;
+    if (mCoordinator != null && mCoordinator.getHeight() > 0)
+      setPlacePageHeightBounds();
   }
 
   private void onHiddenInternal()
@@ -409,6 +426,65 @@ public class PlacePageController
       }
       mShouldCollapse = false;
     });
+  }
+
+  /** Recompute cached bottom-sheet geometry after the host window receives new bounds. */
+  public void onHostWindowBoundsChanged()
+  {
+    if (!isAdded() || mPlacePage == null || mPlacePageContainer == null || mCoordinator == null)
+      return;
+
+    cancelCustomPeekHeightAnimationForResize();
+    final Resources res = getResources();
+    mViewportMinHeight = res.getDimensionPixelSize(R.dimen.viewport_min_height);
+    mButtonsHeight = (int) res.getDimension(R.dimen.place_page_buttons_height);
+    mMaxButtons = res.getInteger(R.integer.pp_buttons_max);
+    if (mPlacePage.getWidth() > 0)
+      mViewModel.setPlacePageWidth(mPlacePage.getWidth());
+    mDistanceToTop = mPlacePage.getTop();
+    mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
+    mHostWindowReflowPending = true;
+    final long generation = ++mHostWindowReflowGeneration;
+    ViewCompat.requestApplyInsets(mPlacePage);
+    scheduleHostWindowReflow(generation, HOST_WINDOW_REFLOW_RETRIES);
+  }
+
+  private void scheduleHostWindowReflow(long generation, int retriesRemaining)
+  {
+    if (mPlacePage == null)
+      return;
+    if (mPendingHostWindowReflow != null)
+      mPlacePage.removeCallbacks(mPendingHostWindowReflow);
+
+    final Runnable reflow = () ->
+    {
+      mPendingHostWindowReflow = null;
+      reflowHostWindowBounds(generation, retriesRemaining);
+    };
+    mPendingHostWindowReflow = reflow;
+    mPlacePage.postOnAnimation(reflow);
+  }
+
+  private void reflowHostWindowBounds(long generation, int retriesRemaining)
+  {
+    if (generation != mHostWindowReflowGeneration || !mHostWindowReflowPending)
+      return;
+    if (!isAdded() || mPlacePage == null || mCoordinator == null)
+      return;
+    if (mCoordinator.getHeight() <= 0)
+    {
+      if (retriesRemaining > 0)
+        scheduleHostWindowReflow(generation, retriesRemaining - 1);
+      return;
+    }
+
+    if (mPlacePage.getWidth() > 0)
+      mViewModel.setPlacePageWidth(mPlacePage.getWidth());
+    mDistanceToTop = mPlacePage.getTop();
+    mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
+    setPeekHeight();
+    PlacePageUtils.updateMapViewport(mCoordinator, mDistanceToTop, mViewportMinHeight);
+    mHostWindowReflowPending = false;
   }
 
   @Override
@@ -760,6 +836,11 @@ public class PlacePageController
   @Override
   public void onDestroyView()
   {
+    mHostWindowReflowPending = false;
+    ++mHostWindowReflowGeneration;
+    if (mPlacePage != null && mPendingHostWindowReflow != null)
+      mPlacePage.removeCallbacks(mPendingHostWindowReflow);
+    mPendingHostWindowReflow = null;
     if (mCustomPeekHeightAnimator != null)
     {
       mCustomPeekHeightAnimator.cancel();

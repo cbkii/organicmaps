@@ -2,6 +2,9 @@ package app.organicmaps.util;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,21 +21,35 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.view.ViewCompat;
 import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
+import app.organicmaps.sdk.MapView;
 import app.organicmaps.sdk.util.Config;
+import app.organicmaps.sdk.util.log.Logger;
+import app.organicmaps.widget.placepage.PlacePageController;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 
-/** Applies the optional fixed-display control dimensions to the currently mounted map UI. */
+/**
+ * Owns InCar app-side window convergence and applies the fixed-display control dimensions to the currently mounted UI.
+ * The system/launcher remains the authority for task bounds; this class only reconciles Organic Maps inside those
+ * bounds.
+ */
 public final class InCarVisuals
 {
+  private static final String TAG = InCarVisuals.class.getSimpleName();
+  private static final int MAX_INVALID_BOUNDS_RETRIES = 3;
+  private static final int MAX_CONVERGENCE_VERIFICATION_FRAMES = 3;
+
   @VisibleForTesting
   static final int COMPACT_WIDTH_DP = 720;
   @VisibleForTesting
@@ -40,6 +57,20 @@ public final class InCarVisuals
 
   private static final Map<FragmentActivity, Observation> OBSERVATIONS = new WeakHashMap<>();
   private static final Map<Dialog, DialogFitState> DIALOG_FITS = new WeakHashMap<>();
+
+  public enum TransitionReason
+  {
+    CREATE,
+    RESUME,
+    NEW_INTENT,
+    ROOT_LAYOUT,
+    WINDOW_FOCUS,
+    MULTI_WINDOW,
+    PIP_MODE,
+    CONFIGURATION,
+    FRAGMENT_VIEW,
+    RETRY
+  }
 
   @VisibleForTesting
   enum WindowProfile {
@@ -49,13 +80,75 @@ public final class InCarVisuals
     COMPACT_BOTH
   }
 
+  private static final class WindowSnapshot
+  {
+    final long generation;
+    final int contentWidthPx;
+    final int contentHeightPx;
+    final int widthDp;
+    final int heightDp;
+    @NonNull
+    final WindowProfile profile;
+    final int taskId;
+    final int activityInstanceId;
+    final boolean multiWindow;
+    final boolean pictureInPicture;
+    final int configWidthDp;
+    final int configHeightDp;
+    final int orientation;
+    final int mapWidthPx;
+    final int mapHeightPx;
+    final int surfaceWidthPx;
+    final int surfaceHeightPx;
+    final int nativeWidthPx;
+    final int nativeHeightPx;
+
+    WindowSnapshot(long generation, int contentWidthPx, int contentHeightPx, int widthDp, int heightDp,
+                   @NonNull WindowProfile profile, int taskId, int activityInstanceId, boolean multiWindow,
+                   boolean pictureInPicture, int configWidthDp, int configHeightDp, int orientation, int mapWidthPx,
+                   int mapHeightPx, int surfaceWidthPx, int surfaceHeightPx, int nativeWidthPx, int nativeHeightPx)
+    {
+      this.generation = generation;
+      this.contentWidthPx = contentWidthPx;
+      this.contentHeightPx = contentHeightPx;
+      this.widthDp = widthDp;
+      this.heightDp = heightDp;
+      this.profile = profile;
+      this.taskId = taskId;
+      this.activityInstanceId = activityInstanceId;
+      this.multiWindow = multiWindow;
+      this.pictureInPicture = pictureInPicture;
+      this.configWidthDp = configWidthDp;
+      this.configHeightDp = configHeightDp;
+      this.orientation = orientation;
+      this.mapWidthPx = mapWidthPx;
+      this.mapHeightPx = mapHeightPx;
+      this.surfaceWidthPx = surfaceWidthPx;
+      this.surfaceHeightPx = surfaceHeightPx;
+      this.nativeWidthPx = nativeWidthPx;
+      this.nativeHeightPx = nativeHeightPx;
+    }
+  }
+
   private static final class Observation
   {
     @Nullable
-    WindowProfile profile;
+    WindowSnapshot snapshot;
     boolean optimisedVisuals;
-    int width = -1;
-    int height = -1;
+    long requestGeneration;
+    long snapshotGeneration;
+    @Nullable
+    View content;
+    @Nullable
+    View.OnLayoutChangeListener layoutListener;
+    @Nullable
+    FragmentManager.FragmentLifecycleCallbacks fragmentCallbacks;
+    @Nullable
+    Runnable pendingReconcile;
+    @Nullable
+    Runnable pendingRetry;
+    @Nullable
+    Runnable pendingVerification;
   }
 
   private static final class DialogFitState
@@ -73,57 +166,431 @@ public final class InCarVisuals
   @UiThread
   public static void applyAndObserve(@NonNull FragmentActivity activity)
   {
+    reconcile(activity, TransitionReason.RESUME);
+  }
+
+  @UiThread
+  public static void reconcile(@NonNull FragmentActivity activity, @NonNull TransitionReason reason)
+  {
+    if (!BuildConfig.IS_IN_CAR || !isActivityAlive(activity))
+      return;
+
+    final Observation observation = ensureObservation(activity);
+    cancelPendingWork(observation);
+    final long requestGeneration = ++observation.requestGeneration;
+    reconcileNow(activity, observation, reason, requestGeneration, MAX_INVALID_BOUNDS_RETRIES);
+  }
+
+  @UiThread
+  public static void release(@NonNull FragmentActivity activity)
+  {
+    final Observation observation = OBSERVATIONS.remove(activity);
+    if (observation == null)
+      return;
+
+    cancelPendingWork(observation);
+    if (observation.content != null && observation.layoutListener != null)
+      observation.content.removeOnLayoutChangeListener(observation.layoutListener);
+    if (observation.fragmentCallbacks != null)
+      activity.getSupportFragmentManager().unregisterFragmentLifecycleCallbacks(observation.fragmentCallbacks);
+    observation.content = null;
+    observation.layoutListener = null;
+    observation.fragmentCallbacks = null;
+  }
+
+  @NonNull
+  private static Observation ensureObservation(@NonNull FragmentActivity activity)
+  {
     Observation observation = OBSERVATIONS.get(activity);
     if (observation == null)
     {
       observation = new Observation();
       OBSERVATIONS.put(activity, observation);
-      final Observation state = observation;
-
-      final View content = activity.findViewById(android.R.id.content);
-      if (content != null)
-      {
-        content.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-          if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
-            v.post(() -> applyForCurrentBounds(activity, state));
-        });
-      }
-
-      activity.getSupportFragmentManager().registerFragmentLifecycleCallbacks(
-          new FragmentManager.FragmentLifecycleCallbacks() {
-            @Override
-            public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment,
-                                              @NonNull View view, @Nullable Bundle savedInstanceState)
-            {
-              applyToFragmentView(activity, state, view);
-            }
-
-            @Override
-            public void onFragmentStarted(@NonNull FragmentManager fm, @NonNull Fragment fragment)
-            {
-              if (fragment instanceof DialogFragment dialogFragment)
-              {
-                final Dialog dialog = dialogFragment.getDialog();
-                if (dialog != null)
-                  fitDialog(activity, dialog);
-              }
-            }
-
-            @Override
-            public void onFragmentStopped(@NonNull FragmentManager fm, @NonNull Fragment fragment)
-            {
-              if (fragment instanceof DialogFragment dialogFragment)
-              {
-                final Dialog dialog = dialogFragment.getDialog();
-                if (dialog != null)
-                  releaseDialog(dialog);
-              }
-            }
-          },
-          true);
     }
 
-    applyForCurrentBounds(activity, observation);
+    if (observation.content == null)
+      installObservation(activity, observation);
+    return observation;
+  }
+
+  private static void installObservation(@NonNull FragmentActivity activity, @NonNull Observation observation)
+  {
+    final View content = activity.findViewById(android.R.id.content);
+    if (content != null)
+    {
+      observation.content = content;
+      final Observation state = observation;
+      observation.layoutListener = (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+      {
+        if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
+          scheduleReconcile(activity, state, TransitionReason.ROOT_LAYOUT);
+      };
+      content.addOnLayoutChangeListener(observation.layoutListener);
+    }
+
+    if (observation.fragmentCallbacks == null)
+    {
+      final Observation state = observation;
+      observation.fragmentCallbacks = new FragmentManager.FragmentLifecycleCallbacks() {
+        @Override
+        public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment, @NonNull View view,
+                                          @Nullable Bundle savedInstanceState)
+        {
+          applyToFragmentView(activity, state, view);
+        }
+
+        @Override
+        public void onFragmentStarted(@NonNull FragmentManager fm, @NonNull Fragment fragment)
+        {
+          if (fragment instanceof DialogFragment dialogFragment)
+          {
+            final Dialog dialog = dialogFragment.getDialog();
+            if (dialog != null)
+              fitDialog(activity, dialog);
+          }
+        }
+
+        @Override
+        public void onFragmentStopped(@NonNull FragmentManager fm, @NonNull Fragment fragment)
+        {
+          if (fragment instanceof DialogFragment dialogFragment)
+          {
+            final Dialog dialog = dialogFragment.getDialog();
+            if (dialog != null)
+              releaseDialog(dialog);
+          }
+        }
+      };
+      activity.getSupportFragmentManager().registerFragmentLifecycleCallbacks(observation.fragmentCallbacks, true);
+    }
+  }
+
+  private static void scheduleReconcile(@NonNull FragmentActivity activity, @NonNull Observation observation,
+                                        @NonNull TransitionReason reason)
+  {
+    if (!BuildConfig.IS_IN_CAR || !isActivityAlive(activity))
+      return;
+
+    final View content = observation.content;
+    if (content == null)
+    {
+      reconcile(activity, reason);
+      return;
+    }
+
+    if (observation.pendingReconcile != null)
+      content.removeCallbacks(observation.pendingReconcile);
+    if (observation.pendingRetry != null)
+      content.removeCallbacks(observation.pendingRetry);
+    if (observation.pendingVerification != null)
+      content.removeCallbacks(observation.pendingVerification);
+
+    observation.pendingRetry = null;
+    observation.pendingVerification = null;
+    final long requestGeneration = ++observation.requestGeneration;
+    final Runnable reconcileRunnable = () ->
+    {
+      observation.pendingReconcile = null;
+      if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
+        return;
+      reconcileNow(activity, observation, reason, requestGeneration, MAX_INVALID_BOUNDS_RETRIES);
+    };
+    observation.pendingReconcile = reconcileRunnable;
+    content.postOnAnimation(reconcileRunnable);
+  }
+
+  private static void reconcileNow(@NonNull FragmentActivity activity, @NonNull Observation observation,
+                                   @NonNull TransitionReason reason, long requestGeneration, int retriesRemaining)
+  {
+    if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
+      return;
+
+    final View content =
+        observation.content != null ? observation.content : activity.findViewById(android.R.id.content);
+    if (content == null)
+    {
+      scheduleInvalidBoundsRetry(activity, observation, reason, requestGeneration, retriesRemaining, 0, 0);
+      return;
+    }
+    observation.content = content;
+
+    final int width = content.getWidth();
+    final int height = content.getHeight();
+    if (!hasValidBounds(width, height))
+    {
+      scheduleInvalidBoundsRetry(activity, observation, reason, requestGeneration, retriesRemaining, width, height);
+      return;
+    }
+
+    final float density = activity.getResources().getDisplayMetrics().density;
+    final int widthDp = Math.round(width / density);
+    final int heightDp = Math.round(height / density);
+    final WindowProfile profile = classifyWindow(widthDp, heightDp);
+    if (profile == null)
+    {
+      scheduleInvalidBoundsRetry(activity, observation, reason, requestGeneration, retriesRemaining, width, height);
+      return;
+    }
+
+    final WindowSnapshot previous = observation.snapshot;
+    final boolean boundsChanged =
+        previous == null || hasMaterialBoundsChange(previous.contentWidthPx, previous.contentHeightPx, width, height);
+    final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
+    final boolean controlsChanged =
+        previous == null || profile != previous.profile || optimisedVisuals != observation.optimisedVisuals;
+
+    final WindowSnapshot snapshot =
+        createSnapshot(activity, ++observation.snapshotGeneration, width, height, widthDp, heightDp, profile);
+    observation.snapshot = snapshot;
+    observation.optimisedVisuals = optimisedVisuals;
+
+    final boolean explicitConvergenceTrigger = isExplicitConvergenceTrigger(reason);
+    if (controlsChanged || explicitConvergenceTrigger)
+      apply(activity, content, optimisedVisuals, profile);
+
+    if (boundsChanged || controlsChanged || explicitConvergenceTrigger)
+    {
+      final View coordinator = activity.findViewById(R.id.coordinator);
+      ViewCompat.requestApplyInsets(coordinator != null ? coordinator : content);
+      content.requestLayout();
+      fitVisibleDialogs(activity.getSupportFragmentManager(), activity);
+      if (boundsChanged)
+        notifyPlacePageWindowChanged(activity.getSupportFragmentManager());
+      scheduleConvergenceVerification(activity, observation, requestGeneration, MAX_CONVERGENCE_VERIFICATION_FRAMES);
+    }
+
+    if (boundsChanged || controlsChanged || explicitConvergenceTrigger)
+      logSnapshot(activity, reason, snapshot);
+  }
+
+  private static void scheduleInvalidBoundsRetry(@NonNull FragmentActivity activity, @NonNull Observation observation,
+                                                 @NonNull TransitionReason reason, long requestGeneration,
+                                                 int retriesRemaining, int width, int height)
+  {
+    if (retriesRemaining <= 0)
+    {
+      Logger.w(TAG, "Window bounds remain unmeasured after bounded retry: reason=" + reason
+                        + " request=" + requestGeneration + " content=" + width + "x" + height + " previousProfile="
+                        + (observation.snapshot == null ? "UNKNOWN" : observation.snapshot.profile));
+      return;
+    }
+
+    final View content = observation.content;
+    if (content == null)
+      return;
+
+    final Runnable retry = () ->
+    {
+      observation.pendingRetry = null;
+      if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
+        return;
+      reconcileNow(activity, observation, TransitionReason.RETRY, requestGeneration, retriesRemaining - 1);
+    };
+    observation.pendingRetry = retry;
+    content.postOnAnimation(retry);
+  }
+
+  private static void scheduleConvergenceVerification(@NonNull FragmentActivity activity,
+                                                      @NonNull Observation observation, long requestGeneration,
+                                                      int framesRemaining)
+  {
+    final View content = observation.content;
+    if (content == null || framesRemaining <= 0)
+      return;
+
+    final Runnable verification = () ->
+    {
+      observation.pendingVerification = null;
+      if (!isGenerationCurrent(requestGeneration, observation.requestGeneration) || !isActivityAlive(activity))
+        return;
+
+      final WindowSnapshot expected = observation.snapshot;
+      final View mapContainer = activity.findViewById(R.id.map_container);
+      final MapView mapView = activity.findViewById(R.id.map);
+      if (expected == null || mapView == null)
+        return;
+
+      final int expectedWidth =
+          mapContainer != null && mapContainer.getWidth() > 0 ? mapContainer.getWidth() : expected.contentWidthPx;
+      final int expectedHeight =
+          mapContainer != null && mapContainer.getHeight() > 0 ? mapContainer.getHeight() : expected.contentHeightPx;
+      final int mapWidth = mapView.getWidth();
+      final int mapHeight = mapView.getHeight();
+      final int surfaceWidth = mapView.getSurfaceFrameWidth();
+      final int surfaceHeight = mapView.getSurfaceFrameHeight();
+      final int nativeWidth = mapView.getLastAppliedSurfaceWidth();
+      final int nativeHeight = mapView.getLastAppliedSurfaceHeight();
+
+      final boolean mapMismatch =
+          hasValidBounds(expectedWidth, expectedHeight) && (mapWidth != expectedWidth || mapHeight != expectedHeight);
+      final boolean surfacePending =
+          hasValidBounds(mapWidth, mapHeight) && !hasValidBounds(surfaceWidth, surfaceHeight);
+      final boolean surfaceMismatch =
+          hasValidBounds(surfaceWidth, surfaceHeight) && (surfaceWidth != mapWidth || surfaceHeight != mapHeight);
+      final boolean nativePending =
+          hasValidBounds(surfaceWidth, surfaceHeight) && !hasValidBounds(nativeWidth, nativeHeight);
+      final boolean nativeMismatch = hasValidBounds(surfaceWidth, surfaceHeight)
+                                  && hasValidBounds(nativeWidth, nativeHeight)
+                                  && (nativeWidth != surfaceWidth || nativeHeight != surfaceHeight);
+      final boolean pending = mapMismatch || surfacePending || surfaceMismatch || nativePending || nativeMismatch;
+
+      if (!pending)
+      {
+        Logger.d(TAG, "Window convergence verified: gen=" + expected.generation + " map=" + mapWidth + "x" + mapHeight
+                          + " surface=" + surfaceWidth + "x" + surfaceHeight + " native=" + nativeWidth + "x"
+                          + nativeHeight);
+        return;
+      }
+
+      if (mapMismatch)
+        mapView.requestLayout();
+
+      if (framesRemaining > 1)
+      {
+        scheduleConvergenceVerification(activity, observation, requestGeneration, framesRemaining - 1);
+        return;
+      }
+
+      Logger.w(TAG, "Window convergence still pending: gen=" + expected.generation + " expected=" + expectedWidth + "x"
+                        + expectedHeight + " map=" + mapWidth + "x" + mapHeight + " surface=" + surfaceWidth + "x"
+                        + surfaceHeight + " native=" + nativeWidth + "x" + nativeHeight + " mapMismatch=" + mapMismatch
+                        + " surfacePending=" + surfacePending + " surfaceMismatch=" + surfaceMismatch
+                        + " nativePending=" + nativePending + " nativeMismatch=" + nativeMismatch);
+    };
+    observation.pendingVerification = verification;
+    content.postOnAnimation(verification);
+  }
+
+  private static void cancelPendingWork(@NonNull Observation observation)
+  {
+    final View content = observation.content;
+    if (content != null)
+    {
+      if (observation.pendingReconcile != null)
+        content.removeCallbacks(observation.pendingReconcile);
+      if (observation.pendingRetry != null)
+        content.removeCallbacks(observation.pendingRetry);
+      if (observation.pendingVerification != null)
+        content.removeCallbacks(observation.pendingVerification);
+    }
+    observation.pendingReconcile = null;
+    observation.pendingRetry = null;
+    observation.pendingVerification = null;
+  }
+
+  private static boolean isActivityAlive(@NonNull FragmentActivity activity)
+  {
+    return !activity.isFinishing() && !activity.isDestroyed();
+  }
+
+  private static boolean isExplicitConvergenceTrigger(@NonNull TransitionReason reason)
+  {
+    return switch (reason)
+    {
+      case CREATE, RESUME, NEW_INTENT, WINDOW_FOCUS, MULTI_WINDOW, PIP_MODE, CONFIGURATION -> true;
+      case ROOT_LAYOUT, FRAGMENT_VIEW, RETRY -> false;
+    };
+  }
+
+  @VisibleForTesting
+  static boolean hasValidBounds(int width, int height)
+  {
+    return width > 0 && height > 0;
+  }
+
+  @VisibleForTesting
+  static boolean hasMaterialBoundsChange(int oldWidth, int oldHeight, int newWidth, int newHeight)
+  {
+    return oldWidth != newWidth || oldHeight != newHeight;
+  }
+
+  @VisibleForTesting
+  static boolean isGenerationCurrent(long scheduledGeneration, long currentGeneration)
+  {
+    return scheduledGeneration == currentGeneration;
+  }
+
+  @Nullable
+  @VisibleForTesting
+  static WindowProfile resolveWindowProfile(@Nullable WindowProfile previous, int widthDp, int heightDp)
+  {
+    final WindowProfile resolved = classifyWindow(widthDp, heightDp);
+    return resolved != null ? resolved : previous;
+  }
+
+  @Nullable
+  @VisibleForTesting
+  static WindowProfile classifyWindow(int widthDp, int heightDp)
+  {
+    if (widthDp <= 0 || heightDp <= 0)
+      return null;
+
+    final boolean compactWidth = widthDp < COMPACT_WIDTH_DP;
+    final boolean compactHeight = heightDp < COMPACT_HEIGHT_DP;
+    if (compactWidth && compactHeight)
+      return WindowProfile.COMPACT_BOTH;
+    if (compactWidth)
+      return WindowProfile.COMPACT_WIDTH;
+    if (compactHeight)
+      return WindowProfile.COMPACT_HEIGHT;
+    return WindowProfile.FULL;
+  }
+
+  @NonNull
+  private static WindowSnapshot createSnapshot(@NonNull FragmentActivity activity, long generation, int width,
+                                               int height, int widthDp, int heightDp, @NonNull WindowProfile profile)
+  {
+    final Configuration config = activity.getResources().getConfiguration();
+    final boolean supportsWindowModes = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
+    final boolean multiWindow = supportsWindowModes && activity.isInMultiWindowMode();
+    final boolean pictureInPicture = supportsWindowModes && activity.isInPictureInPictureMode();
+    final MapView mapView = activity.findViewById(R.id.map);
+    final int mapWidth = mapView == null ? 0 : mapView.getWidth();
+    final int mapHeight = mapView == null ? 0 : mapView.getHeight();
+    final int surfaceWidth = mapView == null ? 0 : mapView.getSurfaceFrameWidth();
+    final int surfaceHeight = mapView == null ? 0 : mapView.getSurfaceFrameHeight();
+    final int nativeWidth = mapView == null ? 0 : mapView.getLastAppliedSurfaceWidth();
+    final int nativeHeight = mapView == null ? 0 : mapView.getLastAppliedSurfaceHeight();
+
+    return new WindowSnapshot(generation, width, height, widthDp, heightDp, profile, activity.getTaskId(),
+                              System.identityHashCode(activity), multiWindow, pictureInPicture, config.screenWidthDp,
+                              config.screenHeightDp, config.orientation, mapWidth, mapHeight, surfaceWidth,
+                              surfaceHeight, nativeWidth, nativeHeight);
+  }
+
+  private static void logSnapshot(@NonNull FragmentActivity activity, @NonNull TransitionReason reason,
+                                  @NonNull WindowSnapshot snapshot)
+  {
+    Logger.i(TAG, "reason=" + reason + " gen=" + snapshot.generation + " task=" + snapshot.taskId + " activity="
+                      + snapshot.activityInstanceId + " lifecycle=" + activity.getLifecycle().getCurrentState()
+                      + " multi=" + snapshot.multiWindow + " pip=" + snapshot.pictureInPicture
+                      + " config=" + snapshot.configWidthDp + "x" + snapshot.configHeightDp + "/"
+                      + snapshot.orientation + " content=" + snapshot.contentWidthPx + "x" + snapshot.contentHeightPx
+                      + " dp=" + snapshot.widthDp + "x" + snapshot.heightDp + " map=" + snapshot.mapWidthPx + "x"
+                      + snapshot.mapHeightPx + " surface=" + snapshot.surfaceWidthPx + "x" + snapshot.surfaceHeightPx
+                      + " native=" + snapshot.nativeWidthPx + "x" + snapshot.nativeHeightPx
+                      + " profile=" + snapshot.profile + " intent=" + describeIntent(activity.getIntent()));
+  }
+
+  @NonNull
+  private static String describeIntent(@Nullable Intent intent)
+  {
+    if (intent == null)
+      return "null";
+    final Set<String> categories = intent.getCategories();
+    return "{action=" + intent.getAction() + ",component=" + intent.getComponent() + ",categories="
+  + (categories == null ? "[]" : categories) + ",flags=0x" + Integer.toHexString(intent.getFlags()) + "}";
+  }
+
+  private static void notifyPlacePageWindowChanged(@NonNull FragmentManager fragmentManager)
+  {
+    for (Fragment fragment : fragmentManager.getFragments())
+    {
+      if (fragment instanceof PlacePageController placePage && fragment.isAdded() && fragment.getView() != null)
+        placePage.onHostWindowBoundsChanged();
+      if (fragment.isAdded())
+        notifyPlacePageWindowChanged(fragment.getChildFragmentManager());
+    }
   }
 
   @UiThread
@@ -271,65 +738,14 @@ public final class InCarVisuals
   private static void applyToFragmentView(@NonNull FragmentActivity activity, @NonNull Observation observation,
                                           @NonNull View view)
   {
-    final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
-    if (observation.profile == null || optimisedVisuals != observation.optimisedVisuals)
+    final WindowSnapshot snapshot = observation.snapshot;
+    if (snapshot == null)
     {
-      applyForCurrentBounds(activity, observation);
+      scheduleReconcile(activity, observation, TransitionReason.FRAGMENT_VIEW);
       return;
     }
 
-    apply(activity, view, optimisedVisuals, observation.profile);
-  }
-
-  private static void applyForCurrentBounds(@NonNull FragmentActivity activity, @NonNull Observation observation)
-  {
-    final View content = activity.findViewById(android.R.id.content);
-    final int width = content == null ? 0 : content.getWidth();
-    final int height = content == null ? 0 : content.getHeight();
-    final WindowProfile profile = resolveWindowProfile(activity, width, height);
-    final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
-
-    final boolean boundsChanged = width != observation.width || height != observation.height;
-    final boolean controlsChanged = profile != observation.profile || optimisedVisuals != observation.optimisedVisuals;
-
-    observation.width = width;
-    observation.height = height;
-    observation.profile = profile;
-    observation.optimisedVisuals = optimisedVisuals;
-
-    if (controlsChanged && content != null)
-      apply(activity, content, optimisedVisuals, profile);
-    if (boundsChanged)
-      fitVisibleDialogs(activity.getSupportFragmentManager(), activity);
-  }
-
-  @NonNull
-  private static WindowProfile resolveWindowProfile(@NonNull Activity activity, int width, int height)
-  {
-    final float density = activity.getResources().getDisplayMetrics().density;
-    final int widthDp =
-        width > 0 ? Math.round(width / density) : activity.getResources().getConfiguration().screenWidthDp;
-    final int heightDp =
-        height > 0 ? Math.round(height / density) : activity.getResources().getConfiguration().screenHeightDp;
-    return classifyWindow(widthDp, heightDp);
-  }
-
-  @VisibleForTesting
-  @NonNull
-  static WindowProfile classifyWindow(int widthDp, int heightDp)
-  {
-    if (widthDp <= 0 || heightDp <= 0)
-      return WindowProfile.FULL;
-
-    final boolean compactWidth = widthDp < COMPACT_WIDTH_DP;
-    final boolean compactHeight = heightDp < COMPACT_HEIGHT_DP;
-    if (compactWidth && compactHeight)
-      return WindowProfile.COMPACT_BOTH;
-    if (compactWidth)
-      return WindowProfile.COMPACT_WIDTH;
-    if (compactHeight)
-      return WindowProfile.COMPACT_HEIGHT;
-    return WindowProfile.FULL;
+    apply(activity, view, Config.isInCarOptimisedVisualsEnabled(), snapshot.profile);
   }
 
   private static boolean isCompact(@NonNull WindowProfile profile)
