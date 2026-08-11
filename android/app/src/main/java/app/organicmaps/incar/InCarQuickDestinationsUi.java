@@ -134,7 +134,7 @@ public final class InCarQuickDestinationsUi
         renderVisibility();
       });
       mMapButtonsViewModel.getBottomButtonsHeight().observe(mActivity, height -> {
-        mBottomButtonsHeight = height == null ? 0 : Math.max(0, height);
+        mBottomButtonsHeight = height == null ? 0 : Math.max(0, Math.round(height));
         updateBottomMargin();
       });
       mRoutingPlanViewModel.getMenuUpdateTrigger().observe(mActivity, ignored -> recordConfirmedDestination());
