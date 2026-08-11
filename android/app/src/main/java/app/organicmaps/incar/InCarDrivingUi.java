@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -34,17 +35,20 @@ public final class InCarDrivingUi
     final View overlay;
     @NonNull
     final TextView speed;
+    @Nullable
+    final TextView navigationSpeed;
     @NonNull
     final FloatingActionButton drivingView;
     @NonNull
     final InCarDrivingViewController controller;
     String lastSpeedText;
 
-    Binding(@NonNull View overlay, @NonNull TextView speed, @NonNull FloatingActionButton drivingView,
-            @NonNull InCarDrivingViewController controller)
+    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed,
+            @NonNull FloatingActionButton drivingView, @NonNull InCarDrivingViewController controller)
     {
       this.overlay = overlay;
       this.speed = speed;
+      this.navigationSpeed = navigationSpeed;
       this.drivingView = drivingView;
       this.controller = controller;
     }
@@ -62,6 +66,7 @@ public final class InCarDrivingUi
     {
       final View overlay = activity.findViewById(R.id.in_car_driving_overlay);
       final TextView speed = activity.findViewById(R.id.in_car_speed);
+      final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
       final FloatingActionButton drivingView = activity.findViewById(R.id.in_car_driving_view_button);
       if (overlay == null || speed == null || drivingView == null)
       {
@@ -69,7 +74,7 @@ public final class InCarDrivingUi
         return;
       }
 
-      binding = new Binding(overlay, speed, drivingView, controller);
+      binding = new Binding(overlay, speed, navigationSpeed, drivingView, controller);
       BINDINGS.put(activity, binding);
       overlay.setVisibility(View.VISIBLE);
       drivingView.setOnClickListener(v -> controller.onDrivingViewButtonPressed());
@@ -98,7 +103,7 @@ public final class InCarDrivingUi
   }
 
   private static void render(@NonNull MwmActivity activity, @NonNull Binding binding,
-                             InCarDrivingViewController.Snapshot snapshot)
+                             @Nullable InCarDrivingViewController.Snapshot snapshot)
   {
     if (snapshot == null)
       return;
@@ -110,24 +115,18 @@ public final class InCarDrivingUi
     if (!speedText.equals(binding.lastSpeedText))
     {
       binding.speed.setText(speedText);
+      if (binding.navigationSpeed != null)
+        binding.navigationSpeed.setText(speedText);
       binding.lastSpeedText = speedText;
     }
 
-    switch (snapshot.locationHealth)
-    {
-    case CURRENT:
-      binding.speed.setAlpha(1.0f);
-      binding.speed.setContentDescription(activity.getString(R.string.in_car_speed_current, speedText));
-      break;
-    case STALE:
-      binding.speed.setAlpha(0.72f);
-      binding.speed.setContentDescription(activity.getString(R.string.in_car_speed_stale));
-      break;
-    case UNAVAILABLE:
-      binding.speed.setAlpha(0.55f);
-      binding.speed.setContentDescription(activity.getString(R.string.in_car_speed_unavailable));
-      break;
-    }
+    binding.speed.setVisibility(snapshot.navigating ? View.INVISIBLE : View.VISIBLE);
+    if (binding.navigationSpeed != null)
+      binding.navigationSpeed.setVisibility(snapshot.navigating ? View.VISIBLE : View.GONE);
+
+    applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
+    if (binding.navigationSpeed != null)
+      applyLocationHealth(activity, binding.navigationSpeed, snapshot.locationHealth, speedText);
 
     final boolean showButton = InCarSettingsStore.showDrivingViewButton(activity) && !snapshot.navigating;
     binding.drivingView.setVisibility(showButton ? View.VISIBLE : View.GONE);
@@ -148,6 +147,27 @@ public final class InCarDrivingUi
     final View help = activity.findViewById(R.id.help_button);
     if (help != null)
       help.setVisibility(View.GONE);
+  }
+
+  private static void applyLocationHealth(@NonNull MwmActivity activity, @NonNull TextView view,
+                                          @NonNull InCarDrivingViewController.LocationHealth health,
+                                          @NonNull String speedText)
+  {
+    switch (health)
+    {
+    case CURRENT:
+      view.setAlpha(1.0f);
+      view.setContentDescription(activity.getString(R.string.in_car_speed_current, speedText));
+      break;
+    case STALE:
+      view.setAlpha(0.72f);
+      view.setContentDescription(activity.getString(R.string.in_car_speed_stale));
+      break;
+    case UNAVAILABLE:
+      view.setAlpha(0.55f);
+      view.setContentDescription(activity.getString(R.string.in_car_speed_unavailable));
+      break;
+    }
   }
 
   private static void applyInsets(@NonNull MwmActivity activity, @NonNull Binding binding)
