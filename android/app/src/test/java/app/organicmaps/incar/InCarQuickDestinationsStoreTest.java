@@ -1,6 +1,7 @@
 package app.organicmaps.incar;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
@@ -44,5 +45,20 @@ public class InCarQuickDestinationsStoreTest
     final InCarQuickDestinationsStore.RecentPair pair = InCarQuickDestinationsStore.selectNewestTwo(invalid, A, B);
     assertEquals(A, pair.first);
     assertEquals(B, pair.second);
+  }
+
+  @Test
+  public void destinationStorageRoundTripsAndNullMeansClear()
+  {
+    final String encoded = InCarQuickDestinationsStore.encodeDestination(A);
+    assertNotNull(encoded);
+    final InCarQuickDestination restored = InCarQuickDestinationsStore.decodeDestination(encoded);
+    assertNotNull(restored);
+    assertEquals(A.getTitle(), restored.getTitle());
+    assertEquals(A.getLat(), restored.getLat(), 0.0);
+    assertEquals(A.getLon(), restored.getLon(), 0.0);
+
+    assertNull(InCarQuickDestinationsStore.encodeDestination(null));
+    assertNull(InCarQuickDestinationsStore.decodeDestination(null));
   }
 }
