@@ -166,6 +166,8 @@ private:
 
   location::EMyPositionMode m_mode;
   location::EMyPositionMode m_desiredInitMode;
+  location::EMyPositionMode m_preDrivingViewDesiredInitMode = location::Follow;
+  bool m_hasPreDrivingViewDesiredInitMode = false;
   location::TMyPositionModeChanged m_modeChangeCallback;
   Hints m_hints;
 
