@@ -73,6 +73,7 @@ public final class InCarDrivingViewController implements LocationListener
   private boolean mNativeStateApplied;
   private boolean mLastNativeEnabled;
   private boolean mLastNativeAutoReturn;
+  private boolean mWasNavigating;
 
   public InCarDrivingViewController(@NonNull Context context, @NonNull LocationHelper locationHelper)
   {
@@ -85,6 +86,7 @@ public final class InCarDrivingViewController implements LocationListener
                                                   : InCarDrivingViewPolicy.ActivationSource.OFF);
     mPolicy.beginNewSession();
     mLocationHelper.addListener(this);
+    mWasNavigating = RoutingController.get().isNavigating();
     publishSnapshot();
   }
 
@@ -126,6 +128,7 @@ public final class InCarDrivingViewController implements LocationListener
       }
     }
 
+    mWasNavigating = RoutingController.get().isNavigating();
     syncNativeState(false /* recenter */);
     publishSnapshot();
   }
@@ -186,6 +189,10 @@ public final class InCarDrivingViewController implements LocationListener
     mLastLocation = location;
     mLocationHealth = LocationHealth.CURRENT;
 
+    final boolean navigating = RoutingController.get().isNavigating();
+    final boolean navigationJustEnded = mWasNavigating && !navigating;
+    mWasNavigating = navigating;
+
     final boolean hasSpeed = location.hasSpeed() && location.getSpeed() >= 0.0f;
     final InCarDrivingViewPolicy.Transition transition =
         mPolicy.onSpeedSample(true /* locationCurrent */, hasSpeed, hasSpeed ? location.getSpeed() : -1.0,
@@ -197,7 +204,9 @@ public final class InCarDrivingViewController implements LocationListener
     }
     else
     {
-      syncNativeState(false /* recenter */);
+      // Existing route teardown returns ownership to the MyPositionController. Re-assert an enabled free-driving
+      // session after navigation finishes so route deactivation cannot leave the preserved session in route UI state.
+      syncNativeState(navigationJustEnded && mPolicy.isEnabled());
       publishSnapshot();
     }
   }
@@ -207,7 +216,6 @@ public final class InCarDrivingViewController implements LocationListener
   public void onLocationUpdateTimeout()
   {
     mLocationHealth = LocationHealth.STALE;
-    // A stale fix must not advance either speed threshold. The pure policy resets its continuous evidence here.
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
                           InCarSettingsStore.automaticDrivingViewEnabled(mContext));
     publishSnapshot();
@@ -265,8 +273,7 @@ public final class InCarDrivingViewController implements LocationListener
     final boolean hasCurrentSpeed =
         mLocationHealth == LocationHealth.CURRENT && mLastLocation != null && mLastLocation.hasSpeed()
         && mLastLocation.getSpeed() >= 0.0f;
-    final boolean following =
-        Map.isEngineCreated() && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
+    final boolean following = Map.isEngineCreated() && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, RoutingController.get().isNavigating(),
                                     mLocationHealth, hasCurrentSpeed,
                                     hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN,
