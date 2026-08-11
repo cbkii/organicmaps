@@ -93,16 +93,20 @@ final class InCarSettingsPolicy
       return;
 
     bindBoolean(fragment, R.string.pref_in_car_show_driving_view_button,
-                () -> InCarSettingsStore.showDrivingViewButton(fragment.requireContext()),
+                ()
+                    -> InCarSettingsStore.showDrivingViewButton(fragment.requireContext()),
                 enabled -> InCarSettingsStore.setShowDrivingViewButton(fragment.requireContext(), enabled));
     bindBoolean(fragment, R.string.pref_in_car_start_driving_view,
-                () -> InCarSettingsStore.startDrivingViewOnLaunch(fragment.requireContext()),
+                ()
+                    -> InCarSettingsStore.startDrivingViewOnLaunch(fragment.requireContext()),
                 enabled -> InCarSettingsStore.setStartDrivingViewOnLaunch(fragment.requireContext(), enabled));
     bindBoolean(fragment, R.string.pref_in_car_automatic_driving_view,
-                () -> InCarSettingsStore.automaticDrivingViewEnabled(fragment.requireContext()),
+                ()
+                    -> InCarSettingsStore.automaticDrivingViewEnabled(fragment.requireContext()),
                 enabled -> InCarSettingsStore.setAutomaticDrivingViewEnabled(fragment.requireContext(), enabled));
     bindBoolean(fragment, R.string.pref_in_car_auto_return_driving_view,
-                () -> InCarSettingsStore.autoReturnDrivingViewEnabled(fragment.requireContext()),
+                ()
+                    -> InCarSettingsStore.autoReturnDrivingViewEnabled(fragment.requireContext()),
                 enabled -> InCarSettingsStore.setAutoReturnDrivingViewEnabled(fragment.requireContext(), enabled));
   }
 
@@ -242,7 +246,7 @@ final class InCarSettingsPolicy
   private static boolean showDedicatedPreference(@NonNull PreferenceFragmentCompat fragment)
   {
     return InCarSettingsPlacementPolicy.showDedicatedPreference(BuildConfig.IS_IN_CAR,
-                                                                 fragment instanceof InCarSettingsFragment);
+                                                                fragment instanceof InCarSettingsFragment);
   }
 
   private interface BooleanReader
