@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto">
+
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_settings_driving_view">
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_auto_follow_location_on_launch"
+      android:title="@string/auto_follow_location_on_launch"
+      android:summary="@string/auto_follow_location_on_launch_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_show_driving_view_button"
+      android:title="@string/in_car_show_driving_view_button_title"
+      android:summary="@string/in_car_show_driving_view_button_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_start_driving_view"
+      android:title="@string/in_car_start_driving_view_title"
+      android:summary="@string/in_car_start_driving_view_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_automatic_driving_view"
+      android:title="@string/in_car_automatic_driving_view_title"
+      android:summary="@string/in_car_automatic_driving_view_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_auto_return_driving_view"
+      android:title="@string/in_car_auto_return_driving_view_title"
+      android:summary="@string/in_car_auto_return_driving_view_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_settings_map_display">
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_optimised_visuals"
+      android:title="@string/in_car_optimised_visuals_title"
+      android:summary="@string/in_car_optimised_visuals_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_budget_rendering"
+      android:title="@string/in_car_budget_rendering_title"
+      android:summary="@string/in_car_budget_rendering_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_settings_maintenance">
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_map_age_warning"
+      android:title="@string/in_car_map_age_warning_title"
+      android:summary="@string/in_car_map_age_warning_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+</androidx.preference.PreferenceScreen>
