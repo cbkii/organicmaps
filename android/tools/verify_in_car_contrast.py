@@ -34,6 +34,7 @@ class ContrastCheck:
 
 
 QUICK_DESTINATION_CHECKS = (
+    ContrastCheck("quick primary", "in_car_quick_foreground", "in_car_quick_primary", 5.5),
     ContrastCheck("quick Fuel + Charging", "in_car_quick_foreground", "in_car_quick_fuel_charging", 5.5),
     ContrastCheck("quick Parking", "in_car_quick_foreground", "in_car_quick_parking", 5.5),
     ContrastCheck("quick Toilets", "in_car_quick_foreground", "in_car_quick_toilets", 5.5),
