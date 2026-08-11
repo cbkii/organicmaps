@@ -7,6 +7,11 @@ public final class InCarQuickDestinationsPolicy
 {
   private InCarQuickDestinationsPolicy() {}
 
+  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen)
+  {
+    return inCarFlavor && !searchOpen && !placePageOpen;
+  }
+
   public static boolean shouldShow(boolean inCarFlavor, @NonNull InCarQuickDestinationsStore.Action action,
                                    boolean enabled, boolean destinationAvailable)
   {
