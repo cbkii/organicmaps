@@ -1,7 +1,6 @@
 package app.organicmaps.incar;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -161,8 +160,8 @@ public final class InCarDrivingUi
 
     final int buttonBackground =
         ContextCompat.getColor(activity, snapshot.enabled ? R.color.base_accent : R.color.bg_cards);
-    final int buttonForeground =
-        snapshot.enabled ? Color.WHITE : ContextCompat.getColor(activity, R.color.icon_tint);
+    final int buttonForeground = ContextCompat.getColor(
+        activity, snapshot.enabled ? R.color.routing_button_activated_tint : R.color.icon_tint);
     binding.drivingView.setBackgroundTintList(ColorStateList.valueOf(buttonBackground));
     binding.drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
 
