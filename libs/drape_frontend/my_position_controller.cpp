@@ -424,8 +424,10 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
 
   bool const isMovingFast = info.HasSpeed() && info.m_speed > kMinSpeedThresholdMps;
   bool const glueArrowInRouting = isNavigable && m_isArrowGluedInRouting;
+  bool const isReliableFreeDrivingCourse =
+      m_isDrivingView && !m_isInRouting && info.HasSpeed() && info.m_speed >= driving_policy::kStationarySpeedMps;
 
-  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || m_isDrivingView) && info.HasBearing())
+  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) && info.HasBearing())
   {
     SetDirection(math::DegToRad(info.m_bearing));
     m_lastGPSBearingTimer.Reset();
@@ -560,7 +562,7 @@ bool MyPositionController::UpdateViewportWithAutoZoom()
   if (!useAutoZoom)
     return false;
 
-  bool const usePerspectiveScale = m_isDrivingView || m_enablePerspectiveInRouting;
+  bool const usePerspectiveScale = m_isInRouting ? m_enablePerspectiveInRouting : m_isDrivingView;
   double const autoScale = usePerspectiveScale ? m_autoScale3d : m_autoScale2d;
   if (autoScale <= 0.0)
     return false;
