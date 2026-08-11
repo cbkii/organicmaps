@@ -14,17 +14,22 @@ static void LocationStateModeChanged(location::EMyPositionMode mode, std::shared
                       static_cast<jint>(mode));
 }
 
+//  public static void nativeSwitchToNextMode();
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSwitchToNextMode(JNIEnv * env, jclass clazz)
 {
   g_framework->SwitchMyPositionNextMode();
 }
 
+// private static int nativeGetMode();
 JNIEXPORT jint Java_app_organicmaps_sdk_location_LocationState_nativeGetMode(JNIEnv * env, jclass clazz)
 {
+  // GetMyPositionMode() is initialized only after drape creation.
+  // https://github.com/organicmaps/organicmaps/issues/1128#issuecomment-1784435190
   ASSERT(g_framework && g_framework->IsDrapeEngineCreated(), ());
   return g_framework->GetMyPositionMode();
 }
 
+//  public static void nativeSetListener(ModeChangeListener listener);
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetListener(JNIEnv * env, jclass clazz,
                                                                                  jobject listener)
 {
@@ -32,6 +37,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetListener
       std::bind(&LocationStateModeChanged, std::placeholders::_1, jni::make_global_ref(listener)));
 }
 
+//  public static void nativeRemoveListener();
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeRemoveListener(JNIEnv * env, jclass clazz)
 {
   g_framework->SetMyPositionModeListener(location::TMyPositionModeChanged());
@@ -78,7 +84,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingViewEnabled(
     JNIEnv * env, jclass clazz, jboolean enabled, jboolean autoReturn, jboolean recenter)
 {
-  if (g_framework == nullptr || !g_framework->IsDrapeEngineCreated())
+  if (!g_framework || !g_framework->IsDrapeEngineCreated())
     return;
 
   auto const drapeEngine = g_framework->NativeFramework()->GetDrapeEngine();
