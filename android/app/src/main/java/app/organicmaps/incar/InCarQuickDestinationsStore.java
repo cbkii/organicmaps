@@ -111,6 +111,20 @@ public final class InCarQuickDestinationsStore
   }
 
   @VisibleForTesting
+  @Nullable
+  static String encodeDestination(@Nullable InCarQuickDestination destination)
+  {
+    return destination == null ? null : destination.encode();
+  }
+
+  @VisibleForTesting
+  @Nullable
+  static InCarQuickDestination decodeDestination(@Nullable String encoded)
+  {
+    return InCarQuickDestination.decode(encoded);
+  }
+
+  @VisibleForTesting
   static final class RecentPair
   {
     @Nullable
@@ -134,7 +148,7 @@ public final class InCarQuickDestinationsStore
   @Nullable
   private static InCarQuickDestination getDestination(@NonNull Context context, @NonNull String key)
   {
-    return InCarQuickDestination.decode(prefs(context).getString(key, null));
+    return decodeDestination(prefs(context).getString(key, null));
   }
 
   private static void setDestination(@NonNull Context context, @NonNull String key,
@@ -148,10 +162,11 @@ public final class InCarQuickDestinationsStore
   private static void putDestination(@NonNull SharedPreferences.Editor editor, @NonNull String key,
                                      @Nullable InCarQuickDestination destination)
   {
-    if (destination == null)
+    final String encoded = encodeDestination(destination);
+    if (encoded == null)
       editor.remove(key);
     else
-      editor.putString(key, destination.encode());
+      editor.putString(key, encoded);
   }
 
   @NonNull
