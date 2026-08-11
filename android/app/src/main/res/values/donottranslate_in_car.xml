@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <string name="pref_in_car_settings" translatable="false">pref_in_car_settings</string>
   <string name="pref_in_car_optimised_visuals" translatable="false">pref_in_car_optimised_visuals</string>
+  <string name="pref_in_car_show_driving_view_button" translatable="false">pref_in_car_show_driving_view_button</string>
+  <string name="pref_in_car_start_driving_view" translatable="false">pref_in_car_start_driving_view</string>
+  <string name="pref_in_car_automatic_driving_view" translatable="false">pref_in_car_automatic_driving_view</string>
+  <string name="pref_in_car_auto_return_driving_view" translatable="false">pref_in_car_auto_return_driving_view</string>
+  <string name="pref_in_car_budget_rendering" translatable="false">pref_in_car_budget_rendering</string>
+  <string name="pref_in_car_map_age_warning" translatable="false">pref_in_car_map_age_warning</string>
 </resources>
