@@ -11,9 +11,11 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
+import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.log.Logger;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -119,6 +121,8 @@ public final class InCarDrivingUi
 
       final Binding observed = binding;
       controller.getSnapshot().observe(activity, snapshot -> render(activity, observed, snapshot));
+      new ViewModelProvider(activity).get(MapButtonsViewModel.class).getLayoutMode().observe(
+          activity, layoutMode -> controller.onRoutingPresentationChanged());
     }
 
     render(activity, binding, controller.getSnapshot().getValue());
