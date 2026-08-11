@@ -186,6 +186,8 @@ private:
   double m_drawDirection;
   m2::PointD m_oldPosition;  // position in mercator.
   double m_oldDrawDirection;
+  m2::PointD m_lastHeldDrivingPosition = m2::PointD::Zero();
+  bool m_hasLastHeldDrivingPosition = false;
 
   bool m_enablePerspectiveInRouting;
   bool m_enableAutoZoomInRouting;
