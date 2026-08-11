@@ -18,6 +18,7 @@ import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.log.Logger;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+import java.lang.ref.WeakReference;
 import java.util.Date;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -26,7 +27,7 @@ import java.util.WeakHashMap;
 public final class InCarDrivingUi
 {
   private static final String TAG = InCarDrivingUi.class.getSimpleName();
-  private static final Map<MwmActivity, Binding> BINDINGS = new WeakHashMap<>();
+  private static final Map<MwmActivity, WeakReference<Binding>> BINDINGS = new WeakHashMap<>();
   private static boolean sMapAgeNoticeEvaluated;
 
   private static final class Binding
@@ -56,12 +57,19 @@ public final class InCarDrivingUi
 
   private InCarDrivingUi() {}
 
+  @Nullable
+  private static Binding getBinding(@NonNull MwmActivity activity)
+  {
+    final WeakReference<Binding> reference = BINDINGS.get(activity);
+    return reference == null ? null : reference.get();
+  }
+
   public static void attach(@NonNull MwmActivity activity, @NonNull InCarDrivingViewController controller)
   {
     if (!BuildConfig.IS_IN_CAR)
       return;
 
-    Binding binding = BINDINGS.get(activity);
+    Binding binding = getBinding(activity);
     if (binding == null)
     {
       View overlay = activity.findViewById(R.id.in_car_driving_overlay);
@@ -99,7 +107,7 @@ public final class InCarDrivingUi
       }
 
       binding = new Binding(overlay, speed, navigationSpeed, drivingView, controller);
-      BINDINGS.put(activity, binding);
+      BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       drivingView.setOnClickListener(v -> controller.onDrivingViewButtonPressed());
       applyInsets(activity, binding);
@@ -114,7 +122,7 @@ public final class InCarDrivingUi
 
   public static void refresh(@NonNull MwmActivity activity)
   {
-    final Binding binding = BINDINGS.get(activity);
+    final Binding binding = getBinding(activity);
     if (binding == null)
       return;
     binding.controller.onSettingsChanged();
@@ -132,8 +140,9 @@ public final class InCarDrivingUi
     if (snapshot == null)
       return;
 
-    final String speedText = InCarSpeedDisplayPolicy.format(snapshot.locationHealth, snapshot.hasSpeed,
-                                                            snapshot.speedMps, Framework::nativeFormatSpeed);
+    final String speedText = InCarSpeedDisplayPolicy.format(
+        snapshot.locationHealth, snapshot.hasSpeed, snapshot.speedMps,
+        activity.getString(R.string.in_car_speed_value_unavailable), Framework::nativeFormatSpeed);
     if (!speedText.equals(binding.lastSpeedText))
     {
       binding.speed.setText(speedText);
@@ -213,7 +222,6 @@ public final class InCarDrivingUi
   {
     if (sMapAgeNoticeEvaluated || !InCarSettingsStore.mapAgeWarningEnabled(activity))
       return;
-    sMapAgeNoticeEvaluated = true;
 
     final Date dataVersion;
     try
@@ -225,6 +233,8 @@ public final class InCarDrivingUi
       Logger.w(TAG, "Unable to evaluate global map-data version: " + e.getMessage());
       return;
     }
+
+    sMapAgeNoticeEvaluated = true;
 
     if (!InCarMapAgePolicy.isOutdated(dataVersion, new Date()))
       return;

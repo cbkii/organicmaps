@@ -20,6 +20,7 @@
   <string name="in_car_driving_view_button">Driving View</string>
   <string name="in_car_driving_view_recenter">Return to Driving View</string>
 
+  <string name="in_car_speed_value_unavailable" translatable="false">--</string>
   <string name="in_car_speed_current">Current speed: %1$s</string>
   <string name="in_car_speed_stale">Current speed unavailable: GPS update is stale</string>
   <string name="in_car_speed_unavailable">Current speed unavailable</string>

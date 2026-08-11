@@ -7,15 +7,17 @@ import org.junit.Test;
 
 public class InCarSpeedDisplayPolicyTest
 {
+  private static final String UNAVAILABLE = "unavailable";
+
   @Test
   public void currentSpeedDelegatesToExistingFormatter()
   {
     final AtomicReference<Double> received = new AtomicReference<>();
-    final String result =
-        InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, true, 12.5, speedMps -> {
-          received.set(speedMps);
-          return "45 km/h";
-        });
+    final String result = InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, true,
+                                                         12.5, UNAVAILABLE, speedMps -> {
+                                                           received.set(speedMps);
+                                                           return "45 km/h";
+                                                         });
 
     assertEquals("45 km/h", result);
     assertEquals(12.5, received.get(), 0.0);
@@ -25,7 +27,7 @@ public class InCarSpeedDisplayPolicyTest
   public void zeroSpeedStillUsesExistingFormatter()
   {
     final String result =
-        InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, true, 0.0,
+        InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, true, 0.0, UNAVAILABLE,
                                        speedMps -> speedMps == 0.0 ? "0 km/h" : "unexpected");
     assertEquals("0 km/h", result);
   }
@@ -34,19 +36,21 @@ public class InCarSpeedDisplayPolicyTest
   public void staleSpeedNeverFormatsOldNumericValue()
   {
     final String result =
-        InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.STALE, true, 27.0,
+        InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.STALE, true, 27.0, UNAVAILABLE,
                                        speedMps -> {
                                          throw new AssertionError("stale speed must not be formatted");
                                        });
-    assertEquals("--", result);
+    assertEquals(UNAVAILABLE, result);
   }
 
   @Test
   public void unavailableAndMissingSpeedRemainUnavailable()
   {
-    assertEquals("--", InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.UNAVAILABLE, true,
-                                                       27.0, speedMps -> "unexpected"));
-    assertEquals("--", InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, false,
-                                                       Double.NaN, speedMps -> "unexpected"));
+    assertEquals(UNAVAILABLE,
+                 InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.UNAVAILABLE, true, 27.0,
+                                                UNAVAILABLE, speedMps -> "unexpected"));
+    assertEquals(UNAVAILABLE,
+                 InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, false, Double.NaN,
+                                                UNAVAILABLE, speedMps -> "unexpected"));
   }
 }

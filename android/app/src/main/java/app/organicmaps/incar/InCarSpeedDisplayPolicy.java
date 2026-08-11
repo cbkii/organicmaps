@@ -15,10 +15,10 @@ public final class InCarSpeedDisplayPolicy
 
   @NonNull
   public static String format(@NonNull InCarDrivingViewController.LocationHealth health, boolean hasSpeed,
-                              double speedMps, @NonNull Formatter formatter)
+                              double speedMps, @NonNull String unavailableText, @NonNull Formatter formatter)
   {
     if (health != InCarDrivingViewController.LocationHealth.CURRENT || !hasSpeed || speedMps < 0.0)
-      return "--";
+      return unavailableText;
     return formatter.format(speedMps);
   }
 }

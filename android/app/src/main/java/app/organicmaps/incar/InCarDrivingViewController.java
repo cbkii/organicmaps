@@ -73,6 +73,7 @@ public final class InCarDrivingViewController implements LocationListener
   private boolean mNativeStateApplied;
   private boolean mLastNativeEnabled;
   private boolean mLastNativeAutoReturn;
+  private boolean mLastNativeNavigating;
   private boolean mWasNavigating;
 
   public InCarDrivingViewController(@NonNull Context context, @NonNull LocationHelper locationHelper)
@@ -253,7 +254,9 @@ public final class InCarDrivingViewController implements LocationListener
 
     final boolean enabled = mPolicy.isEnabled();
     final boolean autoReturn = InCarSettingsStore.autoReturnDrivingViewEnabled(mContext);
-    if (!recenter && mNativeStateApplied && enabled == mLastNativeEnabled && autoReturn == mLastNativeAutoReturn)
+    final boolean navigating = RoutingController.get().isNavigating();
+    if (!recenter && mNativeStateApplied && enabled == mLastNativeEnabled && autoReturn == mLastNativeAutoReturn
+        && navigating == mLastNativeNavigating)
       return;
 
     Logger.i(TAG, "Apply Driving View: enabled=" + enabled + " autoReturn=" + autoReturn + " recenter=" + recenter);
@@ -261,6 +264,7 @@ public final class InCarDrivingViewController implements LocationListener
     mNativeStateApplied = true;
     mLastNativeEnabled = enabled;
     mLastNativeAutoReturn = autoReturn;
+    mLastNativeNavigating = navigating;
   }
 
   private void persistPolicy()
