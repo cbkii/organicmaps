@@ -845,6 +845,18 @@ void MyPositionController::EnableAutoZoomInRouting(bool enableAutoZoom)
 
 void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool recenter)
 {
+  bool const wasDrivingView = m_isDrivingView;
+  if (enabled && !wasDrivingView)
+  {
+    m_preDrivingViewDesiredInitMode = m_desiredInitMode;
+    m_hasPreDrivingViewDesiredInitMode = true;
+  }
+  else if (!enabled && wasDrivingView && m_hasPreDrivingViewDesiredInitMode)
+  {
+    m_desiredInitMode = m_preDrivingViewDesiredInitMode;
+    m_hasPreDrivingViewDesiredInitMode = false;
+  }
+
   m_isDrivingView = enabled;
   m_autoReturnDrivingView = autoReturn;
 
@@ -857,7 +869,6 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
 
   if (!enabled)
   {
-    m_desiredInitMode = location::FollowAndRotate;
     if (m_hasLastHeldDrivingPosition)
     {
       m_position = m_lastHeldDrivingPosition;
