@@ -83,9 +83,9 @@ public final class InCarDrivingViewController implements LocationListener
     mLocationHelper = locationHelper;
 
     final boolean restored = InCarSettingsStore.restoredDrivingViewEnabled(mContext);
-    mPolicy = new InCarDrivingViewPolicy(restored,
-                                         restored ? InCarSettingsStore.restoredDrivingViewSource(mContext)
-                                                  : InCarDrivingViewPolicy.ActivationSource.OFF);
+    final InCarDrivingViewPolicy.ActivationSource restoredSource =
+        restored ? InCarSettingsStore.restoredDrivingViewSource(mContext) : InCarDrivingViewPolicy.ActivationSource.OFF;
+    mPolicy = new InCarDrivingViewPolicy(restored, restoredSource);
     mPolicy.beginNewSession();
     mLocationHelper.addListener(this);
     mWasNavigating = RoutingController.get().isNavigating();
@@ -141,8 +141,9 @@ public final class InCarDrivingViewController implements LocationListener
    */
   public boolean shouldKeepLocationInBackground()
   {
-    return mStartedMapActivities > 0
-        && (mPolicy.isEnabled() || InCarSettingsStore.automaticDrivingViewEnabled(mContext));
+    final boolean activeSession =
+        mPolicy.isEnabled() || InCarSettingsStore.automaticDrivingViewEnabled(mContext);
+    return mStartedMapActivities > 0 && activeSession;
   }
 
   @UiThread
@@ -300,8 +301,9 @@ public final class InCarDrivingViewController implements LocationListener
     if (!enabled && !nativeStateApplied && !recenter)
       return false;
 
-    return recenter || !nativeStateApplied || enabled != lastEnabled || autoReturn != lastAutoReturn
-        || navigating != lastNavigating;
+    final boolean stateChanged =
+        enabled != lastEnabled || autoReturn != lastAutoReturn || navigating != lastNavigating;
+    return recenter || !nativeStateApplied || stateChanged;
   }
 
   private void persistPolicy()
@@ -311,13 +313,11 @@ public final class InCarDrivingViewController implements LocationListener
 
   private void publishSnapshot()
   {
-    final boolean hasCurrentSpeed =
-        mLocationHealth == LocationHealth.CURRENT && mLastLocation != null && mLastLocation.hasSpeed()
-        && mLastLocation.getSpeed() >= 0.0f;
+    final boolean hasCurrentSpeed = mLocationHealth == LocationHealth.CURRENT && mLastLocation != null
+                                    && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
     final boolean following = Map.isEngineCreated() && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
+    final double speedMps = hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, RoutingController.get().isNavigating(),
-                                    mLocationHealth, hasCurrentSpeed,
-                                    hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN,
-                                    mPolicy.getActivationSource()));
+                                    mLocationHealth, hasCurrentSpeed, speedMps, mPolicy.getActivationSource()));
   }
 }
