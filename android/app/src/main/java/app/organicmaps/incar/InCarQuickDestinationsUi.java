@@ -97,6 +97,9 @@ public final class InCarQuickDestinationsUi
     @NonNull
     private final PlacePageViewModel mPlacePageViewModel;
 
+    @Nullable
+    private MaterialButton mPrimaryButton;
+    private boolean mExpanded = true;
     private boolean mRegular = true;
     private boolean mButtonsHidden;
     private boolean mSearchOpen;
@@ -125,11 +128,17 @@ public final class InCarQuickDestinationsUi
       mMapButtonsViewModel.getLayoutMode().observe(mActivity, layoutMode -> {
         if (layoutMode == null)
           return;
-        mRegular = layoutMode == MapButtonsController.LayoutMode.regular;
+        final boolean regular = layoutMode == MapButtonsController.LayoutMode.regular;
+        if (mRegular && !regular)
+          collapseForMapTransition();
+        mRegular = regular;
         renderVisibility();
       });
       mMapButtonsViewModel.getButtonsHidden().observe(mActivity, hidden -> {
-        mButtonsHidden = Boolean.TRUE.equals(hidden);
+        final boolean buttonsHidden = Boolean.TRUE.equals(hidden);
+        if (!mButtonsHidden && buttonsHidden)
+          collapseForMapTransition();
+        mButtonsHidden = buttonsHidden;
         renderVisibility();
       });
       mMapButtonsViewModel.getBottomButtonsHeight().observe(mActivity, height -> {
@@ -187,6 +196,7 @@ public final class InCarQuickDestinationsUi
     private void rebuildButtons()
     {
       mContainer.removeAllViews();
+      addPrimaryToggleAction();
       addFixedAction(InCarQuickDestinationsStore.Action.FUEL_CHARGING, R.string.in_car_quick_fuel_charging,
                      R.drawable.ic_in_car_quick_fuel, R.color.in_car_quick_fuel_charging, this::showFuelChargingChoice);
       addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
@@ -212,6 +222,21 @@ public final class InCarQuickDestinationsUi
                            InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2, 0,
                            R.color.in_car_quick_recent_2, true);
       renderVisibility();
+      renderExpansion();
+    }
+
+    private void addPrimaryToggleAction()
+    {
+      final MaterialButton button =
+          createButton(R.color.in_car_quick_primary, InCarQuickDestinationsLayoutPolicy.PRIMARY_ACTION_WIDTH_DP);
+      button.setTextColor(quickForegroundColor());
+      button.setTextSize(14.0f);
+      button.setOnClickListener(v -> {
+        mExpanded = !mExpanded;
+        renderExpansion();
+      });
+      mPrimaryButton = button;
+      mContainer.addView(button);
     }
 
     private void addFixedAction(@NonNull InCarQuickDestinationsStore.Action action, @StringRes int labelRes,
@@ -260,16 +285,23 @@ public final class InCarQuickDestinationsUi
     @NonNull
     private MaterialButton createButton(@ColorRes int colorRes)
     {
+      return createButton(colorRes, InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
+    }
+
+    @NonNull
+    private MaterialButton createButton(@ColorRes int colorRes, int widthDp)
+    {
       final MaterialButton button =
           new MaterialButton(mActivity, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-      final int size = dp(InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
-      final LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(size, size);
+      final int width = dp(widthDp);
+      final int height = dp(InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
+      final LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
       params.setMarginEnd(dp(InCarQuickDestinationsLayoutPolicy.ACTION_GAP_DP));
       button.setLayoutParams(params);
       button.setMinWidth(0);
       button.setMinHeight(0);
-      button.setMinimumWidth(size);
-      button.setMinimumHeight(size);
+      button.setMinimumWidth(width);
+      button.setMinimumHeight(height);
       button.setPadding(0, 0, 0, 0);
       button.setInsetTop(0);
       button.setInsetBottom(0);
@@ -333,10 +365,34 @@ public final class InCarQuickDestinationsUi
       return localized.getResources();
     }
 
+    private void collapseForMapTransition()
+    {
+      if (!mExpanded)
+        return;
+      mExpanded = false;
+      renderExpansion();
+    }
+
+    private void renderExpansion()
+    {
+      for (int index = 1; index < mContainer.getChildCount(); index++)
+        mContainer.getChildAt(index).setVisibility(mExpanded ? View.VISIBLE : View.GONE);
+
+      if (mPrimaryButton != null)
+      {
+        mPrimaryButton.setText(mExpanded ? R.string.in_car_quick_toggle_expanded : R.string.in_car_quick_toggle_collapsed);
+        mPrimaryButton.setContentDescription(
+            mActivity.getString(mExpanded ? R.string.in_car_quick_collapse : R.string.in_car_quick_expand));
+      }
+
+      if (!mExpanded)
+        mRoot.scrollTo(0, 0);
+    }
+
     private void renderVisibility()
     {
       final boolean visible =
-          mContainer.getChildCount() > 0 && mRegular && !mButtonsHidden && !mSearchOpen && !mPlacePageOpen;
+          InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
       mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
