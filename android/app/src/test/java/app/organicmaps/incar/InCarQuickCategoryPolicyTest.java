@@ -20,8 +20,7 @@ public class InCarQuickCategoryPolicyTest
                  InCarQuickCategoryPolicy.searchTermRes(InCarQuickCategoryPolicy.Category.PARKING));
     assertEquals(R.string.category_toilet,
                  InCarQuickCategoryPolicy.searchTermRes(InCarQuickCategoryPolicy.Category.TOILETS));
-    assertEquals(R.string.category_eat,
-                 InCarQuickCategoryPolicy.searchTermRes(InCarQuickCategoryPolicy.Category.FOOD));
+    assertEquals(R.string.category_eat, InCarQuickCategoryPolicy.searchTermRes(InCarQuickCategoryPolicy.Category.FOOD));
   }
 
   @Test
