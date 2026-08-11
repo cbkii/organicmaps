@@ -121,8 +121,10 @@ public final class InCarDrivingUi
 
       final Binding observed = binding;
       controller.getSnapshot().observe(activity, snapshot -> render(activity, observed, snapshot));
-      new ViewModelProvider(activity).get(MapButtonsViewModel.class).getLayoutMode().observe(
-          activity, layoutMode -> controller.onRoutingPresentationChanged());
+      new ViewModelProvider(activity)
+          .get(MapButtonsViewModel.class)
+          .getLayoutMode()
+          .observe(activity, layoutMode -> controller.onRoutingPresentationChanged());
     }
 
     render(activity, binding, controller.getSnapshot().getValue());
@@ -173,13 +175,13 @@ public final class InCarDrivingUi
     binding.drivingView.setSelected(snapshot.enabled);
     binding.drivingView.setAlpha(snapshot.enabled && !snapshot.following ? 0.78f : 1.0f);
     binding.drivingView.setContentDescription(activity.getString(snapshot.enabled && !snapshot.following
-                                                                    ? R.string.in_car_driving_view_recenter
-                                                                    : R.string.in_car_driving_view_button));
+                                                                     ? R.string.in_car_driving_view_recenter
+                                                                     : R.string.in_car_driving_view_button));
 
     final int buttonBackground =
         ContextCompat.getColor(activity, snapshot.enabled ? R.color.base_accent : R.color.bg_cards);
-    final int buttonForeground = ContextCompat.getColor(
-        activity, snapshot.enabled ? R.color.routing_button_activated_tint : R.color.icon_tint);
+    final int buttonForeground =
+        ContextCompat.getColor(activity, snapshot.enabled ? R.color.routing_button_activated_tint : R.color.icon_tint);
     binding.drivingView.setBackgroundTintList(ColorStateList.valueOf(buttonBackground));
     binding.drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
 
