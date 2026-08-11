@@ -346,103 +346,104 @@ public final class InCarQuickDestinationsUi
           locale = defaultLocale;
           term = mActivity.getString(stringRes);
         }
-+        else
-+        {
-+          locale = "en";
-+          term = getResourcesForLocale("en").getString(stringRes);
-+        }
-+      }
-+
-+      mSearchPageViewModel.setSearchEnabled(true, new SearchRequest(term + " ", locale, true));
-+    }
-+
-+    @NonNull
-+    private Resources getResourcesForLocale(@NonNull String language)
-+    {
-+      final Configuration configuration = new Configuration(mActivity.getResources().getConfiguration());
-+      configuration.setLocale(Locale.forLanguageTag(language));
-+      final Context localized = mActivity.createConfigurationContext(configuration);
-+      return localized.getResources();
-+    }
-+
-+    private void collapseForMapTransition()
-+    {
-+      if (!mExpanded)
-+        return;
-+      mExpanded = false;
-+      renderExpansion();
-+    }
-+
-+    private void renderExpansion()
-+    {
-+      updateRootWidth();
-+      for (int index = 1; index < mContainer.getChildCount(); index++)
-+        mContainer.getChildAt(index).setVisibility(mExpanded ? View.VISIBLE : View.GONE);
-+
-+      if (mPrimaryButton != null)
-+      {
-+        mPrimaryButton.setText(mExpanded ? R.string.in_car_quick_toggle_expanded : R.string.in_car_quick_toggle_collapsed);
-+        mPrimaryButton.setContentDescription(
-+            mActivity.getString(mExpanded ? R.string.in_car_quick_collapse : R.string.in_car_quick_expand));
-+      }
-+
-+      if (!mExpanded)
-+        mRoot.scrollTo(0, 0);
-+    }
-+
-+    private void updateRootWidth()
-+    {
-+      final ViewGroup.LayoutParams params = mRoot.getLayoutParams();
-+      final int width = mExpanded ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT;
-+      if (params.width == width)
-+        return;
-+      params.width = width;
-+      mRoot.setLayoutParams(params);
-+    }
-+
-+    private void renderVisibility()
-+    {
-+      final boolean visible =
-+          InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
-+      mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
-+    }
-+
-+    private void applyInsets()
-+    {
-+      ViewCompat.setOnApplyWindowInsetsListener(mRoot, (view, windowInsets) -> {
-+        final Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-+        mSystemBottomInset = bars.bottom;
-+        updateBottomMargin();
-+        return windowInsets;
-+      });
-+      ViewCompat.requestApplyInsets(mRoot);
-+    }
-+
-+    private void updateBottomMargin()
-+    {
-+      final ViewGroup.LayoutParams rawParams = mRoot.getLayoutParams();
-+      if (!(rawParams instanceof ViewGroup.MarginLayoutParams params))
-+        return;
-+      final int bottom = mBottomButtonsHeight + mSystemBottomInset + dp(12);
-+      if (params.bottomMargin == bottom)
-+        return;
-+      params.bottomMargin = bottom;
-+      mRoot.setLayoutParams(params);
-+    }
-+
-+    private boolean isEnabled(@NonNull InCarQuickDestinationsStore.Action action)
-+    {
-+      return InCarQuickDestinationsStore.isActionEnabled(mActivity, action);
-+    }
-+
-+    private int quickForegroundColor()
-+    {
-+      return ContextCompat.getColor(mActivity, R.color.in_car_quick_foreground);
-+    }
-+
-+    private int dp(int value)
-+    {
-+      return Math.round(value * mActivity.getResources().getDisplayMetrics().density);
-+    }
-+  }
-+}
+        else
+        {
+          locale = "en";
+          term = getResourcesForLocale("en").getString(stringRes);
+        }
+      }
+
+      mSearchPageViewModel.setSearchEnabled(true, new SearchRequest(term + " ", locale, true));
+    }
+
+    @NonNull
+    private Resources getResourcesForLocale(@NonNull String language)
+    {
+      final Configuration configuration = new Configuration(mActivity.getResources().getConfiguration());
+      configuration.setLocale(Locale.forLanguageTag(language));
+      final Context localized = mActivity.createConfigurationContext(configuration);
+      return localized.getResources();
+    }
+
+    private void collapseForMapTransition()
+    {
+      if (!mExpanded)
+        return;
+      mExpanded = false;
+      renderExpansion();
+    }
+
+    private void renderExpansion()
+    {
+      updateRootWidth();
+      for (int index = 1; index < mContainer.getChildCount(); index++)
+        mContainer.getChildAt(index).setVisibility(mExpanded ? View.VISIBLE : View.GONE);
+
+      if (mPrimaryButton != null)
+      {
+        mPrimaryButton.setText(mExpanded ? R.string.in_car_quick_toggle_expanded
+                                         : R.string.in_car_quick_toggle_collapsed);
+        mPrimaryButton.setContentDescription(
+            mActivity.getString(mExpanded ? R.string.in_car_quick_collapse : R.string.in_car_quick_expand));
+      }
+
+      if (!mExpanded)
+        mRoot.scrollTo(0, 0);
+    }
+
+    private void updateRootWidth()
+    {
+      final ViewGroup.LayoutParams params = mRoot.getLayoutParams();
+      final int width = mExpanded ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT;
+      if (params.width == width)
+        return;
+      params.width = width;
+      mRoot.setLayoutParams(params);
+    }
+
+    private void renderVisibility()
+    {
+      final boolean visible =
+          InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
+      mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    private void applyInsets()
+    {
+      ViewCompat.setOnApplyWindowInsetsListener(mRoot, (view, windowInsets) -> {
+        final Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+        mSystemBottomInset = bars.bottom;
+        updateBottomMargin();
+        return windowInsets;
+      });
+      ViewCompat.requestApplyInsets(mRoot);
+    }
+
+    private void updateBottomMargin()
+    {
+      final ViewGroup.LayoutParams rawParams = mRoot.getLayoutParams();
+      if (!(rawParams instanceof ViewGroup.MarginLayoutParams params))
+        return;
+      final int bottom = mBottomButtonsHeight + mSystemBottomInset + dp(12);
+      if (params.bottomMargin == bottom)
+        return;
+      params.bottomMargin = bottom;
+      mRoot.setLayoutParams(params);
+    }
+
+    private boolean isEnabled(@NonNull InCarQuickDestinationsStore.Action action)
+    {
+      return InCarQuickDestinationsStore.isActionEnabled(mActivity, action);
+    }
+
+    private int quickForegroundColor()
+    {
+      return ContextCompat.getColor(mActivity, R.color.in_car_quick_foreground);
+    }
+
+    private int dp(int value)
+    {
+      return Math.round(value * mActivity.getResources().getDisplayMetrics().density);
+    }
+  }
+}
