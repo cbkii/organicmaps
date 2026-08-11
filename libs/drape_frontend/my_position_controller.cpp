@@ -393,10 +393,9 @@ void MyPositionController::NextMode(ScreenBase const & screen)
 void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool isNavigable, ScreenBase const & screen)
 {
   m2::PointD const newPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
-  double const displacementMeters =
-      m_isPositionAssigned ? mercator::DistanceOnEarth(m_position, newPosition) : 0.0;
-  if (driving_policy::ShouldHoldFreeDrivingCamera(m_isInRouting, m_isDrivingView, m_isPositionAssigned,
-                                                  info.HasSpeed(), info.m_speed, displacementMeters))
+  double const displacementMeters = m_isPositionAssigned ? mercator::DistanceOnEarth(m_position, newPosition) : 0.0;
+  if (driving_policy::ShouldHoldFreeDrivingCamera(m_isInRouting, m_isDrivingView, m_isPositionAssigned, info.HasSpeed(),
+                                                  info.m_speed, displacementMeters))
   {
     // Framework/routing/search already received the raw fix. Keep nearby low-speed jitter out of the camera, but
     // retain the newest raw position for a later meaningful move, Driving View exit or route start.
@@ -957,9 +956,9 @@ void MyPositionController::DeactivateRouting()
 
 void MyPositionController::CheckNotFollowRouting()
 {
-  if (!m_blockRoutingNotFollowTimer
-      && driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView)
-      && m_mode == location::NotFollow)
+  if (!m_blockRoutingNotFollowTimer &&
+      driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView) &&
+      m_mode == location::NotFollow)
   {
     CHECK_ON_TIMEOUT(m_routingNotFollowNotifyId, kMaxNotFollowRoutingTimeSec, CheckNotFollowRouting);
     if (m_routingNotFollowTimer.ElapsedSeconds() >= kMaxNotFollowRoutingTimeSec)
