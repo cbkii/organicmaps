@@ -19,6 +19,10 @@ public final class InCarMapAgePolicy
 
     final Calendar cutoff = Calendar.getInstance();
     cutoff.setTime(now);
+    cutoff.set(Calendar.HOUR_OF_DAY, 0);
+    cutoff.set(Calendar.MINUTE, 0);
+    cutoff.set(Calendar.SECOND, 0);
+    cutoff.set(Calendar.MILLISECOND, 0);
     cutoff.add(Calendar.MONTH, -OUTDATED_MONTHS);
     return dataVersion.before(cutoff.getTime());
   }
