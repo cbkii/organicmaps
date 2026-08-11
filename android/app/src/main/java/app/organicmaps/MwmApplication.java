@@ -23,6 +23,7 @@ import app.organicmaps.downloader.DownloaderNotifier;
 import app.organicmaps.incar.InCarBudgetRendering;
 import app.organicmaps.incar.InCarDrivingUi;
 import app.organicmaps.incar.InCarDrivingViewController;
+import app.organicmaps.incar.InCarQuickDestinationsUi;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
 import app.organicmaps.sdk.Map;
@@ -196,6 +197,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
     {
       InCarVisuals.applyAndObserve(mapActivity);
+      InCarQuickDestinationsUi.attach(mapActivity);
       if (mInCarDrivingViewController != null)
       {
         mInCarDrivingViewController.onMapActivityResumed();
