@@ -395,14 +395,15 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
   if (driving_policy::ShouldHoldFreeDrivingCamera(m_isInRouting, m_isDrivingView, m_isPositionAssigned,
                                                   info.HasSpeed(), info.m_speed))
   {
-    // Raw GPS is still delivered to Framework/routing/search before reaching this controller. Only the free-driving
-    // camera is frozen here so a stopped vehicle does not visually wander or rotate with low-speed GPS noise.
+    // Framework/routing/search already received the raw fix. Keep it for the eventual exit/re-route, but do not feed
+    // it back through the camera-position listener or the stopped vehicle would appear to wander.
+    m_lastHeldDrivingPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
+    m_hasLastHeldDrivingPosition = true;
     RefreshLocationFreshness(info);
-    if (m_listener != nullptr)
-      m_listener->PositionChanged(Position(), IsModeHasPosition());
     return;
   }
 
+  m_hasLastHeldDrivingPosition = false;
   m2::PointD const oldPos = GetDrawablePosition();
   double const oldAzimut = GetDrawableAzimut();
 
@@ -855,6 +856,13 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
   if (!enabled)
   {
     m_desiredInitMode = location::FollowAndRotate;
+    if (m_hasLastHeldDrivingPosition)
+    {
+      m_position = m_lastHeldDrivingPosition;
+      m_hasLastHeldDrivingPosition = false;
+      if (m_listener != nullptr)
+        m_listener->PositionChanged(Position(), IsModeHasPosition());
+    }
     if (recenter && m_isPositionAssigned)
     {
       ChangeMode(location::FollowAndRotate);
@@ -889,6 +897,14 @@ void MyPositionController::ActivateRouting(int zoomLevel, bool enableAutoZoom, b
 {
   if (!m_isInRouting)
   {
+    if (m_hasLastHeldDrivingPosition)
+    {
+      m_position = m_lastHeldDrivingPosition;
+      m_hasLastHeldDrivingPosition = false;
+      if (m_listener != nullptr)
+        m_listener->PositionChanged(Position(), IsModeHasPosition());
+    }
+
     m_isInRouting = true;
     m_isArrowGluedInRouting = isArrowGlued;
     m_enableAutoZoomInRouting = enableAutoZoom;
