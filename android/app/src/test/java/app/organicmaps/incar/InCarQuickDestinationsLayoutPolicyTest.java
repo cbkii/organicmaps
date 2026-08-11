@@ -8,7 +8,7 @@ import org.junit.Test;
 public class InCarQuickDestinationsLayoutPolicyTest
 {
   @Test
-  public void fullAndCompactWidthsFitAllEightActions()
+  public void fullAndCompactWidthsFitPrimaryPlusAllEightActions()
   {
     assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(1280, 8));
     assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(640, 8));
