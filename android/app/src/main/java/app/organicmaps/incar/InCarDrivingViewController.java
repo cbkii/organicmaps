@@ -6,6 +6,7 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
+import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import app.organicmaps.sdk.Map;
@@ -151,6 +152,27 @@ public final class InCarDrivingViewController implements LocationListener
     publishSnapshot();
   }
 
+  /**
+   * Called by the map UI's existing routing layout owner. Route teardown has completed before the regular layout is
+   * restored, so this is the deterministic point to return native camera/perspective ownership to an enabled session.
+   */
+  @UiThread
+  public void onRoutingPresentationChanged()
+  {
+    final boolean navigating = RoutingController.get().isNavigating();
+    final boolean navigationJustEnded = mWasNavigating && !navigating;
+    mWasNavigating = navigating;
+
+    if (navigationJustEnded && mPolicy.isEnabled())
+    {
+      // Routing can discard an earlier Driving View application while it owns MyPositionController and tears down
+      // navigation perspective afterwards. Invalidate the cache and re-apply only after routing is actually inactive.
+      mNativeStateApplied = false;
+      syncNativeState(false /* recenter */);
+    }
+    publishSnapshot();
+  }
+
   @UiThread
   public void onDrivingViewButtonPressed()
   {
@@ -205,8 +227,9 @@ public final class InCarDrivingViewController implements LocationListener
     }
     else
     {
-      // Existing route teardown returns ownership to the MyPositionController. Re-assert an enabled free-driving
-      // session after navigation finishes so route deactivation cannot leave the preserved session in route UI state.
+      // Keep the location callback as a fallback for routing implementations that do not emit a map-layout transition.
+      if (navigationJustEnded && mPolicy.isEnabled())
+        mNativeStateApplied = false;
       syncNativeState(navigationJustEnded && mPolicy.isEnabled());
       publishSnapshot();
     }
@@ -255,8 +278,8 @@ public final class InCarDrivingViewController implements LocationListener
     final boolean enabled = mPolicy.isEnabled();
     final boolean autoReturn = InCarSettingsStore.autoReturnDrivingViewEnabled(mContext);
     final boolean navigating = RoutingController.get().isNavigating();
-    if (!recenter && mNativeStateApplied && enabled == mLastNativeEnabled && autoReturn == mLastNativeAutoReturn
-        && navigating == mLastNativeNavigating)
+    if (!shouldApplyNativeState(enabled, recenter, mNativeStateApplied, mLastNativeEnabled, autoReturn,
+                                mLastNativeAutoReturn, navigating, mLastNativeNavigating))
       return;
 
     Logger.i(TAG, "Apply Driving View: enabled=" + enabled + " autoReturn=" + autoReturn + " recenter=" + recenter);
@@ -265,6 +288,20 @@ public final class InCarDrivingViewController implements LocationListener
     mLastNativeEnabled = enabled;
     mLastNativeAutoReturn = autoReturn;
     mLastNativeNavigating = navigating;
+  }
+
+  @VisibleForTesting
+  static boolean shouldApplyNativeState(boolean enabled, boolean recenter, boolean nativeStateApplied,
+                                        boolean lastEnabled, boolean autoReturn, boolean lastAutoReturn,
+                                        boolean navigating, boolean lastNavigating)
+  {
+    // A fresh MyPositionController is already non-Driving-View. Sending an initial disabled state would overwrite its
+    // normal startup/deep-link desired location mode before the first fix, so only write disabled after we owned state.
+    if (!enabled && !nativeStateApplied && !recenter)
+      return false;
+
+    return recenter || !nativeStateApplied || enabled != lastEnabled || autoReturn != lastAutoReturn
+        || navigating != lastNavigating;
   }
 
   private void persistPolicy()
