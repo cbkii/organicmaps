@@ -108,10 +108,8 @@ public final class InCarDrivingUi
     if (snapshot == null)
       return;
 
-    final String speedText = snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
-                                 && snapshot.hasSpeed
-                               ? Framework.nativeFormatSpeed(snapshot.speedMps)
-                               : "--";
+    final String speedText = InCarSpeedDisplayPolicy.format(snapshot.locationHealth, snapshot.hasSpeed,
+                                                            snapshot.speedMps, Framework::nativeFormatSpeed);
     if (!speedText.equals(binding.lastSpeedText))
     {
       binding.speed.setText(speedText);
