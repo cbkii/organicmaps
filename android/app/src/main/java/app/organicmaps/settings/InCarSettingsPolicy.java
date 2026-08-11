@@ -37,7 +37,7 @@ final class InCarSettingsPolicy
     @Nullable
     final Preference preference = fragment.findPreference(fragment.getString(R.string.pref_in_car_settings));
     if (preference != null)
-      preference.setVisible(BuildConfig.IS_IN_CAR);
+      preference.setVisible(InCarSettingsPlacementPolicy.showRootEntry(BuildConfig.IS_IN_CAR));
   }
 
   private static void bindAutoFollowOnLaunch(@NonNull PreferenceFragmentCompat fragment)
@@ -48,7 +48,7 @@ final class InCarSettingsPolicy
     if (preference == null)
       return;
 
-    final boolean show = BuildConfig.IS_IN_CAR && fragment instanceof InCarSettingsFragment;
+    final boolean show = showDedicatedPreference(fragment);
     preference.setVisible(show);
     if (!show)
       return;
@@ -68,7 +68,7 @@ final class InCarSettingsPolicy
     if (preference == null)
       return;
 
-    final boolean show = BuildConfig.IS_IN_CAR && fragment instanceof InCarSettingsFragment;
+    final boolean show = showDedicatedPreference(fragment);
     preference.setVisible(show);
     if (!show)
       return;
@@ -84,7 +84,7 @@ final class InCarSettingsPolicy
 
   private static void bindDrivingViewSettings(@NonNull PreferenceFragmentCompat fragment)
   {
-    if (!BuildConfig.IS_IN_CAR || !(fragment instanceof InCarSettingsFragment))
+    if (!showDedicatedPreference(fragment))
       return;
 
     bindBoolean(fragment, R.string.pref_in_car_show_driving_view_button,
@@ -108,7 +108,7 @@ final class InCarSettingsPolicy
     if (preference == null)
       return;
 
-    final boolean show = BuildConfig.IS_IN_CAR && fragment instanceof InCarSettingsFragment;
+    final boolean show = showDedicatedPreference(fragment);
     preference.setVisible(show);
     if (!show)
       return;
@@ -130,7 +130,7 @@ final class InCarSettingsPolicy
     if (preference == null)
       return;
 
-    final boolean show = BuildConfig.IS_IN_CAR && fragment instanceof InCarSettingsFragment;
+    final boolean show = showDedicatedPreference(fragment);
     preference.setVisible(show);
     if (!show)
       return;
@@ -155,6 +155,12 @@ final class InCarSettingsPolicy
       buildings.setEnabled(false);
       buildings.setSummary(R.string.in_car_budget_rendering_summary);
     }
+  }
+
+  private static boolean showDedicatedPreference(@NonNull PreferenceFragmentCompat fragment)
+  {
+    return InCarSettingsPlacementPolicy.showDedicatedPreference(BuildConfig.IS_IN_CAR,
+                                                                 fragment instanceof InCarSettingsFragment);
   }
 
   private interface BooleanReader
