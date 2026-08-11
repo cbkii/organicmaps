@@ -18,7 +18,7 @@ public final class InCarQuickDestinationsLayoutPolicy
     if (visibleDestinationActions <= 0)
       return HORIZONTAL_PADDING_DP + PRIMARY_ACTION_WIDTH_DP + ACTION_GAP_DP;
     return HORIZONTAL_PADDING_DP + PRIMARY_ACTION_WIDTH_DP + ACTION_GAP_DP
-           + visibleDestinationActions * (ACTION_SIZE_DP + ACTION_GAP_DP);
+  + visibleDestinationActions * (ACTION_SIZE_DP + ACTION_GAP_DP);
   }
 
   @VisibleForTesting
