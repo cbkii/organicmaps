@@ -81,8 +81,10 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
   GpsTracker::Instance().OnLocationUpdated(info);
 }
 
-JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingViewEnabled(
-    JNIEnv * env, jclass clazz, jboolean enabled, jboolean autoReturn, jboolean recenter)
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingViewEnabled(JNIEnv * env, jclass clazz,
+                                                                                           jboolean enabled,
+                                                                                           jboolean autoReturn,
+                                                                                           jboolean recenter)
 {
   if (!g_framework || !g_framework->IsDrapeEngineCreated())
     return;
