@@ -74,29 +74,33 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   {
     final InCarQuickDestination current = home ? InCarQuickDestinationsStore.getHome(requireContext())
                                                : InCarQuickDestinationsStore.getWork(requireContext());
-    final String[] items = current == null
-                             ? new String[] {getString(R.string.in_car_quick_use_current_location)}
-                             : new String[] {getString(R.string.in_car_quick_use_current_location),
-                                            getString(R.string.in_car_quick_clear_destination)};
+    final String[] items =
+        current == null ? new String[] {getString(R.string.in_car_quick_use_current_location)}
+                        : new String[] {getString(R.string.in_car_quick_use_current_location),
+                                        getString(R.string.in_car_quick_clear_destination)};
 
-    new AlertDialog.Builder(requireContext()).setTitle(labelRes).setItems(items, (dialog, which) -> {
-      if (which == 1 && current != null)
-      {
-        saveDestination(home, null);
-        updateDestinationSummary(preference, null);
-        return;
-      }
+    new AlertDialog.Builder(requireContext())
+        .setTitle(labelRes)
+        .setItems(items, (dialog, which) -> {
+          if (which == 1 && current != null)
+          {
+            saveDestination(home, null);
+            updateDestinationSummary(preference, null);
+            return;
+          }
 
-      final Location location = MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
-      final InCarQuickDestination destination = InCarQuickDestination.fromLocation(getString(labelRes), location);
-      if (destination == null)
-      {
-        Toast.makeText(requireContext(), R.string.in_car_quick_current_location_unavailable, Toast.LENGTH_SHORT).show();
-        return;
-      }
-      saveDestination(home, destination);
-      updateDestinationSummary(preference, destination);
-    }).show();
+          final Location location = MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
+          final InCarQuickDestination destination = InCarQuickDestination.fromLocation(getString(labelRes), location);
+          if (destination == null)
+          {
+            Toast.makeText(requireContext(), R.string.in_car_quick_current_location_unavailable, Toast.LENGTH_SHORT)
+                .show();
+            return;
+          }
+          saveDestination(home, destination);
+          updateDestinationSummary(preference, destination);
+        })
+        .show();
   }
 
   private void saveDestination(boolean home, @Nullable InCarQuickDestination destination)
@@ -109,6 +113,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
 
   private void updateDestinationSummary(@NonNull Preference preference, @Nullable InCarQuickDestination destination)
   {
-    preference.setSummary(destination == null ? R.string.in_car_quick_not_configured : R.string.in_car_quick_configured);
+    preference.setSummary(destination == null ? R.string.in_car_quick_not_configured
+                                              : R.string.in_car_quick_configured);
   }
 }
