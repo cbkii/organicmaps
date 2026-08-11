@@ -17,10 +17,9 @@ public class InCarQuickDestinationsPolicyTest
   @Test
   public void fixedActionsRespectUserEnableState()
   {
-    final InCarQuickDestinationsStore.Action[] fixed = {InCarQuickDestinationsStore.Action.FUEL_CHARGING,
-                                                       InCarQuickDestinationsStore.Action.PARKING,
-                                                       InCarQuickDestinationsStore.Action.TOILETS,
-                                                       InCarQuickDestinationsStore.Action.FOOD};
+    final InCarQuickDestinationsStore.Action[] fixed = {
+        InCarQuickDestinationsStore.Action.FUEL_CHARGING, InCarQuickDestinationsStore.Action.PARKING,
+        InCarQuickDestinationsStore.Action.TOILETS, InCarQuickDestinationsStore.Action.FOOD};
     for (InCarQuickDestinationsStore.Action action : fixed)
     {
       assertTrue(InCarQuickDestinationsPolicy.shouldShow(true, action, true, false));
@@ -31,10 +30,9 @@ public class InCarQuickDestinationsPolicyTest
   @Test
   public void savedAndRecentActionsRequireAvailableDestination()
   {
-    final InCarQuickDestinationsStore.Action[] destinations = {InCarQuickDestinationsStore.Action.HOME,
-                                                              InCarQuickDestinationsStore.Action.WORK,
-                                                              InCarQuickDestinationsStore.Action.RECENT_1,
-                                                              InCarQuickDestinationsStore.Action.RECENT_2};
+    final InCarQuickDestinationsStore.Action[] destinations = {
+        InCarQuickDestinationsStore.Action.HOME, InCarQuickDestinationsStore.Action.WORK,
+        InCarQuickDestinationsStore.Action.RECENT_1, InCarQuickDestinationsStore.Action.RECENT_2};
     for (InCarQuickDestinationsStore.Action action : destinations)
     {
       assertFalse(InCarQuickDestinationsPolicy.shouldShow(true, action, true, false));
