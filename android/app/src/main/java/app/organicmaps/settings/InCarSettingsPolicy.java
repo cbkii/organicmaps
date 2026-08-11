@@ -1,8 +1,11 @@
 package app.organicmaps.settings;
 
 import android.app.Activity;
+import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.TwoStatePreference;
@@ -14,7 +17,9 @@ import app.organicmaps.incar.InCarBudgetRendering;
 import app.organicmaps.incar.InCarDrivingUi;
 import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.incar.InCarSettingsStore;
+import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.Config;
+import app.organicmaps.sdk.util.PowerManagment;
 
 /** Binds automotive-only settings without adding head-unit policy to general Settings logic. */
 final class InCarSettingsPolicy
@@ -29,7 +34,7 @@ final class InCarSettingsPolicy
     bindDrivingViewSettings(fragment);
     bindBudgetRendering(fragment);
     bindMapAgeWarning(fragment);
-    applyGenericPreferenceGuards(fragment);
+    installGenericPreferenceGuardObserver(fragment);
   }
 
   private static void bindRootEntry(@NonNull PreferenceFragmentCompat fragment)
@@ -143,6 +148,58 @@ final class InCarSettingsPolicy
     });
   }
 
+  private static void installGenericPreferenceGuardObserver(@NonNull PreferenceFragmentCompat fragment)
+  {
+    if (!BuildConfig.IS_IN_CAR || fragment instanceof InCarSettingsFragment)
+      return;
+
+    fragment.getLifecycle().addObserver(new DefaultLifecycleObserver() {
+      private boolean mListenersWrapped;
+
+      @Override
+      public void onResume(@NonNull LifecycleOwner owner)
+      {
+        if (!mListenersWrapped)
+        {
+          wrapGenericPreferenceListeners(fragment);
+          mListenersWrapped = true;
+        }
+        applyGenericPreferenceGuards(fragment);
+      }
+    });
+  }
+
+  private static void wrapGenericPreferenceListeners(@NonNull PreferenceFragmentCompat fragment)
+  {
+    @Nullable
+    final Preference buildings = fragment.findPreference(fragment.getString(R.string.pref_3d_buildings));
+    if (buildings != null)
+    {
+      final Preference.OnPreferenceChangeListener delegate = buildings.getOnPreferenceChangeListener();
+      buildings.setOnPreferenceChangeListener((preference, newValue) -> {
+        if (InCarSettingsStore.budgetRenderingEnabled(fragment.requireContext()))
+        {
+          applyGenericPreferenceGuards(fragment);
+          return false;
+        }
+        return delegate == null || delegate.onPreferenceChange(preference, newValue);
+      });
+    }
+
+    @Nullable
+    final Preference powerManagement = fragment.findPreference(fragment.getString(R.string.pref_power_management));
+    if (powerManagement != null)
+    {
+      final Preference.OnPreferenceChangeListener delegate = powerManagement.getOnPreferenceChangeListener();
+      powerManagement.setOnPreferenceChangeListener((preference, newValue) -> {
+        final boolean accepted = delegate == null || delegate.onPreferenceChange(preference, newValue);
+        if (accepted)
+          fragment.getListView().post(() -> applyGenericPreferenceGuards(fragment));
+        return accepted;
+      });
+    }
+  }
+
   private static void applyGenericPreferenceGuards(@NonNull PreferenceFragmentCompat fragment)
   {
     if (!BuildConfig.IS_IN_CAR || fragment instanceof InCarSettingsFragment)
@@ -150,11 +207,36 @@ final class InCarSettingsPolicy
 
     @Nullable
     final Preference buildings = fragment.findPreference(fragment.getString(R.string.pref_3d_buildings));
-    if (buildings != null && InCarSettingsStore.budgetRenderingEnabled(fragment.requireContext()))
+    if (!(buildings instanceof TwoStatePreference buildingsSwitch))
+      return;
+
+    if (InCarSettingsStore.budgetRenderingEnabled(fragment.requireContext()))
     {
-      buildings.setEnabled(false);
-      buildings.setSummary(R.string.in_car_budget_rendering_summary);
+      buildingsSwitch.setShouldDisableView(true);
+      buildingsSwitch.setEnabled(false);
+      buildingsSwitch.setSummary(R.string.in_car_budget_rendering_summary);
+      buildingsSwitch.setChecked(false);
+      return;
     }
+
+    if (!TextUtils.equals(buildingsSwitch.getSummary(), fragment.getString(R.string.in_car_budget_rendering_summary)))
+      return;
+
+    if (PowerManagment.getScheme() == PowerManagment.HIGH)
+    {
+      buildingsSwitch.setShouldDisableView(true);
+      buildingsSwitch.setEnabled(false);
+      buildingsSwitch.setSummary(R.string.pref_map_3d_buildings_disabled_summary);
+      buildingsSwitch.setChecked(false);
+      return;
+    }
+
+    final Framework.Params3dMode current = new Framework.Params3dMode();
+    Framework.nativeGet3dMode(current);
+    buildingsSwitch.setShouldDisableView(false);
+    buildingsSwitch.setEnabled(true);
+    buildingsSwitch.setSummary("");
+    buildingsSwitch.setChecked(current.buildings);
   }
 
   private static boolean showDedicatedPreference(@NonNull PreferenceFragmentCompat fragment)
