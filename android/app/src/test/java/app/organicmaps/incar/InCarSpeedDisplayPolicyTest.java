@@ -13,8 +13,8 @@ public class InCarSpeedDisplayPolicyTest
   public void currentSpeedDelegatesToExistingFormatter()
   {
     final AtomicReference<Double> received = new AtomicReference<>();
-    final String result = InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, true,
-                                                         12.5, UNAVAILABLE, speedMps -> {
+    final String result = InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, true, 12.5,
+                                                         UNAVAILABLE, speedMps -> {
                                                            received.set(speedMps);
                                                            return "45 km/h";
                                                          });
@@ -37,20 +37,16 @@ public class InCarSpeedDisplayPolicyTest
   {
     final String result =
         InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.STALE, true, 27.0, UNAVAILABLE,
-                                       speedMps -> {
-                                         throw new AssertionError("stale speed must not be formatted");
-                                       });
+                                       speedMps -> { throw new AssertionError("stale speed must not be formatted"); });
     assertEquals(UNAVAILABLE, result);
   }
 
   @Test
   public void unavailableAndMissingSpeedRemainUnavailable()
   {
-    assertEquals(UNAVAILABLE,
-                 InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.UNAVAILABLE, true, 27.0,
-                                                UNAVAILABLE, speedMps -> "unexpected"));
-    assertEquals(UNAVAILABLE,
-                 InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, false, Double.NaN,
-                                                UNAVAILABLE, speedMps -> "unexpected"));
+    assertEquals(UNAVAILABLE, InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.UNAVAILABLE,
+                                                             true, 27.0, UNAVAILABLE, speedMps -> "unexpected"));
+    assertEquals(UNAVAILABLE, InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, false,
+                                                             Double.NaN, UNAVAILABLE, speedMps -> "unexpected"));
   }
 }
