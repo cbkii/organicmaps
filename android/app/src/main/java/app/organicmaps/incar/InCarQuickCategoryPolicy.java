@@ -22,11 +22,11 @@ public final class InCarQuickCategoryPolicy
   {
     return switch (category)
     {
-    case FUEL -> R.string.category_fuel;
-    case CHARGING -> R.string.in_car_quick_charging_category_query;
-    case PARKING -> R.string.category_parking;
-    case TOILETS -> R.string.category_toilet;
-    case FOOD -> R.string.category_eat;
+      case FUEL -> R.string.category_fuel;
+      case CHARGING -> R.string.in_car_quick_charging_category_query;
+      case PARKING -> R.string.category_parking;
+      case TOILETS -> R.string.category_toilet;
+      case FOOD -> R.string.category_eat;
     };
   }
 
