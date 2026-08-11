@@ -233,7 +233,7 @@ public final class InCarQuickDestinationsUi
                                       @DrawableRes int iconRes, @ColorRes int colorRes, boolean useGlyph)
     {
       if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action),
-                                                    destination != null))
+                                                   destination != null))
         return;
       if (destination == null)
         return;
@@ -288,10 +288,11 @@ public final class InCarQuickDestinationsUi
                                 mActivity.getString(R.string.in_car_quick_charging)};
       new AlertDialog.Builder(mActivity)
           .setTitle(R.string.in_car_quick_fuel_charging)
-          .setItems(choices, (dialog, which) -> {
-            openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
-                                    : InCarQuickCategoryPolicy.Category.CHARGING);
-          })
+          .setItems(choices,
+                    (dialog, which) -> {
+                      openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
+                                              : InCarQuickCategoryPolicy.Category.CHARGING);
+                    })
           .show();
     }
 
