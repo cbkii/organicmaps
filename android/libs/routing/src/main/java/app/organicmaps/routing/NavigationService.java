@@ -328,8 +328,7 @@ public class NavigationService extends Service implements LocationListener
       {
         TtsPlayer.INSTANCE.playTurnNotifications(turnNotifications);
       }
-      else if (sTtsFallbackSoundResId != 0
-               && TtsFallbackPolicy.shouldPlayFallback(ttsState, Config.TTS.isEnabled()))
+      else if (sTtsFallbackSoundResId != 0 && TtsFallbackPolicy.shouldPlayFallback(ttsState, Config.TTS.isEnabled()))
       {
         Logger.d(TAG, "TTS unavailable for navigation event, playing fallback alert; state=" + ttsState);
         mPlayer.playback(sTtsFallbackSoundResId);
