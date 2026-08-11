@@ -65,6 +65,7 @@ set(SRC
   drape_api_renderer.cpp
   drape_api_renderer.hpp
   drape_engine.cpp
+  drape_engine_driving_view.cpp
   drape_engine.hpp
   drape_engine_params.hpp
   drape_engine_safe_ptr.hpp
@@ -126,6 +127,7 @@ set(SRC
   my_position.hpp
   my_position_controller.cpp
   my_position_controller.hpp
+  my_position_driving_policy.hpp
   navigator.cpp
   navigator.hpp
   overlay_batcher.cpp

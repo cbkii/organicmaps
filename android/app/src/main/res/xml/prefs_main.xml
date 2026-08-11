@@ -5,6 +5,13 @@
   xmlns:tools="http://schemas.android.com/tools">
 
   <Preference
+    android:key="@string/pref_in_car_settings"
+    android:title="@string/in_car_settings_title"
+    android:summary="@string/in_car_settings_summary"
+    android:order="0"
+    app:fragment="app.organicmaps.settings.InCarSettingsFragment"
+    app:singleLineTitle="false" />
+  <Preference
     android:key="@string/pref_osm_profile"
     android:title="@string/profile"
     tools:summary="LongLongUsernameHere"
@@ -153,22 +160,6 @@
       android:title="@string/pref_map_auto_zoom"
       app:singleLineTitle="false"
       android:order="3" />
-    <SwitchPreferenceCompat
-      android:key="@string/pref_auto_follow_location_on_launch"
-      android:title="@string/auto_follow_location_on_launch"
-      android:summary="@string/auto_follow_location_on_launch_summary"
-      android:defaultValue="false"
-      android:persistent="false"
-      app:singleLineTitle="false"
-      android:order="4" />
-    <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_optimised_visuals"
-      android:title="@string/in_car_optimised_visuals_title"
-      android:summary="@string/in_car_optimised_visuals_summary"
-      android:defaultValue="false"
-      android:persistent="false"
-      app:singleLineTitle="false"
-      android:order="5" />
     <Preference
       android:key="@string/pref_tts_screen"
       android:title="@string/pref_tts_enable_title"

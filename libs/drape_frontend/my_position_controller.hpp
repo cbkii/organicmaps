@@ -107,6 +107,7 @@ public:
 
   void EnablePerspectiveInRouting(bool enablePerspective);
   void EnableAutoZoomInRouting(bool enableAutoZoom);
+  void SetDrivingView(bool enabled, bool autoReturn, bool recenter);
 
   void StopLocationFollow();
   void NextMode(ScreenBase const & screen);
@@ -125,6 +126,8 @@ public:
 
   bool IsRotationAvailable() const { return m_isDirectionAssigned; }
   bool IsInRouting() const { return m_isInRouting; }
+  bool IsDrivingView() const { return m_isDrivingView; }
+  bool IsNavigationStyleCameraActive() const;
   bool IsRouteFollowingActive() const;
   bool IsModeChangeViewport() const;
 
@@ -157,16 +160,21 @@ private:
   void CheckNotFollowRouting();
   void CheckBlockAutoZoom();
   void CheckUpdateLocation();
+  void RefreshLocationFreshness(location::GpsInfo const & info);
 
   ref_ptr<DrapeNotifier> m_notifier;
 
   location::EMyPositionMode m_mode;
   location::EMyPositionMode m_desiredInitMode;
+  location::EMyPositionMode m_preDrivingViewDesiredInitMode = location::Follow;
+  bool m_hasPreDrivingViewDesiredInitMode = false;
   location::TMyPositionModeChanged m_modeChangeCallback;
   Hints m_hints;
 
   bool m_isInRouting = false;
   bool m_isArrowGluedInRouting = false;
+  bool m_isDrivingView = false;
+  bool m_autoReturnDrivingView = true;
 
   bool m_needBlockAnimation;
   bool m_wasRotationInScaling;
@@ -180,6 +188,8 @@ private:
   double m_drawDirection;
   m2::PointD m_oldPosition;  // position in mercator.
   double m_oldDrawDirection;
+  m2::PointD m_lastHeldDrivingPosition = m2::PointD::Zero();
+  bool m_hasLastHeldDrivingPosition = false;
 
   bool m_enablePerspectiveInRouting;
   bool m_enableAutoZoomInRouting;

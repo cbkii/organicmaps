@@ -21,6 +21,7 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RawRes;
 import androidx.annotation.RequiresPermission;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.app.ActivityCompat;
@@ -37,6 +38,7 @@ import app.organicmaps.sdk.location.LocationUtils;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.sound.MediaPlayerWrapper;
+import app.organicmaps.sdk.sound.TtsFallbackPolicy;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.Assert;
 import app.organicmaps.sdk.util.Config;
@@ -57,6 +59,8 @@ public class NavigationService extends Service implements LocationListener
   private static NotificationCompat.Extender sCarNotificationExtender;
   @Nullable
   private static PendingIntent sOpenAppPendingIntent;
+  @RawRes
+  private static int sTtsFallbackSoundResId;
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
@@ -90,6 +94,11 @@ public class NavigationService extends Service implements LocationListener
   public static void setOpenAppPendingIntent(@NonNull PendingIntent openAppPendingIntent)
   {
     sOpenAppPendingIntent = openAppPendingIntent;
+  }
+
+  public static void setTtsFallbackSoundResource(@RawRes int soundResId)
+  {
+    sTtsFallbackSoundResId = soundResId;
   }
 
   /**
@@ -308,10 +317,24 @@ public class NavigationService extends Service implements LocationListener
     if (!routingController.isNavigating())
       return;
 
-    // Voice the turn notification first.
+    // Voice the turn notification first. If TTS cannot produce the requested voice guidance in the InCar flavour,
+    // use the configured short fallback alert rather than silently losing the navigation event.
+    boolean playedTtsFallback = false;
     final String[] turnNotifications = Framework.nativeGenerateNotifications(Config.TTS.getAnnounceStreets());
-    if (turnNotifications != null)
-      TtsPlayer.INSTANCE.playTurnNotifications(turnNotifications);
+    if (turnNotifications != null && turnNotifications.length > 0)
+    {
+      final TtsPlayer.State ttsState = TtsPlayer.getState();
+      if (ttsState == TtsPlayer.State.READY_ON)
+      {
+        TtsPlayer.INSTANCE.playTurnNotifications(turnNotifications);
+      }
+      else if (sTtsFallbackSoundResId != 0 && TtsFallbackPolicy.shouldPlayFallback(ttsState, Config.TTS.isEnabled()))
+      {
+        Logger.d(TAG, "TTS unavailable for navigation event, playing fallback alert; state=" + ttsState);
+        mPlayer.playback(sTtsFallbackSoundResId);
+        playedTtsFallback = true;
+      }
+    }
 
     // TODO: consider to create callback mechanism to transfer 'ROUTE_IS_FINISHED' event from
     // the core to the platform code (https://github.com/organicmaps/organicmaps/issues/3589),
@@ -330,7 +353,7 @@ public class NavigationService extends Service implements LocationListener
     if (routingInfo == null)
       return;
 
-    if (routingInfo.shouldPlayWarningSignal())
+    if (!playedTtsFallback && routingInfo.shouldPlayWarningSignal())
       mPlayer.playback(R.raw.speed_cams_beep);
 
     // Don't spend time on updating RemoteView if notifications are not allowed.

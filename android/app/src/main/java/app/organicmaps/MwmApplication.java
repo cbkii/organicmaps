@@ -20,6 +20,9 @@ import androidx.lifecycle.ProcessLifecycleOwner;
 import androidx.preference.PreferenceManager;
 import app.organicmaps.background.OsmUploadScheduler;
 import app.organicmaps.downloader.DownloaderNotifier;
+import app.organicmaps.incar.InCarBudgetRendering;
+import app.organicmaps.incar.InCarDrivingUi;
+import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
 import app.organicmaps.sdk.Map;
@@ -52,6 +55,9 @@ public class MwmApplication extends Application implements Application.ActivityL
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
   private DisplayManager mDisplayManager;
+
+  @Nullable
+  private InCarDrivingViewController mInCarDrivingViewController;
 
   @Nullable
   private WeakReference<Activity> mTopActivity;
@@ -97,6 +103,12 @@ public class MwmApplication extends Application implements Application.ActivityL
     return mDisplayManager;
   }
 
+  @Nullable
+  public InCarDrivingViewController getInCarDrivingViewController()
+  {
+    return mInCarDrivingViewController;
+  }
+
   @NonNull
   public OrganicMaps getOrganicMaps()
   {
@@ -126,6 +138,8 @@ public class MwmApplication extends Application implements Application.ActivityL
     PreferenceManager.setDefaultValues(this, R.xml.prefs_main, false);
     mOrganicMaps = new OrganicMaps(getApplicationContext(), BuildConfig.FLAVOR, BuildConfig.APPLICATION_ID,
                                    BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME, BuildConfig.IS_IN_CAR);
+    if (BuildConfig.IS_IN_CAR)
+      mInCarDrivingViewController = new InCarDrivingViewController(this, getLocationHelper());
 
     DownloaderNotifier.createNotificationChannel(this);
     initNavigationService();
@@ -141,6 +155,8 @@ public class MwmApplication extends Application implements Application.ActivityL
     return mOrganicMaps.init(() -> {
       ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
       ProcessLifecycleOwner.get().getLifecycle().addObserver(mProcessLifecycleObserver);
+      if (BuildConfig.IS_IN_CAR)
+        InCarBudgetRendering.applyCurrent(this);
       if (onComplete != null)
         onComplete.run();
     });
@@ -166,7 +182,10 @@ public class MwmApplication extends Application implements Application.ActivityL
 
   @Override
   public void onActivityStarted(@NonNull Activity activity)
-  {}
+  {
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity && mInCarDrivingViewController != null)
+      mInCarDrivingViewController.onMapActivityStarted();
+  }
 
   @Override
   public void onActivityResumed(@NonNull Activity activity)
@@ -175,7 +194,16 @@ public class MwmApplication extends Application implements Application.ActivityL
     Utils.showOnLockScreen(Config.isShowOnLockScreenEnabled(), activity);
     getSensorHelper().setRotation(activity.getWindowManager().getDefaultDisplay().getRotation());
     if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
+    {
       InCarVisuals.applyAndObserve(mapActivity);
+      if (mInCarDrivingViewController != null)
+      {
+        mInCarDrivingViewController.onMapActivityResumed();
+        InCarDrivingUi.attach(mapActivity, mInCarDrivingViewController);
+        if (Map.isEngineCreated())
+          InCarBudgetRendering.applyCurrent(mapActivity);
+      }
+    }
     mTopActivity = new WeakReference<>(activity);
   }
 
@@ -188,7 +216,10 @@ public class MwmApplication extends Application implements Application.ActivityL
 
   @Override
   public void onActivityStopped(@NonNull Activity activity)
-  {}
+  {
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity && mInCarDrivingViewController != null)
+      mInCarDrivingViewController.onMapActivityStopped();
+  }
 
   @Override
   public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState)
@@ -200,6 +231,8 @@ public class MwmApplication extends Application implements Application.ActivityL
   public void onActivityDestroyed(@NonNull Activity activity)
   {
     Logger.d(TAG, "activity = " + activity);
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
+      InCarDrivingUi.release(mapActivity);
   }
 
   private void onForeground()
@@ -224,6 +257,8 @@ public class MwmApplication extends Application implements Application.ActivityL
       Logger.i(LOCATION_TAG, "PENDING_POSITION mode, keeping location in the background");
     else if (TrackRecorder.nativeIsTrackRecordingEnabled())
       Logger.i(LOCATION_TAG, "Track Recordr is active, keeping location in the background");
+    else if (mInCarDrivingViewController != null && mInCarDrivingViewController.shouldKeepLocationInBackground())
+      Logger.i(LOCATION_TAG, "Visible InCar Driving View session is keeping location in the background");
     else
     {
       Logger.i(LOCATION_TAG, "Stopping location in the background");
@@ -235,6 +270,7 @@ public class MwmApplication extends Application implements Application.ActivityL
   {
     NavigationService.createNotificationChannel(this);
     NavigationService.setOrganicMaps(getOrganicMaps());
+    NavigationService.setTtsFallbackSoundResource(BuildConfig.IS_IN_CAR ? R.raw.in_car_tts_fallback : 0);
 
     final int FLAG_IMMUTABLE = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ? 0 : PendingIntent.FLAG_IMMUTABLE;
     final Intent contentIntent = new Intent(this, MwmActivity.class);

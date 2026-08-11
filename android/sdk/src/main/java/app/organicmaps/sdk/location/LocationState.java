@@ -51,7 +51,16 @@ public final class LocationState
   static native void nativeLocationUpdated(long time, double lat, double lon, float accuracyH, double altitude,
                                            float accuracyV, float speed, float bearing);
 
+  private static native void nativeSetDrivingViewEnabled(boolean enabled, boolean autoReturn, boolean recenter);
+
   private LocationState() {}
+
+  public static void setDrivingViewEnabled(boolean enabled, boolean autoReturn, boolean recenter)
+  {
+    if (!Map.isEngineCreated())
+      return;
+    nativeSetDrivingViewEnabled(enabled, autoReturn, recenter);
+  }
 
   @Value
   public static int getMode()

@@ -5,6 +5,7 @@ set(SRC
   area_shape_tests.cpp
   clip_splines_builder_tests.cpp
   frame_values_tests.cpp
+  my_position_driving_policy_tests.cpp
   my_position_startup_policy_tests.cpp
   navigator_test.cpp
   path_text_test.cpp

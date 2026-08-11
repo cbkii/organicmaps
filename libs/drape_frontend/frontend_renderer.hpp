@@ -70,12 +70,6 @@ struct TapInfo
   static m2::AnyRectD GetPreciseTapRect(m2::PointD const & mercator, double eps);
 };
 
-/*
- * A FrontendRenderer holds several RenderLayers, one per each df::DepthLayer,
- * a rendering order of the layers is set in RenderScene().
- * Each RenderLayer contains several RenderGroups, one per each tile and RenderState.
- * Each RenderGroup contains several RenderBuckets holding VertexArrayBuffers and optional OverlayHandles.
- */
 class FrontendRenderer
   : public BaseRenderer
   , public MyPositionController::Listener
@@ -143,7 +137,6 @@ public:
 
   void AddUserEvent(drape_ptr<UserEvent> && event);
 
-  // MyPositionController::Listener
   void PositionChanged(m2::PointD const & position, bool hasPosition) override;
   void ChangeModelView(m2::PointD const & center, int zoomLevel,
                        TAnimationCreator const & parallelAnimCreator) override;
@@ -157,6 +150,16 @@ public:
 
   drape_ptr<ScenarioManager> const & GetScenarioManager() const { return m_scenarioManager; }
   location::EMyPositionMode GetMyPositionMode() const { return m_myPositionController->GetCurrentMode(); }
+
+  // Called only from the frontend/render thread via DrapeEngine's existing NotifyRenderThread path.
+  void SetDrivingView(bool enabled, bool autoReturn, bool recenter)
+  {
+    m_myPositionController->SetDrivingView(enabled, autoReturn, recenter);
+    if (enabled && m_enablePerspectiveInNavigation)
+      AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(true /* isAutoPerspective */));
+    else if (!enabled && !m_myPositionController->IsInRouting())
+      DisablePerspective();
+  }
 
   void OnEnterBackground();
 
@@ -190,7 +193,6 @@ private:
 
     void Sort(ref_ptr<dp::OverlayTree> overlayTree);
   };
-  // Render part of scene
   void RenderTileBackgroundLayer(ScreenBase const & modelView);
   void Render2dLayer(ScreenBase const & modelView);
   void PreRender3dLayer(ScreenBase const & modelView);
@@ -222,7 +224,6 @@ private:
 #endif
 
   TTilesCollection ResolveTileKeys(ScreenBase const & screen);
-  /// @return true If zoom level was changed.
   bool ResolveZoomLevel(ScreenBase const & screen);
   void UpdateDisplacementEnabled();
   void CheckIsometryMinScale(ScreenBase const & screen);
@@ -339,7 +340,6 @@ private:
   drape_ptr<DrapeApiRenderer> m_drapeApiRenderer;
 
   drape_ptr<dp::OverlayTree> m_overlayTree;
-  // Actually, it holds displacing Bookmark titles. The tree named after SearchMarkLayer.
   drape_ptr<dp::OverlayTree> m_searchMarkTextOverlayTree;
 
   FrameValues m_frameValues;
@@ -364,9 +364,6 @@ private:
   ScreenBase m_lastReadedModelView;
   TTilesCollection m_notFinishedTiles;
 
-  // ResolveZoomLevel is called early in RenderFrame, so zoom is always valid during rendering.
-  // This check is only needed for UpdateContextDependentResources, which can be triggered
-  // by messages processed before the first RenderFrame.
   bool IsValidCurrentZoom() const { return m_currentZoomLevel >= 0; }
 
   int GetCurrentZoom() const

@@ -1,5 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <string name="in_car_settings_title">In-Car Settings</string>
+  <string name="in_car_settings_summary">Driving View, map display and head-unit options.</string>
+  <string name="in_car_settings_driving_view">Driving View</string>
+  <string name="in_car_settings_map_display">Map &amp; Display</string>
+  <string name="in_car_settings_maintenance">Maintenance</string>
+
   <string name="in_car_optimised_visuals_title">In-Car Optimised Visuals</string>
   <string name="in_car_optimised_visuals_summary">Use a higher-contrast driving map and larger touch controls for in-car use.</string>
+
+  <string name="in_car_show_driving_view_button_title">Show Driving View button</string>
+  <string name="in_car_show_driving_view_button_summary">Show a dedicated map button for the route-independent driving camera.</string>
+  <string name="in_car_start_driving_view_title">Start Driving View on launch</string>
+  <string name="in_car_start_driving_view_summary">Begin with the forward-looking driving camera without requiring a route.</string>
+  <string name="in_car_automatic_driving_view_title">Automatically enable while driving</string>
+  <string name="in_car_automatic_driving_view_summary">Enter after reliable GPS speed exceeds 30 km/h; an automatically started session exits after 5 minutes continuously below 5 km/h.</string>
+  <string name="in_car_auto_return_driving_view_title">Return after looking around</string>
+  <string name="in_car_auto_return_driving_view_summary">After manual map exploration, return to the Driving View camera using the existing navigation-style timeout.</string>
+  <string name="in_car_driving_view_button">Driving View</string>
+  <string name="in_car_driving_view_recenter">Return to Driving View</string>
+
+  <string name="in_car_speed_value_unavailable" translatable="false">--</string>
+  <string name="in_car_speed_current">Current speed: %1$s</string>
+  <string name="in_car_speed_stale">Current speed unavailable: GPS update is stale</string>
+  <string name="in_car_speed_unavailable">Current speed unavailable</string>
+
+  <string name="in_car_budget_rendering_title">Budget Rendering</string>
+  <string name="in_car_budget_rendering_summary">Reduce optional rendering cost by disabling 3D buildings while keeping Driving View perspective available.</string>
+
+  <string name="in_car_map_age_warning_title">Outdated map notice</string>
+  <string name="in_car_map_age_warning_summary">Show a non-blocking notice when the installed global map-data version is more than six months old.</string>
+  <string name="in_car_maps_may_be_outdated">Maps may be outdated</string>
 </resources>
