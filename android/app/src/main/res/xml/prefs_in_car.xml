@@ -3,6 +3,12 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto">
 
+  <Preference
+    android:key="@string/pref_in_car_quick_destinations"
+    android:title="@string/in_car_quick_destinations_title"
+    android:summary="@string/in_car_quick_destinations_summary"
+    app:fragment="app.organicmaps.settings.InCarQuickDestinationsSettingsFragment" />
+
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_driving_view">
 
