@@ -30,6 +30,7 @@ import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
+import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.search.SearchPageViewModel;
 import app.organicmaps.search.SearchRequest;
 import app.organicmaps.sdk.routing.RoutingController;
@@ -91,6 +92,8 @@ public final class InCarQuickDestinationsUi
     @NonNull
     private final MapButtonsViewModel mMapButtonsViewModel;
     @NonNull
+    private final RoutingPlanViewModel mRoutingPlanViewModel;
+    @NonNull
     private final SearchPageViewModel mSearchPageViewModel;
     @NonNull
     private final PlacePageViewModel mPlacePageViewModel;
@@ -99,8 +102,8 @@ public final class InCarQuickDestinationsUi
     private boolean mButtonsHidden;
     private boolean mSearchOpen;
     private boolean mPlacePageOpen;
-    @Nullable
-    private MapButtonsController.LayoutMode mLastLayoutMode;
+    private int mBottomButtonsHeight;
+    private int mSystemBottomInset;
 
     Controller(@NonNull MwmActivity activity, @NonNull HorizontalScrollView root, @NonNull LinearLayout container)
     {
@@ -110,6 +113,7 @@ public final class InCarQuickDestinationsUi
       mPrefs = MwmApplication.prefs(activity);
       final ViewModelProvider provider = new ViewModelProvider(activity);
       mMapButtonsViewModel = provider.get(MapButtonsViewModel.class);
+      mRoutingPlanViewModel = provider.get(RoutingPlanViewModel.class);
       mSearchPageViewModel = provider.get(SearchPageViewModel.class);
       mPlacePageViewModel = provider.get(PlacePageViewModel.class);
     }
@@ -122,10 +126,6 @@ public final class InCarQuickDestinationsUi
       mMapButtonsViewModel.getLayoutMode().observe(mActivity, layoutMode -> {
         if (layoutMode == null)
           return;
-        if (mLastLayoutMode == MapButtonsController.LayoutMode.regular
-            && layoutMode != MapButtonsController.LayoutMode.regular)
-          InCarQuickDestinationsStore.recordRecent(mActivity, RoutingController.get().getEndPoint());
-        mLastLayoutMode = layoutMode;
         mRegular = layoutMode == MapButtonsController.LayoutMode.regular;
         renderVisibility();
       });
@@ -133,6 +133,11 @@ public final class InCarQuickDestinationsUi
         mButtonsHidden = Boolean.TRUE.equals(hidden);
         renderVisibility();
       });
+      mMapButtonsViewModel.getBottomButtonsHeight().observe(mActivity, height -> {
+        mBottomButtonsHeight = height == null ? 0 : Math.max(0, height);
+        updateBottomMargin();
+      });
+      mRoutingPlanViewModel.getMenuUpdateTrigger().observe(mActivity, ignored -> recordConfirmedDestination());
       mSearchPageViewModel.getSearchEnabled().observe(mActivity, enabled -> {
         mSearchOpen = Boolean.TRUE.equals(enabled);
         renderVisibility();
@@ -151,6 +156,13 @@ public final class InCarQuickDestinationsUi
     }
 
     @Override
+    public void onResume(@NonNull LifecycleOwner owner)
+    {
+      rebuildButtons();
+      updateBottomMargin();
+    }
+
+    @Override
     public void onDestroy(@NonNull LifecycleOwner owner)
     {
       mPrefs.unregisterOnSharedPreferenceChangeListener(this);
@@ -165,12 +177,20 @@ public final class InCarQuickDestinationsUi
         rebuildButtons();
     }
 
+    private void recordConfirmedDestination()
+    {
+      final RoutingController routing = RoutingController.get();
+      if (!routing.isBuilt() && !routing.isNavigating())
+        return;
+      InCarQuickDestinationsStore.recordRecent(mActivity, routing.getEndPoint());
+    }
+
     private void rebuildButtons()
     {
       mContainer.removeAllViews();
       addFixedAction(InCarQuickDestinationsStore.Action.FUEL_CHARGING, R.string.in_car_quick_fuel_charging,
                      R.drawable.ic_in_car_quick_fuel, R.color.in_car_quick_fuel_charging,
-                     () -> showFuelChargingChoice());
+                     this::showFuelChargingChoice);
       addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
                      R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
                      () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
@@ -247,9 +267,9 @@ public final class InCarQuickDestinationsUi
     {
       final MaterialButton button = new MaterialButton(mActivity, null,
                                                        com.google.android.material.R.attr.materialButtonOutlinedStyle);
-      final int size = dp(56);
+      final int size = dp(InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
       final LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(size, size);
-      params.setMarginEnd(dp(8));
+      params.setMarginEnd(dp(InCarQuickDestinationsLayoutPolicy.ACTION_GAP_DP));
       button.setLayoutParams(params);
       button.setMinWidth(0);
       button.setMinHeight(0);
@@ -324,19 +344,25 @@ public final class InCarQuickDestinationsUi
 
     private void applyInsets()
     {
-      final int baseBottom = dp(72);
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, (view, windowInsets) -> {
         final Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-        final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
-        final int bottom = baseBottom + bars.bottom;
-        if (params.bottomMargin != bottom)
-        {
-          params.bottomMargin = bottom;
-          view.setLayoutParams(params);
-        }
+        mSystemBottomInset = bars.bottom;
+        updateBottomMargin();
         return windowInsets;
       });
       ViewCompat.requestApplyInsets(mRoot);
+    }
+
+    private void updateBottomMargin()
+    {
+      final ViewGroup.LayoutParams rawParams = mRoot.getLayoutParams();
+      if (!(rawParams instanceof ViewGroup.MarginLayoutParams params))
+        return;
+      final int bottom = mBottomButtonsHeight + mSystemBottomInset + dp(12);
+      if (params.bottomMargin == bottom)
+        return;
+      params.bottomMargin = bottom;
+      mRoot.setLayoutParams(params);
     }
 
     private int dp(int value)
