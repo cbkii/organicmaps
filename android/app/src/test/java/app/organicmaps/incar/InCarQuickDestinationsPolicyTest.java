@@ -10,8 +10,17 @@ public class InCarQuickDestinationsPolicyTest
   @Test
   public void normalFlavoursNeverExposeQuickDestinations()
   {
+    assertFalse(InCarQuickDestinationsPolicy.shouldShowSurface(false, false, false));
     for (InCarQuickDestinationsStore.Action action : InCarQuickDestinationsStore.Action.values())
       assertFalse(InCarQuickDestinationsPolicy.shouldShow(false, action, true, true));
+  }
+
+  @Test
+  public void mapSurfaceKeepsPrimaryControlAvailable()
+  {
+    assertTrue(InCarQuickDestinationsPolicy.shouldShowSurface(true, false, false));
+    assertFalse(InCarQuickDestinationsPolicy.shouldShowSurface(true, true, false));
+    assertFalse(InCarQuickDestinationsPolicy.shouldShowSurface(true, false, true));
   }
 
   @Test
