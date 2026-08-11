@@ -30,8 +30,8 @@ public final class InCarQuickDestination
     if (mapObject == null || mapObject.isMyPosition())
       return null;
 
-    final InCarQuickDestination destination =
-        new InCarQuickDestination(mapObject.getTitle(), mapObject.getSubtitle(), mapObject.getLat(), mapObject.getLon());
+    final InCarQuickDestination destination = new InCarQuickDestination(mapObject.getTitle(), mapObject.getSubtitle(),
+                                                                        mapObject.getLat(), mapObject.getLon());
     return destination.isValid() ? destination : null;
   }
 
@@ -40,15 +40,14 @@ public final class InCarQuickDestination
   {
     if (location == null)
       return null;
-    final InCarQuickDestination destination = new InCarQuickDestination(title, "", location.getLatitude(),
-                                                                         location.getLongitude());
+    final InCarQuickDestination destination =
+        new InCarQuickDestination(title, "", location.getLatitude(), location.getLongitude());
     return destination.isValid() ? destination : null;
   }
 
   public boolean isValid()
   {
-    return Double.isFinite(mLat) && Double.isFinite(mLon) && mLat >= -90.0 && mLat <= 90.0 && mLon >= -180.0
-        && mLon <= 180.0;
+    return isValidCoordinate(mLat, -90.0, 90.0) && isValidCoordinate(mLon, -180.0, 180.0);
   }
 
   @NonNull
@@ -99,8 +98,7 @@ public final class InCarQuickDestination
   @NonNull
   public String encode()
   {
-    return mTitle.length() + ":" + mTitle + mSubtitle.length() + ":" + mSubtitle + Double.toString(mLat) + ":"
-        + Double.toString(mLon);
+    return mTitle.length() + ":" + mTitle + mSubtitle.length() + ":" + mSubtitle + mLat + ":" + mLon;
   }
 
   @Nullable
@@ -150,8 +148,16 @@ public final class InCarQuickDestination
   static boolean codecRoundTrips(@NonNull InCarQuickDestination destination)
   {
     final InCarQuickDestination decoded = decode(destination.encode());
-    return decoded != null && destination.mTitle.equals(decoded.mTitle) && destination.mSubtitle.equals(decoded.mSubtitle)
-        && Double.doubleToLongBits(destination.mLat) == Double.doubleToLongBits(decoded.mLat)
-        && Double.doubleToLongBits(destination.mLon) == Double.doubleToLongBits(decoded.mLon);
+    if (decoded == null)
+      return false;
+    final boolean sameLabels = destination.mTitle.equals(decoded.mTitle) && destination.mSubtitle.equals(decoded.mSubtitle);
+    final boolean sameLat = Double.doubleToLongBits(destination.mLat) == Double.doubleToLongBits(decoded.mLat);
+    final boolean sameLon = Double.doubleToLongBits(destination.mLon) == Double.doubleToLongBits(decoded.mLon);
+    return sameLabels && sameLat && sameLon;
+  }
+
+  private static boolean isValidCoordinate(double coordinate, double minimum, double maximum)
+  {
+    return Double.isFinite(coordinate) && coordinate >= minimum && coordinate <= maximum;
   }
 }
