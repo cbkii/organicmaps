@@ -4,6 +4,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewStub;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -64,14 +65,38 @@ public final class InCarDrivingUi
     Binding binding = BINDINGS.get(activity);
     if (binding == null)
     {
-      final View overlay = activity.findViewById(R.id.in_car_driving_overlay);
-      final TextView speed = activity.findViewById(R.id.in_car_speed);
-      final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
-      final FloatingActionButton drivingView = activity.findViewById(R.id.in_car_driving_view_button);
-      if (overlay == null || speed == null || drivingView == null)
+      View overlay = activity.findViewById(R.id.in_car_driving_overlay);
+      if (overlay == null)
       {
-        Logger.w(TAG, "Driving overlay is not mounted");
+        final ViewStub overlayStub = activity.findViewById(R.id.in_car_driving_overlay_stub);
+        if (overlayStub != null)
+          overlay = overlayStub.inflate();
+      }
+
+      if (overlay == null)
+      {
+        Logger.w(TAG, "Driving overlay stub is not mounted");
         return;
+      }
+
+      final TextView speed = overlay.findViewById(R.id.in_car_speed);
+      final FloatingActionButton drivingView = overlay.findViewById(R.id.in_car_driving_view_button);
+      if (speed == null || drivingView == null)
+      {
+        Logger.w(TAG, "Driving overlay controls are unavailable");
+        return;
+      }
+
+      TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
+      if (navigationSpeed == null)
+      {
+        final ViewStub navigationSpeedStub = activity.findViewById(R.id.in_car_nav_speed_stub);
+        if (navigationSpeedStub != null)
+        {
+          final View inflated = navigationSpeedStub.inflate();
+          if (inflated instanceof TextView textView)
+            navigationSpeed = textView;
+        }
       }
 
       binding = new Binding(overlay, speed, navigationSpeed, drivingView, controller);
