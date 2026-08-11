@@ -40,17 +40,21 @@ public final class InCarDrivingUi
     final TextView navigationSpeed;
     @NonNull
     final FloatingActionButton drivingView;
+    @Nullable
+    final View help;
     @NonNull
     final InCarDrivingViewController controller;
     String lastSpeedText;
 
     Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed,
-            @NonNull FloatingActionButton drivingView, @NonNull InCarDrivingViewController controller)
+            @NonNull FloatingActionButton drivingView, @Nullable View help,
+            @NonNull InCarDrivingViewController controller)
     {
       this.overlay = overlay;
       this.speed = speed;
       this.navigationSpeed = navigationSpeed;
       this.drivingView = drivingView;
+      this.help = help;
       this.controller = controller;
     }
   }
@@ -106,7 +110,8 @@ public final class InCarDrivingUi
         }
       }
 
-      binding = new Binding(overlay, speed, navigationSpeed, drivingView, controller);
+      final View help = activity.findViewById(R.id.help_button);
+      binding = new Binding(overlay, speed, navigationSpeed, drivingView, help, controller);
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       drivingView.setOnClickListener(v -> controller.onDrivingViewButtonPressed());
@@ -175,9 +180,8 @@ public final class InCarDrivingUi
     binding.drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
 
     // Promotional/help content remains available through menus/settings but is not primary driving-map chrome.
-    final View help = activity.findViewById(R.id.help_button);
-    if (help != null)
-      help.setVisibility(View.GONE);
+    if (binding.help != null)
+      binding.help.setVisibility(View.GONE);
   }
 
   private static void applyLocationHealth(@NonNull MwmActivity activity, @NonNull TextView view,
