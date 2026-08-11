@@ -2,6 +2,7 @@ package app.organicmaps.incar;
 
 import android.content.Context;
 import androidx.annotation.NonNull;
+import app.organicmaps.MwmApplication;
 import app.organicmaps.sdk.Framework;
 
 /** Narrow, reversible rendering budget for the fixed-display InCar flavour. */
@@ -16,6 +17,9 @@ public final class InCarBudgetRendering
 
   public static void apply(@NonNull Context context, boolean enabled)
   {
+    if (!MwmApplication.from(context).getOrganicMaps().arePlatformAndCoreInitialized())
+      return;
+
     final Framework.Params3dMode current = new Framework.Params3dMode();
     Framework.nativeGet3dMode(current);
 
