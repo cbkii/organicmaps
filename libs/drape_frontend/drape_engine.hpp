@@ -84,7 +84,7 @@ public:
       , m_satelliteAreaOpacity(satelliteAreaOpacity)
       , m_arrow3dCustomDecl(std::move(arrow3dCustomDecl))
       , m_overlaysShowStatsCallback(std::move(overlaysShowStatsCallback))
-      , m_onGraphicsContextInitialized(onGraphicsContextInitialized)
+      , m_onGraphicsContextInitialized(std::move(onGraphicsContextInitialized))
       , m_renderInjectionHandler(std::move(renderInjectionHandler))
     {}
 
