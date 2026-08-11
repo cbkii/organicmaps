@@ -141,8 +141,7 @@ public final class InCarDrivingViewController implements LocationListener
    */
   public boolean shouldKeepLocationInBackground()
   {
-    final boolean activeSession =
-        mPolicy.isEnabled() || InCarSettingsStore.automaticDrivingViewEnabled(mContext);
+    final boolean activeSession = mPolicy.isEnabled() || InCarSettingsStore.automaticDrivingViewEnabled(mContext);
     return mStartedMapActivities > 0 && activeSession;
   }
 
@@ -301,8 +300,7 @@ public final class InCarDrivingViewController implements LocationListener
     if (!enabled && !nativeStateApplied && !recenter)
       return false;
 
-    final boolean stateChanged =
-        enabled != lastEnabled || autoReturn != lastAutoReturn || navigating != lastNavigating;
+    final boolean stateChanged = enabled != lastEnabled || autoReturn != lastAutoReturn || navigating != lastNavigating;
     return recenter || !nativeStateApplied || stateChanged;
   }
 
@@ -314,7 +312,7 @@ public final class InCarDrivingViewController implements LocationListener
   private void publishSnapshot()
   {
     final boolean hasCurrentSpeed = mLocationHealth == LocationHealth.CURRENT && mLastLocation != null
-                                    && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
+                                 && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
     final boolean following = Map.isEngineCreated() && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
     final double speedMps = hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, RoutingController.get().isNavigating(),
