@@ -95,9 +95,8 @@ public final class InCarSettingsStore
     try
     {
       final InCarDrivingViewPolicy.ActivationSource source = InCarDrivingViewPolicy.ActivationSource.valueOf(stored);
-      return source == InCarDrivingViewPolicy.ActivationSource.OFF
-               ? InCarDrivingViewPolicy.ActivationSource.RESTORED
-               : source;
+      return source == InCarDrivingViewPolicy.ActivationSource.OFF ? InCarDrivingViewPolicy.ActivationSource.RESTORED
+                                                                   : source;
     }
     catch (IllegalArgumentException ignored)
     {
@@ -111,7 +110,8 @@ public final class InCarSettingsStore
     prefs(context)
         .edit()
         .putBoolean(KEY_DRIVING_VIEW_SESSION_ENABLED, enabled)
-        .putString(KEY_DRIVING_VIEW_SESSION_SOURCE, enabled ? source.name() : InCarDrivingViewPolicy.ActivationSource.OFF.name())
+        .putString(KEY_DRIVING_VIEW_SESSION_SOURCE,
+                   enabled ? source.name() : InCarDrivingViewPolicy.ActivationSource.OFF.name())
         .apply();
   }
 
