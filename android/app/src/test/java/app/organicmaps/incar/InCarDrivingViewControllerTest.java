@@ -10,15 +10,14 @@ public class InCarDrivingViewControllerTest
   @Test
   public void freshDisabledStateDoesNotOverwriteNativeStartupMode()
   {
-    assertFalse(InCarDrivingViewController.shouldApplyNativeState(false, false, false, false, true, true, false,
-                                                                   false));
+    assertFalse(
+        InCarDrivingViewController.shouldApplyNativeState(false, false, false, false, true, true, false, false));
   }
 
   @Test
   public void firstEnabledStateIsApplied()
   {
-    assertTrue(InCarDrivingViewController.shouldApplyNativeState(true, false, false, false, true, true, false,
-                                                                  false));
+    assertTrue(InCarDrivingViewController.shouldApplyNativeState(true, false, false, false, true, true, false, false));
   }
 
   @Test
