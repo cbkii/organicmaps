@@ -65,6 +65,30 @@ public class InCarQuickDestinationsStoreTest
   }
 
   @Test
+  public void nullCandidateKeepsExistingRecentPair()
+  {
+    final InCarQuickDestinationsStore.RecentPair pair = InCarQuickDestinationsStore.selectNewestTwo(null, A, B);
+    assertEquals(A, pair.first);
+    assertEquals(B, pair.second);
+  }
+
+  @Test
+  public void candidateReplacesNullFirstHistorySlot()
+  {
+    final InCarQuickDestinationsStore.RecentPair pair = InCarQuickDestinationsStore.selectNewestTwo(B, null, A);
+    assertEquals(B, pair.first);
+    assertEquals(A, pair.second);
+  }
+
+  @Test
+  public void candidateReplacesNullSecondHistorySlot()
+  {
+    final InCarQuickDestinationsStore.RecentPair pair = InCarQuickDestinationsStore.selectNewestTwo(C, A, null);
+    assertEquals(C, pair.first);
+    assertEquals(A, pair.second);
+  }
+
+  @Test
   public void duplicateRecentIsPromotedWithoutDuplicatingSlots()
   {
     final InCarQuickDestinationsStore.RecentPair pair = InCarQuickDestinationsStore.selectNewestTwo(A, B, A);
@@ -79,6 +103,24 @@ public class InCarQuickDestinationsStoreTest
     final InCarQuickDestinationsStore.RecentPair pair = InCarQuickDestinationsStore.selectNewestTwo(invalid, A, B);
     assertEquals(A, pair.first);
     assertEquals(B, pair.second);
+  }
+
+  @Test
+  public void quickPreferenceKeyDetectionUsesQuickPrefix()
+  {
+    assertTrue(InCarQuickDestinationsStore.isQuickPreferenceKey(
+        InCarQuickDestinationsStore.preferenceKey(InCarQuickDestinationsStore.Action.FUEL_CHARGING)));
+    assertTrue(InCarQuickDestinationsStore.isQuickPreferenceKey(
+        InCarQuickDestinationsStore.preferenceKey(InCarQuickDestinationsStore.Action.REST_WATER)));
+    assertTrue(InCarQuickDestinationsStore.isQuickPreferenceKey("InCarQuickHomeDestination"));
+    assertTrue(InCarQuickDestinationsStore.isQuickPreferenceKey("InCarQuickWorkDestination"));
+    assertTrue(InCarQuickDestinationsStore.isQuickPreferenceKey("InCarQuickRecentDestination1"));
+    assertTrue(InCarQuickDestinationsStore.isQuickPreferenceKey("InCarQuickRecentDestination2"));
+
+    assertFalse(InCarQuickDestinationsStore.isQuickPreferenceKey(null));
+    assertFalse(InCarQuickDestinationsStore.isQuickPreferenceKey("incar_quick_invalid"));
+    assertFalse(InCarQuickDestinationsStore.isQuickPreferenceKey("some_other_prefix_key"));
+    assertFalse(InCarQuickDestinationsStore.isQuickPreferenceKey("DESTINATION_A"));
   }
 
   @Test
