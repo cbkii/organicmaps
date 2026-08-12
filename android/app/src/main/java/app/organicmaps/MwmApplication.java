@@ -276,8 +276,7 @@ public class MwmApplication extends Application implements Application.ActivityL
   }
 
   @FunctionalInterface
-  private interface InCarControllerAction
-  {
+  private interface InCarControllerAction {
     void run(@NonNull InCarDrivingViewController controller);
   }
 
