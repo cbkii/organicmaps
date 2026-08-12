@@ -212,11 +212,9 @@ public final class InCarQuickDestinationsUi
       final RoutingController routing = RoutingController.get();
       final InCarQuickDestination builtDestination =
           routing.isBuilt() ? InCarQuickDestination.fromMapObject(routing.getEndPoint()) : null;
-      final InCarQuickNavigationPolicy.Decision decision =
-          InCarQuickNavigationPolicy.evaluate(routing.isPlanning(), routing.isNavigating(),
-                                              routing.isErrorEncountered(), routing.isBuilt(),
-                                              routing.isSuccessfulBuild(), routing.isVehicleRouterType(),
-                                              mPendingNavigation, builtDestination);
+      final InCarQuickNavigationPolicy.Decision decision = InCarQuickNavigationPolicy.evaluate(
+          routing.isPlanning(), routing.isNavigating(), routing.isErrorEncountered(), routing.isBuilt(),
+          routing.isSuccessfulBuild(), routing.isVehicleRouterType(), mPendingNavigation, builtDestination);
       if (decision == InCarQuickNavigationPolicy.Decision.WAIT)
         return;
       if (decision == InCarQuickNavigationPolicy.Decision.CLEAR)
@@ -346,7 +344,8 @@ public final class InCarQuickDestinationsUi
           LocationState.nativeSwitchToNextMode();
 
         final MapObject startPoint = MwmApplication.from(mActivity).getLocationHelper().getMyPosition();
-        RoutingController.get().prepare(startPoint, destination.toMapObject(), InCarQuickNavigationPolicy.exactRouter());
+        RoutingController.get().prepare(startPoint, destination.toMapObject(),
+                                        InCarQuickNavigationPolicy.exactRouter());
       }
       finally
       {
