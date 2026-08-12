@@ -35,14 +35,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and stage InCarRelease
+  build:
+    name: Build and verify InCarRelease
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     environment: release
     outputs:
-      release_id: ${{ steps.release.outputs.id }}
-      release_tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      version_name: ${{ steps.version.outputs.version_name }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      tag: ${{ steps.version.outputs.tag }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
+      apk_name: ${{ steps.apk.outputs.apk_name }}
+      apk_sha256: ${{ steps.apk.outputs.apk_sha256 }}
+      cert_sha256: ${{ steps.apk.outputs.cert_sha256 }}
+      checksum_name: ${{ steps.apk.outputs.checksum_name }}
 
     steps:
       - name: Checkout repository
@@ -438,46 +445,101 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Prepare emulator host for signed APK smoke
+      - name: Remove temporary signing material
+        if: always()
         shell: bash
         run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force > /dev/null
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
-            sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          rm -f \
+            android/app/secure.properties \
+            "${RUNNER_TEMP}/organicmaps-in-car-release.keystore" \
+            "${RUNNER_TEMP}/in-car-keytool.txt"
 
-      - name: Smoke signed InCar release APK
+  smoke:
+    name: Smoke signed InCarRelease on ARM64
+    needs: build
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout smoke script
+        uses: actions/checkout@v6
+
+      - name: Download verified InCarRelease artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-arm64-v8a
+          path: ${{ runner.temp }}/in-car-release
+
+      - name: Resolve signed APK
+        id: apk
+        shell: bash
+        run: |
+          apk_count="$(find "${RUNNER_TEMP}/in-car-release" -type f -name '*.apk' | wc -l | tr -d ' ')"
+          if [[ "${apk_count}" -ne 1 ]]; then
+            echo "::error::Expected exactly one signed InCarRelease APK; found ${apk_count}."
+            exit 1
+          fi
+          apk_path="$(find "${RUNNER_TEMP}/in-car-release" -type f -name '*.apk' -print -quit)"
+          echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Smoke exact signed arm64 InCarRelease APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          # Android 11 x86_64 system images advertise ARM64 ABI support and translate
-          # the arm64-only release APK while retaining KVM acceleration on Linux.
           api-level: 30
-          arch: x86_64
+          arch: arm64-v8a
           target: default
           emulator-boot-timeout: 900
-          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.apk_path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-launch-smoke"
+          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-launch-smoke"
 
       - name: Upload signed APK smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: OrganicMaps-InCar-v${{ steps.version.outputs.version }}-launch-smoke
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-launch-smoke
           path: ${{ runner.temp }}/in-car-launch-smoke
           if-no-files-found: warn
           retention-days: 90
+
+  release:
+    name: Stage validated GitHub release
+    needs: [build, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+      release_tag: ${{ needs.build.outputs.tag }}
+
+    steps:
+      - name: Download validated release assets
+        uses: actions/download-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-arm64-v8a
+          path: ${{ runner.temp }}/in-car-release
+
+      - name: Resolve release asset paths
+        id: assets
+        shell: bash
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
+        run: |
+          apk_path="${RUNNER_TEMP}/in-car-release/${APK_NAME}"
+          checksum_path="${RUNNER_TEMP}/in-car-release/${CHECKSUM_NAME}"
+          if [[ ! -f "${apk_path}" || ! -f "${checksum_path}" ]]; then
+            echo "::error::Validated APK or checksum artifact is missing."
+            exit 1
+          fi
+          echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
+          echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
 
       - name: Create draft GitHub release
         id: release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          RELEASE_VERSION: ${{ steps.version.outputs.version }}
-          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
@@ -506,9 +568,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          APK_PATH: ${{ steps.apk.outputs.apk_path }}
-          CHECKSUM_PATH: ${{ steps.apk.outputs.checksum_path }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          APK_PATH: ${{ steps.assets.outputs.apk_path }}
+          CHECKSUM_PATH: ${{ steps.assets.outputs.checksum_path }}
         run: |
           set -euo pipefail
           gh release upload "${RELEASE_TAG}" "${APK_PATH}" "${CHECKSUM_PATH}"
@@ -518,9 +580,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          APK_NAME: ${{ steps.apk.outputs.apk_name }}
-          CHECKSUM_NAME: ${{ steps.apk.outputs.checksum_name }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
         run: |
           set -euo pipefail
 
@@ -546,15 +608,15 @@ jobs:
         if: always()
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
           RELEASE_URL: ${{ steps.release.outputs.url }}
           REQUESTED_DRAFT: ${{ inputs.draft }}
-          VERSION_NAME: ${{ steps.version.outputs.version_name }}
-          VERSION_CODE: ${{ steps.version.outputs.version_code }}
-          APK_NAME: ${{ steps.apk.outputs.apk_name }}
-          APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
-          CERT_SHA256: ${{ steps.apk.outputs.cert_sha256 }}
-          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          VERSION_NAME: ${{ needs.build.outputs.version_name }}
+          VERSION_CODE: ${{ needs.build.outputs.version_code }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          APK_SHA256: ${{ needs.build.outputs.apk_sha256 }}
+          CERT_SHA256: ${{ needs.build.outputs.cert_sha256 }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
         run: |
           {
             echo "# Manual In-Car Release"
@@ -577,22 +639,13 @@ jobs:
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Remove temporary signing material
-        if: always()
-        shell: bash
-        run: |
-          rm -f \
-            android/app/secure.properties \
-            "${RUNNER_TEMP}/organicmaps-in-car-release.keystore" \
-            "${RUNNER_TEMP}/in-car-keytool.txt"
-
       - name: Roll back incomplete draft release
         if: failure() && steps.release.outputs.created == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
           if [[ ! "${RELEASE_ID}" =~ ^[0-9]+$ ]]; then
             echo "::warning::No exact draft release ID was captured; leaving any draft for manual inspection."

@@ -33,13 +33,12 @@ on:
       - tools/**
       - track_generator/**
 
-env:
-  JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64  # Java 17 is required for Android Gradle 8 plugin
-
 jobs:
   lint:
     name: Android Lint
     runs-on: ubuntu-latest
+    env:
+      JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64  # Java 17 is required for Android Gradle 8 plugin
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -78,6 +77,7 @@ jobs:
     name: Build Android Debug
     runs-on: ubuntu-latest
     env:
+      JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
       CI_IN_CAR_RELEASE_VERSION: '0.0.0'
       CI_IN_CAR_RELEASE_VERSION_CODE: '1000000000'
     strategy:
@@ -319,40 +319,6 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Prepare emulator host for signed InCar release smoke
-        if: matrix.verify_in_car == true
-        shell: bash
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force > /dev/null
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
-            sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Smoke signed release-equivalent InCar APK
-        if: matrix.verify_in_car == true
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          # Android 11 x86_64 system images advertise ARM64 ABI support and translate
-          # the arm64-only release APK while retaining KVM acceleration on Linux.
-          api-level: 30
-          arch: x86_64
-          target: default
-          emulator-boot-timeout: 900
-          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.release_apk.outputs.apk_path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-release-ci-launch-smoke"
-
-      - name: Upload signed InCar launch smoke evidence
-        if: always() && matrix.verify_in_car == true
-        uses: actions/upload-artifact@v7
-        with:
-          name: android-InCarRelease-ci-launch-smoke
-          path: ${{ runner.temp }}/in-car-release-ci-launch-smoke
-          if-no-files-found: warn
-          retention-days: 90
-
       - name: Remove CI release signing material
         if: always() && matrix.verify_in_car == true
         shell: bash
@@ -400,3 +366,49 @@ jobs:
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
           retention-days: 30
+
+  in-car-release-smoke:
+    name: Smoke signed InCarRelease on ARM64
+    needs: android-check
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout smoke script
+        uses: actions/checkout@v6
+
+      - name: Download signed release-equivalent APK
+        uses: actions/download-artifact@v7
+        with:
+          name: android-InCarRelease-ci
+          path: ${{ runner.temp }}/in-car-release-ci
+
+      - name: Resolve signed APK
+        id: apk
+        shell: bash
+        run: |
+          apk_count="$(find "${RUNNER_TEMP}/in-car-release-ci" -type f -name '*.apk' | wc -l | tr -d ' ')"
+          if [[ "${apk_count}" -ne 1 ]]; then
+            echo "::error::Expected exactly one signed InCarRelease APK; found ${apk_count}."
+            exit 1
+          fi
+          apk_path="$(find "${RUNNER_TEMP}/in-car-release-ci" -type f -name '*.apk' -print -quit)"
+          echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Smoke exact signed arm64 InCarRelease APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: arm64-v8a
+          target: default
+          emulator-boot-timeout: 900
+          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-release-ci-launch-smoke"
+
+      - name: Upload signed InCar launch smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-InCarRelease-ci-launch-smoke
+          path: ${{ runner.temp }}/in-car-release-ci-launch-smoke
+          if-no-files-found: warn
+          retention-days: 90
