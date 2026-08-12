@@ -36,7 +36,7 @@ public final class InCarQuickDestinationsStore
   {
     final SharedPreferences preferences = prefs(context);
     final String key = actionKey(action);
-    return preferences.contains(key) ? preferences.getBoolean(key, false) : defaultEnabled(action);
+    return resolvedEnabled(preferences.contains(key), preferences.getBoolean(key, false), defaultEnabled(action));
   }
 
   public static boolean hasExplicitActionPreference(@NonNull Context context, @NonNull Action action)
@@ -47,6 +47,12 @@ public final class InCarQuickDestinationsStore
   public static void setActionEnabled(@NonNull Context context, @NonNull Action action, boolean enabled)
   {
     prefs(context).edit().putBoolean(actionKey(action), enabled).apply();
+  }
+
+  @VisibleForTesting
+  static boolean resolvedEnabled(boolean hasExplicitPreference, boolean explicitValue, boolean defaultValue)
+  {
+    return hasExplicitPreference ? explicitValue : defaultValue;
   }
 
   @VisibleForTesting
