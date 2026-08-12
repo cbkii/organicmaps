@@ -623,6 +623,6 @@ jobs:
           if [[ "${KEEP_DRAFT}" == "true" ]]; then
             echo "Verified release ${RELEASE_TAG} remains a draft." >> "${GITHUB_STEP_SUMMARY}"
           else
+            echo "Publishing verified release ${RELEASE_TAG} as terminal workflow operation." >> "${GITHUB_STEP_SUMMARY}"
             gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F draft=false >/dev/null
-            echo "Published verified release ${RELEASE_TAG} as terminal workflow operation." >> "${GITHUB_STEP_SUMMARY}"
           fi
