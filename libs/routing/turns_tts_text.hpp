@@ -28,6 +28,8 @@ public:
 
   std::string GetSpeedCameraNotification() const;
 
+  bool HasLocale() const { return m_getCurLang != nullptr; }
+
   /// \brief Sets a locale.
   /// @param locale is a string representation of locale. For example "en", "ru", "zh-Hant" and so on.
   /// \note See sound/tts/languages.txt for the full list of available locales.

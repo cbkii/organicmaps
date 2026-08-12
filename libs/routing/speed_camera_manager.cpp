@@ -85,20 +85,25 @@ void SpeedCameraManager::OnLocationPositionChanged(location::GpsInfo const & inf
   }
 }
 
-void SpeedCameraManager::GenerateNotifications(std::vector<std::string> & notifications)
+bool SpeedCameraManager::GenerateNotifications(std::vector<std::string> & notifications)
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
 
   if (!Enable())
-    return;
+    return false;
 
+  bool generated = false;
   if (VoiceSignalAvailable())
   {
-    notifications.emplace_back(m_notificationManager.GenerateSpeedCameraText());
+    auto const text = m_notificationManager.GenerateSpeedCameraText();
+    if (!text.empty())
+      notifications.emplace_back(text);
     ++m_voiceSignalCounter;
+    generated = true;
   }
 
   m_makeVoiceSignal = false;
+  return generated;
 }
 
 bool SpeedCameraManager::ShouldPlayBeepSignal()

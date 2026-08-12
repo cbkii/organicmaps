@@ -68,7 +68,7 @@ public:
 
   // See comments in |enum class Interval|
   /// \brief |GenerateNotifications| about |Interval::VoiceNotificationZone|.
-  void GenerateNotifications(std::vector<std::string> & notifications);
+  bool GenerateNotifications(std::vector<std::string> & notifications);
   /// \brief |ShouldPlayBeepSignal| about |Interval::BeepSignalZone|.
   bool ShouldPlayBeepSignal();
 

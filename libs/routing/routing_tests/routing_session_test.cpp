@@ -39,6 +39,15 @@ vector<turns::TurnItem> const kTestTurns = {turns::TurnItem(1, turns::CarDirecti
 vector<double> const kTestTimes = {5.0, 10.0, 15.0};
 auto const kRouteBuildingMaxDuration = seconds(30);
 
+UNIT_TEST(RoutingSession_SpeedCameraEventClearsManeuverStage)
+{
+  auto stage = NotificationStage::Immediate;
+  auto const event = routing::detail::SelectGeneratedNotificationEvent(true /* maneuverGenerated */,
+                                                                       true /* speedCameraGenerated */, &stage);
+  TEST(event == NotificationEvent::SpeedCamera, ());
+  TEST(stage == NotificationStage::None, ());
+}
+
 void FillSubroutesInfo(Route & route, vector<turns::TurnItem> const & turns = kTestTurnsReachOnly);
 
 // Simple router. It returns route given to him on creation.

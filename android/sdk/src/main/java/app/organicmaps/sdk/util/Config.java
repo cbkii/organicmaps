@@ -78,6 +78,11 @@ public final class Config
     return mFlavor.equals("fdroid");
   }
 
+  public static boolean isInCar()
+  {
+    return mFlavor.equals("inCar");
+  }
+
   private static int getInt(String key, int def)
   {
     return nativeGetInt(key, def);
