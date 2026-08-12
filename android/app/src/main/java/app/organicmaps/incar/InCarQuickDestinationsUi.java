@@ -1,6 +1,5 @@
 package app.organicmaps.incar;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -30,6 +29,9 @@ import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.routing.RoutingPlanViewModel;
+import app.organicmaps.sdk.Router;
+import app.organicmaps.sdk.bookmarks.data.MapObject;
+import app.organicmaps.sdk.location.LocationState;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.search.DisplayedCategories;
 import app.organicmaps.sdk.util.Language;
@@ -99,6 +101,8 @@ public final class InCarQuickDestinationsUi
 
     @Nullable
     private MaterialButton mPrimaryButton;
+    @Nullable
+    private InCarQuickDestination mPendingNavigation;
     private boolean mExpanded = true;
     private boolean mRegular = true;
     private boolean mButtonsHidden;
@@ -131,6 +135,8 @@ public final class InCarQuickDestinationsUi
         final boolean regular = layoutMode == MapButtonsController.LayoutMode.regular;
         if (mRegular && !regular)
           collapseForMapTransition();
+        if (!mRegular && regular && mPendingNavigation != null && !RoutingController.get().isPlanning())
+          clearPendingNavigation();
         mRegular = regular;
         renderVisibility();
       });
@@ -145,7 +151,10 @@ public final class InCarQuickDestinationsUi
         mBottomButtonsHeight = height == null ? 0 : Math.max(0, Math.round(height));
         updateBottomMargin();
       });
-      mRoutingPlanViewModel.getMenuUpdateTrigger().observe(mActivity, ignored -> recordConfirmedDestination());
+      mRoutingPlanViewModel.getMenuUpdateTrigger().observe(mActivity, ignored -> {
+        handlePendingNavigation();
+        recordConfirmedDestination();
+      });
       mSearchPageViewModel.getSearchEnabled().observe(mActivity, enabled -> {
         mSearchOpen = Boolean.TRUE.equals(enabled);
         renderVisibility();
@@ -173,6 +182,7 @@ public final class InCarQuickDestinationsUi
     @Override
     public void onDestroy(@NonNull LifecycleOwner owner)
     {
+      clearPendingNavigation();
       mPrefs.unregisterOnSharedPreferenceChangeListener(this);
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, null);
       mRoot.setTag(null);
@@ -193,12 +203,45 @@ public final class InCarQuickDestinationsUi
       InCarQuickDestinationsStore.recordRecent(mActivity, routing.getEndPoint());
     }
 
+    private void handlePendingNavigation()
+    {
+      if (mPendingNavigation == null)
+        return;
+
+      final RoutingController routing = RoutingController.get();
+      if (routing.isErrorEncountered())
+      {
+        clearPendingNavigation();
+        return;
+      }
+      if (!routing.isBuilt())
+        return;
+
+      final InCarQuickDestination builtDestination = InCarQuickDestination.fromMapObject(routing.getEndPoint());
+      if (!routing.isVehicleRouterType() || !mPendingNavigation.samePlace(builtDestination))
+      {
+        clearPendingNavigation();
+        return;
+      }
+
+      // One-shot before invoking the normal start gates: a later routing update must never start stale intent.
+      clearPendingNavigation();
+      if (!mActivity.showStartPointNotice())
+        return;
+      if (!mActivity.showRoutingDisclaimer())
+        return;
+      mActivity.closeFloatingPanels();
+      mActivity.setFullscreen(false);
+      routing.start();
+    }
+
     private void rebuildButtons()
     {
       mContainer.removeAllViews();
       addPrimaryToggleAction();
       addFixedAction(InCarQuickDestinationsStore.Action.FUEL_CHARGING, R.string.in_car_quick_fuel_charging,
-                     R.drawable.ic_in_car_quick_fuel, R.color.in_car_quick_fuel_charging, this::showFuelChargingChoice);
+                     R.drawable.ic_in_car_quick_fuel, R.color.in_car_quick_fuel_charging,
+                     () -> openCategory(InCarQuickCategoryPolicy.Category.FUEL_CHARGING));
       addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
                      R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
                      () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
@@ -208,6 +251,9 @@ public final class InCarQuickDestinationsUi
       addFixedAction(InCarQuickDestinationsStore.Action.FOOD, R.string.in_car_quick_food,
                      R.drawable.ic_in_car_quick_food, R.color.in_car_quick_food,
                      () -> openCategory(InCarQuickCategoryPolicy.Category.FOOD));
+      addFixedAction(InCarQuickDestinationsStore.Action.REST_WATER, R.string.in_car_quick_rest_water,
+                     R.drawable.ic_in_car_quick_rest_water, R.color.in_car_quick_rest_water,
+                     () -> openCategory(InCarQuickCategoryPolicy.Category.REST_WATER));
 
       addDestinationAction(InCarQuickDestinationsStore.Action.HOME, InCarQuickDestinationsStore.getHome(mActivity),
                            R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home,
@@ -278,8 +324,24 @@ public final class InCarQuickDestinationsUi
 
       final String displayLabel = destination.getDisplayLabel();
       button.setContentDescription(displayLabel.isEmpty() ? mActivity.getString(labelRes) : displayLabel);
-      button.setOnClickListener(v -> mActivity.startLocationToPoint(destination.toMapObject()));
+      button.setOnClickListener(v -> startExactNavigation(destination));
       mContainer.addView(button);
+    }
+
+    private void startExactNavigation(@NonNull InCarQuickDestination destination)
+    {
+      mPendingNavigation = destination;
+      mActivity.closeFloatingPanels();
+      if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+        LocationState.nativeSwitchToNextMode();
+
+      final MapObject startPoint = MwmApplication.from(mActivity).getLocationHelper().getMyPosition();
+      RoutingController.get().prepare(startPoint, destination.toMapObject(), Router.Vehicle);
+    }
+
+    private void clearPendingNavigation()
+    {
+      mPendingNavigation = null;
     }
 
     @NonNull
@@ -314,22 +376,9 @@ public final class InCarQuickDestinationsUi
       return button;
     }
 
-    private void showFuelChargingChoice()
-    {
-      final String[] choices = {mActivity.getString(R.string.in_car_quick_fuel),
-                                mActivity.getString(R.string.in_car_quick_charging)};
-      new AlertDialog.Builder(mActivity)
-          .setTitle(R.string.in_car_quick_fuel_charging)
-          .setItems(choices,
-                    (dialog, which) -> {
-                      openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
-                                              : InCarQuickCategoryPolicy.Category.CHARGING);
-                    })
-          .show();
-    }
-
     private void openCategory(@NonNull InCarQuickCategoryPolicy.Category category)
     {
+      clearPendingNavigation();
       final int stringRes = InCarQuickCategoryPolicy.searchTermRes(category);
       final String locale;
       final String term;
