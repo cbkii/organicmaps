@@ -73,7 +73,8 @@ mkdir -p "${proof_dir}" || fail "Unable to create proof directory: ${proof_dir}"
 
 adb wait-for-device || fail "No Android test device became available."
 
-if adb shell pm path "${package_name}" >/dev/null 2>&1; then
+installed_path="$(adb shell pm path "${package_name}" 2>/dev/null | tr -d '\r')"
+if [[ -n "${installed_path}" ]]; then
   adb uninstall "${package_name}" > "${proof_dir}/uninstall.log" 2>&1 ||
     fail "Unable to remove the previously installed ${package_name}."
 fi
@@ -143,10 +144,10 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     echo '### In-car signed APK launch smoke'
     echo
-    echo "- Package: `${package_name}`"
-    echo "- Launcher: `${component}`"
-    echo "- Cold launches: `2`"
-    echo "- Alive window per launch: `${wait_seconds} seconds`"
-    echo "- Fatal Java/native crash scan: `passed`"
+    printf -- '- Package: `%s`\n' "${package_name}"
+    printf -- '- Launcher: `%s`\n' "${component}"
+    echo '- Cold launches: `2`'
+    printf -- '- Alive window per launch: `%s seconds`\n' "${wait_seconds}"
+    echo '- Fatal Java/native crash scan: `passed`'
   } >> "${GITHUB_STEP_SUMMARY}"
 fi

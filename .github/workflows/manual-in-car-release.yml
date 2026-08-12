@@ -496,7 +496,7 @@ jobs:
           echo "created=true" >> "${GITHUB_OUTPUT}"
           release_details="$(gh release view "${RELEASE_TAG}" --json databaseId,url)"
           echo "id=$(jq -r '.databaseId' <<< "${release_details}")" >> "${GITHUB_OUTPUT}"
-          echo "url=$(jq -r '.url' <<< "${release_details}")" >> "${GITHUB_OUTPUT>"
+          echo "url=$(jq -r '.url' <<< "${release_details}")" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release assets
         shell: bash
@@ -555,19 +555,19 @@ jobs:
           {
             echo "# Manual In-Car Release"
             echo
-            echo "- Validation before publication: `${{ job.status }}`"
-            echo "- Source: `${GITHUB_SHA}`"
-            echo "- Tag: `${RELEASE_TAG:-not resolved}`"
-            echo "- Variant: `InCarRelease`"
-            echo "- Package: `app.organicmaps.incar`"
-            echo "- versionName: `${VERSION_NAME:-not resolved}`"
-            echo "- versionCode: `${VERSION_CODE:-not resolved}`"
-            echo "- ABI: `arm64-v8a`"
-            echo "- APK: `${APK_NAME:-not built}`"
-            echo "- APK SHA-256: `${APK_SHA256:-not verified}`"
-            echo "- Signer SHA-256: `${CERT_SHA256:-not verified}`"
-            echo "- Previous in-car tag: `${PREVIOUS_TAG:-none}`"
-            echo "- Requested final visibility: `draft=${REQUESTED_DRAFT}`"
+            printf -- '- Validation before publication: `%s`\n' '${{ job.status }}'
+            printf -- '- Source: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- Tag: `%s`\n' "${RELEASE_TAG:-not resolved}"
+            echo '- Variant: `InCarRelease`'
+            echo '- Package: `app.organicmaps.incar`'
+            printf -- '- versionName: `%s`\n' "${VERSION_NAME:-not resolved}"
+            printf -- '- versionCode: `%s`\n' "${VERSION_CODE:-not resolved}"
+            echo '- ABI: `arm64-v8a`'
+            printf -- '- APK: `%s`\n' "${APK_NAME:-not built}"
+            printf -- '- APK SHA-256: `%s`\n' "${APK_SHA256:-not verified}"
+            printf -- '- Signer SHA-256: `%s`\n' "${CERT_SHA256:-not verified}"
+            printf -- '- Previous in-car tag: `%s`\n' "${PREVIOUS_TAG:-none}"
+            printf -- '- Requested final visibility: `draft=%s`\n' "${REQUESTED_DRAFT}"
             if [[ -n "${RELEASE_URL:-}" ]]; then
               echo "- Staged release: ${RELEASE_URL}"
             fi
@@ -624,5 +624,5 @@ jobs:
             echo "Verified release ${RELEASE_TAG} remains a draft." >> "${GITHUB_STEP_SUMMARY}"
           else
             gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F draft=false >/dev/null
-            echo "Published verified release ${RELEASE_TAG} as terminal workflow operation." >> "${GITHUB_STEP_SUMMARY>"
+            echo "Published verified release ${RELEASE_TAG} as terminal workflow operation." >> "${GITHUB_STEP_SUMMARY}"
           fi
