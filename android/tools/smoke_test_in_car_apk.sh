@@ -98,7 +98,8 @@ component="$(
 launch_once() {
   local attempt="$1"
   local launch_log="${proof_dir}/launch-${attempt}.txt"
-  local logcat_file="${proof_dir}/logcat-${attempt}.txt"
+  local app_logcat_file="${proof_dir}/logcat-app-${attempt}.txt"
+  local system_logcat_file="${proof_dir}/logcat-system-${attempt}.txt"
   local pid
 
   adb shell am force-stop "${package_name}" ||
@@ -107,28 +108,38 @@ launch_once() {
 
   if ! adb shell am start -W -n "${component}" > "${launch_log}" 2>&1; then
     sed -n '1,200p' "${launch_log}" >&2
-    adb logcat -d -v threadtime > "${logcat_file}" 2>&1 || true
+    adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 || true
     fail "am start failed for launch ${attempt}."
+  fi
+
+  if grep -Eq '^Error:|^Error type [0-9]+|^Exception' "${launch_log}" ||
+     ! grep -Eq '^Status:[[:space:]]+ok$' "${launch_log}"; then
+    sed -n '1,200p' "${launch_log}" >&2
+    adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 || true
+    fail "am start did not report a successful launch for attempt ${attempt}."
   fi
 
   sleep "${wait_seconds}"
   pid="$(adb shell pidof -s "${package_name}" 2>/dev/null | tr -d '\r[:space:]')"
   if [[ -z "${pid}" ]]; then
-    adb logcat -d -v threadtime > "${logcat_file}" 2>&1 || true
+    adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 || true
     sed -n '1,200p' "${launch_log}" >&2
-    tail -n 300 "${logcat_file}" >&2
+    tail -n 300 "${system_logcat_file}" >&2
     fail "${package_name} did not remain alive after launch ${attempt}."
   fi
 
-  if ! adb logcat -d -v threadtime --pid="${pid}" > "${logcat_file}" 2>&1; then
-    adb logcat -d -v threadtime > "${logcat_file}" 2>&1 ||
-      fail "Unable to capture logcat after launch ${attempt}."
+  adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 ||
+    fail "Unable to capture system logcat after launch ${attempt}."
+  if ! adb logcat -d -v threadtime --pid="${pid}" > "${app_logcat_file}" 2>&1; then
+    cp "${system_logcat_file}" "${app_logcat_file}" ||
+      fail "Unable to preserve fallback logcat after launch ${attempt}."
   fi
 
   if grep -E \
-      'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:|tombstoned.*received crash request' \
-      "${logcat_file}" >/dev/null; then
-    tail -n 300 "${logcat_file}" >&2
+      'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:' \
+      "${app_logcat_file}" >/dev/null ||
+     grep -E 'tombstoned.*received crash request' "${system_logcat_file}" >/dev/null; then
+    tail -n 300 "${system_logcat_file}" >&2
     fail "Crash evidence was found after launch ${attempt}."
   fi
 
@@ -148,6 +159,6 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     printf -- '- Launcher: `%s`\n' "${component}"
     echo '- Cold launches: `2`'
     printf -- '- Alive window per launch: `%s seconds`\n' "${wait_seconds}"
-    echo '- Fatal Java/native crash scan: `passed`'
+    echo '- Fatal Java/native crash and tombstone scan: `passed`'
   } >> "${GITHUB_STEP_SUMMARY}"
 fi
