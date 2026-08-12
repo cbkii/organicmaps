@@ -29,7 +29,6 @@ import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.routing.RoutingPlanViewModel;
-import app.organicmaps.sdk.Router;
 import app.organicmaps.sdk.bookmarks.data.MapObject;
 import app.organicmaps.sdk.location.LocationState;
 import app.organicmaps.sdk.routing.RoutingController;
@@ -103,6 +102,7 @@ public final class InCarQuickDestinationsUi
     private MaterialButton mPrimaryButton;
     @Nullable
     private InCarQuickDestination mPendingNavigation;
+    private boolean mPreparingPendingNavigation;
     private boolean mExpanded = true;
     private boolean mRegular = true;
     private boolean mButtonsHidden;
@@ -135,7 +135,8 @@ public final class InCarQuickDestinationsUi
         final boolean regular = layoutMode == MapButtonsController.LayoutMode.regular;
         if (mRegular && !regular)
           collapseForMapTransition();
-        if (!mRegular && regular && mPendingNavigation != null && !RoutingController.get().isPlanning())
+        if (!mRegular && regular && mPendingNavigation != null && !mPreparingPendingNavigation
+            && !RoutingController.get().isPlanning())
           clearPendingNavigation();
         mRegular = regular;
         renderVisibility();
@@ -198,36 +199,40 @@ public final class InCarQuickDestinationsUi
     private void recordConfirmedDestination()
     {
       final RoutingController routing = RoutingController.get();
-      if (!routing.isBuilt() && !routing.isNavigating())
+      if (!routing.isSuccessfulBuild() && !routing.isNavigating())
         return;
       InCarQuickDestinationsStore.recordRecent(mActivity, routing.getEndPoint());
     }
 
     private void handlePendingNavigation()
     {
-      if (mPendingNavigation == null)
+      if (mPendingNavigation == null || mPreparingPendingNavigation)
         return;
 
       final RoutingController routing = RoutingController.get();
-      if (routing.isErrorEncountered())
+      final InCarQuickDestination builtDestination =
+          routing.isBuilt() ? InCarQuickDestination.fromMapObject(routing.getEndPoint()) : null;
+      final InCarQuickNavigationPolicy.Decision decision =
+          InCarQuickNavigationPolicy.evaluate(routing.isPlanning(), routing.isNavigating(),
+                                              routing.isErrorEncountered(), routing.isBuilt(),
+                                              routing.isSuccessfulBuild(), routing.isVehicleRouterType(),
+                                              mPendingNavigation, builtDestination);
+      if (decision == InCarQuickNavigationPolicy.Decision.WAIT)
+        return;
+      if (decision == InCarQuickNavigationPolicy.Decision.CLEAR)
       {
         clearPendingNavigation();
         return;
       }
-      if (!routing.isBuilt())
-        return;
 
-      final InCarQuickDestination builtDestination = InCarQuickDestination.fromMapObject(routing.getEndPoint());
-      if (!routing.isVehicleRouterType() || !mPendingNavigation.samePlace(builtDestination))
-      {
-        clearPendingNavigation();
-        return;
-      }
-
-      // One-shot before invoking the normal start gates: a later routing update must never start stale intent.
+      // One-shot before invoking the normal RoutingPlanFragment start gates: a later routing update must never
+      // start stale intent. The gate sequence deliberately mirrors RoutingPlanFragment.onRoutingStart().
       clearPendingNavigation();
       if (!mActivity.showStartPointNotice())
+      {
+        mActivity.setFullscreen(false);
         return;
+      }
       if (!mActivity.showRoutingDisclaimer())
         return;
       mActivity.closeFloatingPanels();
@@ -330,13 +335,24 @@ public final class InCarQuickDestinationsUi
 
     private void startExactNavigation(@NonNull InCarQuickDestination destination)
     {
+      // A new explicit exact-destination tap replaces any older pending intent. Suppress transient menu updates
+      // emitted by prepare()->cancel() until the new Vehicle route has actually entered planning.
       mPendingNavigation = destination;
-      mActivity.closeFloatingPanels();
-      if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-        LocationState.nativeSwitchToNextMode();
+      mPreparingPendingNavigation = true;
+      try
+      {
+        mActivity.closeFloatingPanels();
+        if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+          LocationState.nativeSwitchToNextMode();
 
-      final MapObject startPoint = MwmApplication.from(mActivity).getLocationHelper().getMyPosition();
-      RoutingController.get().prepare(startPoint, destination.toMapObject(), Router.Vehicle);
+        final MapObject startPoint = MwmApplication.from(mActivity).getLocationHelper().getMyPosition();
+        RoutingController.get().prepare(startPoint, destination.toMapObject(), InCarQuickNavigationPolicy.exactRouter());
+      }
+      finally
+      {
+        mPreparingPendingNavigation = false;
+      }
+      handlePendingNavigation();
     }
 
     private void clearPendingNavigation()
