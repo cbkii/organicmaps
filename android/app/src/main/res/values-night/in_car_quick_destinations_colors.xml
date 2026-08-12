@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="in_car_quick_primary">#102027</color>
+  <color name="in_car_quick_fuel_charging">#873200</color>
+  <color name="in_car_quick_parking">#004C85</color>
+  <color name="in_car_quick_toilets">#4D3175</color>
+  <color name="in_car_quick_food">#733100</color>
+  <color name="in_car_quick_home">#005246</color>
+  <color name="in_car_quick_work">#59300D</color>
+  <color name="in_car_quick_recent_1">#263238</color>
+  <color name="in_car_quick_recent_2">#3E2723</color>
+</resources>

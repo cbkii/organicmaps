@@ -33,6 +33,18 @@ class ContrastCheck:
     minimum: float
 
 
+QUICK_DESTINATION_CHECKS = (
+    ContrastCheck("quick primary", "in_car_quick_foreground", "in_car_quick_primary", 5.5),
+    ContrastCheck("quick Fuel + Charging", "in_car_quick_foreground", "in_car_quick_fuel_charging", 5.5),
+    ContrastCheck("quick Parking", "in_car_quick_foreground", "in_car_quick_parking", 5.5),
+    ContrastCheck("quick Toilets", "in_car_quick_foreground", "in_car_quick_toilets", 5.5),
+    ContrastCheck("quick Food", "in_car_quick_foreground", "in_car_quick_food", 5.5),
+    ContrastCheck("quick Home", "in_car_quick_foreground", "in_car_quick_home", 5.5),
+    ContrastCheck("quick Work", "in_car_quick_foreground", "in_car_quick_work", 5.5),
+    ContrastCheck("quick Recent 1", "in_car_quick_foreground", "in_car_quick_recent_1", 5.5),
+    ContrastCheck("quick Recent 2", "in_car_quick_foreground", "in_car_quick_recent_2", 5.5),
+)
+
 DAY_CHECKS = (
     ContrastCheck("primary text on cards", "text_dark", "bg_cards", 7.0),
     ContrastCheck("secondary text on cards", "text_dark_subtitle", "bg_cards", 7.0),
@@ -48,7 +60,7 @@ DAY_CHECKS = (
     ContrastCheck("selected routing mode", "routing_button_activated_tint", "routing_tab_active_bg", 5.0),
     ContrastCheck("routing bottom FAB icon", "black_54", "routing_bottom_button_tint", 7.0),
     ContrastCheck("light hint on primary chrome", "text_light_hint", "bg_primary", 4.5),
-)
+) + QUICK_DESTINATION_CHECKS
 
 NIGHT_CHECKS = (
     ContrastCheck("primary text on cards", "text_light", "bg_cards", 7.0),
@@ -69,7 +81,7 @@ NIGHT_CHECKS = (
     ContrastCheck("destructive CTA", "button_red_text", "button_red_normal", 5.5),
     ContrastCheck("selected routing mode", "routing_button_activated_tint", "routing_tab_active_bg", 5.5),
     ContrastCheck("routing bottom FAB icon", "white_secondary", "routing_bottom_button_tint", 7.0),
-)
+) + QUICK_DESTINATION_CHECKS
 
 OPAQUE_SURFACES = ("bg_window", "bg_cards", "bg_menu")
 
@@ -107,9 +119,11 @@ def read_colors(path: Path) -> dict[str, str]:
 
 def build_palette(repo_root: Path, night: bool) -> dict[str, str]:
     main_values = repo_root / "android/app/src/main/res/values/colors.xml"
+    quick_values = repo_root / "android/app/src/main/res/values/in_car_quick_destinations_colors.xml"
     incar_values = repo_root / "android/app/src/inCar/res/values/colors.xml"
 
     defaults = read_colors(main_values)
+    defaults.update(read_colors(quick_values))
     defaults.update(read_colors(incar_values))
     if not night:
         return defaults
@@ -117,7 +131,11 @@ def build_palette(repo_root: Path, night: bool) -> dict[str, str]:
     # Android chooses the best matching qualifier after resource merging. Model that
     # by applying night-specific resources over the merged default source-set values.
     night_values = read_colors(repo_root / "android/app/src/main/res/values-night/colors.xml")
+    quick_night_values = read_colors(
+        repo_root / "android/app/src/main/res/values-night/in_car_quick_destinations_colors.xml"
+    )
     incar_night_values = read_colors(repo_root / "android/app/src/inCar/res/values-night/colors.xml")
+    night_values.update(quick_night_values)
     night_values.update(incar_night_values)
 
     palette = defaults.copy()

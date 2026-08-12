@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto">
+
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_quick_destinations_actions">
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_fuel_charging"
+      android:title="@string/in_car_quick_fuel_charging"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_parking"
+      android:title="@string/category_parking"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_toilets"
+      android:title="@string/category_toilet"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_food"
+      android:title="@string/in_car_quick_food"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_quick_destinations_saved">
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_home"
+      android:title="@string/in_car_quick_home"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <Preference
+      android:key="@string/pref_in_car_quick_home_config"
+      android:title="@string/in_car_quick_home_config_title"
+      android:summary="@string/in_car_quick_config_summary" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_work"
+      android:title="@string/in_car_quick_work"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <Preference
+      android:key="@string/pref_in_car_quick_work_config"
+      android:title="@string/in_car_quick_work_config_title"
+      android:summary="@string/in_car_quick_config_summary" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_recent_1"
+      android:title="@string/in_car_quick_recent_1"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_recent_2"
+      android:title="@string/in_car_quick_recent_2"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+</androidx.preference.PreferenceScreen>
