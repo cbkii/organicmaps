@@ -15,7 +15,6 @@
   <string name="pref_in_car_quick_enabled_parking" translatable="false">InCarQuickEnabledPARKING</string>
   <string name="pref_in_car_quick_enabled_toilets" translatable="false">InCarQuickEnabledTOILETS</string>
   <string name="pref_in_car_quick_enabled_food" translatable="false">InCarQuickEnabledFOOD</string>
-  <string name="pref_in_car_quick_enabled_rest_water" translatable="false">InCarQuickEnabledREST_WATER</string>
   <string name="pref_in_car_quick_enabled_home" translatable="false">InCarQuickEnabledHOME</string>
   <string name="pref_in_car_quick_enabled_work" translatable="false">InCarQuickEnabledWORK</string>
   <string name="pref_in_car_quick_enabled_recent_1" translatable="false">InCarQuickEnabledRECENT_1</string>

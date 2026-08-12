@@ -497,6 +497,7 @@ public class RoutingController
       cancelPlanning(true);
       return true;
     }
+
     if (isNavigating())
     {
       Logger.d(TAG, "cancel: navigating");
@@ -603,16 +604,6 @@ public class RoutingController
   public boolean isBuilt()
   {
     return mBuildState == BuildState.BUILT;
-  }
-
-  /**
-   * A BUILT state can also represent NEED_MORE_MAPS so callers that may start navigation must distinguish
-   * a genuinely successful route result from a partial build that still requires user-visible error handling.
-   */
-  public boolean isSuccessfulBuild()
-  {
-    return mBuildState == BuildState.BUILT
-        && (mLastResultCode == ResultCodes.NO_ERROR || mLastResultCode == ResultCodes.HAS_WARNINGS);
   }
 
   public void waitForPoiPick(@NonNull RouteMarkType pointType)

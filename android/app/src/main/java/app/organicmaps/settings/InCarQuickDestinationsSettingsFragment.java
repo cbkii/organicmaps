@@ -32,7 +32,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     bindAction(InCarQuickDestinationsStore.Action.PARKING);
     bindAction(InCarQuickDestinationsStore.Action.TOILETS);
     bindAction(InCarQuickDestinationsStore.Action.FOOD);
-    bindAction(InCarQuickDestinationsStore.Action.REST_WATER);
     bindAction(InCarQuickDestinationsStore.Action.HOME);
     bindAction(InCarQuickDestinationsStore.Action.WORK);
     bindAction(InCarQuickDestinationsStore.Action.RECENT_1);
@@ -42,14 +41,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
                           InCarQuickDestinationsStore.getHome(requireContext()), true);
     bindDestinationConfig(R.string.pref_in_car_quick_work_config, R.string.in_car_quick_work,
                           InCarQuickDestinationsStore.getWork(requireContext()), false);
-    refreshDynamicToggles();
-  }
-
-  @Override
-  public void onResume()
-  {
-    super.onResume();
-    refreshDynamicToggles();
   }
 
   private void bindAction(@NonNull InCarQuickDestinationsStore.Action action)
@@ -96,7 +87,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
               {
                 saveDestination(home, null);
                 updateDestinationSummary(preference, null);
-                refreshDynamicToggles();
                 return;
               }
 
@@ -111,7 +101,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
               }
               saveDestination(home, destination);
               updateDestinationSummary(preference, destination);
-              refreshDynamicToggles();
             })
         .show();
   }
@@ -128,26 +117,5 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   {
     preference.setSummary(destination == null ? R.string.in_car_quick_not_configured
                                               : R.string.in_car_quick_configured);
-  }
-
-  private void refreshDynamicToggles()
-  {
-    refreshDynamicToggle(InCarQuickDestinationsStore.Action.HOME,
-                         InCarQuickDestinationsStore.getHome(requireContext()) != null);
-    refreshDynamicToggle(InCarQuickDestinationsStore.Action.WORK,
-                         InCarQuickDestinationsStore.getWork(requireContext()) != null);
-    refreshDynamicToggle(InCarQuickDestinationsStore.Action.RECENT_1,
-                         InCarQuickDestinationsStore.getRecent(requireContext(), 1) != null);
-    refreshDynamicToggle(InCarQuickDestinationsStore.Action.RECENT_2,
-                         InCarQuickDestinationsStore.getRecent(requireContext(), 2) != null);
-  }
-
-  private void refreshDynamicToggle(@NonNull InCarQuickDestinationsStore.Action action, boolean available)
-  {
-    final Preference preference = findPreference(InCarQuickDestinationsStore.preferenceKey(action));
-    if (!(preference instanceof TwoStatePreference toggle))
-      return;
-    toggle.setEnabled(available);
-    toggle.setChecked(available && InCarQuickDestinationsStore.isActionEnabled(requireContext(), action));
   }
 }
