@@ -360,8 +360,7 @@ public final class InCarDrivingViewController implements LocationListener
     final boolean hasCurrentSpeed = mLocationHealth == LocationHealth.CURRENT && mLastLocation != null
                                  && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
     final boolean canAccessNativeState = mLifecycle.canAccessNativeState() && Map.isEngineCreated();
-    final boolean following =
-        canAccessNativeState && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
+    final boolean following = canAccessNativeState && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
     final boolean navigating = mLifecycle.isAttached() && RoutingController.get().isNavigating();
     final double speedMps = hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, navigating, mLocationHealth, hasCurrentSpeed,
