@@ -39,6 +39,14 @@ public class InCarQuickDestinationsStoreTest
   }
 
   @Test
+  public void absentPreferenceUsesDynamicDefaultAndExplicitOffWins()
+  {
+    assertTrue(InCarQuickDestinationsStore.resolvedEnabled(false, false, true));
+    assertFalse(InCarQuickDestinationsStore.resolvedEnabled(true, false, true));
+    assertTrue(InCarQuickDestinationsStore.resolvedEnabled(true, true, false));
+  }
+
+  @Test
   public void newestTwoDestinationsAreSelected()
   {
     final InCarQuickDestinationsStore.RecentPair first = InCarQuickDestinationsStore.selectNewestTwo(A, null, null);
