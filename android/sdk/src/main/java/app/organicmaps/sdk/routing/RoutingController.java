@@ -612,7 +612,7 @@ public class RoutingController
   public boolean isSuccessfulBuild()
   {
     return mBuildState == BuildState.BUILT
-        && (mLastResultCode == ResultCodes.NO_ERROR || mLastResultCode == ResultCodes.HAS_WARNINGS);
+    && (mLastResultCode == ResultCodes.NO_ERROR || mLastResultCode == ResultCodes.HAS_WARNINGS);
   }
 
   public void waitForPoiPick(@NonNull RouteMarkType pointType)
