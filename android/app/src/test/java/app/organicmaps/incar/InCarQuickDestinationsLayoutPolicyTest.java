@@ -1,5 +1,6 @@
 package app.organicmaps.incar;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -31,5 +32,13 @@ public class InCarQuickDestinationsLayoutPolicyTest
   public void enabledSubsetFitsNarrowerWindow()
   {
     assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(480, 4));
+  }
+
+  @Test
+  public void requiredStripWidthIsStableForRepresentativeActionCounts()
+  {
+    assertEquals(128, InCarQuickDestinationsLayoutPolicy.requiredWidthDp(0));
+    assertEquals(384, InCarQuickDestinationsLayoutPolicy.requiredWidthDp(4));
+    assertEquals(640, InCarQuickDestinationsLayoutPolicy.requiredWidthDp(8));
   }
 }
