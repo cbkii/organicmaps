@@ -435,21 +435,26 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Free disk space for signed APK smoke
+      - name: Prepare emulator host for signed APK smoke
         shell: bash
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo docker image prune --all --force > /dev/null
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Smoke signed InCar release APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
+          # Android 11 x86_64 system images advertise ARM64 ABI support and translate
+          # the arm64-only release APK while retaining KVM acceleration on Linux.
           api-level: 30
-          arch: arm64-v8a
+          arch: x86_64
           target: default
-          disable-linux-hw-accel: true
           emulator-boot-timeout: 900
           script: |
             bash android/tools/smoke_test_in_car_apk.sh \
