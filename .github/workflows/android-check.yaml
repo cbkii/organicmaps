@@ -342,11 +342,7 @@ jobs:
           arch: x86_64
           target: default
           emulator-boot-timeout: 900
-          script: |
-            bash android/tools/smoke_test_in_car_apk.sh \
-              --apk "${{ steps.release_apk.outputs.apk_path }}" \
-              --package app.organicmaps.incar \
-              --proof-dir "${RUNNER_TEMP}/in-car-release-ci-launch-smoke"
+          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.release_apk.outputs.apk_path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-release-ci-launch-smoke"
 
       - name: Upload signed InCar launch smoke evidence
         if: always() && matrix.verify_in_car == true
