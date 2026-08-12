@@ -29,6 +29,12 @@
       android:title="@string/in_car_quick_food"
       android:persistent="false"
       app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_rest_water"
+      android:title="@string/in_car_quick_rest_water"
+      android:persistent="false"
+      app:singleLineTitle="false" />
   </androidx.preference.PreferenceCategory>
 
   <androidx.preference.PreferenceCategory
