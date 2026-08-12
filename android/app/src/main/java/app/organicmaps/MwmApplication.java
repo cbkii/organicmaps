@@ -140,7 +140,16 @@ public class MwmApplication extends Application implements Application.ActivityL
     mOrganicMaps = new OrganicMaps(getApplicationContext(), BuildConfig.FLAVOR, BuildConfig.APPLICATION_ID,
                                    BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME, BuildConfig.IS_IN_CAR);
     if (BuildConfig.IS_IN_CAR)
-      mInCarDrivingViewController = new InCarDrivingViewController(this, getLocationHelper());
+    {
+      try
+      {
+        mInCarDrivingViewController = new InCarDrivingViewController(this, getLocationHelper());
+      }
+      catch (RuntimeException e)
+      {
+        Logger.e(TAG, "InCar Driving View controller initialization failed; continuing without it.", e);
+      }
+    }
 
     DownloaderNotifier.createNotificationChannel(this);
     initNavigationService();
@@ -157,7 +166,30 @@ public class MwmApplication extends Application implements Application.ActivityL
       ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
       ProcessLifecycleOwner.get().getLifecycle().addObserver(mProcessLifecycleObserver);
       if (BuildConfig.IS_IN_CAR)
+      {
+        final InCarDrivingViewController controller = mInCarDrivingViewController;
+        if (controller != null)
+        {
+          try
+          {
+            controller.onFrameworkReady();
+          }
+          catch (RuntimeException e)
+          {
+            try
+            {
+              controller.onFrameworkDetached();
+            }
+            catch (RuntimeException detachException)
+            {
+              e.addSuppressed(detachException);
+            }
+            mInCarDrivingViewController = null;
+            Logger.e(TAG, "InCar Driving View framework attachment failed; continuing without it.", e);
+          }
+        }
         InCarBudgetRendering.applyCurrent(this);
+      }
       if (onComplete != null)
         onComplete.run();
     });

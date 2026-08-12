@@ -31,7 +31,7 @@ JNIEXPORT jboolean Java_app_organicmaps_sdk_Map_nativeCreateEngine(JNIEnv * env,
 
 JNIEXPORT jboolean Java_app_organicmaps_sdk_Map_nativeIsEngineCreated(JNIEnv *, jclass)
 {
-  return g_framework->IsDrapeEngineCreated();
+  return g_framework && g_framework->IsDrapeEngineCreated();
 }
 
 JNIEXPORT void Java_app_organicmaps_sdk_Map_nativeUpdateEngineDpi(JNIEnv *, jclass, jint dpi)
