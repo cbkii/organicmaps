@@ -36,10 +36,13 @@ concurrency:
 
 jobs:
   release:
-    name: Build and publish InCarRelease
+    name: Build and stage InCarRelease
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     environment: release
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+      release_tag: ${{ steps.version.outputs.tag }}
 
     steps:
       - name: Checkout repository
@@ -609,21 +612,40 @@ jobs:
             echo "::warning::Release ${RELEASE_ID} is not a draft or is unavailable; refusing automatic deletion."
           fi
 
-      # Keep this as the terminal step: a successful publication must also be a successful workflow.
-      - name: Finalise release visibility
-        if: success()
+  finalise:
+    # This job deliberately contains no action steps, so no registered post-action hook can
+    # turn the workflow red after the draft has been made public.
+    name: Finalise release visibility
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Publish validated draft
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_ID: ${{ steps.release.outputs.id }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_ID: ${{ needs.release.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
           KEEP_DRAFT: ${{ inputs.draft }}
         run: |
           set -euo pipefail
 
+          if [[ ! "${RELEASE_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Validated draft release ID is missing or invalid."
+            exit 1
+          fi
+
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          if [[ "$(jq -r '.draft' <<< "${release}")" != "true" ||
+                "$(jq -r '.tag_name' <<< "${release}")" != "${RELEASE_TAG}" ]]; then
+            echo "::error::Release ID ${RELEASE_ID} is not the validated draft ${RELEASE_TAG}."
+            exit 1
+          fi
+
           if [[ "${KEEP_DRAFT}" == "true" ]]; then
             echo "Verified release ${RELEASE_TAG} remains a draft." >> "${GITHUB_STEP_SUMMARY}"
           else
-            echo "Publishing verified release ${RELEASE_TAG} as terminal workflow operation." >> "${GITHUB_STEP_SUMMARY}"
+            echo "Publishing verified release ${RELEASE_TAG} from the terminal, action-free job." >> "${GITHUB_STEP_SUMMARY}"
             gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F draft=false >/dev/null
           fi

@@ -167,27 +167,7 @@ public class MwmApplication extends Application implements Application.ActivityL
       ProcessLifecycleOwner.get().getLifecycle().addObserver(mProcessLifecycleObserver);
       if (BuildConfig.IS_IN_CAR)
       {
-        final InCarDrivingViewController controller = mInCarDrivingViewController;
-        if (controller != null)
-        {
-          try
-          {
-            controller.onFrameworkReady();
-          }
-          catch (RuntimeException e)
-          {
-            try
-            {
-              controller.onFrameworkDetached();
-            }
-            catch (RuntimeException detachException)
-            {
-              e.addSuppressed(detachException);
-            }
-            mInCarDrivingViewController = null;
-            Logger.e(TAG, "InCar Driving View framework attachment failed; continuing without it.", e);
-          }
-        }
+        runInCarDrivingViewController("framework attachment", InCarDrivingViewController::onFrameworkReady);
         InCarBudgetRendering.applyCurrent(this);
       }
       if (onComplete != null)
@@ -216,8 +196,8 @@ public class MwmApplication extends Application implements Application.ActivityL
   @Override
   public void onActivityStarted(@NonNull Activity activity)
   {
-    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity && mInCarDrivingViewController != null)
-      mInCarDrivingViewController.onMapActivityStarted();
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity)
+      runInCarDrivingViewController("map activity attachment", InCarDrivingViewController::onMapActivityStarted);
   }
 
   @Override
@@ -230,13 +210,12 @@ public class MwmApplication extends Application implements Application.ActivityL
     {
       InCarVisuals.applyAndObserve(mapActivity);
       InCarQuickDestinationsUi.attach(mapActivity);
-      if (mInCarDrivingViewController != null)
-      {
-        mInCarDrivingViewController.onMapActivityResumed();
-        InCarDrivingUi.attach(mapActivity, mInCarDrivingViewController);
+      runInCarDrivingViewController("map activity resume", controller -> {
+        controller.onMapActivityResumed();
+        InCarDrivingUi.attach(mapActivity, controller);
         if (Map.isEngineCreated())
           InCarBudgetRendering.applyCurrent(mapActivity);
-      }
+      });
     }
     mTopActivity = new WeakReference<>(activity);
   }
@@ -251,8 +230,55 @@ public class MwmApplication extends Application implements Application.ActivityL
   @Override
   public void onActivityStopped(@NonNull Activity activity)
   {
-    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity && mInCarDrivingViewController != null)
-      mInCarDrivingViewController.onMapActivityStopped();
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity)
+      runInCarDrivingViewController("map activity detachment", InCarDrivingViewController::onMapActivityStopped);
+  }
+
+  void onInCarRenderingCreated()
+  {
+    runInCarDrivingViewController("rendering attachment", InCarDrivingViewController::onRenderingCreated);
+  }
+
+  void onInCarRenderingDetached()
+  {
+    runInCarDrivingViewController("rendering detachment", InCarDrivingViewController::onRenderingDetached);
+  }
+
+  private void runInCarDrivingViewController(@NonNull String phase, @NonNull InCarControllerAction action)
+  {
+    final InCarDrivingViewController controller = mInCarDrivingViewController;
+    if (controller == null)
+      return;
+
+    try
+    {
+      action.run(controller);
+    }
+    catch (RuntimeException exception)
+    {
+      disableInCarDrivingViewController(phase, controller, exception);
+    }
+  }
+
+  private void disableInCarDrivingViewController(@NonNull String phase, @NonNull InCarDrivingViewController controller,
+                                                 @NonNull RuntimeException exception)
+  {
+    mInCarDrivingViewController = null;
+    try
+    {
+      controller.onFrameworkDetached();
+    }
+    catch (RuntimeException detachException)
+    {
+      exception.addSuppressed(detachException);
+    }
+    Logger.e(TAG, "InCar Driving View " + phase + " failed; continuing without it.", exception);
+  }
+
+  @FunctionalInterface
+  private interface InCarControllerAction
+  {
+    void run(@NonNull InCarDrivingViewController controller);
   }
 
   @Override

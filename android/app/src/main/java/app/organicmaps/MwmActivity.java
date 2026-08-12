@@ -61,7 +61,6 @@ import app.organicmaps.editor.EditorActivity;
 import app.organicmaps.editor.FeatureCategoryActivity;
 import app.organicmaps.editor.OsmLoginActivity;
 import app.organicmaps.help.HelpActivity;
-import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.intent.IntentProcessor;
 import app.organicmaps.location.TrackRecordingService;
@@ -225,18 +224,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   public void onRenderingDetached()
   {
-    final InCarDrivingViewController controller =
-        MwmApplication.from(getApplicationContext()).getInCarDrivingViewController();
-    if (controller != null)
-      controller.onRenderingDetached();
+    MwmApplication.from(getApplicationContext()).onInCarRenderingDetached();
   }
 
   private void notifyInCarRenderingCreated()
   {
-    final InCarDrivingViewController controller =
-        MwmApplication.from(getApplicationContext()).getInCarDrivingViewController();
-    if (controller != null)
-      controller.onRenderingCreated();
+    MwmApplication.from(getApplicationContext()).onInCarRenderingCreated();
   }
 
   @Override
