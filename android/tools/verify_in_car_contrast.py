@@ -39,6 +39,7 @@ QUICK_DESTINATION_CHECKS = (
     ContrastCheck("quick Parking", "in_car_quick_foreground", "in_car_quick_parking", 5.5),
     ContrastCheck("quick Toilets", "in_car_quick_foreground", "in_car_quick_toilets", 5.5),
     ContrastCheck("quick Food", "in_car_quick_foreground", "in_car_quick_food", 5.5),
+    ContrastCheck("quick Rest Area + Drinking Water", "in_car_quick_foreground", "in_car_quick_rest_water", 5.5),
     ContrastCheck("quick Home", "in_car_quick_foreground", "in_car_quick_home", 5.5),
     ContrastCheck("quick Work", "in_car_quick_foreground", "in_car_quick_work", 5.5),
     ContrastCheck("quick Recent 1", "in_car_quick_foreground", "in_car_quick_recent_1", 5.5),

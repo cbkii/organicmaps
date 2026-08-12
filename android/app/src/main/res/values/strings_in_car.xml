@@ -34,9 +34,8 @@
   <string name="in_car_quick_expand">Expand Quick Destinations</string>
   <string name="in_car_quick_collapse">Collapse Quick Destinations</string>
   <string name="in_car_quick_fuel_charging">Fuel + Charging</string>
-  <string name="in_car_quick_fuel">Fuel</string>
-  <string name="in_car_quick_charging">Charging</string>
   <string name="in_car_quick_food">Food</string>
+  <string name="in_car_quick_rest_water">Rest Area + Drinking Water</string>
   <string name="in_car_quick_home">Home</string>
   <string name="in_car_quick_work">Work</string>
   <string name="in_car_quick_recent_1">Recent 1</string>
@@ -49,7 +48,8 @@
   <string name="in_car_quick_current_location_unavailable">Current location is unavailable</string>
   <string name="in_car_quick_not_configured">Not configured</string>
   <string name="in_car_quick_configured">Configured</string>
-  <string name="in_car_quick_charging_category_query" translatable="false">EV Charging</string>
+  <string name="in_car_quick_fuel_charging_category_query" translatable="false">Fuel and EV Charging</string>
+  <string name="in_car_quick_rest_water_category_query" translatable="false">Rest Area and Drinking Water</string>
 
   <string name="in_car_budget_rendering_title">Budget Rendering</string>
   <string name="in_car_budget_rendering_summary">Reduce optional rendering cost by disabling 3D buildings while keeping Driving View perspective available.</string>

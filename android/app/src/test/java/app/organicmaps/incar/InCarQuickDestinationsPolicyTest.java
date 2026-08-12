@@ -28,7 +28,8 @@ public class InCarQuickDestinationsPolicyTest
   {
     final InCarQuickDestinationsStore.Action[] fixed = {
         InCarQuickDestinationsStore.Action.FUEL_CHARGING, InCarQuickDestinationsStore.Action.PARKING,
-        InCarQuickDestinationsStore.Action.TOILETS, InCarQuickDestinationsStore.Action.FOOD};
+        InCarQuickDestinationsStore.Action.TOILETS, InCarQuickDestinationsStore.Action.FOOD,
+        InCarQuickDestinationsStore.Action.REST_WATER};
     for (InCarQuickDestinationsStore.Action action : fixed)
     {
       assertTrue(InCarQuickDestinationsPolicy.shouldShow(true, action, true, false));

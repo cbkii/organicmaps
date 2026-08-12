@@ -17,6 +17,7 @@ public final class InCarQuickDestinationsStore
     PARKING,
     TOILETS,
     FOOD,
+    REST_WATER,
     HOME,
     WORK,
     RECENT_1,
@@ -33,12 +34,35 @@ public final class InCarQuickDestinationsStore
 
   public static boolean isActionEnabled(@NonNull Context context, @NonNull Action action)
   {
-    return prefs(context).getBoolean(actionKey(action), true);
+    final SharedPreferences preferences = prefs(context);
+    final String key = actionKey(action);
+    return resolvedEnabled(preferences.contains(key), preferences.getBoolean(key, false), defaultEnabled(action));
+  }
+
+  public static boolean hasExplicitActionPreference(@NonNull Context context, @NonNull Action action)
+  {
+    return prefs(context).contains(actionKey(action));
   }
 
   public static void setActionEnabled(@NonNull Context context, @NonNull Action action, boolean enabled)
   {
     prefs(context).edit().putBoolean(actionKey(action), enabled).apply();
+  }
+
+  @VisibleForTesting
+  static boolean resolvedEnabled(boolean hasExplicitPreference, boolean explicitValue, boolean defaultValue)
+  {
+    return hasExplicitPreference ? explicitValue : defaultValue;
+  }
+
+  @VisibleForTesting
+  static boolean defaultEnabled(@NonNull Action action)
+  {
+    return switch (action)
+    {
+      case FUEL_CHARGING, PARKING, TOILETS, HOME, WORK, RECENT_1, RECENT_2 -> true;
+      case FOOD, REST_WATER -> false;
+    };
   }
 
   @Nullable
