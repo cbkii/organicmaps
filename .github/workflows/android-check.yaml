@@ -258,6 +258,7 @@ jobs:
             assembleInCarRelease
 
       - name: Verify release-equivalent InCarRelease
+        id: release_apk
         if: matrix.verify_in_car == true
         shell: bash
         run: |
@@ -279,6 +280,8 @@ jobs:
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
 
+          echo "apk_path=${release_apks[0]}" >> "${GITHUB_OUTPUT}"
+
       - name: Upload release-equivalent InCarRelease APK
         if: matrix.verify_in_car == true
         uses: actions/upload-artifact@v7
@@ -287,6 +290,67 @@ jobs:
           path: android/app/build/outputs/apk/inCar/release/OrganicMaps-*.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Stage release diagnostics
+        if: matrix.verify_in_car == true
+        id: release_diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          diagnostics_dir="${RUNNER_TEMP}/in-car-release-ci-diagnostics"
+          symbols="android/app/build/outputs/native-debug-symbols/inCarRelease/native-debug-symbols.zip"
+          mapping="android/app/build/outputs/mapping/inCarRelease/mapping.txt"
+          if [[ ! -f "${symbols}" || ! -f "${mapping}" ]]; then
+            echo "::error::Expected InCarRelease native symbols and R8 mapping were not produced."
+            exit 1
+          fi
+          mkdir -p "${diagnostics_dir}"
+          cp "${symbols}" "${diagnostics_dir}/native-debug-symbols.zip"
+          cp "${mapping}" "${diagnostics_dir}/mapping.txt"
+          echo "path=${diagnostics_dir}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload release diagnostics
+        if: matrix.verify_in_car == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-InCarRelease-ci-diagnostics
+          path: ${{ steps.release_diagnostics.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Free disk space for signed InCar release smoke
+        if: matrix.verify_in_car == true
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force > /dev/null
+
+      - name: Smoke signed release-equivalent InCar APK
+        if: matrix.verify_in_car == true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: arm64-v8a
+          target: default
+          disable-linux-hw-accel: true
+          emulator-boot-timeout: 900
+          script: |
+            bash android/tools/smoke_test_in_car_apk.sh \
+              --apk "${{ steps.release_apk.outputs.apk_path }}" \
+              --package app.organicmaps.incar \
+              --proof-dir "${RUNNER_TEMP}/in-car-release-ci-launch-smoke"
+
+      - name: Upload signed InCar launch smoke evidence
+        if: always() && matrix.verify_in_car == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-InCarRelease-ci-launch-smoke
+          path: ${{ runner.temp }}/in-car-release-ci-launch-smoke
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Remove CI release signing material
         if: always() && matrix.verify_in_car == true
