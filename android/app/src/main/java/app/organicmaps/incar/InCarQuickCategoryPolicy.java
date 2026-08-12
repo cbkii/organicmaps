@@ -8,11 +8,11 @@ public final class InCarQuickCategoryPolicy
 {
   public enum Category
   {
-    FUEL,
-    CHARGING,
+    FUEL_CHARGING,
     PARKING,
     TOILETS,
-    FOOD
+    FOOD,
+    REST_WATER
   }
 
   private InCarQuickCategoryPolicy() {}
@@ -22,16 +22,16 @@ public final class InCarQuickCategoryPolicy
   {
     return switch (category)
     {
-      case FUEL -> R.string.category_fuel;
-      case CHARGING -> R.string.in_car_quick_charging_category_query;
+      case FUEL_CHARGING -> R.string.in_car_quick_fuel_charging_category_query;
       case PARKING -> R.string.category_parking;
       case TOILETS -> R.string.category_toilet;
       case FOOD -> R.string.category_eat;
+      case REST_WATER -> R.string.in_car_quick_rest_water_category_query;
     };
   }
 
   public static boolean usesEnglishCanonicalQuery(Category category)
   {
-    return category == Category.CHARGING;
+    return category == Category.FUEL_CHARGING || category == Category.REST_WATER;
   }
 }
