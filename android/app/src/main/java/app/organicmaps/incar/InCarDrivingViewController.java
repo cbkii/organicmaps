@@ -295,6 +295,7 @@ public final class InCarDrivingViewController implements LocationListener
     {
       mLocationHelper.removeListener(this);
       mNativeStateApplied = false;
+      // A detached controller no longer owns a live location lease, so do not present its last sample as current.
       mLastLocation = null;
       mLocationHealth = LocationHealth.UNAVAILABLE;
     }
@@ -361,7 +362,7 @@ public final class InCarDrivingViewController implements LocationListener
                                  && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
     final boolean canAccessNativeState = mLifecycle.canAccessNativeState() && Map.isEngineCreated();
     final boolean following = canAccessNativeState && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
-    final boolean navigating = mLifecycle.isAttached() && RoutingController.get().isNavigating();
+    final boolean navigating = RoutingController.get().isNavigating();
     final double speedMps = hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, navigating, mLocationHealth, hasCurrentSpeed,
                                     speedMps, mPolicy.getActivationSource()));
