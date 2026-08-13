@@ -4,17 +4,16 @@ project(omim C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 17)
-# Our code does not rely on gnu extensions.
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_C_EXTENSIONS OFF)
 
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-# Fixes warning ld: warning: ignoring duplicate libraries on Mac and Windows.
 if (POLICY CMP0156)
   cmake_policy(SET CMP0156 NEW)
 endif()
@@ -22,29 +21,22 @@ endif()
 set(OMIM_ROOT ${CMAKE_SOURCE_DIR})
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${OMIM_ROOT}/cmake")
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-
 include(OmimPlatform)
 include(OmimOptions)
 include(OmimConfig)
 include(OmimHelpers)
 include(OmimTesting)
 
-if (APPLE AND NOT ("${CMAKE_SYSTEM_NAME}" STREQUAL Android))
-  # OBJC/OBJCXX are needed to skip m/mm files in Unity builds.
-  # https://gitlab.kitware.com/cmake/cmake/-/issues/21963
-  enable_language(OBJC)
-  set(CMAKE_OBJC_EXTENSIONS OFF)
-  set(CMAKE_OBJC_STANDARD 23)
-  set(CMAKE_OBJC_FLAGS -fobjc-arc)
-  set(CMAKE_OBJC_VISIBILITY_PRESET hidden)
-  enable_language(OBJCXX)
-  set(CMAKE_OBJCXX_EXTENSIONS OFF)
-  set(CMAKE_OBJCXX_STANDARD 23)
-  set(CMAKE_OBJCXX_FLAGS -fobjc-arc)
-  set(CMAKE_OBJCXX_VISIBILITY_PRESET hidden)
+# This fork intentionally supports the Android native build only. Host desktop,
+# iOS and Qt targets live in upstream Organic Maps and must not creep back in via
+# a broad upstream merge.
+if (NOT PLATFORM_ANDROID)
+  message(FATAL_ERROR "This repository is Android-only. Configure through the Android Gradle/NDK build.")
 endif()
+
+# Android production builds do not compile the inherited host-native test tree.
+# Kotlin/JVM tests and Android validation are driven from Gradle/CI instead.
+set(BUILD_TESTING OFF CACHE BOOL "Build host-native tests" FORCE)
 
 message(STATUS "Using compiler ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
@@ -58,46 +50,22 @@ if (USE_CCACHE)
     message(STATUS "Using ccache, use -DUSE_CCACHE=OFF to disable it.")
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CCACHE_PROGRAM}")
-    set(CMAKE_C_COMPILER_LAUNCHER   "${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
   endif()
 endif()
 
-if(${PLATFORM_MAC})
-  set(XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES)
-endif()
+add_compile_options(-ffast-math $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>)
 
-# Global compile options for all configurations.
-if (MSVC)
-  add_compile_options(/utf-8)
-  add_link_options(/INCREMENTAL:NO)
-else()
-  add_compile_options(-ffast-math $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>)
-endif()
-
-if (PLATFORM_WIN)
-  add_definitions(
-    -DWIN32_LEAN_AND_MEAN
-    -DNOMINMAX
-  )
-endif()
-
-# Built-in CMake configurations: Debug, Release, RelWithDebInfo, MinSizeRel.
-# Use generator expressions so this also works with multi-config generators
-# (Xcode, Visual Studio, Ninja Multi-Config) where CMAKE_BUILD_TYPE is empty
-# at configure time and the active config is only known per-build.
 add_compile_definitions(
   $<$<CONFIG:Debug>:DEBUG>
   $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:RELEASE>
 )
-if (NOT MSVC)
-  add_compile_options(
-    $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
-    $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-O3>
-  )
-endif()
+add_compile_options(
+  $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+  $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-O3>
+)
 
-# For single-config generators we can still validate CMAKE_BUILD_TYPE early.
 get_property(_is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (NOT _is_multi_config)
   if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT CMAKE_BUILD_TYPE MATCHES "Rel")
@@ -108,65 +76,23 @@ else()
   message(STATUS "Multi-config generator: build type selected per-build (Debug/Release/RelWithDebInfo/MinSizeRel)")
 endif()
 
-if (PLATFORM_LINUX OR PLATFORM_ANDROID)
-  find_program(LLD_FOUND ld.lld)
-  if (LLD_FOUND)
-    message(STATUS "Using ld.lld linker")
-    set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld")
-  else()
-    find_program(GOLD_FOUND ld.gold)
-    if (GOLD_FOUND)
-      message(STATUS "Using ld.gold")
-      set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold")
-    endif()
+find_program(LLD_FOUND ld.lld)
+if (LLD_FOUND)
+  message(STATUS "Using ld.lld linker")
+  set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld")
+else()
+  find_program(GOLD_FOUND ld.gold)
+  if (GOLD_FOUND)
+    message(STATUS "Using ld.gold")
+    set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold")
   endif()
 endif()
 
 if (NOT PYTHON_VERSION)
-  # FDroid build server has 3.5.3 Python installed.
   set(PYTHON_VERSION 3.5)
 endif()
 
-# End of setting environment variables
-
 find_package(Threads REQUIRED)
-
-# Scripts
-
-if (NOT PLATFORM_IPHONE AND NOT PLATFORM_ANDROID)
-  list(APPEND qt_components Core Network)
-  if (NOT SKIP_QT_GUI OR BUILD_TESTING)
-    list(APPEND qt_components Widgets)
-  endif()
-  if (NOT SKIP_QT_GUI)
-    list(APPEND qt_components Gui Xml Svg OpenGL OpenGLWidgets)
-  endif()
-  # PATHS are hard-coded hints where to look for qt6 in addition to other places.
-  find_package(Qt6 COMPONENTS REQUIRED ${qt_components} OPTIONAL_COMPONENTS Positioning PATHS $ENV{QT_PATH} /opt/homebrew/opt/qt@6 /usr/local/opt/qt@6 /usr/lib/x86_64-linux-gnu/qt6)
-
-  set(MINIMUM_REQUIRED_QT_VERSION 6.4.0)
-  if (Qt6Widgets_VERSION VERSION_LESS ${MINIMUM_REQUIRED_QT_VERSION})
-    message(FATAL_ERROR "Unsupported Qt version: ${Qt6Widgets_VERSION}, the minimum required is ${MINIMUM_REQUIRED_QT_VERSION}")
-  else()
-    message(STATUS "Found Qt version: ${Qt6Widgets_VERSION}")
-  endif()
-
-  if (PLATFORM_LINUX AND Qt6_DIR MATCHES "/\\.?linuxbrew/")
-    message(WARNING
-      "Qt6 was found under Homebrew (Linuxbrew) at ${Qt6_DIR}.\n"
-      "Linuxbrew's Qt6 libraries embed a DT_RPATH that forces Linuxbrew's bundled "
-      "Mesa libGL.so.1 to be loaded at runtime, bypassing the system libglvnd dispatcher. "
-      "On systems with the NVIDIA proprietary driver this silently falls back to software "
-      "rendering (llvmpipe) and then crashes in qtoglcontextfactory.cpp when creating "
-      "an offscreen GL surface.\n"
-      "Recommended: install Qt6 from your distribution "
-      "(e.g. 'apt install qt6-base-dev qt6-positioning-dev', "
-      "'dnf install qt6-qtbase-devel qt6-qtpositioning-devel') and reconfigure.\n"
-      "Workaround: run the binary with LD_PRELOAD pointing at the system libGL, e.g. "
-      "LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGL.so.1 (Debian/Ubuntu) or "
-      "LD_PRELOAD=/usr/lib64/libGL.so.1 (Fedora/RHEL).")
-  endif()
-endif()
 
 # To allow #include "base/file_name.hpp" in all sources.
 include_directories("${CMAKE_HOME_DIRECTORY}" "${CMAKE_HOME_DIRECTORY}/libs" "${CMAKE_HOME_DIRECTORY}/tools")
@@ -181,53 +107,22 @@ if (USE_PCH)
 endif()
 
 if (WITH_SYSTEM_PROVIDED_3PARTY)
-  # Should be on the root level, not in 3party, so tests can get these dependencies.
   find_package(ICU COMPONENTS uc i18n data REQUIRED)
   find_package(Freetype REQUIRED)
   find_package(harfbuzz REQUIRED)
-
   set(GFLAGS_USE_TARGET_NAMESPACE ON)
   find_package(gflags REQUIRED)
-
   find_package(expat CONFIG REQUIRED)
-
   find_package(pugixml REQUIRED)
   find_package(utf8cpp REQUIRED)
   find_package(Boost REQUIRED)
-  if (BUILD_TESTING)
-    find_package(GTest REQUIRED)
-  endif()
-
-  # Otherwise zlib-ng is built from 3party/zlib-ng (see 3party/CMakeLists.txt) as
-  # a drop-in replacement -- system zlib is not available out of the box on Windows.
   find_package(ZLIB REQUIRED)
 endif()
 
-# Include 3party dependencies.
 add_subdirectory(3party)
 
-# Not needed for the usual build process, but it fixes QtCreator editor,
-# that doesn't see gflags/gflags.h in binary dir (gflags has tricky cmake configuration).
-if (PLATFORM_DESKTOP AND NOT WITH_SYSTEM_PROVIDED_3PARTY)
-  include_directories("${PROJECT_BINARY_DIR}/3party/gflags/include")
-endif()
-
-# Used in qt/ and shaders/
+# Android shader/resource generation uses Python from the NDK/Gradle build.
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 add_subdirectory(libs)
-
-if (PLATFORM_DESKTOP)
-  add_subdirectory(dev_sandbox)
-  add_subdirectory(generator)
-  add_subdirectory(tools)
-  if (NOT SKIP_QT_GUI)
-    add_subdirectory(qt)
-  endif()
-endif()
-
-omim_add_test_subdirectory(libs/qt_tstfrm)
-
-if (PLATFORM_ANDROID)
-  add_subdirectory(android/sdk/src/main/cpp)
-endif()
+add_subdirectory(android/sdk/src/main/cpp)
