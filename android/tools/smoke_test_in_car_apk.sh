@@ -81,8 +81,20 @@ fi
 
 if ! adb install --no-streaming "${apk}" > "${proof_dir}/install.log" 2>&1; then
   sed -n '1,200p' "${proof_dir}/install.log" >&2
-  fail "Unable to install the signed InCar APK."
+  fail "Unable to install the InCar APK."
 fi
+
+# Organic Maps requests location immediately on a clean install. Pre-grant it so an Android permission-controller
+# Activity cannot survive the app force-stop between launch attempts and turn the relaunch check into a UI-dialog test.
+# Application.onCreate() still runs from a clean data state, which is the lifecycle boundary this smoke test targets.
+permission_log="${proof_dir}/permissions.log"
+: > "${permission_log}" || fail "Unable to create permission evidence log."
+for permission in android.permission.ACCESS_COARSE_LOCATION android.permission.ACCESS_FINE_LOCATION; do
+  if ! adb shell pm grant "${package_name}" "${permission}" >> "${permission_log}" 2>&1; then
+    sed -n '1,200p' "${permission_log}" >&2
+    fail "Unable to grant ${permission} before launch smoke."
+  fi
+done
 
 component="$(
   adb shell cmd package resolve-activity --brief \
@@ -153,10 +165,11 @@ adb shell am force-stop "${package_name}" ||
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
-    echo '### In-car signed APK launch smoke'
+    echo '### In-car APK launch smoke'
     echo
     printf -- '- Package: `%s`\n' "${package_name}"
     printf -- '- Launcher: `%s`\n' "${component}"
+    echo '- Clean app-data state with location pre-granted for deterministic relaunch: `yes`'
     echo '- Cold launches: `2`'
     printf -- '- Alive window per launch: `%s seconds`\n' "${wait_seconds}"
     echo '- Fatal Java/native crash and tombstone scan: `passed`'
