@@ -1,0 +1,104 @@
+name: PR14 Finalise Patch
+
+on:
+  push:
+    branches:
+      - fix/in-car-startup-release-guard
+    paths:
+      - .github/workflows/pr14-finalise-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.repository == 'cbkii/organicmaps' && github.ref == 'refs/heads/fix/in-car-startup-release-guard'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/in-car-startup-release-guard
+
+      - name: Apply final review fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          android_check = '.github/workflows/android-check.yaml'
+          replace_once(
+              android_check,
+              '      - name: Verify release-equivalent InCarRelease\n        id: release_apk\n        if: matrix.verify_in_car == true\n',
+              '      - name: Verify release-equivalent InCarRelease\n        if: matrix.verify_in_car == true\n',
+          )
+          replace_once(
+              android_check,
+              '\n          echo "apk_path=${release_apks[0]}" >> "${GITHUB_OUTPUT}"\n\n      - name: Upload release-equivalent InCarRelease APK\n',
+              '\n      - name: Upload release-equivalent InCarRelease APK\n',
+          )
+          replace_once(
+              android_check,
+              '  in-car-release-smoke:\n    name: Smoke signed InCarRelease on ARM64\n    needs: android-check\n    runs-on: macos-14\n',
+              '  in-car-release-smoke:\n    name: Smoke signed InCarRelease on ARM64\n    needs: android-check\n    runs-on: ubuntu-24.04-arm\n',
+          )
+          replace_once(
+              android_check,
+              '      - name: Checkout smoke script\n        uses: actions/checkout@v6\n\n      - name: Download signed release-equivalent APK\n',
+              '      - name: Checkout smoke script\n        uses: actions/checkout@v6\n        with:\n          persist-credentials: false\n\n      - name: Download signed release-equivalent APK\n',
+          )
+          replace_once(
+              android_check,
+              '      - name: Smoke exact signed arm64 InCarRelease APK\n        uses: reactivecircus/android-emulator-runner@v2\n',
+              '''      - name: Enable KVM\n        run: |\n          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules\n          sudo udevadm control --reload-rules\n          sudo udevadm trigger --name-match=kvm\n\n      - name: Smoke exact signed arm64 InCarRelease APK\n        uses: reactivecircus/android-emulator-runner@v2\n''',
+          )
+
+          release = '.github/workflows/manual-in-car-release.yml'
+          replace_once(
+              release,
+              '  smoke:\n    name: Smoke signed InCarRelease on ARM64\n    needs: build\n    runs-on: macos-14\n',
+              '  smoke:\n    name: Smoke signed InCarRelease on ARM64\n    needs: build\n    runs-on: ubuntu-24.04-arm\n',
+          )
+          replace_once(
+              release,
+              '      - name: Checkout smoke script\n        uses: actions/checkout@v6\n\n      - name: Download verified InCarRelease artifact\n',
+              '      - name: Checkout smoke script\n        uses: actions/checkout@v6\n        with:\n          persist-credentials: false\n\n      - name: Download verified InCarRelease artifact\n',
+          )
+          replace_once(
+              release,
+              '      - name: Smoke exact signed arm64 InCarRelease APK\n        uses: reactivecircus/android-emulator-runner@v2\n',
+              '''      - name: Enable KVM\n        run: |\n          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules\n          sudo udevadm control --reload-rules\n          sudo udevadm trigger --name-match=kvm\n\n      - name: Smoke exact signed arm64 InCarRelease APK\n        uses: reactivecircus/android-emulator-runner@v2\n''',
+          )
+          replace_once(
+              release,
+              '  release:\n    name: Stage validated GitHub release\n    needs: [build, smoke]\n    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n',
+              '  release:\n    name: Stage validated GitHub release\n    needs: [build, smoke]\n    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n    environment: release\n',
+          )
+          replace_once(
+              release,
+              '  finalise:\n    # This job deliberately contains no action steps, so no registered post-action hook can\n    # turn the workflow red after the draft has been made public.\n    name: Finalise release visibility\n    needs: release\n    runs-on: ubuntu-24.04\n    timeout-minutes: 5\n',
+              '  finalise:\n    # This job deliberately contains no action steps, so no registered post-action hook can\n    # turn the workflow red after the draft has been made public.\n    name: Finalise release visibility\n    needs: release\n    runs-on: ubuntu-24.04\n    timeout-minutes: 5\n    environment: release\n',
+          )
+          PY
+
+          bash -n android/tools/smoke_test_in_car_apk.sh
+          git diff --check
+
+      - name: Commit deterministic patch and remove helper workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/pr14-finalise-patch.yml
+          git add .github/workflows/android-check.yaml .github/workflows/manual-in-car-release.yml
+          git diff --cached --check
+          git commit -m 'ci: run signed InCar smoke on ARM64 Linux'
+          git push origin HEAD:fix/in-car-startup-release-guard
