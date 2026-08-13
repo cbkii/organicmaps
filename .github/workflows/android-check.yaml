@@ -394,28 +394,13 @@ jobs:
           apk_path="$(find "${RUNNER_TEMP}/in-car-release-ci" -type f -name '*.apk' -print -quit)"
           echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify KVM access
-        shell: bash
-        run: |
-          if [[ ! -e /dev/kvm ]]; then
-            echo "::error::This ARM64 runner does not expose /dev/kvm."
-            exit 1
-          fi
-          ls -l /dev/kvm
-          if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
-            sudo chmod 666 /dev/kvm
-          fi
-          if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
-            echo "::error::KVM exists but is not readable/writable by the runner."
-            exit 1
-          fi
-
       - name: Smoke exact signed arm64 InCarRelease APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           arch: arm64-v8a
           target: default
+          disable-linux-hw-accel: true
           emulator-boot-timeout: 900
           script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-release-ci-launch-smoke"
 
