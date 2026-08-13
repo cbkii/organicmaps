@@ -457,12 +457,14 @@ jobs:
   smoke:
     name: Smoke signed InCarRelease on ARM64
     needs: build
-    runs-on: macos-14
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
 
     steps:
       - name: Checkout smoke script
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Download verified InCarRelease artifact
         uses: actions/download-artifact@v7
@@ -481,6 +483,12 @@ jobs:
           fi
           apk_path="$(find "${RUNNER_TEMP}/in-car-release" -type f -name '*.apk' -print -quit)"
           echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Smoke exact signed arm64 InCarRelease APK
         uses: reactivecircus/android-emulator-runner@v2
@@ -505,6 +513,7 @@ jobs:
     needs: [build, smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    environment: release
     outputs:
       release_id: ${{ steps.release.outputs.id }}
       release_tag: ${{ needs.build.outputs.tag }}
@@ -672,6 +681,7 @@ jobs:
     needs: release
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    environment: release
 
     steps:
       - name: Publish validated draft

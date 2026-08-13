@@ -258,7 +258,6 @@ jobs:
             assembleInCarRelease
 
       - name: Verify release-equivalent InCarRelease
-        id: release_apk
         if: matrix.verify_in_car == true
         shell: bash
         run: |
@@ -279,8 +278,6 @@ jobs:
             --expected-cert-sha256 "${{ steps.ci_release_signing.outputs.cert_sha256 }}" \
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
-
-          echo "apk_path=${release_apks[0]}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release-equivalent InCarRelease APK
         if: matrix.verify_in_car == true
@@ -370,12 +367,14 @@ jobs:
   in-car-release-smoke:
     name: Smoke signed InCarRelease on ARM64
     needs: android-check
-    runs-on: macos-14
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
 
     steps:
       - name: Checkout smoke script
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Download signed release-equivalent APK
         uses: actions/download-artifact@v7
@@ -394,6 +393,12 @@ jobs:
           fi
           apk_path="$(find "${RUNNER_TEMP}/in-car-release-ci" -type f -name '*.apk' -print -quit)"
           echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Smoke exact signed arm64 InCarRelease APK
         uses: reactivecircus/android-emulator-runner@v2
