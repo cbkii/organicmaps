@@ -92,13 +92,16 @@ jobs:
           bash -n android/tools/smoke_test_in_car_apk.sh
           git diff --check
 
-      - name: Commit deterministic patch and remove helper workflow
+      - name: Stage patched workflow blobs outside workflow paths
         shell: bash
         run: |
+          mkdir -p .pr14-staging
+          cp .github/workflows/android-check.yaml .pr14-staging/android-check.yaml
+          cp .github/workflows/manual-in-car-release.yml .pr14-staging/manual-in-car-release.yml
+          git checkout -- .github/workflows/android-check.yaml .github/workflows/manual-in-car-release.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm .github/workflows/pr14-finalise-patch.yml
-          git add .github/workflows/android-check.yaml .github/workflows/manual-in-car-release.yml
+          git add .pr14-staging/android-check.yaml .pr14-staging/manual-in-car-release.yml
           git diff --cached --check
-          git commit -m 'ci: run signed InCar smoke on ARM64 Linux'
+          git commit -m 'chore: stage PR14 reviewed workflow blobs'
           git push origin HEAD:fix/in-car-startup-release-guard
