@@ -212,6 +212,24 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public void onRenderingCreated()
   {
     checkMeasurementSystem();
+    notifyInCarRenderingCreated();
+  }
+
+  @Override
+  public void onRenderingRestored()
+  {
+    notifyInCarRenderingCreated();
+  }
+
+  @Override
+  public void onRenderingDetached()
+  {
+    MwmApplication.from(getApplicationContext()).onInCarRenderingDetached();
+  }
+
+  private void notifyInCarRenderingCreated()
+  {
+    MwmApplication.from(getApplicationContext()).onInCarRenderingCreated();
   }
 
   @Override

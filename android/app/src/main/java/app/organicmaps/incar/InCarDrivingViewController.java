@@ -63,13 +63,14 @@ public final class InCarDrivingViewController implements LocationListener
   @NonNull
   private final InCarDrivingViewPolicy mPolicy;
   @NonNull
+  private final InCarDrivingViewLifecycle mLifecycle = new InCarDrivingViewLifecycle();
+  @NonNull
   private final MutableLiveData<Snapshot> mSnapshot = new MutableLiveData<>();
 
   @NonNull
   private LocationHealth mLocationHealth = LocationHealth.UNAVAILABLE;
   @Nullable
   private Location mLastLocation;
-  private int mStartedMapActivities;
   private boolean mLaunchHandled;
   private boolean mNativeStateApplied;
   private boolean mLastNativeEnabled;
@@ -87,8 +88,6 @@ public final class InCarDrivingViewController implements LocationListener
         restored ? InCarSettingsStore.restoredDrivingViewSource(mContext) : InCarDrivingViewPolicy.ActivationSource.OFF;
     mPolicy = new InCarDrivingViewPolicy(restored, restoredSource);
     mPolicy.beginNewSession();
-    mLocationHelper.addListener(this);
-    mWasNavigating = RoutingController.get().isNavigating();
     publishSnapshot();
   }
 
@@ -104,16 +103,43 @@ public final class InCarDrivingViewController implements LocationListener
   }
 
   @UiThread
+  public void onFrameworkReady()
+  {
+    applyLifecycleTransition(mLifecycle.onFrameworkReady());
+  }
+
+  @UiThread
+  public void onFrameworkDetached()
+  {
+    applyLifecycleTransition(mLifecycle.onFrameworkDetached());
+  }
+
+  @UiThread
   public void onMapActivityStarted()
   {
-    ++mStartedMapActivities;
+    applyLifecycleTransition(mLifecycle.onMapActivityStarted());
   }
 
   @UiThread
   public void onMapActivityStopped()
   {
-    if (mStartedMapActivities > 0)
-      --mStartedMapActivities;
+    applyLifecycleTransition(mLifecycle.onMapActivityStopped());
+  }
+
+  @UiThread
+  public void onRenderingCreated()
+  {
+    mLifecycle.onRenderingCreated();
+    syncNativeState(false /* recenter */);
+    publishSnapshot();
+  }
+
+  @UiThread
+  public void onRenderingDetached()
+  {
+    mLifecycle.onRenderingDetached();
+    mNativeStateApplied = false;
+    publishSnapshot();
   }
 
   @UiThread
@@ -130,7 +156,8 @@ public final class InCarDrivingViewController implements LocationListener
       }
     }
 
-    mWasNavigating = RoutingController.get().isNavigating();
+    if (mLifecycle.isAttached())
+      mWasNavigating = RoutingController.get().isNavigating();
     syncNativeState(false /* recenter */);
     publishSnapshot();
   }
@@ -142,7 +169,7 @@ public final class InCarDrivingViewController implements LocationListener
   public boolean shouldKeepLocationInBackground()
   {
     final boolean activeSession = mPolicy.isEnabled() || InCarSettingsStore.automaticDrivingViewEnabled(mContext);
-    return mStartedMapActivities > 0 && activeSession;
+    return mLifecycle.hasStartedMapActivity() && activeSession;
   }
 
   @UiThread
@@ -178,7 +205,8 @@ public final class InCarDrivingViewController implements LocationListener
   {
     if (mPolicy.isEnabled())
     {
-      if (Map.isEngineCreated() && LocationState.getMode() != LocationState.FOLLOW_AND_ROTATE)
+      if (mLifecycle.canAccessNativeState() && Map.isEngineCreated()
+          && LocationState.getMode() != LocationState.FOLLOW_AND_ROTATE)
       {
         syncNativeState(true /* recenter */);
         publishSnapshot();
@@ -255,6 +283,25 @@ public final class InCarDrivingViewController implements LocationListener
     publishSnapshot();
   }
 
+  private void applyLifecycleTransition(@NonNull InCarDrivingViewLifecycle.Transition transition)
+  {
+    if (transition == InCarDrivingViewLifecycle.Transition.ATTACH)
+    {
+      mWasNavigating = RoutingController.get().isNavigating();
+      mLocationHelper.addListener(this);
+      syncNativeState(false /* recenter */);
+    }
+    else if (transition == InCarDrivingViewLifecycle.Transition.DETACH)
+    {
+      mLocationHelper.removeListener(this);
+      mNativeStateApplied = false;
+      // A detached controller no longer owns a live location lease, so do not present its last sample as current.
+      mLastLocation = null;
+      mLocationHealth = LocationHealth.UNAVAILABLE;
+    }
+    publishSnapshot();
+  }
+
   private void applyTransition(@NonNull InCarDrivingViewPolicy.Transition transition, boolean recenter)
   {
     if (transition == InCarDrivingViewPolicy.Transition.NONE)
@@ -269,7 +316,7 @@ public final class InCarDrivingViewController implements LocationListener
 
   private void syncNativeState(boolean recenter)
   {
-    if (!Map.isEngineCreated())
+    if (!mLifecycle.canAccessNativeState() || !Map.isEngineCreated())
     {
       mNativeStateApplied = false;
       return;
@@ -313,9 +360,11 @@ public final class InCarDrivingViewController implements LocationListener
   {
     final boolean hasCurrentSpeed = mLocationHealth == LocationHealth.CURRENT && mLastLocation != null
                                  && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
-    final boolean following = Map.isEngineCreated() && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
+    final boolean canAccessNativeState = mLifecycle.canAccessNativeState() && Map.isEngineCreated();
+    final boolean following = canAccessNativeState && LocationState.getMode() == LocationState.FOLLOW_AND_ROTATE;
+    final boolean navigating = RoutingController.get().isNavigating();
     final double speedMps = hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN;
-    mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, RoutingController.get().isNavigating(),
-                                    mLocationHealth, hasCurrentSpeed, speedMps, mPolicy.getActivationSource()));
+    mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, navigating, mLocationHealth, hasCurrentSpeed,
+                                    speedMps, mPolicy.getActivationSource()));
   }
 }

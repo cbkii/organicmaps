@@ -253,6 +253,8 @@ public final class Map
     nativeDetachSurface(!activityIsChangingConfigurations);
     mSurfaceCreated = !nativeDestroySurfaceOnDetach();
     mSurfaceAttached = false;
+    if (mMapRenderingListener != null)
+      mMapRenderingListener.onRenderingDetached();
   }
 
   public void setMapRenderingListener(MapRenderingListener mapRenderingListener)
