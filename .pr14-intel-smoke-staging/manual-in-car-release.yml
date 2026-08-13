@@ -1,0 +1,709 @@
+name: Manual In-Car Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump when version is blank'
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: 'Optional MAJOR.MINOR.PATCH. Date-style 2026.08.09 is accepted and normalised; leave blank to auto-bump.'
+        required: false
+        type: string
+      draft:
+        description: 'Leave the verified GitHub release as a draft'
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: 'Mark the GitHub release as a prerelease'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manual-in-car-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify InCarRelease
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    environment: release
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_name: ${{ steps.version.outputs.version_name }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      tag: ${{ steps.version.outputs.tag }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
+      apk_name: ${{ steps.apk.outputs.apk_name }}
+      apk_sha256: ${{ steps.apk.outputs.apk_sha256 }}
+      cert_sha256: ${{ steps.apk.outputs.cert_sha256 }}
+      checksum_name: ${{ steps.apk.outputs.checksum_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 200
+          fetch-tags: true
+
+      - name: Validate release branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          default_branch="$(gh repo view "${GITHUB_REPOSITORY}" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+          if [[ "${GITHUB_REF_TYPE}" != "branch" || "${GITHUB_REF_NAME}" != "${default_branch}" ]]; then
+            echo "::error::In-car releases must run from the repository default branch (${default_branch}); selected ref is ${GITHUB_REF_TYPE}:${GITHUB_REF_NAME}."
+            exit 1
+          fi
+          echo "Release source: ${GITHUB_SHA}"
+
+      - name: Resolve in-car version
+        id: version
+        shell: bash
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+          INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git fetch --force --tags origin
+
+          latest="$(
+            git tag --list 'in-car-v*' \
+              | grep -E '^in-car-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
+              | sort -V \
+              | tail -n1 \
+              || true
+          )"
+
+          if ! resolution="$(
+            python3 android/tools/resolve_in_car_release_version.py \
+              --latest-tag "${latest}" \
+              --requested "${INPUT_VERSION}" \
+              --bump "${INPUT_BUMP}"
+          )"; then
+            echo "::error::Unable to resolve the requested in-car release version."
+            exit 1
+          fi
+
+          version=""
+          version_code=""
+          version_name=""
+          tag=""
+          previous_tag=""
+          while IFS='=' read -r key value; do
+            case "${key}" in
+              version) version="${value}" ;;
+              version_code) version_code="${value}" ;;
+              version_name) version_name="${value}" ;;
+              tag) tag="${value}" ;;
+              previous_tag) previous_tag="${value}" ;;
+              *)
+                echo "::error::Unexpected version resolver output key '${key}'."
+                exit 1
+                ;;
+            esac
+          done <<< "${resolution}"
+
+          if [[ -z "${version}" || -z "${version_code}" || -z "${version_name}" || -z "${tag}" ]]; then
+            echo "::error::Version resolver returned incomplete output."
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "::error::Git tag '${tag}' already exists."
+            exit 1
+          fi
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "::error::GitHub release '${tag}' already exists."
+            exit 1
+          fi
+
+          if [[ -n "${previous_tag}" ]]; then
+            if ! previous_assets="$(gh release view "${previous_tag}" --json assets --jq '.assets[].name')"; then
+              echo "::error::Previous in-car tag ${previous_tag} has no readable GitHub release."
+              exit 1
+            fi
+            previous_version="${previous_tag#in-car-v}"
+            previous_apk="OrganicMaps-InCar-v${previous_version}-arm64-v8a.apk"
+            previous_checksum="${previous_apk}.sha256"
+            if ! grep -Fxq -- "${previous_apk}" <<< "${previous_assets}"; then
+              echo "::error::Previous release ${previous_tag} is missing ${previous_apk}; refusing to continue without signer-continuity input."
+              exit 1
+            fi
+            if ! grep -Fxq -- "${previous_checksum}" <<< "${previous_assets}"; then
+              echo "::error::Previous release ${previous_tag} is missing ${previous_checksum}; refusing to build from an incomplete release baseline."
+              exit 1
+            fi
+          fi
+
+          requested="$(printf '%s' "${INPUT_VERSION}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          requested="${requested#in-car-v}"
+          requested="${requested#v}"
+          if [[ -n "${requested}" && "${requested}" != "${version}" ]]; then
+            echo "::notice::Normalised explicit in-car version '${INPUT_VERSION}' to '${version}'."
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "version_code=${version_code}" >> "${GITHUB_OUTPUT}"
+          echo "version_name=${version_name}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "previous_tag=${previous_tag}" >> "${GITHUB_OUTPUT}"
+
+          echo "Resolved in-car release: ${tag}"
+          echo "Android versionCode: ${version_code}"
+          echo "Android versionName: ${version_name}"
+
+      - name: Validate release secrets
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=()
+          [[ -n "${KEYSTORE_BASE64}" ]] || missing+=(KEYSTORE_BASE64)
+          [[ -n "${KEYSTORE_PASSWORD}" ]] || missing+=(KEYSTORE_PASSWORD)
+          [[ -n "${KEY_ALIAS}" ]] || missing+=(KEY_ALIAS)
+          [[ -n "${KEY_PASSWORD}" ]] || missing+=(KEY_PASSWORD)
+          if [[ "${#missing[@]}" -ne 0 ]]; then
+            echo "::error::Missing required release signing secret(s): ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Install native build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build
+
+      - name: Initialise submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git submodule update --depth 1 --init --recursive --jobs="$(($(nproc) * 20))"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Organic Maps Android build tools
+        id: android_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          compile_sdk="$(sed -n 's/^propCompileSdkVersion=//p' android/gradle.properties | head -n1)"
+          ndk_version="$(sed -n 's/^propNdkVersion=//p' android/gradle.properties | head -n1)"
+          build_tools_version="36.0.0"
+          cmake_version="3.22.1"
+
+          if [[ ! "${compile_sdk}" =~ ^[0-9]+$ ]] || [[ -z "${ndk_version}" ]]; then
+            echo "::error::Unable to resolve compile SDK / NDK versions from android/gradle.properties."
+            exit 1
+          fi
+
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-${compile_sdk}" \
+            "build-tools;${build_tools_version}" \
+            "cmake;${cmake_version}" \
+            "ndk;${ndk_version}"
+
+          build_tools_dir="${ANDROID_HOME}/build-tools/${build_tools_version}"
+          if [[ ! -x "${build_tools_dir}/apksigner" ]]; then
+            echo "::error::Expected apksigner is missing: ${build_tools_dir}/apksigner"
+            exit 1
+          fi
+
+          apkanalyzer="$(command -v apkanalyzer || true)"
+          if [[ -z "${apkanalyzer}" ]]; then
+            apkanalyzer="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name apkanalyzer -perm -u+x -print 2>/dev/null | sort -V | tail -n1)"
+          fi
+          if [[ -z "${apkanalyzer}" || ! -x "${apkanalyzer}" ]]; then
+            echo "::error::apkanalyzer was not found in the configured Android SDK."
+            exit 1
+          fi
+
+          echo "${ANDROID_HOME}/cmake/${cmake_version}/bin" >> "${GITHUB_PATH}"
+          echo "${build_tools_dir}" >> "${GITHUB_PATH}"
+          echo "ANDROID_BUILD_TOOLS_DIR=${build_tools_dir}" >> "${GITHUB_ENV}"
+          echo "APKANALYZER_BIN=${apkanalyzer}" >> "${GITHUB_ENV}"
+          printf 'sdk.dir=%s\n' "${ANDROID_HOME}" > android/local.properties
+
+          echo "Android build-tools: ${build_tools_dir}"
+          "${build_tools_dir}/apksigner" version
+          echo "apkanalyzer: ${apkanalyzer}"
+
+      - name: Configure Organic Maps
+        shell: bash
+        run: bash ./configure.sh
+
+      - name: Configure release signing
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          keystore="${RUNNER_TEMP}/organicmaps-in-car-release.keystore"
+          if ! printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${keystore}"; then
+            echo "::error::KEYSTORE_BASE64 could not be decoded."
+            exit 1
+          fi
+          chmod 600 "${keystore}"
+
+          keytool_output="${RUNNER_TEMP}/in-car-keytool.txt"
+          if ! keytool -list -v \
+              -keystore "${keystore}" \
+              -alias "${KEY_ALIAS}" \
+              -storepass "${KEYSTORE_PASSWORD}" > "${keytool_output}" 2>&1; then
+            echo "::error::Unable to open the configured release keystore/alias."
+            exit 1
+          fi
+
+          cert_sha256="$(
+            sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' "${keytool_output}" \
+              | head -n1 \
+              | tr -d ':' \
+              | tr '[:lower:]' '[:upper:]'
+          )"
+          if [[ ! "${cert_sha256}" =~ ^[0-9A-F]{64}$ ]]; then
+            echo "::error::Unable to resolve the release certificate SHA-256 fingerprint."
+            exit 1
+          fi
+
+          : > android/app/secure.properties
+          echo "keystore=${keystore}" >> "${GITHUB_OUTPUT}"
+          echo "cert_sha256=${cert_sha256}" >> "${GITHUB_OUTPUT}"
+          echo "Release signing certificate SHA-256: ${cert_sha256}"
+
+      - name: Build signed arm64 InCarRelease APK
+        shell: bash
+        env:
+          KEYSTORE_PATH: ${{ steps.signing.outputs.keystore }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          set -euo pipefail
+
+          export ORG_GRADLE_PROJECT_spropStoreFile="${KEYSTORE_PATH}"
+          export ORG_GRADLE_PROJECT_spropStorePassword="${KEYSTORE_PASSWORD}"
+          export ORG_GRADLE_PROJECT_spropKeyAlias="${KEY_ALIAS}"
+          export ORG_GRADLE_PROJECT_spropKeyPassword="${KEY_PASSWORD}"
+
+          cd android
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace \
+            -Parm64 \
+            -PinCarReleaseVersionName="${RELEASE_VERSION}" \
+            -PinCarReleaseVersionCode="${RELEASE_VERSION_CODE}" \
+            assembleInCarRelease
+
+      - name: Verify and stage InCarRelease APK
+        id: apk
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          EXPECTED_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          EXPECTED_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          EXPECTED_CERT_SHA256: ${{ steps.signing.outputs.cert_sha256 }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+
+          output_dir="android/app/build/outputs/apk/inCar/release"
+          proof_dir="${RUNNER_TEMP}/in-car-release-proof"
+          rm -rf "${proof_dir}"
+          mkdir -p "${proof_dir}"
+
+          mapfile -t apks < <(find "${output_dir}" -maxdepth 1 -type f -name '*.apk' -print | sort)
+          if [[ "${#apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one InCarRelease APK in ${output_dir}, found ${#apks[@]}."
+            printf '%s\n' "${apks[@]:-}"
+            exit 1
+          fi
+
+          apk_name="OrganicMaps-InCar-v${RELEASE_VERSION}-arm64-v8a.apk"
+          apk_path="${RUNNER_TEMP}/${apk_name}"
+          cp "${apks[0]}" "${apk_path}"
+
+          bash android/tools/verify_in_car_apk.sh \
+            --apk "${apk_path}" \
+            --expected-package app.organicmaps.incar \
+            --expected-version-name "${EXPECTED_VERSION_NAME}" \
+            --expected-version-code "${EXPECTED_VERSION_CODE}" \
+            --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
+            --proof-dir "${proof_dir}" \
+            --summary-file "${GITHUB_STEP_SUMMARY}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+          if [[ -n "${PREVIOUS_TAG}" ]]; then
+            previous_dir="${proof_dir}/previous"
+            mkdir -p "${previous_dir}"
+            if ! gh release download "${PREVIOUS_TAG}" \
+                --pattern 'OrganicMaps-InCar-v*-arm64-v8a.apk' \
+                --dir "${previous_dir}"; then
+              echo "::error::Unable to download the previous in-car release APK from ${PREVIOUS_TAG}."
+              exit 1
+            fi
+            mapfile -t previous_apks < <(find "${previous_dir}" -maxdepth 1 -type f -name '*.apk' -print | sort)
+            if [[ "${#previous_apks[@]}" -ne 1 ]]; then
+              echo "::error::Expected exactly one previous in-car APK for signer continuity; found ${#previous_apks[@]}."
+              exit 1
+            fi
+
+            bash android/tools/verify_in_car_apk.sh \
+              --apk "${previous_apks[0]}" \
+              --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
+              --proof-dir "${previous_dir}/signer-proof" \
+              --signature-only
+            echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo '- Signer continuity: first in-car release' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+          checksum_name="${apk_name}.sha256"
+          checksum_path="${RUNNER_TEMP}/${checksum_name}"
+          (
+            cd "${RUNNER_TEMP}"
+            sha256sum "${apk_name}" > "${checksum_name}"
+          )
+
+          echo "apk_name=${apk_name}" >> "${GITHUB_OUTPUT}"
+          echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
+          echo "checksum_name=${checksum_name}" >> "${GITHUB_OUTPUT}"
+          echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload verified build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ steps.version.outputs.version }}-arm64-v8a
+          path: |
+            ${{ steps.apk.outputs.apk_path }}
+            ${{ steps.apk.outputs.checksum_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Stage native symbols and R8 mapping
+        id: diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          diagnostics_dir="${RUNNER_TEMP}/in-car-release-diagnostics"
+          symbols="android/app/build/outputs/native-debug-symbols/inCarRelease/native-debug-symbols.zip"
+          mapping="android/app/build/outputs/mapping/inCarRelease/mapping.txt"
+          if [[ ! -f "${symbols}" || ! -f "${mapping}" ]]; then
+            echo "::error::Expected InCarRelease native symbols and R8 mapping were not produced."
+            exit 1
+          fi
+          mkdir -p "${diagnostics_dir}"
+          cp "${symbols}" "${diagnostics_dir}/native-debug-symbols.zip"
+          cp "${mapping}" "${diagnostics_dir}/mapping.txt"
+          echo "path=${diagnostics_dir}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload release diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ steps.version.outputs.version }}-diagnostics
+          path: ${{ steps.diagnostics.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f \
+            android/app/secure.properties \
+            "${RUNNER_TEMP}/organicmaps-in-car-release.keystore" \
+            "${RUNNER_TEMP}/in-car-keytool.txt"
+
+  smoke:
+    name: Smoke signed InCarRelease on ARM64
+    needs: build
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout smoke script
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download verified InCarRelease artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-arm64-v8a
+          path: ${{ runner.temp }}/in-car-release
+
+      - name: Resolve signed APK
+        id: apk
+        shell: bash
+        run: |
+          apk_count="$(find "${RUNNER_TEMP}/in-car-release" -type f -name '*.apk' | wc -l | tr -d ' ')"
+          if [[ "${apk_count}" -ne 1 ]]; then
+            echo "::error::Expected exactly one signed InCarRelease APK; found ${apk_count}."
+            exit 1
+          fi
+          apk_path="$(find "${RUNNER_TEMP}/in-car-release" -type f -name '*.apk' -print -quit)"
+          echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Smoke exact signed arm64 InCarRelease APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: arm64-v8a
+          target: default
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -accel off
+          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar --proof-dir "${RUNNER_TEMP}/in-car-launch-smoke"
+
+      - name: Upload signed APK smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-launch-smoke
+          path: ${{ runner.temp }}/in-car-launch-smoke
+          if-no-files-found: warn
+          retention-days: 90
+
+  release:
+    name: Stage validated GitHub release
+    needs: [build, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+      release_tag: ${{ needs.build.outputs.tag }}
+
+    steps:
+      - name: Download validated release assets
+        uses: actions/download-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-arm64-v8a
+          path: ${{ runner.temp }}/in-car-release
+
+      - name: Resolve release asset paths
+        id: assets
+        shell: bash
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
+        run: |
+          apk_path="${RUNNER_TEMP}/in-car-release/${APK_NAME}"
+          checksum_path="${RUNNER_TEMP}/in-car-release/${CHECKSUM_NAME}"
+          if [[ ! -f "${apk_path}" || ! -f "${checksum_path}" ]]; then
+            echo "::error::Validated APK or checksum artifact is missing."
+            exit 1
+          fi
+          echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
+          echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create draft GitHub release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          args=(
+            "${RELEASE_TAG}"
+            --target "${GITHUB_SHA}"
+            --title "Organic Maps In-Car v${RELEASE_VERSION}"
+            --generate-notes
+            --draft
+          )
+          if [[ -n "${PREVIOUS_TAG}" ]]; then
+            args+=(--notes-start-tag "${PREVIOUS_TAG}")
+          fi
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+
+          gh release create "${args[@]}"
+          echo "created=true" >> "${GITHUB_OUTPUT}"
+          release_details="$(gh release view "${RELEASE_TAG}" --json databaseId,url)"
+          echo "id=$(jq -r '.databaseId' <<< "${release_details}")" >> "${GITHUB_OUTPUT}"
+          echo "url=$(jq -r '.url' <<< "${release_details}")" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          APK_PATH: ${{ steps.assets.outputs.apk_path }}
+          CHECKSUM_PATH: ${{ steps.assets.outputs.checksum_path }}
+        run: |
+          set -euo pipefail
+          gh release upload "${RELEASE_TAG}" "${APK_PATH}" "${CHECKSUM_PATH}"
+
+      - name: Verify draft release and assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
+        run: |
+          set -euo pipefail
+
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          is_draft="$(jq -r '.draft' <<< "${release}")"
+          tag_name="$(jq -r '.tag_name' <<< "${release}")"
+          if [[ "${is_draft}" != "true" || "${tag_name}" != "${RELEASE_TAG}" ]]; then
+            echo "::error::Release ID ${RELEASE_ID} was not the expected draft ${RELEASE_TAG}."
+            exit 1
+          fi
+
+          assets="$(jq -r '.assets[].name' <<< "${release}")"
+          missing=()
+          grep -Fx -- "${APK_NAME}" <<< "${assets}" >/dev/null || missing+=("${APK_NAME}")
+          grep -Fx -- "${CHECKSUM_NAME}" <<< "${assets}" >/dev/null || missing+=("${CHECKSUM_NAME}")
+          if [[ "${#missing[@]}" -ne 0 ]]; then
+            echo "::error::Draft release ${RELEASE_TAG} is missing expected asset(s): ${missing[*]}"
+            printf 'Draft assets:\n%s\n' "${assets}"
+            exit 1
+          fi
+
+      - name: Write pre-publication release summary
+        if: always()
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          REQUESTED_DRAFT: ${{ inputs.draft }}
+          VERSION_NAME: ${{ needs.build.outputs.version_name }}
+          VERSION_CODE: ${{ needs.build.outputs.version_code }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          APK_SHA256: ${{ needs.build.outputs.apk_sha256 }}
+          CERT_SHA256: ${{ needs.build.outputs.cert_sha256 }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
+        run: |
+          {
+            echo "# Manual In-Car Release"
+            echo
+            printf -- '- Validation before publication: `%s`\n' '${{ job.status }}'
+            printf -- '- Source: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- Tag: `%s`\n' "${RELEASE_TAG:-not resolved}"
+            echo '- Variant: `InCarRelease`'
+            echo '- Package: `app.organicmaps.incar`'
+            printf -- '- versionName: `%s`\n' "${VERSION_NAME:-not resolved}"
+            printf -- '- versionCode: `%s`\n' "${VERSION_CODE:-not resolved}"
+            echo '- ABI: `arm64-v8a`'
+            printf -- '- APK: `%s`\n' "${APK_NAME:-not built}"
+            printf -- '- APK SHA-256: `%s`\n' "${APK_SHA256:-not verified}"
+            printf -- '- Signer SHA-256: `%s`\n' "${CERT_SHA256:-not verified}"
+            printf -- '- Previous in-car tag: `%s`\n' "${PREVIOUS_TAG:-none}"
+            printf -- '- Requested final visibility: `draft=%s`\n' "${REQUESTED_DRAFT}"
+            if [[ -n "${RELEASE_URL:-}" ]]; then
+              echo "- Staged release: ${RELEASE_URL}"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Roll back incomplete draft release
+        if: failure() && steps.release.outputs.created == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          if [[ ! "${RELEASE_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::warning::No exact draft release ID was captured; leaving any draft for manual inspection."
+            exit 0
+          fi
+
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" 2>/dev/null || true)"
+          if [[ "$(jq -r '.draft // "unknown"' <<< "${release}")" == "true" ]]; then
+            if gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}"; then
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}" >/dev/null 2>&1 ||
+                echo "::warning::Removed draft release ${RELEASE_ID}, but could not remove tag ${RELEASE_TAG}."
+              echo "Removed incomplete draft release ${RELEASE_ID} and attempted exact tag cleanup."
+            else
+              echo "::warning::Unable to remove incomplete draft release ${RELEASE_ID}; manual cleanup may be required."
+            fi
+          else
+            echo "::warning::Release ${RELEASE_ID} is not a draft or is unavailable; refusing automatic deletion."
+          fi
+
+  finalise:
+    # This job deliberately contains no action steps, so no registered post-action hook can
+    # turn the workflow red after the draft has been made public.
+    name: Finalise release visibility
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: release
+
+    steps:
+      - name: Publish validated draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.release.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+          KEEP_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${RELEASE_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Validated draft release ID is missing or invalid."
+            exit 1
+          fi
+
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          if [[ "$(jq -r '.draft' <<< "${release}")" != "true" ||
+                "$(jq -r '.tag_name' <<< "${release}")" != "${RELEASE_TAG}" ]]; then
+            echo "::error::Release ID ${RELEASE_ID} is not the validated draft ${RELEASE_TAG}."
+            exit 1
+          fi
+
+          if [[ "${KEEP_DRAFT}" == "true" ]]; then
+            echo "Verified release ${RELEASE_TAG} remains a draft." >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "Publishing verified release ${RELEASE_TAG} from the terminal, action-free job." >> "${GITHUB_STEP_SUMMARY}"
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F draft=false >/dev/null
+          fi
