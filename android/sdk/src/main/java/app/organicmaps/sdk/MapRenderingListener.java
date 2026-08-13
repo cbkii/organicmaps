@@ -8,6 +8,8 @@ public interface MapRenderingListener
 
   default void onRenderingRestored() {}
 
+  default void onRenderingDetached() {}
+
   // Called from JNI.
   @Keep
   @SuppressWarnings("unused")
