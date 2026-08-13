@@ -28,6 +28,32 @@ public class InCarDrivingViewLifecycleTest
   }
 
   @Test
+  public void activityStartedBeforeFrameworkAttachesWhenFrameworkBecomesReady()
+  {
+    final InCarDrivingViewLifecycle lifecycle = new InCarDrivingViewLifecycle();
+    assertEquals(InCarDrivingViewLifecycle.Transition.NONE, lifecycle.onMapActivityStarted());
+    assertFalse(lifecycle.isAttached());
+    assertEquals(InCarDrivingViewLifecycle.Transition.ATTACH, lifecycle.onFrameworkReady());
+    assertTrue(lifecycle.isAttached());
+    assertFalse(lifecycle.canAccessNativeState());
+    lifecycle.onRenderingCreated();
+    assertTrue(lifecycle.canAccessNativeState());
+  }
+
+  @Test
+  public void multipleStartedActivitiesDetachOnlyAfterLastStop()
+  {
+    final InCarDrivingViewLifecycle lifecycle = new InCarDrivingViewLifecycle();
+    lifecycle.onFrameworkReady();
+    assertEquals(InCarDrivingViewLifecycle.Transition.ATTACH, lifecycle.onMapActivityStarted());
+    assertEquals(InCarDrivingViewLifecycle.Transition.NONE, lifecycle.onMapActivityStarted());
+    assertEquals(InCarDrivingViewLifecycle.Transition.NONE, lifecycle.onMapActivityStopped());
+    assertTrue(lifecycle.isAttached());
+    assertEquals(InCarDrivingViewLifecycle.Transition.DETACH, lifecycle.onMapActivityStopped());
+    assertFalse(lifecycle.isAttached());
+  }
+
+  @Test
   public void renderingAttachAndDetachGateNativeAccess()
   {
     final InCarDrivingViewLifecycle lifecycle = new InCarDrivingViewLifecycle();
