@@ -35,11 +35,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and publish InCarRelease
+  build:
+    name: Build and verify InCarRelease
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     environment: release
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_name: ${{ steps.version.outputs.version_name }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      tag: ${{ steps.version.outputs.tag }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
+      apk_name: ${{ steps.apk.outputs.apk_name }}
+      apk_sha256: ${{ steps.apk.outputs.apk_sha256 }}
+      cert_sha256: ${{ steps.apk.outputs.cert_sha256 }}
+      checksum_name: ${{ steps.apk.outputs.checksum_name }}
 
     steps:
       - name: Checkout repository
@@ -409,14 +419,154 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Stage native symbols and R8 mapping
+        id: diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          diagnostics_dir="${RUNNER_TEMP}/in-car-release-diagnostics"
+          symbols="android/app/build/outputs/native-debug-symbols/inCarRelease/native-debug-symbols.zip"
+          mapping="android/app/build/outputs/mapping/inCarRelease/mapping.txt"
+          if [[ ! -f "${symbols}" || ! -f "${mapping}" ]]; then
+            echo "::error::Expected InCarRelease native symbols and R8 mapping were not produced."
+            exit 1
+          fi
+          mkdir -p "${diagnostics_dir}"
+          cp "${symbols}" "${diagnostics_dir}/native-debug-symbols.zip"
+          cp "${mapping}" "${diagnostics_dir}/mapping.txt"
+          echo "path=${diagnostics_dir}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload release diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ steps.version.outputs.version }}-diagnostics
+          path: ${{ steps.diagnostics.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Build x86_64 InCarDebug smoke APK
+        shell: bash
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace -Px86_64 assembleInCarDebug
+
+      - name: Run InCar unit tests
+        shell: bash
+        working-directory: android
+        run: ./gradlew -Px86_64 app:testInCarDebug
+
+      - name: Upload x86_64 InCarDebug smoke APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ steps.version.outputs.version }}-x86_64-smoke
+          path: android/app/build/outputs/apk/inCar/debug/OrganicMaps-*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f \
+            android/app/secure.properties \
+            "${RUNNER_TEMP}/organicmaps-in-car-release.keystore" \
+            "${RUNNER_TEMP}/in-car-keytool.txt"
+
+  smoke:
+    name: Smoke InCar startup on x86_64
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout smoke script
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download x86_64 InCarDebug smoke APK
+        uses: actions/download-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-x86_64-smoke
+          path: ${{ runner.temp }}/in-car-smoke
+
+      - name: Resolve x86_64 InCarDebug APK
+        id: apk
+        shell: bash
+        run: |
+          apk_count="$(find "${RUNNER_TEMP}/in-car-smoke" -type f -name '*.apk' | wc -l | tr -d ' ')"
+          if [[ "${apk_count}" -ne 1 ]]; then
+            echo "::error::Expected exactly one x86_64 InCarDebug APK; found ${apk_count}."
+            exit 1
+          fi
+          apk_path="$(find "${RUNNER_TEMP}/in-car-smoke" -type f -name '*.apk' -print -quit)"
+          echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Smoke InCar cold launch and relaunch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-launch-smoke"
+
+      - name: Upload InCar launch smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-launch-smoke
+          path: ${{ runner.temp }}/in-car-launch-smoke
+          if-no-files-found: warn
+          retention-days: 90
+
+  release:
+    name: Stage validated GitHub release
+    needs: [build, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+      release_tag: ${{ needs.build.outputs.tag }}
+
+    steps:
+      - name: Download validated release assets
+        uses: actions/download-artifact@v7
+        with:
+          name: OrganicMaps-InCar-v${{ needs.build.outputs.version }}-arm64-v8a
+          path: ${{ runner.temp }}/in-car-release
+
+      - name: Resolve release asset paths
+        id: assets
+        shell: bash
+        env:
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
+        run: |
+          apk_path="${RUNNER_TEMP}/in-car-release/${APK_NAME}"
+          checksum_path="${RUNNER_TEMP}/in-car-release/${CHECKSUM_NAME}"
+          if [[ ! -f "${apk_path}" || ! -f "${checksum_path}" ]]; then
+            echo "::error::Validated APK or checksum artifact is missing."
+            exit 1
+          fi
+          echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
+          echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
+
       - name: Create draft GitHub release
         id: release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          RELEASE_VERSION: ${{ steps.version.outputs.version }}
-          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
@@ -437,16 +587,17 @@ jobs:
 
           gh release create "${args[@]}"
           echo "created=true" >> "${GITHUB_OUTPUT}"
-          release_url="$(gh release view "${RELEASE_TAG}" --json url --jq '.url')"
-          echo "url=${release_url}" >> "${GITHUB_OUTPUT}"
+          release_details="$(gh release view "${RELEASE_TAG}" --json databaseId,url)"
+          echo "id=$(jq -r '.databaseId' <<< "${release_details}")" >> "${GITHUB_OUTPUT}"
+          echo "url=$(jq -r '.url' <<< "${release_details}")" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          APK_PATH: ${{ steps.apk.outputs.apk_path }}
-          CHECKSUM_PATH: ${{ steps.apk.outputs.checksum_path }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          APK_PATH: ${{ steps.assets.outputs.apk_path }}
+          CHECKSUM_PATH: ${{ steps.assets.outputs.checksum_path }}
         run: |
           set -euo pipefail
           gh release upload "${RELEASE_TAG}" "${APK_PATH}" "${CHECKSUM_PATH}"
@@ -455,112 +606,127 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          APK_NAME: ${{ steps.apk.outputs.apk_name }}
-          CHECKSUM_NAME: ${{ steps.apk.outputs.checksum_name }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          CHECKSUM_NAME: ${{ needs.build.outputs.checksum_name }}
         run: |
           set -euo pipefail
 
-          is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq '.isDraft')"
-          if [[ "${is_draft}" != "true" ]]; then
-            echo "::error::Release ${RELEASE_TAG} was expected to remain draft until verification completed."
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          is_draft="$(jq -r '.draft' <<< "${release}")"
+          tag_name="$(jq -r '.tag_name' <<< "${release}")"
+          if [[ "${is_draft}" != "true" || "${tag_name}" != "${RELEASE_TAG}" ]]; then
+            echo "::error::Release ID ${RELEASE_ID} was not the expected draft ${RELEASE_TAG}."
             exit 1
           fi
 
-          assets="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name')"
+          assets="$(jq -r '.assets[].name' <<< "${release}")"
           missing=()
           grep -Fx -- "${APK_NAME}" <<< "${assets}" >/dev/null || missing+=("${APK_NAME}")
           grep -Fx -- "${CHECKSUM_NAME}" <<< "${assets}" >/dev/null || missing+=("${CHECKSUM_NAME}")
           if [[ "${#missing[@]}" -ne 0 ]]; then
             echo "::error::Draft release ${RELEASE_TAG} is missing expected asset(s): ${missing[*]}"
-            printf 'Published assets:\n%s\n' "${assets}"
+            printf 'Draft assets:\n%s\n' "${assets}"
             exit 1
           fi
 
-      - name: Finalise release visibility
-        id: finalise
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          KEEP_DRAFT: ${{ inputs.draft }}
-        run: |
-          set -euo pipefail
-
-          if [[ "${KEEP_DRAFT}" == "true" ]]; then
-            echo "state=draft" >> "${GITHUB_OUTPUT}"
-            echo "Verified release ${RELEASE_TAG} remains a draft."
-          else
-            gh release edit "${RELEASE_TAG}" --draft=false
-            is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq '.isDraft')"
-            if [[ "${is_draft}" != "false" ]]; then
-              echo "::error::Release ${RELEASE_TAG} did not become public."
-              exit 1
-            fi
-            echo "state=published" >> "${GITHUB_OUTPUT}"
-            echo "Published verified release ${RELEASE_TAG}."
-          fi
-
-      - name: Roll back incomplete draft release
-        if: failure() && steps.release.outputs.created == 'true' && steps.finalise.outcome != 'success'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq '.isDraft' 2>/dev/null || printf 'unknown')"
-          if [[ "${is_draft}" == "true" ]]; then
-            if gh release delete "${RELEASE_TAG}" --cleanup-tag --yes; then
-              echo "Removed incomplete draft release ${RELEASE_TAG} and its tag."
-            else
-              echo "::warning::Unable to remove incomplete draft release ${RELEASE_TAG}; manual cleanup may be required."
-            fi
-          elif [[ "${is_draft}" == "false" ]]; then
-            echo "::warning::Release ${RELEASE_TAG} is already public; rollback will not delete it."
-          else
-            echo "::warning::Unable to determine release state for ${RELEASE_TAG}; refusing automatic deletion."
-          fi
-
-      - name: Write release summary
+      - name: Write pre-publication release summary
         if: always()
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
           RELEASE_URL: ${{ steps.release.outputs.url }}
-          RELEASE_STATE: ${{ steps.finalise.outputs.state }}
-          VERSION_NAME: ${{ steps.version.outputs.version_name }}
-          VERSION_CODE: ${{ steps.version.outputs.version_code }}
-          APK_NAME: ${{ steps.apk.outputs.apk_name }}
-          APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
-          CERT_SHA256: ${{ steps.apk.outputs.cert_sha256 }}
-          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          REQUESTED_DRAFT: ${{ inputs.draft }}
+          VERSION_NAME: ${{ needs.build.outputs.version_name }}
+          VERSION_CODE: ${{ needs.build.outputs.version_code }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          APK_SHA256: ${{ needs.build.outputs.apk_sha256 }}
+          CERT_SHA256: ${{ needs.build.outputs.cert_sha256 }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
         run: |
           {
             echo "# Manual In-Car Release"
             echo
-            echo "- Result: \`${{ job.status }}\`"
-            echo "- Source: \`${GITHUB_SHA}\`"
-            echo "- Tag: \`${RELEASE_TAG:-not resolved}\`"
-            echo "- Variant: \`InCarRelease\`"
-            echo "- Package: \`app.organicmaps.incar\`"
-            echo "- versionName: \`${VERSION_NAME:-not resolved}\`"
-            echo "- versionCode: \`${VERSION_CODE:-not resolved}\`"
-            echo "- ABI: \`arm64-v8a\`"
-            echo "- APK: \`${APK_NAME:-not built}\`"
-            echo "- APK SHA-256: \`${APK_SHA256:-not verified}\`"
-            echo "- Signer SHA-256: \`${CERT_SHA256:-not verified}\`"
-            echo "- Previous in-car tag: \`${PREVIOUS_TAG:-none}\`"
-            echo "- Final release state: \`${RELEASE_STATE:-not finalised}\`"
+            printf -- '- Validation before publication: `%s`\n' '${{ job.status }}'
+            printf -- '- Source: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- Tag: `%s`\n' "${RELEASE_TAG:-not resolved}"
+            echo '- Variant: `InCarRelease`'
+            echo '- Package: `app.organicmaps.incar`'
+            printf -- '- versionName: `%s`\n' "${VERSION_NAME:-not resolved}"
+            printf -- '- versionCode: `%s`\n' "${VERSION_CODE:-not resolved}"
+            echo '- ABI: `arm64-v8a`'
+            printf -- '- APK: `%s`\n' "${APK_NAME:-not built}"
+            printf -- '- APK SHA-256: `%s`\n' "${APK_SHA256:-not verified}"
+            printf -- '- Signer SHA-256: `%s`\n' "${CERT_SHA256:-not verified}"
+            printf -- '- Previous in-car tag: `%s`\n' "${PREVIOUS_TAG:-none}"
+            printf -- '- Requested final visibility: `draft=%s`\n' "${REQUESTED_DRAFT}"
             if [[ -n "${RELEASE_URL:-}" ]]; then
-              echo "- Release: ${RELEASE_URL}"
+              echo "- Staged release: ${RELEASE_URL}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Remove temporary signing material
-        if: always()
+      - name: Roll back incomplete draft release
+        if: failure() && steps.release.outputs.created == 'true'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
-          rm -f \
-            android/app/secure.properties \
-            "${RUNNER_TEMP}/organicmaps-in-car-release.keystore" \
-            "${RUNNER_TEMP}/in-car-keytool.txt"
+          if [[ ! "${RELEASE_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::warning::No exact draft release ID was captured; leaving any draft for manual inspection."
+            exit 0
+          fi
+
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" 2>/dev/null || true)"
+          if [[ "$(jq -r '.draft // "unknown"' <<< "${release}")" == "true" ]]; then
+            if gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}"; then
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}" >/dev/null 2>&1 ||
+                echo "::warning::Removed draft release ${RELEASE_ID}, but could not remove tag ${RELEASE_TAG}."
+              echo "Removed incomplete draft release ${RELEASE_ID} and attempted exact tag cleanup."
+            else
+              echo "::warning::Unable to remove incomplete draft release ${RELEASE_ID}; manual cleanup may be required."
+            fi
+          else
+            echo "::warning::Release ${RELEASE_ID} is not a draft or is unavailable; refusing automatic deletion."
+          fi
+
+  finalise:
+    # This job deliberately contains no action steps, so no registered post-action hook can
+    # turn the workflow red after the draft has been made public.
+    name: Finalise release visibility
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: release
+
+    steps:
+      - name: Publish validated draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.release.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+          KEEP_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${RELEASE_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Validated draft release ID is missing or invalid."
+            exit 1
+          fi
+
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          if [[ "$(jq -r '.draft' <<< "${release}")" != "true" ||
+                "$(jq -r '.tag_name' <<< "${release}")" != "${RELEASE_TAG}" ]]; then
+            echo "::error::Release ID ${RELEASE_ID} is not the validated draft ${RELEASE_TAG}."
+            exit 1
+          fi
+
+          if [[ "${KEEP_DRAFT}" == "true" ]]; then
+            echo "Verified release ${RELEASE_TAG} remains a draft." >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "Publishing verified release ${RELEASE_TAG} from the terminal, action-free job." >> "${GITHUB_STEP_SUMMARY}"
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F draft=false >/dev/null
+          fi
