@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+
 public class SearchPageViewModel extends ViewModel
 {
   private static final String KEY_SEARCH_ACTIVE = "search_active";
@@ -16,17 +17,18 @@ public class SearchPageViewModel extends ViewModel
   private static final String KEY_IN_CAR_MAP_MODE = "in_car_search_map_mode";
 
   private final SavedStateHandle mSavedState;
+  private final MutableLiveData<Boolean> mInCarMapMode;
 
   public SearchPageViewModel(@NonNull SavedStateHandle savedStateHandle)
   {
     mSavedState = savedStateHandle;
+    mInCarMapMode = new MutableLiveData<>(Boolean.TRUE.equals(savedStateHandle.get(KEY_IN_CAR_MAP_MODE)));
   }
 
   private final MutableLiveData<Integer> mSearchPageDistanceToTop = new MutableLiveData<>();
   private final MutableLiveData<Integer> mExpandedOffset = new MutableLiveData<>(0);
   private final MutableLiveData<Integer> mSearchPageWidth = new MutableLiveData<>();
   private final MutableLiveData<Integer> mHistoryRefreshRequest = new MutableLiveData<>(0);
-  private final MutableLiveData<Boolean> mInCarMapMode = new MutableLiveData<>(false);
   // Stores the BottomSheet's last stable non-hidden state (set from onStateChanged). Used to restore
   // the sheet after the place page temporarily hides it. Disabling search — including the user
   // dragging the sheet to hidden, which triggers the hidden callback — resets it to STATE_HIDDEN.
@@ -102,10 +104,7 @@ public class SearchPageViewModel extends ViewModel
 
   public boolean isInCarMapMode()
   {
-    final Boolean live = mInCarMapMode.getValue();
-    if (live != null && live)
-      return true;
-    return Boolean.TRUE.equals(mSavedState.get(KEY_IN_CAR_MAP_MODE));
+    return Boolean.TRUE.equals(mInCarMapMode.getValue());
   }
 
   @NonNull
