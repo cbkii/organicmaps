@@ -67,15 +67,9 @@ public class TrackRecordingService extends Service implements LocationListener
 
     switch (TrackRecordingResumePolicy.decideStart(alreadyRecording, askResumeMode))
     {
-    case CONTINUE_EXISTING:
-      startServiceInternal(context);
-      return;
-    case START_ONCE:
-      startNewRecording(context, false);
-      return;
-    case ASK_RESUME_MODE:
-      showResumeModeDialog(context);
-      return;
+    case CONTINUE_EXISTING: startServiceInternal(context); return;
+    case START_ONCE: startNewRecording(context, false); return;
+    case ASK_RESUME_MODE: showResumeModeDialog(context); return;
     }
   }
 
@@ -95,10 +89,8 @@ public class TrackRecordingService extends Service implements LocationListener
         .setTitle(R.string.track_recording_resume_dialog_title)
         .setMessage(R.string.track_recording_resume_dialog_message)
         .setCancelable(false)
-        .setNegativeButton(R.string.track_recording_resume_once,
-                           (dialog, which) -> startNewRecording(context, false))
-        .setPositiveButton(R.string.track_recording_resume_auto,
-                           (dialog, which) -> startNewRecording(context, true))
+        .setNegativeButton(R.string.track_recording_resume_once, (dialog, which) -> startNewRecording(context, false))
+        .setPositiveButton(R.string.track_recording_resume_auto, (dialog, which) -> startNewRecording(context, true))
         .show();
   }
 
@@ -181,9 +173,10 @@ public class TrackRecordingService extends Service implements LocationListener
   {
     Logger.i(TAG);
     // Main-menu/place-page stop, save and cancel are explicit user actions. Disarm any future
-    // restart before stopping the live recorder. onDestroy itself intentionally preserves consent
-    // so unexpected service teardown or device shutdown can still resume an auto-resume session.
+    // restart and stop native recording immediately, even if the foreground service is already gone.
     TrackRecorder.nativeSetAutoResumeForCurrentRecording(false);
+    if (TrackRecorder.nativeIsTrackRecordingEnabled())
+      TrackRecorder.nativeStopTrackRecording();
     context.stopService(new Intent(context, TrackRecordingService.class));
   }
 
