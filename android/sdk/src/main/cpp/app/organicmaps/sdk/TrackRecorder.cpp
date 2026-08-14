@@ -15,14 +15,15 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeStartTrackR
 }
 
 JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeSetAutoResumeFeatureEnabled(JNIEnv * env,
-                                                                                                  jclass clazz,
-                                                                                                  jboolean enabled)
+                                                                                                 jclass clazz,
+                                                                                                 jboolean enabled)
 {
   GpsTracker::Instance().SetAutoResumeFeatureEnabled(enabled);
 }
 
-JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeSetAutoResumeForCurrentRecording(
-    JNIEnv * env, jclass clazz, jboolean enabled)
+JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeSetAutoResumeForCurrentRecording(JNIEnv * env,
+                                                                                                      jclass clazz,
+                                                                                                      jboolean enabled)
 {
   GpsTracker::Instance().SetAutoResumeForCurrentRecording(enabled);
 }
