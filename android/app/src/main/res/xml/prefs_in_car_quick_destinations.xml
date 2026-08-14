@@ -3,6 +3,13 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto">
 
+  <SwitchPreferenceCompat
+    android:key="@string/pref_in_car_quick_start_collapsed"
+    android:title="@string/in_car_quick_start_collapsed_title"
+    android:summary="@string/in_car_quick_start_collapsed_summary"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_quick_destinations_actions">
 
