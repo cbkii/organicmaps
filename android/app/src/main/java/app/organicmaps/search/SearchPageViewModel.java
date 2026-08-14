@@ -13,6 +13,7 @@ public class SearchPageViewModel extends ViewModel
   private static final String KEY_SEARCH_QUERY = "search_query";
   private static final String KEY_SEARCH_STATE = "search_sheet_state";
   private static final String KEY_SEARCH_IS_CATEGORY = "search_is_category";
+  private static final String KEY_IN_CAR_MAP_MODE = "in_car_search_map_mode";
 
   private final SavedStateHandle mSavedState;
 
@@ -25,6 +26,7 @@ public class SearchPageViewModel extends ViewModel
   private final MutableLiveData<Integer> mExpandedOffset = new MutableLiveData<>(0);
   private final MutableLiveData<Integer> mSearchPageWidth = new MutableLiveData<>();
   private final MutableLiveData<Integer> mHistoryRefreshRequest = new MutableLiveData<>(0);
+  private final MutableLiveData<Boolean> mInCarMapMode = new MutableLiveData<>(false);
   // Stores the BottomSheet's last stable non-hidden state (set from onStateChanged). Used to restore
   // the sheet after the place page temporarily hides it. Disabling search — including the user
   // dragging the sheet to hidden, which triggers the hidden callback — resets it to STATE_HIDDEN.
@@ -87,6 +89,26 @@ public class SearchPageViewModel extends ViewModel
   }
 
   @NonNull
+  public LiveData<Boolean> getInCarMapMode()
+  {
+    return mInCarMapMode;
+  }
+
+  public void setInCarMapMode(boolean mapMode)
+  {
+    mInCarMapMode.setValue(mapMode);
+    mSavedState.set(KEY_IN_CAR_MAP_MODE, mapMode);
+  }
+
+  public boolean isInCarMapMode()
+  {
+    final Boolean live = mInCarMapMode.getValue();
+    if (live != null && live)
+      return true;
+    return Boolean.TRUE.equals(mSavedState.get(KEY_IN_CAR_MAP_MODE));
+  }
+
+  @NonNull
   public LiveData<Integer> getSearchPageLastState()
   {
     return mSearchPageLastState;
@@ -136,7 +158,10 @@ public class SearchPageViewModel extends ViewModel
     mPendingRequest = enabled ? request : null;
     mHiddenByPlacePage = false;
     if (!enabled)
+    {
       mSearchPageLastState.setValue(BottomSheetBehavior.STATE_HIDDEN);
+      setInCarMapMode(false);
+    }
     mSearchEnabled.setValue(enabled);
   }
 
