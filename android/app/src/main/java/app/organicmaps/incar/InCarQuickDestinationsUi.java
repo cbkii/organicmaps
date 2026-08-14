@@ -123,7 +123,8 @@ public final class InCarQuickDestinationsUi
       mRoot = root;
       mContainer = container;
       mPrefs = MwmApplication.prefs(activity);
-      mRootLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+      mRootLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+      {
         if (right - left != oldRight - oldLeft)
           mRoot.post(this::applyOverflowPolicy);
       };
@@ -281,10 +282,10 @@ public final class InCarQuickDestinationsUi
       applyIcon(button, iconRes);
       final String actionLabel = mActivity.getString(labelRes);
       final String displayLabel = destination.getDisplayLabel();
-      button.setContentDescription(displayLabel.isEmpty()
-                                       ? actionLabel
-                                       : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel,
-                                                             displayLabel));
+      button.setContentDescription(
+          displayLabel.isEmpty()
+              ? actionLabel
+              : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel));
       button.setOnClickListener(v -> mActivity.startLocationToPoint(destination.toMapObject()));
       mContainer.addView(button);
     }
@@ -421,11 +422,13 @@ public final class InCarQuickDestinationsUi
           return row;
         }
       };
-      final AlertDialog dialog = new AlertDialog.Builder(mActivity)
-          .setAdapter(adapter,
-                      (ignored, which) -> openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
-                                                                 : InCarQuickCategoryPolicy.Category.CHARGING))
-          .create();
+      final AlertDialog dialog =
+          new AlertDialog.Builder(mActivity)
+              .setAdapter(adapter,
+                          (ignored, which)
+                              -> openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
+                                                         : InCarQuickCategoryPolicy.Category.CHARGING))
+              .create();
       dialog.setOnShowListener(ignored -> {
         final Window window = dialog.getWindow();
         if (window == null)
