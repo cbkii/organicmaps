@@ -5,9 +5,9 @@ import androidx.annotation.VisibleForTesting;
 /** Small deterministic sizing policy for the horizontally scrollable Quick Destinations strip. */
 public final class InCarQuickDestinationsLayoutPolicy
 {
-  public static final int PRIMARY_ACTION_WIDTH_DP = 96;
-  public static final int ACTION_SIZE_DP = 56;
-  public static final int ACTION_GAP_DP = 8;
+  public static final int PRIMARY_ACTION_WIDTH_DP = 64;
+  public static final int ACTION_SIZE_DP = 64;
+  public static final int ACTION_GAP_DP = 10;
   private static final int HORIZONTAL_PADDING_DP = 24;
 
   private InCarQuickDestinationsLayoutPolicy() {}
@@ -18,7 +18,7 @@ public final class InCarQuickDestinationsLayoutPolicy
     if (visibleDestinationActions <= 0)
       return HORIZONTAL_PADDING_DP + PRIMARY_ACTION_WIDTH_DP + ACTION_GAP_DP;
     return HORIZONTAL_PADDING_DP + PRIMARY_ACTION_WIDTH_DP + ACTION_GAP_DP
-  + visibleDestinationActions * (ACTION_SIZE_DP + ACTION_GAP_DP);
+        + visibleDestinationActions * (ACTION_SIZE_DP + ACTION_GAP_DP);
   }
 
   @VisibleForTesting
