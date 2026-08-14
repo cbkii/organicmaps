@@ -67,6 +67,20 @@
   </androidx.preference.PreferenceCategory>
 
   <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_settings_navigation_audio">
+
+    <ListPreference
+      android:defaultValue="tone_all"
+      android:dialogTitle="@string/in_car_navigation_fallback_title"
+      android:entries="@array/in_car_navigation_fallback_mode_entries"
+      android:entryValues="@array/in_car_navigation_fallback_mode_values"
+      android:key="@string/pref_in_car_navigation_fallback_mode"
+      android:persistent="false"
+      android:title="@string/in_car_navigation_fallback_title"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+
+  <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_maintenance">
 
     <SwitchPreferenceCompat

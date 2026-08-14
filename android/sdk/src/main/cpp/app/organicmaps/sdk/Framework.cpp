@@ -1250,19 +1250,32 @@ JNIEXPORT void Java_app_organicmaps_sdk_Framework_nativeDisableFollowing(JNIEnv 
   frm()->GetRoutingManager().DisableFollowMode();
 }
 
-JNIEXPORT jobjectArray Java_app_organicmaps_sdk_Framework_nativeGenerateNotifications(JNIEnv * env, jclass,
-                                                                                      jboolean announceStreets)
+static_assert(static_cast<int>(routing::NotificationEvent::Maneuver) == 1);
+static_assert(static_cast<int>(routing::NotificationEvent::RouteRecalculation) == 2);
+static_assert(static_cast<int>(routing::NotificationEvent::SpeedCamera) == 3);
+static_assert(static_cast<int>(routing::NotificationStage::None) == 0);
+static_assert(static_cast<int>(routing::NotificationStage::Advance) == 1);
+static_assert(static_cast<int>(routing::NotificationStage::Immediate) == 2);
+
+JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGenerateNotifications(JNIEnv * env, jclass,
+                                                                                 jboolean announceStreets)
 {
   ::Framework * fr = frm();
   if (!fr->GetRoutingManager().IsRoutingActive())
     return nullptr;
 
   std::vector<std::string> notifications;
-  fr->GetRoutingManager().GenerateNotifications(notifications, announceStreets);
-  if (notifications.empty())
+  routing::NotificationStage stage;
+  auto const event = fr->GetRoutingManager().GenerateNotifications(notifications, announceStreets, &stage);
+  if (event == routing::NotificationEvent::None && notifications.empty())
     return nullptr;
 
-  return jni::ToJavaStringArray(env, notifications);
+  jni::TScopedLocalClassRef const notificationClass(
+      env, env->FindClass("app/organicmaps/sdk/routing/NavigationNotification"));
+  jni::TScopedLocalObjectArrayRef const texts(env, jni::ToJavaStringArray(env, notifications));
+  auto const constructor = jni::GetConstructorID(env, notificationClass.get(), "([Ljava/lang/String;II)V");
+  return env->NewObject(notificationClass.get(), constructor, texts.get(), static_cast<jint>(event),
+                        static_cast<jint>(stage));
 }
 
 JNIEXPORT void Java_app_organicmaps_sdk_Framework_nativeSetSpeedCamManagerMode(JNIEnv * env, jclass, jint mode)

@@ -212,7 +212,8 @@ public:
   ///
   /// \note Current notifications will be deleted after call and second call
   /// will not return previous data, only newer.
-  void GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets);
+  routing::NotificationEvent GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets,
+                                                   routing::NotificationStage * stage = nullptr);
 
   void AddRoutePoint(RouteMarkData && markData, bool reorderIntermediatePoints = true);
   bool ContinueRouteToPoint(RouteMarkData && markData);

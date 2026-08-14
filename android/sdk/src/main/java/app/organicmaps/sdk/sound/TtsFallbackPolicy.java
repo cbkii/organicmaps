@@ -6,13 +6,14 @@ public final class TtsFallbackPolicy
 {
   private TtsFallbackPolicy() {}
 
-  public static boolean shouldPlayFallback(@NonNull TtsPlayer.State state, boolean ttsWasEnabledBeforeReady)
+  public static boolean shouldPlayFallback(@NonNull TtsPlayer.State state, boolean fallbackEnabled)
   {
-    return switch (state)
-    {
-      case INITIALIZING -> ttsWasEnabledBeforeReady;
-      case UNAVAILABLE, NEEDS_LANGUAGE -> true;
-      case READY_ON, READY_OFF -> false;
-    };
+    return fallbackEnabled && state != TtsPlayer.State.READY_ON;
+  }
+
+  public static boolean shouldGenerateNotifications(boolean systemTtsEnabled, boolean fallbackCapable,
+                                                    boolean fallbackEnabled)
+  {
+    return systemTtsEnabled || (fallbackCapable && fallbackEnabled);
   }
 }
