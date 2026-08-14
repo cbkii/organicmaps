@@ -11,6 +11,7 @@ using namespace std;
 using routing::turns::CarDirection;
 using routing::turns::TurnItemDist;
 using routing::turns::sound::NotificationManager;
+using routing::turns::sound::PronouncedNotification;
 using routing::turns::sound::Settings;
 
 // An error to compare two double after conversion feet to meters.
@@ -164,6 +165,30 @@ UNIT_TEST(TurnsSound_MetersTest)
   TEST_EQUAL(notificationManager.GetSecondTurnNotification(), CarDirection::None, ());
 
   TEST(notificationManager.IsEnabled(), ());
+}
+
+UNIT_TEST(TurnsSound_EventCadenceWithoutTtsLocaleTest)
+{
+  auto notificationManager = NotificationManager::CreateNotificationManagerForTesting(
+      5 /* startBeforeSeconds */, 10 /* minStartBeforeMeters */, 100 /* maxStartBeforeMeters */,
+      100 /* minDistToSayNotificationMeters */, measurement_utils::Units::Metric, {} /* engShortJson */,
+      20 /* notificationTimeSecond */, 30.0 /* speedMeterPerSecond */);
+
+  vector<TurnItemDist> turns = {{{5 /* idx */, CarDirection::TurnRight}, 699.}};
+  vector<string> turnNotifications;
+
+  TEST(notificationManager.GenerateTurnNotifications(turns, turnNotifications), ());
+  TEST(turnNotifications.empty(), ());
+  TEST_EQUAL(notificationManager.GetNotificationProgress(), PronouncedNotification::First, ());
+
+  TEST(!notificationManager.GenerateTurnNotifications(turns, turnNotifications), ());
+
+  turns.front().m_distMeters = 99.;
+  TEST(notificationManager.GenerateTurnNotifications(turns, turnNotifications), ());
+  TEST(turnNotifications.empty(), ());
+  TEST_EQUAL(notificationManager.GetNotificationProgress(), PronouncedNotification::Second, ());
+
+  TEST(!notificationManager.GenerateTurnNotifications(turns, turnNotifications), ());
 }
 
 // Test case:

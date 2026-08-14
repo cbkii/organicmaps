@@ -1247,9 +1247,11 @@ void RoutingManager::ReorderIntermediatePoints()
     prevPoints[i]->SetIntermediateIndex(i < insertIndex ? i : i + 1);
 }
 
-void RoutingManager::GenerateNotifications(std::vector<std::string> & turnNotifications, bool announceStreets)
+routing::NotificationEvent RoutingManager::GenerateNotifications(std::vector<std::string> & turnNotifications,
+                                                                 bool announceStreets,
+                                                                 routing::NotificationStage * stage)
 {
-  m_routingSession.GenerateNotifications(turnNotifications, announceStreets);
+  return m_routingSession.GenerateNotifications(turnNotifications, announceStreets, stage);
 }
 
 void RoutingManager::BuildRoute(uint32_t timeoutSec)

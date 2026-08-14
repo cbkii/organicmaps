@@ -4,6 +4,7 @@
   <string name="in_car_settings_summary">Driving View, map display and head-unit options.</string>
   <string name="in_car_settings_driving_view">Driving View</string>
   <string name="in_car_settings_map_display">Map &amp; Display</string>
+  <string name="in_car_settings_navigation_audio">Navigation Audio</string>
   <string name="in_car_settings_maintenance">Maintenance</string>
 
   <string name="in_car_optimised_visuals_title">In-Car Optimised Visuals</string>
@@ -53,6 +54,18 @@
 
   <string name="in_car_budget_rendering_title">Budget Rendering</string>
   <string name="in_car_budget_rendering_summary">Reduce optional rendering cost by disabling 3D buildings while keeping Driving View perspective available.</string>
+
+  <string name="in_car_navigation_fallback_title">Fallback when Android TTS is unavailable</string>
+  <string-array name="in_car_navigation_fallback_mode_entries">
+    <item>Off</item>
+    <item>Voice clips</item>
+    <item>One tone — alerts only</item>
+    <item>One tone — all events</item>
+  </string-array>
+  <string name="in_car_navigation_fallback_off_summary">No fallback sound when Android text-to-speech is off or unavailable.</string>
+  <string name="in_car_navigation_fallback_voice_summary">Use voice clips for immediate manoeuvres, reroutes and GPS changes; use one tone for advance prompts, speed cameras, unmapped events or pack failures.</string>
+  <string name="in_car_navigation_fallback_tone_alerts_summary">Silence normal turn prompts and play one tone only for speed-camera warnings and GPS loss.</string>
+  <string name="in_car_navigation_fallback_tone_all_summary">Play one tone for every navigation event and critical alert.</string>
 
   <string name="in_car_map_age_warning_title">Outdated map notice</string>
   <string name="in_car_map_age_warning_summary">Show a non-blocking notice when the installed global map-data version is more than six months old.</string>

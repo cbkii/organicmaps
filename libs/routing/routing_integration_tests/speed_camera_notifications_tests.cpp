@@ -71,8 +71,9 @@ void InitRoutingSession(ms::LatLon const & from, ms::LatLon const & to, RoutingS
 bool CheckVoiceNotification(RoutingSession & routingSession)
 {
   vector<string> notifications;
-  routingSession.GenerateNotifications(notifications, false);
-  return any_of(notifications.begin(), notifications.end(), [](auto const & item) { return item == kCameraOnTheWay; });
+  auto const event = routingSession.GenerateNotifications(notifications, false);
+  return event == NotificationEvent::SpeedCamera &&
+         any_of(notifications.begin(), notifications.end(), [](auto const & item) { return item == kCameraOnTheWay; });
 }
 
 bool CheckBeepSignal(RoutingSession & routingSession)

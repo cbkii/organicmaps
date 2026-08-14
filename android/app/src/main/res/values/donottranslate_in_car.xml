@@ -7,6 +7,14 @@
   <string name="pref_in_car_automatic_driving_view" translatable="false">pref_in_car_automatic_driving_view</string>
   <string name="pref_in_car_auto_return_driving_view" translatable="false">pref_in_car_auto_return_driving_view</string>
   <string name="pref_in_car_budget_rendering" translatable="false">pref_in_car_budget_rendering</string>
+  <string name="pref_in_car_navigation_fallback_mode" translatable="false">pref_in_car_navigation_fallback_mode</string>
+  <string name="pref_in_car_offline_navigation_voice_pack" translatable="false">pref_in_car_offline_navigation_voice_pack</string>
+  <string-array name="in_car_navigation_fallback_mode_values" translatable="false">
+    <item>off</item>
+    <item>voice</item>
+    <item>tone_alerts</item>
+    <item>tone_all</item>
+  </string-array>
   <string name="pref_in_car_map_age_warning" translatable="false">pref_in_car_map_age_warning</string>
   <string name="pref_in_car_quick_destinations" translatable="false">pref_in_car_quick_destinations</string>
   <string name="pref_in_car_quick_home_config" translatable="false">InCarQuickHomeConfig</string>

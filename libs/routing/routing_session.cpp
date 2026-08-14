@@ -29,6 +29,21 @@ namespace routing
 using namespace location;
 using namespace traffic;
 
+namespace detail
+{
+NotificationEvent SelectGeneratedNotificationEvent(bool maneuverGenerated, bool speedCameraGenerated,
+                                                   NotificationStage * stage)
+{
+  if (speedCameraGenerated)
+  {
+    if (stage != nullptr)
+      *stage = NotificationStage::None;
+    return NotificationEvent::SpeedCamera;
+  }
+  return maneuverGenerated ? NotificationEvent::Maneuver : NotificationEvent::None;
+}
+}  // namespace detail
+
 void FormatDistance(double dist, std::string & value, std::string & suffix)
 {
   platform::Distance d = platform::Distance::CreateFormatted(dist);
@@ -497,27 +512,33 @@ void RoutingSession::PassCheckpoints()
   }
 }
 
-void RoutingSession::GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets)
+NotificationEvent RoutingSession::GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets,
+                                                        NotificationStage * stage)
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
   notifications.clear();
+  if (stage != nullptr)
+    *stage = NotificationStage::None;
 
   // Generate recalculating notification if needed and reset
   if (m_routingRebuildCount > m_routingRebuildAnnounceCount)
   {
     m_routingRebuildAnnounceCount = m_routingRebuildCount;
-    notifications.emplace_back(m_turnNotificationsMgr.GenerateRecalculatingText());
-    return;
+    auto const text = m_turnNotificationsMgr.GenerateRecalculatingText();
+    if (!text.empty())
+      notifications.emplace_back(text);
+    return NotificationEvent::RouteRecalculation;
   }
 
   // Voice turn notifications.
   if (!m_routingSettings.m_soundDirection)
-    return;
+    return NotificationEvent::None;
 
   if (!IsRouteValid() || !IsNavigable())
-    return;
+    return NotificationEvent::None;
 
   // Generate turns notifications.
+  bool maneuverGenerated = false;
   std::vector<turns::TurnItemDist> turns;
   if (m_route->GetNextTurns(turns))
   {
@@ -527,14 +548,28 @@ void RoutingSession::GenerateNotifications(std::vector<std::string> & notificati
     if (announceStreets)
       m_route->GetNextTurnStreetName(nextStreetInfo);
 
-    m_turnNotificationsMgr.GenerateTurnNotifications(turns, notifications, nextStreetInfo);
+    maneuverGenerated = m_turnNotificationsMgr.GenerateTurnNotifications(turns, notifications, nextStreetInfo);
+    if (maneuverGenerated)
+    {
+      NotificationStage generatedStage = NotificationStage::None;
+      switch (m_turnNotificationsMgr.GetNotificationProgress())
+      {
+      case turns::sound::PronouncedNotification::Nothing: break;
+      case turns::sound::PronouncedNotification::First: generatedStage = NotificationStage::Advance; break;
+      case turns::sound::PronouncedNotification::Second: generatedStage = NotificationStage::Immediate; break;
+      }
+      if (stage != nullptr)
+        *stage = generatedStage;
+    }
   }
 
-  m_speedCameraManager.GenerateNotifications(notifications);
+  bool const speedCameraGenerated = m_speedCameraManager.GenerateNotifications(notifications);
 
   // Log turn notifications TTS
   for (auto const & n : notifications)
     LOG(LDEBUG, ("TTS:", n));
+
+  return detail::SelectGeneratedNotificationEvent(maneuverGenerated, speedCameraGenerated, stage);
 }
 
 void RoutingSession::AssignRoute(std::shared_ptr<RoutesResult> const & result, RouterResultCode e)

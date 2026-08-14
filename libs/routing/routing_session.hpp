@@ -31,6 +31,27 @@ class RouteMatchingInfo;
 
 namespace routing
 {
+enum class NotificationEvent
+{
+  None = 0,
+  Maneuver = 1,
+  RouteRecalculation = 2,
+  SpeedCamera = 3,
+};
+
+enum class NotificationStage
+{
+  None = 0,
+  Advance = 1,
+  Immediate = 2,
+};
+
+namespace detail
+{
+NotificationEvent SelectGeneratedNotificationEvent(bool maneuverGenerated, bool speedCameraGenerated,
+                                                   NotificationStage * stage);
+}  // namespace detail
+
 /// \breaf This class is responsible for the route built in the program.
 /// \note All method of this class should be called from ui thread if there's no
 /// a special note near a method.
@@ -124,7 +145,8 @@ public:
   void SetSpeedCamClearCallback(SpeedCameraClearCallback && callback);
 
   // Sound notifications for turn instructions.
-  void GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets);
+  NotificationEvent GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets,
+                                          NotificationStage * stage = nullptr);
   void EnableTurnNotifications(bool enable);
   void SetTurnNotificationsUnits(measurement_utils::Units const units);
   void SetTurnNotificationsLocale(std::string const & locale);

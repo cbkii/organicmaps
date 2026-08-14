@@ -106,8 +106,7 @@ public enum TtsPlayer
 
   private final Bundle mParams = new Bundle();
 
-  @SuppressWarnings("NotNullFieldNotInitialized")
-  @NonNull
+  @Nullable
   private Context mContext;
 
   // Lockdown reasons: init ERROR, no OM-supported languages, engine IllegalArgumentException.
@@ -259,11 +258,11 @@ public enum TtsPlayer
           // old-engine callback will detect its stale generation and bail without resetting it.
           mUnavailable = false;
           mInitializing = false;
-          initialize(mContext);
+          initialize(context);
         }
       };
-      mContext.getContentResolver().registerContentObserver(Settings.Secure.getUriFor("tts_default_synth"), false,
-                                                            mTtsEngineObserver);
+      context.getContentResolver().registerContentObserver(Settings.Secure.getUriFor("tts_default_synth"), false,
+                                                           mTtsEngineObserver);
     }
   }
 
@@ -386,14 +385,19 @@ public enum TtsPlayer
 
   public static boolean isEnabled()
   {
-    return (isReady() && nativeAreTurnNotificationsEnabled());
+    return getState() == State.READY_ON;
   }
 
   public static void setEnabled(boolean enabled)
   {
     final boolean wasEnabled = Config.TTS.isEnabled();
     Config.TTS.setEnabled(enabled);
-    nativeEnableTurnNotifications(enabled);
+
+    final Context context = INSTANCE.mContext;
+    final boolean fallbackEnabled = context != null && OfflineNavigationVoicePack.isFallbackEnabled(context);
+    nativeEnableTurnNotifications(
+        TtsFallbackPolicy.shouldGenerateNotifications(enabled, Config.isInCar(), fallbackEnabled));
+
     if (wasEnabled != enabled)
       notifyStateChanged();
   }

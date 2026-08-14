@@ -8,28 +8,33 @@ import org.junit.Test;
 public class TtsFallbackPolicyTest
 {
   @Test
-  public void unavailableEngineUsesFallback()
-  {
-    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.UNAVAILABLE, false));
-  }
-
-  @Test
-  public void missingLanguageUsesFallback()
-  {
-    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.NEEDS_LANGUAGE, false));
-  }
-
-  @Test
-  public void initializingUsesSavedVoiceIntent()
+  public void enabledFallbackCoversEveryNonSpeakingState()
   {
     assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.INITIALIZING, true));
-    assertFalse(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.INITIALIZING, false));
+    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.UNAVAILABLE, true));
+    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.NEEDS_LANGUAGE, true));
+    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.READY_OFF, true));
   }
 
   @Test
-  public void readyStatesDoNotUseFallback()
+  public void readySystemTtsRemainsPreferred()
   {
     assertFalse(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.READY_ON, true));
-    assertFalse(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.READY_OFF, true));
+  }
+
+  @Test
+  public void disabledFallbackNeverPlays()
+  {
+    for (TtsPlayer.State state : TtsPlayer.State.values())
+      assertFalse(TtsFallbackPolicy.shouldPlayFallback(state, false));
+  }
+
+  @Test
+  public void nativeEventsRemainEnabledForInCarFallbackWithoutConsultingVoiceAssets()
+  {
+    assertTrue(TtsFallbackPolicy.shouldGenerateNotifications(false, true, true));
+    assertFalse(TtsFallbackPolicy.shouldGenerateNotifications(false, true, false));
+    assertFalse(TtsFallbackPolicy.shouldGenerateNotifications(false, false, true));
+    assertTrue(TtsFallbackPolicy.shouldGenerateNotifications(true, false, false));
   }
 }

@@ -35,15 +35,20 @@ import app.organicmaps.sdk.OrganicMaps;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationListener;
 import app.organicmaps.sdk.location.LocationUtils;
+import app.organicmaps.sdk.routing.NavigationNotification;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.sound.MediaPlayerWrapper;
+import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsFallbackPolicy;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.Assert;
 import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.Graphics;
 import app.organicmaps.sdk.util.log.Logger;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class NavigationService extends Service implements LocationListener
 {
@@ -65,6 +70,9 @@ public class NavigationService extends Service implements LocationListener
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
   private MediaPlayerWrapper mPlayer;
+  @NonNull
+  private final OfflineNavigationVoicePack.GpsSignalState mGpsSignalState =
+      new OfflineNavigationVoicePack.GpsSignalState();
 
   // Destroyed in onDestroy(). Uses application context to avoid leaking Activity.
   @Nullable
@@ -114,7 +122,7 @@ public class NavigationService extends Service implements LocationListener
   }
 
   /**
-   * Stop the foreground service for  turn-by-turn voice-guided navigation.
+   * Stop the foreground service for turn-by-turn voice-guided navigation.
    *
    * @param context Context to stop service from.
    */
@@ -308,6 +316,92 @@ public class NavigationService extends Service implements LocationListener
     mLastNotificationStreet = nextStreet;
   }
 
+  private boolean playFallback(@NonNull OfflineNavigationVoicePack.Mode mode,
+                               @Nullable NavigationNotification notification, @Nullable RoutingInfo routingInfo,
+                               @NonNull OfflineNavigationVoicePack.GpsSignalEvent gpsSignalEvent)
+  {
+    final boolean hasRoutingEvent = notification != null;
+    final boolean hasGpsEvent = gpsSignalEvent != OfflineNavigationVoicePack.GpsSignalEvent.NONE;
+    final boolean engineWarning = OfflineNavigationVoicePack.isCriticalEvent(routingInfo);
+    final boolean speedCameraEvent =
+        notification != null && notification.getEvent() == NavigationNotification.Event.SPEED_CAMERA;
+    final boolean criticalEvent =
+        engineWarning || speedCameraEvent || gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST;
+
+    if (mode == OfflineNavigationVoicePack.Mode.VOICE)
+    {
+      // A typed engine warning outranks a simultaneous manoeuvre cue. Otherwise the
+      // normal clip could consume the cycle and suppress the safety tone below.
+      if ((engineWarning || speedCameraEvent) && sTtsFallbackSoundResId != 0)
+        return mPlayer.playback(sTtsFallbackSoundResId);
+
+      final List<File> clips = new ArrayList<>();
+      if (gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST)
+        clips.addAll(
+            OfflineNavigationVoicePack.resolveCurrentCues(this, routingInfo, OfflineNavigationVoicePack.Cue.GPS_LOST));
+      else if (gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.RESTORED)
+        clips.addAll(OfflineNavigationVoicePack.resolveCurrentCues(this, routingInfo,
+                                                                   OfflineNavigationVoicePack.Cue.GPS_RESTORED));
+
+      if (notification != null)
+      {
+        if (OfflineNavigationVoicePack.shouldPlayVoiceCue(notification.getEvent(), notification.getStage()))
+        {
+          final OfflineNavigationVoicePack.Cue cue =
+              notification.getEvent() == NavigationNotification.Event.ROUTE_RECALCULATION
+                  ? OfflineNavigationVoicePack.Cue.ROUTE_UPDATED
+                  : OfflineNavigationVoicePack.Cue.MANEUVER;
+          clips.addAll(OfflineNavigationVoicePack.resolveCurrentCues(this, routingInfo, cue));
+        }
+      }
+
+      if (!clips.isEmpty() && mPlayer.playback(clips))
+        return true;
+
+      // Voice mode deliberately falls back to the one-tone alert for an unmapped
+      // event or a pack-integrity/extraction failure.
+      if ((hasRoutingEvent || hasGpsEvent) && sTtsFallbackSoundResId != 0)
+        return mPlayer.playback(sTtsFallbackSoundResId);
+      return false;
+    }
+
+    if (sTtsFallbackSoundResId == 0
+        || !OfflineNavigationVoicePack.shouldPlayTone(mode, hasRoutingEvent || hasGpsEvent, criticalEvent))
+      return false;
+
+    return mPlayer.playback(sTtsFallbackSoundResId);
+  }
+
+  private void onLocationUnavailable()
+  {
+    if (!RoutingController.get().isNavigating())
+      return;
+
+    final OfflineNavigationVoicePack.GpsSignalEvent event = mGpsSignalState.onUnavailable();
+    if (event == OfflineNavigationVoicePack.GpsSignalEvent.NONE)
+      return;
+
+    final TtsPlayer.State ttsState = TtsPlayer.getState();
+    if (!TtsFallbackPolicy.shouldPlayFallback(ttsState, OfflineNavigationVoicePack.isFallbackEnabled(this)))
+      return;
+
+    final OfflineNavigationVoicePack.Mode fallbackMode = OfflineNavigationVoicePack.getMode(this);
+    if (playFallback(fallbackMode, null, Framework.nativeGetRouteFollowingInfo(), event))
+      Logger.d(TAG, "Played GPS-loss fallback; mode=" + fallbackMode + ", state=" + ttsState);
+  }
+
+  @Override
+  public void onLocationUpdateTimeout()
+  {
+    onLocationUnavailable();
+  }
+
+  @Override
+  public void onLocationDisabled()
+  {
+    onLocationUnavailable();
+  }
+
   @Override
   @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
   public void onLocationUpdated(@NonNull Location location)
@@ -317,22 +411,25 @@ public class NavigationService extends Service implements LocationListener
     if (!routingController.isNavigating())
       return;
 
-    // Voice the turn notification first. If TTS cannot produce the requested voice guidance in the InCar flavour,
-    // use the configured short fallback alert rather than silently losing the navigation event.
+    final OfflineNavigationVoicePack.GpsSignalEvent gpsSignalEvent = mGpsSignalState.onLocationUpdated();
+    final NavigationNotification notification = Framework.nativeGenerateNotifications(Config.TTS.getAnnounceStreets());
+    final String[] turnNotifications = notification == null ? null : notification.getTexts();
+    final RoutingInfo routingInfo = Framework.nativeGetRouteFollowingInfo();
+    final TtsPlayer.State ttsState = TtsPlayer.getState();
     boolean playedTtsFallback = false;
-    final String[] turnNotifications = Framework.nativeGenerateNotifications(Config.TTS.getAnnounceStreets());
-    if (turnNotifications != null && turnNotifications.length > 0)
+
+    if (OfflineNavigationVoicePack.hasNotifications(turnNotifications) && ttsState == TtsPlayer.State.READY_ON)
     {
-      final TtsPlayer.State ttsState = TtsPlayer.getState();
-      if (ttsState == TtsPlayer.State.READY_ON)
+      TtsPlayer.INSTANCE.playTurnNotifications(turnNotifications);
+    }
+    else
+    {
+      final OfflineNavigationVoicePack.Mode fallbackMode = OfflineNavigationVoicePack.getMode(this);
+      if (TtsFallbackPolicy.shouldPlayFallback(ttsState, OfflineNavigationVoicePack.isFallbackEnabled(this)))
       {
-        TtsPlayer.INSTANCE.playTurnNotifications(turnNotifications);
-      }
-      else if (sTtsFallbackSoundResId != 0 && TtsFallbackPolicy.shouldPlayFallback(ttsState, Config.TTS.isEnabled()))
-      {
-        Logger.d(TAG, "TTS unavailable for navigation event, playing fallback alert; state=" + ttsState);
-        mPlayer.playback(sTtsFallbackSoundResId);
-        playedTtsFallback = true;
+        playedTtsFallback = playFallback(fallbackMode, notification, routingInfo, gpsSignalEvent);
+        if (playedTtsFallback)
+          Logger.d(TAG, "Played navigation fallback; mode=" + fallbackMode + ", state=" + ttsState);
       }
     }
 
@@ -349,7 +446,6 @@ public class NavigationService extends Service implements LocationListener
       return;
     }
 
-    final RoutingInfo routingInfo = Framework.nativeGetRouteFollowingInfo();
     if (routingInfo == null)
       return;
 
