@@ -11,23 +11,37 @@ namespace
 {
 
 std::string_view constexpr kEnabledKey = "GpsTrackingEnabled";
+std::string_view constexpr kAutoResumeFeatureKey = "GpsTrackingAutoResumeFeatureEnabled";
+std::string_view constexpr kAutoResumeSessionKey = "GpsTrackingAutoResumeSession";
 
 inline std::string GetFilePath()
 {
   return base::JoinPath(GetPlatform().WritableDir(), GPS_TRACK_FILENAME);
 }
 
-inline bool GetSettingsIsEnabled()
+inline bool GetBoolSetting(std::string_view key)
 {
   bool enabled;
-  if (!settings::Get(kEnabledKey, enabled))
+  if (!settings::Get(key, enabled))
     enabled = false;
   return enabled;
 }
 
-inline void SetSettingsIsEnabled(bool enabled)
+inline void SetBoolSetting(std::string_view key, bool enabled)
 {
-  settings::Set(kEnabledKey, enabled);
+  settings::Set(key, enabled);
+}
+
+inline bool ShouldAutoResume()
+{
+  return GetBoolSetting(kEnabledKey) && GetBoolSetting(kAutoResumeFeatureKey) &&
+         GetBoolSetting(kAutoResumeSessionKey);
+}
+
+inline void ClearAutoResumeSession()
+{
+  SetBoolSetting(kEnabledKey, false);
+  SetBoolSetting(kAutoResumeSessionKey, false);
 }
 
 }  // namespace
@@ -38,19 +52,47 @@ GpsTracker & GpsTracker::Instance()
   return instance;
 }
 
-GpsTracker::GpsTracker() : m_enabled(GetSettingsIsEnabled()), m_track(GetFilePath(), std::make_unique<GpsTrackFilter>())
-{}
+GpsTracker::GpsTracker() : m_enabled(ShouldAutoResume()), m_track(GetFilePath(), std::make_unique<GpsTrackFilter>())
+{
+  // Old builds persisted GpsTrackingEnabled for every recording. Require both new explicit consent
+  // markers before restoring it so an upgrade cannot unexpectedly resume a legacy recording.
+  if (!m_enabled)
+    ClearAutoResumeSession();
+}
 
 void GpsTracker::SetEnabled(bool enabled)
 {
   if (enabled == m_enabled)
     return;
 
-  SetSettingsIsEnabled(enabled);
-  m_enabled = enabled;
-
   if (enabled)
+  {
+    // A newly started recording is once-only until the user explicitly opts this session into
+    // auto-resume. This also prevents a crash between start and the resume-mode choice from arming
+    // future recording unexpectedly.
+    ClearAutoResumeSession();
     m_track.Clear();
+  }
+  else
+  {
+    ClearAutoResumeSession();
+  }
+
+  m_enabled = enabled;
+}
+
+void GpsTracker::SetAutoResumeFeatureEnabled(bool enabled)
+{
+  SetBoolSetting(kAutoResumeFeatureKey, enabled);
+  if (!enabled)
+    ClearAutoResumeSession();
+}
+
+void GpsTracker::SetAutoResumeForCurrentRecording(bool enabled)
+{
+  bool const allow = enabled && m_enabled && GetBoolSetting(kAutoResumeFeatureKey);
+  SetBoolSetting(kAutoResumeSessionKey, allow);
+  SetBoolSetting(kEnabledKey, allow);
 }
 
 void GpsTracker::Clear()
