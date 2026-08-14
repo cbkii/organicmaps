@@ -16,19 +16,16 @@ on:
       - README.md
       - android/app/src/fdroid/**
       - android/app/src/google/**
-      - iphone/**
       - data/organic_maps_emoji/**
       - data/strings/**
       - docs/**
       - generator/**
-      - packaging/**
       - platform/*apple*
       - platform/*_ios*
       - platform/*_linux*
       - platform/*_mac*
       - platform/*qt*
       - platform/*_win*
-      - qt*/**
       - skin_generator/**
       - tools/**
       - track_generator/**
@@ -37,6 +34,9 @@ jobs:
   lint:
     name: Android Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     env:
       JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64  # Java 17 is required for Android Gradle 8 plugin
     steps:
@@ -54,7 +54,9 @@ jobs:
         working-directory: android
         run: ./gradlew lintAllModules
 
-      # Reviewdog is needed for the action below to report issues in the PR.
+      # Reviewdog reports the already-generated merged lint XML as a check. The
+      # Android-only cleanup intentionally avoids fetching the inherited full
+      # repository history merely to construct a PR diff for annotations.
       - name: Install reviewdog
         uses: reviewdog/action-setup@v1
 
@@ -63,8 +65,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           lint_xml_file: android/build/reports/lint/lint.xml
-          reporter: github-pr-review
+          reporter: github-check
           level: warning
+          reviewdog_flags: '-filter-mode=nofilter'
 
       - name: Upload Android Lint Report
         uses: actions/upload-artifact@v7
