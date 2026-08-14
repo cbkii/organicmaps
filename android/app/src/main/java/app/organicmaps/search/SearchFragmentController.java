@@ -86,7 +86,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
         hideSearchSheet();
     }
   };
-  private final Observer<Boolean> mInCarMapModeObserver = mapMode -> {
+  private final Observer<Boolean> mInCarMapModeObserver = mapMode ->
+  {
     if (!BuildConfig.IS_IN_CAR || mBottomSheetBehavior == null)
       return;
     final boolean showMap = Boolean.TRUE.equals(mapMode);
@@ -264,8 +265,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     int available = getResources().getDisplayMetrics().widthPixels;
     if (mCurrentWindowInsets != null)
     {
-      final Insets bars =
-          mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+      final Insets bars = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                                                         | WindowInsetsCompat.Type.displayCutout());
       available -= bars.left + bars.right;
     }
     final float fraction = getResources().getFraction(R.fraction.in_car_search_panel_width_fraction, 1, 1);
