@@ -6,11 +6,15 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.view.Window;
+import android.widget.ArrayAdapter;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -99,7 +103,7 @@ public final class InCarQuickDestinationsUi
 
     @Nullable
     private MaterialButton mPrimaryButton;
-    private boolean mExpanded = true;
+    private boolean mExpanded;
     private boolean mRegular = true;
     private boolean mButtonsHidden;
     private boolean mSearchOpen;
@@ -113,6 +117,7 @@ public final class InCarQuickDestinationsUi
       mRoot = root;
       mContainer = container;
       mPrefs = MwmApplication.prefs(activity);
+      mExpanded = !InCarQuickDestinationsStore.startCollapsed(activity);
       final ViewModelProvider provider = new ViewModelProvider(activity);
       mMapButtonsViewModel = provider.get(MapButtonsViewModel.class);
       mRoutingPlanViewModel = provider.get(RoutingPlanViewModel.class);
@@ -210,17 +215,15 @@ public final class InCarQuickDestinationsUi
                      () -> openCategory(InCarQuickCategoryPolicy.Category.FOOD));
 
       addDestinationAction(InCarQuickDestinationsStore.Action.HOME, InCarQuickDestinationsStore.getHome(mActivity),
-                           R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home,
-                           false);
+                           R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home);
       addDestinationAction(InCarQuickDestinationsStore.Action.WORK, InCarQuickDestinationsStore.getWork(mActivity),
-                           R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work, R.color.in_car_quick_work,
-                           false);
+                           R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work, R.color.in_car_quick_work);
       addDestinationAction(InCarQuickDestinationsStore.Action.RECENT_1,
-                           InCarQuickDestinationsStore.getRecent(mActivity, 1), R.string.in_car_quick_recent_1, 0,
-                           R.color.in_car_quick_recent_1, true);
+                           InCarQuickDestinationsStore.getRecent(mActivity, 1), R.string.in_car_quick_recent_1,
+                           R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_1);
       addDestinationAction(InCarQuickDestinationsStore.Action.RECENT_2,
-                           InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2, 0,
-                           R.color.in_car_quick_recent_2, true);
+                           InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2,
+                           R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_2);
       renderVisibility();
       renderExpansion();
     }
@@ -229,8 +232,7 @@ public final class InCarQuickDestinationsUi
     {
       final MaterialButton button =
           createButton(R.color.in_car_quick_primary, InCarQuickDestinationsLayoutPolicy.PRIMARY_ACTION_WIDTH_DP);
-      button.setTextColor(quickForegroundColor());
-      button.setTextSize(14.0f);
+      applyIcon(button, R.drawable.ic_in_car_quick_toggle);
       button.setOnClickListener(v -> {
         mExpanded = !mExpanded;
         renderExpansion();
@@ -246,8 +248,7 @@ public final class InCarQuickDestinationsUi
         return;
 
       final MaterialButton button = createButton(colorRes);
-      button.setIconResource(iconRes);
-      button.setIconTint(ColorStateList.valueOf(quickForegroundColor()));
+      applyIcon(button, iconRes);
       button.setContentDescription(mActivity.getString(labelRes));
       button.setOnClickListener(v -> click.run());
       mContainer.addView(button);
@@ -255,7 +256,7 @@ public final class InCarQuickDestinationsUi
 
     private void addDestinationAction(@NonNull InCarQuickDestinationsStore.Action action,
                                       @Nullable InCarQuickDestination destination, @StringRes int labelRes,
-                                      @DrawableRes int iconRes, @ColorRes int colorRes, boolean useGlyph)
+                                      @DrawableRes int iconRes, @ColorRes int colorRes)
     {
       if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action),
                                                    destination != null))
@@ -264,22 +265,21 @@ public final class InCarQuickDestinationsUi
         return;
 
       final MaterialButton button = createButton(colorRes);
-      if (useGlyph)
-      {
-        button.setText(InCarQuickDestinationGlyphPolicy.glyph(destination.getDisplayLabel()));
-        button.setTextColor(quickForegroundColor());
-        button.setTextSize(18.0f);
-      }
-      else
-      {
-        button.setIconResource(iconRes);
-        button.setIconTint(ColorStateList.valueOf(quickForegroundColor()));
-      }
-
+      applyIcon(button, iconRes);
       final String displayLabel = destination.getDisplayLabel();
       button.setContentDescription(displayLabel.isEmpty() ? mActivity.getString(labelRes) : displayLabel);
       button.setOnClickListener(v -> mActivity.startLocationToPoint(destination.toMapObject()));
       mContainer.addView(button);
+    }
+
+    private void applyIcon(@NonNull MaterialButton button, @DrawableRes int iconRes)
+    {
+      button.setText(null);
+      button.setIconResource(iconRes);
+      button.setIconTint(ColorStateList.valueOf(quickForegroundColor()));
+      button.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+      button.setIconPadding(0);
+      button.setGravity(Gravity.CENTER);
     }
 
     @NonNull
@@ -306,7 +306,7 @@ public final class InCarQuickDestinationsUi
       button.setInsetTop(0);
       button.setInsetBottom(0);
       button.setCornerRadius(dp(18));
-      button.setIconSize(dp(32));
+      button.setIconSize(dp(36));
       button.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(mActivity, colorRes)));
       button.setStrokeWidth(0);
       button.setAllCaps(false);
@@ -318,14 +318,33 @@ public final class InCarQuickDestinationsUi
     {
       final String[] choices = {mActivity.getString(R.string.in_car_quick_fuel),
                                 mActivity.getString(R.string.in_car_quick_charging)};
-      new AlertDialog.Builder(mActivity)
-          .setTitle(R.string.in_car_quick_fuel_charging)
-          .setItems(choices,
-                    (dialog, which) -> {
-                      openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
-                                              : InCarQuickCategoryPolicy.Category.CHARGING);
-                    })
-          .show();
+      final ArrayAdapter<String> adapter = new ArrayAdapter<>(mActivity, android.R.layout.simple_list_item_1, choices) {
+        @NonNull
+        @Override
+        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
+        {
+          final TextView row = (TextView) super.getView(position, convertView, parent);
+          row.setMinHeight(dp(72));
+          row.setGravity(Gravity.CENTER_VERTICAL);
+          row.setPadding(dp(24), 0, dp(24), 0);
+          row.setTextSize(18.0f);
+          return row;
+        }
+      };
+      final AlertDialog dialog = new AlertDialog.Builder(mActivity)
+          .setAdapter(adapter,
+                      (ignored, which) -> openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
+                                                                 : InCarQuickCategoryPolicy.Category.CHARGING))
+          .create();
+      dialog.setOnShowListener(ignored -> {
+        final Window window = dialog.getWindow();
+        if (window == null)
+          return;
+        final int available = mActivity.getResources().getDisplayMetrics().widthPixels - dp(32);
+        final int target = Math.min(dp(560), Math.max(dp(288), available / 2));
+        window.setLayout(target, ViewGroup.LayoutParams.WRAP_CONTENT);
+      });
+      dialog.show();
     }
 
     private void openCategory(@NonNull InCarQuickCategoryPolicy.Category category)
@@ -380,12 +399,8 @@ public final class InCarQuickDestinationsUi
         mContainer.getChildAt(index).setVisibility(mExpanded ? View.VISIBLE : View.GONE);
 
       if (mPrimaryButton != null)
-      {
-        mPrimaryButton.setText(mExpanded ? R.string.in_car_quick_toggle_expanded
-                                         : R.string.in_car_quick_toggle_collapsed);
         mPrimaryButton.setContentDescription(
             mActivity.getString(mExpanded ? R.string.in_car_quick_collapse : R.string.in_car_quick_expand));
-      }
 
       if (!mExpanded)
         mRoot.scrollTo(0, 0);
