@@ -32,6 +32,8 @@
   <string name="in_car_quick_destinations_saved">Saved destinations</string>
   <string name="in_car_quick_expand">Expand Quick Destinations</string>
   <string name="in_car_quick_collapse">Collapse Quick Destinations</string>
+  <string name="in_car_quick_more">More Quick Destinations</string>
+  <string name="in_car_quick_destination_description">%1$s: %2$s</string>
   <string name="in_car_quick_start_collapsed_title">Start Quick Destinations collapsed</string>
   <string name="in_car_quick_start_collapsed_summary">Show only the lightning button when the map first opens.</string>
   <string name="in_car_quick_fuel_charging">Fuel + Charging</string>
