@@ -16,6 +16,10 @@ public class TrackRecorder
 
   public static native boolean nativeIsTrackRecordingEnabled();
 
+  public static native void nativeSetAutoResumeFeatureEnabled(boolean enabled);
+
+  public static native void nativeSetAutoResumeForCurrentRecording(boolean enabled);
+
   public static native void nativeSetTrackRecordingStatsListener(TrackRecorder.TrackRecordingUpdateHandler listener);
 
   public static native ElevationInfo nativeGetElevationInfo();
