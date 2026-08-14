@@ -13,6 +13,8 @@ public:
 
   bool IsEnabled() const;
   void SetEnabled(bool enabled);
+  void SetAutoResumeFeatureEnabled(bool enabled);
+  void SetAutoResumeForCurrentRecording(bool enabled);
   void Clear();
 
   bool IsEmpty() const;
