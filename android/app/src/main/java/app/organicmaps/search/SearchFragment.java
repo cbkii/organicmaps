@@ -10,6 +10,7 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.CallSuper;
@@ -24,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.downloader.CountrySuggestFragment;
@@ -61,19 +63,16 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
   private int mExpandedOffset = 0;
   private View mTabFrame;
   private View mAppBar;
+  @Nullable
+  private ImageView mInCarSearchMode;
   private PlaceholderView mResultsPlaceholder;
   private SearchShimmerView mShimmerView;
   private SearchPageViewModel mSearchViewModel;
 
-  // Debouncer for runSearch() — collapses bursts of keystrokes into a single engine invocation.
-  // searchInteractive() fans out to both SearchInViewport + EverywhereSearch internally, so the
-  // saving doubles for the per-prefix cost. ~200 ms matches the Material Design autocomplete guidance.
   private static final long SEARCH_DEBOUNCE_MS = 200;
   private final Handler mSearchDebounceHandler = new Handler(Looper.getMainLooper());
   private final Runnable mDebouncedRunSearch = this::runSearch;
 
-  // Last (hasQuery, activeTab) snapshot applied by syncNestedScrollingState(); both null until the
-  // first call. Used to skip the repeat work / requestLayout() when neither input changed.
   @Nullable
   private Boolean mNestedScrollingSyncedHasQuery;
   @Nullable
@@ -113,11 +112,10 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
       if (!enabled)
       {
         if (!wasEnabled)
-          return; // spurious disable — sheet was already closed, leave foreign searches alone
+          return;
 
         if (mToolbarController.hasQuery())
           mToolbarController.clear();
-        // cancel() → cancelAllSearches() already resets the engine's stored query.
         SearchEngine.INSTANCE.cancel();
         return;
       }
@@ -130,9 +128,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
       mSearchAdapter.clear();
       stopSearch();
 
-      // setQuery() fires the text watcher, which schedules the debounced search; runSearch() consumes
-      // the pending request (locale). When the query already matches the toolbar the watcher won't
-      // fire, so go through the debouncer directly to keep the timing consistent.
       if (query.equals(getQuery()))
         runSearchDebounced();
       else
@@ -145,7 +140,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
       if (state == null)
         return;
 
-      // The sheet just became visible — instantiate the History/Categories pager lazily.
       if (state != BottomSheetBehavior.STATE_HIDDEN)
         setupTabsIfNeeded();
 
@@ -199,18 +193,32 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
   private void updateFrames()
   {
     final boolean hasQuery = mToolbarController.hasQuery();
+    final boolean mapMode = BuildConfig.IS_IN_CAR && mSearchViewModel.isInCarMapMode() && hasQuery;
 
-    UiUtils.showIf(hasQuery, mResultsFrame);
-    UiUtils.showIf(!hasQuery, mTabFrame);
-    UiUtils.showIf(!hasQuery, mPager);
+    UiUtils.showIf(hasQuery && !mapMode, mResultsFrame);
+    UiUtils.showIf(!hasQuery && !mapMode, mTabFrame);
+    UiUtils.showIf(!hasQuery && !mapMode, mPager);
     if (hasQuery)
       hideDownloadSuggest();
     else if (doShowDownloadSuggest())
       showDownloadSuggest();
     else
       hideDownloadSuggest();
+    updateInCarSearchModeAction(hasQuery, mapMode);
     syncNestedScrollingState();
     updatePeekHeight();
+  }
+
+  private void updateInCarSearchModeAction(boolean hasQuery, boolean mapMode)
+  {
+    if (mInCarSearchMode == null)
+      return;
+    mInCarSearchMode.setVisibility(BuildConfig.IS_IN_CAR && hasQuery ? View.VISIBLE : View.GONE);
+    if (!BuildConfig.IS_IN_CAR || !hasQuery)
+      return;
+    mInCarSearchMode.setImageResource(mapMode ? R.drawable.ic_in_car_search_list : R.drawable.ic_in_car_search_map);
+    mInCarSearchMode.setContentDescription(getString(mapMode ? R.string.in_car_search_show_list
+                                                            : R.string.in_car_search_show_map));
   }
 
   private void updatePeekHeight()
@@ -223,7 +231,8 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
   private void updateResultsPlaceholder()
   {
-    final boolean show = !mSearchRunning && mSearchAdapter.getItemCount() == 0 && mToolbarController.hasQuery();
+    final boolean show = !mSearchRunning && mSearchAdapter.getItemCount() == 0 && mToolbarController.hasQuery()
+                         && !mSearchViewModel.isInCarMapMode();
 
     UiUtils.showIf(show, mResultsPlaceholder);
   }
@@ -275,6 +284,17 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     mTabLayout = root.findViewById(R.id.tabs);
     mTabFrame = root.findViewById(R.id.tab_frame);
     mResultsFrame = root.findViewById(R.id.results_frame);
+    mInCarSearchMode = root.findViewById(R.id.in_car_search_mode);
+    if (mInCarSearchMode != null && BuildConfig.IS_IN_CAR)
+    {
+      mInCarSearchMode.setOnClickListener(v -> {
+        if (!mToolbarController.hasQuery())
+          return;
+        mToolbarController.deactivate();
+        mSearchViewModel.setInCarMapMode(!mSearchViewModel.isInCarMapMode());
+      });
+      mSearchViewModel.getInCarMapMode().observe(getViewLifecycleOwner(), ignored -> updateFrames());
+    }
     mResults = mResultsFrame.findViewById(R.id.recycler);
     setRecyclerScrollListener(mResults);
     ViewCompat.setOnApplyWindowInsetsListener(mResults, (v, insets) -> {
@@ -301,17 +321,12 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     mResults.setAdapter(mSearchAdapter);
 
     mPager.setClipToPadding(false);
-    // Store insets and dispatch to tab fragment RecyclerViews.
-    // Padding the ViewPager itself is wrong — it shortens the tab fragment layout
-    // without giving those RecyclerViews their own scrollable bottom padding.
     ViewCompat.setOnApplyWindowInsetsListener(mPager, (v, insets) -> {
       mLastKnownInsets = insets;
       dispatchInsetsToTabFragments(insets);
       return insets;
     });
 
-    // Restore the query before adding the SearchListener — the engine caches it on search start,
-    // and without this the listener's hasQuery()=false guard would silence onResultsUpdate.
     final String cachedQuery = SearchEngine.INSTANCE.getCachedSearchBarQuery();
     if (!TextUtils.isEmpty(cachedQuery))
       mToolbarController.setQuerySilently(cachedQuery, false);
@@ -324,13 +339,10 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
       mToolbarController.showProgress(false);
       updateFrames();
       updateResultsPlaceholder();
-      // Cached results already satisfy any pending restore request — consume it so the
-      // mSearchEnabledObserver doesn't wipe the adapter and re-fire a fresh search.
       mSearchViewModel.clearPendingRequest();
     }
     else if (!TextUtils.isEmpty(cachedQuery))
     {
-      // Search is in flight; results will land in onResultsUpdate.
       mSearchRunning = true;
       updateFrames();
       updateResultsPlaceholder();
@@ -343,10 +355,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
     updateFrames();
     SearchEngine.INSTANCE.addListener(this);
-
-    // Pre-warm tabs after the activity's critical path so the first sheet open is instant.
-    // Idempotent — if the sheet opens before the post runs, setupTabsIfNeeded() fires from the
-    // bottom-sheet observer instead and this no-ops.
     view.post(this::setupTabsIfNeeded);
   }
 
@@ -363,9 +371,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
       mPager.clearOnPageChangeListeners();
       mTabAdapter.destroy();
       mTabAdapter = null;
-      // The nested-scrolling snapshot is keyed by (hasQuery, activeTab); the rebuilt pager reuses
-      // those indices, so drop it or syncNestedScrollingState() would short-circuit and skip
-      // re-enabling the new tab's RecyclerView.
       mNestedScrollingSyncedHasQuery = null;
       mNestedScrollingSyncedActiveTab = null;
     }
@@ -389,7 +394,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     });
     pager.post(() -> updateNestedScrollingForTab(tabAdapter, pager.getCurrentItem()));
 
-    // The tab fragments missed the initial inset dispatch — replay it now.
     if (mLastKnownInsets != null)
       dispatchInsetsToTabFragments(mLastKnownInsets);
   }
@@ -398,9 +402,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
   public void onViewStateRestored(@Nullable Bundle savedInstanceState)
   {
     super.onViewStateRestored(savedInstanceState);
-    // Defensive: ensure no debounced search re-fires when cached results are still valid.
-    // saveEnabled=false on mQuery + setQuerySilently() removing the watcher around setText
-    // mean nothing is normally pending here, but the guard remains as a safety net.
     if (savedInstanceState != null && SearchEngine.INSTANCE.getCachedResults() != null)
       mSearchDebounceHandler.removeCallbacks(mDebouncedRunSearch);
   }
@@ -422,9 +423,8 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     if (mTabAdapter != null)
       setupTabsIfNeeded();
 
-    // onPause() stops the shimmer; if we are resuming mid-search with no results yet, restore it
-    // so the results pane isn't blank until the next results callback arrives.
-    if (mSearchRunning && mSearchAdapter.getItemCount() == 0 && mShimmerView != null)
+    if (mSearchRunning && mSearchAdapter.getItemCount() == 0 && mShimmerView != null
+        && !mSearchViewModel.isInCarMapMode())
     {
       UiUtils.show(mShimmerView);
       mShimmerView.startShimmer();
@@ -541,15 +541,12 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
   private void runSearch()
   {
-    // The previous search should be cancelled before the new one is started, since previous search
-    // results are no longer needed.
     SearchEngine.INSTANCE.cancel();
 
     boolean hasLocation = mLastPosition.valid;
     double lat = mLastPosition.lat;
     double lon = mLastPosition.lon;
 
-    // Fall back to the last known location if the fragment's listener hasn't received a fix yet.
     if (!hasLocation)
     {
       final Location saved = MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
@@ -562,15 +559,13 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     }
 
     final SearchRequest request = mSearchViewModel.getPendingRequest();
-    // Locale applies only to this initial query; consume the request so later manual edits fall
-    // back to the keyboard locale.
     String locale =
         (request != null && request.locale != null) ? request.locale : Language.getKeyboardLocale(requireContext());
     mSearchViewModel.clearPendingRequest();
 
     SearchEngine.INSTANCE.setQuery(getQuery());
     boolean started = SearchEngine.INSTANCE.searchInteractive(getQuery(), isCategory(), locale, System.nanoTime(),
-                                                              true /* isMapAndTable */, hasLocation, lat, lon);
+                                                              true, hasLocation, lat, lon);
     if (!started)
     {
       stopSearch();
@@ -581,7 +576,7 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     mToolbarController.showProgress(true);
     updateResultsPlaceholder();
 
-    if (mSearchAdapter.getItemCount() == 0)
+    if (mSearchAdapter.getItemCount() == 0 && !mSearchViewModel.isInCarMapMode())
     {
       UiUtils.show(mShimmerView);
       mShimmerView.startShimmer();
@@ -627,6 +622,11 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
   public boolean onBackPressed()
   {
+    if (BuildConfig.IS_IN_CAR && mSearchViewModel.isInCarMapMode())
+    {
+      mSearchViewModel.setInCarMapMode(false);
+      return true;
+    }
     if (mToolbarController.hasQuery())
     {
       mToolbarController.clear();
@@ -635,9 +635,7 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
     mToolbarController.deactivate();
     if (RoutingController.get().isWaitingPoiPick())
-    {
       RoutingController.get().onPoiSelected(null);
-    }
 
     return false;
   }
@@ -651,36 +649,18 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
   private void updateNestedScrollingForTab(@NonNull TabAdapter tabAdapter, int selectedPosition)
   {
-    // Replay the last known insets to any tab fragment views that are now attached.
-    // This handles the timing gap where ViewPager creates fragment views lazily,
-    // after the initial window-insets dispatch has already completed.
     if (mLastKnownInsets != null)
       dispatchInsetsToTabFragments(mLastKnownInsets);
 
     updateAllRecyclerBottomPadding();
-
     syncNestedScrollingState();
   }
 
-  /**
-   * Ensures exactly one RecyclerView participates in nested scrolling at any time so
-   * BottomSheetBehavior.findScrollingChild() always resolves to the visible list.
-   *
-   * - In search mode (hasQuery): enable results RV, disable all tab RVs.
-   * - In tab mode (!hasQuery): disable results RV, enable only the active tab's RV.
-   *
-   * After updating flags, requestLayout() is called on the bottom sheet so
-   * BottomSheetBehavior.onLayoutChild() re-runs findScrollingChild() and refreshes
-   * its internal nestedScrollingChildRef before the next touch gesture.
-   */
   private void syncNestedScrollingState()
   {
     final boolean hasQuery = mToolbarController.hasQuery();
     final int activeTab = mPager.getCurrentItem();
 
-    // updateFrames() runs on every keystroke and every results batch — but the nested-scrolling
-    // flags only flip on hasQuery / activeTab transitions, so cache the last pair and skip the
-    // sheet requestLayout() when nothing changed.
     if (mNestedScrollingSyncedHasQuery != null && mNestedScrollingSyncedActiveTab != null
         && hasQuery == mNestedScrollingSyncedHasQuery && activeTab == mNestedScrollingSyncedActiveTab)
       return;
@@ -688,7 +668,7 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     mNestedScrollingSyncedActiveTab = activeTab;
 
     if (mResults != null)
-      ViewCompat.setNestedScrollingEnabled(mResults, hasQuery);
+      ViewCompat.setNestedScrollingEnabled(mResults, hasQuery && !mSearchViewModel.isInCarMapMode());
 
     if (mTabAdapter != null)
     {
@@ -738,10 +718,6 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     }
   }
 
-  /**
-   * Returns the BottomSheet container view (search_page_container) that has
-   * the BottomSheetBehavior attached, or null if not found.
-   */
   @Nullable
   private View getBottomSheetContainer()
   {
@@ -877,6 +853,7 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
 
       if (query.trim().isEmpty())
       {
+        mSearchViewModel.setInCarMapMode(false);
         mSearchAdapter.clear();
         stopSearch();
         return;
