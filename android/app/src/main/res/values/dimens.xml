@@ -120,9 +120,9 @@
   <dimen name="routing_toolbar_cell_radius">20dp</dimen>
 
   <!-- Bottom menu -->
-  <dimen name="menu_line_height">48dp</dimen>
+  <dimen name="menu_line_height">56dp</dimen>
   <dimen name="menu_line_button_inset_top">-20dp</dimen>
-  <dimen name="menu_list_item_height">48dp</dimen>
+  <dimen name="menu_list_item_height">56dp</dimen>
 
   <!-- Nav menu -->
   <dimen name="nav_elevation">6dp</dimen>
@@ -180,10 +180,8 @@
   <dimen name="routing_bottom_buttons_padding">10dp</dimen>
   <dimen name="routing_bottom_buttons_max_height">70dp</dimen>
 
-
   <!-- Placeholder-->
   <dimen name="placeholder_margin_top">20dp</dimen>
-  <!-- Reserves the vertical block of the hidden image (20 paddingTop + 200 size + 12 margin). -->
   <dimen name="placeholder_padding_top_no_image">232dp</dimen>
 
   <dimen name="margin_dialog_title">20dp</dimen>
