@@ -3,7 +3,6 @@ package app.organicmaps.maplayer;
 import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -16,14 +15,12 @@ import android.view.ViewTreeObserver;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
-import androidx.core.graphics.ColorUtils;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
-import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.routing.RoutingPlanViewModel;
@@ -113,17 +110,17 @@ public class MapButtonsController extends Fragment
 
     final FloatingActionButton helpButton = mFrame.findViewById(R.id.help_button);
     final View zoomFrame = mFrame.findViewById(R.id.zoom_buttons_container);
-    final View zoomIn = mFrame.findViewById(R.id.nav_zoom_in);
-    final View zoomOut = mFrame.findViewById(R.id.nav_zoom_out);
-    zoomIn.setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.zoomIn));
-    zoomOut.setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.zoomOut));
+    mFrame.findViewById(R.id.nav_zoom_in)
+        .setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.zoomIn));
+    mFrame.findViewById(R.id.nav_zoom_out)
+        .setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.zoomOut));
     final View bookmarksButton = mFrame.findViewById(R.id.btn_bookmarks);
     bookmarksButton.setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.bookmarks));
     final View myPosition = mFrame.findViewById(R.id.my_position);
-    applyInCarPrimaryMapControls(myPosition, zoomIn, zoomOut);
     mNavMyPosition =
         new MyPositionButton(myPosition, (v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.myPosition));
 
+    // Some buttons do not exist in navigation mode
     mToggleMapLayerButton = mFrame.findViewById(R.id.layers_button);
     if (mToggleMapLayerButton != null)
     {
@@ -140,6 +137,8 @@ public class MapButtonsController extends Fragment
     if (menuButton != null)
     {
       menuButton.setOnClickListener((v) -> mMapButtonClickListener.onMapButtonClick(MapButtons.menu));
+      // This hack is needed to show the badge on the initial startup. For some reason, updateMenuBadge does not work
+      // from onResume() there.
       menuButton.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
         @Override
         public void onGlobalLayout()
@@ -159,6 +158,7 @@ public class MapButtonsController extends Fragment
                         (v) -> mMapButtonClickListener.onSearchCanceled(), mMapButtonsViewModel, mSearchPageViewModel);
     final View searchButton = mFrame.findViewById(R.id.btn_search);
 
+    // Used to get the maximum height the buttons will evolve in
     mFrame.addOnLayoutChangeListener(new MapButtonsController.ContentViewLayoutChangeListener(mFrame));
 
     mButtonsMap = new HashMap<>();
@@ -178,39 +178,7 @@ public class MapButtonsController extends Fragment
     showButton(false, MapButtons.trackRecordingStatus);
     return mFrame;
   }
-
-  private void applyInCarPrimaryMapControls(@Nullable View myPosition, @Nullable View zoomIn, @Nullable View zoomOut)
-  {
-    if (!BuildConfig.IS_IN_CAR)
-      return;
-    applyInCarPrimaryMapControl(myPosition, R.dimen.in_car_map_primary_icon_size);
-    applyInCarPrimaryMapControl(zoomIn, R.dimen.in_car_map_zoom_icon_size);
-    applyInCarPrimaryMapControl(zoomOut, R.dimen.in_car_map_zoom_icon_size);
-    if (zoomOut != null)
-    {
-      final ViewGroup.LayoutParams raw = zoomOut.getLayoutParams();
-      if (raw instanceof ViewGroup.MarginLayoutParams params)
-      {
-        params.topMargin = getResources().getDimensionPixelSize(R.dimen.in_car_map_zoom_gap);
-        zoomOut.setLayoutParams(params);
-      }
-    }
-  }
-
-  private void applyInCarPrimaryMapControl(@Nullable View view, int iconSizeRes)
-  {
-    if (!(view instanceof FloatingActionButton button))
-      return;
-    button.setCustomSize(getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size));
-    button.setMaxImageSize(getResources().getDimensionPixelSize(iconSizeRes));
-    final ColorStateList background = button.getBackgroundTintList();
-    if (background != null)
-    {
-      final int translucent = ColorUtils.setAlphaComponent(background.getDefaultColor(), 77);
-      button.setBackgroundTintList(ColorStateList.valueOf(translucent));
-    }
-  }
-
+  // For disabling bottom buttons which are visible in tablets
   private void setBottomButtonsHidden(boolean hide)
   {
     if (mBottomButtonsFrame != null)
@@ -219,6 +187,7 @@ public class MapButtonsController extends Fragment
 
   public void showButton(boolean show, MapButtonsController.MapButtons button)
   {
+    // TODO(AB): Why do we need this check? Isn't it better to crash and fix the wrong logic ASAP?
     final View buttonView = mButtonsMap.get(button);
     if (buttonView == null)
       return;
@@ -239,7 +208,6 @@ public class MapButtonsController extends Fragment
     case trackRecordingStatus:
       UiUtils.showIf(show, buttonView);
       animateIconBlinking(show, (FloatingActionButton) buttonView);
-      break;
     }
   }
 
@@ -281,6 +249,7 @@ public class MapButtonsController extends Fragment
   {
     final View menuButton = mButtonsMap.get(MapButtons.menu);
     final Context context = getContext();
+    // Sometimes the global layout listener fires when the fragment is not attached to a context
     if (menuButton == null || context == null)
       return;
     final UpdateInfo info = MapManager.nativeGetUpdateInfo(null);
@@ -305,6 +274,7 @@ public class MapButtonsController extends Fragment
   {
     final View menuButton = mButtonsMap.get(MapButtons.menu);
     final Context context = getContext();
+    // Sometimes the global layout listener fires when the fragment is not attached to a context
     if (menuButton == null || context == null)
       return;
     final UpdateInfo info = MapManager.nativeGetUpdateInfo(null);
@@ -341,6 +311,7 @@ public class MapButtonsController extends Fragment
     else
     {
       helpButton.setImageResource(app.organicmaps.branding.R.drawable.logo);
+      // Keep this button colorful in normal theme.
       if (!ThemeUtils.isDarkTheme(requireContext()))
         helpButton.getDrawable().setTintList(null);
     }
@@ -387,6 +358,7 @@ public class MapButtonsController extends Fragment
     if (RoutingController.get().isNavigating() || mContentHeight == 0)
       return;
     final boolean pp = Boolean.TRUE.equals(mRoutingPlanViewModel.getIsPlacePageActive().getValue());
+    // don't apply move in landscape
     if (!shouldActivate == pp || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
       return;
     if (mInnerRightButtonsFrame != null)
@@ -422,58 +394,98 @@ public class MapButtonsController extends Fragment
       updateButtonsVisibility(mInnerRightButtonsFrame.getTranslationY(), mInnerRightButtonsFrame);
   }
 
-  private void updateButtonsVisibility(float translationY, ViewGroup frame)
+  private void updateButtonsVisibility(final float translation, @Nullable View parent)
   {
-    for (int i = 0; i < frame.getChildCount(); i++)
-      frame.getChildAt(i).setEnabled(translationY == 0);
-  }
-
-  public boolean isInNavigationMode()
-  {
-    return mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation;
-  }
-
-  private void setButtonsHidden(Boolean hide)
-  {
-    if (hide == null)
+    if (parent == null)
       return;
-    if (mInnerLeftButtonsFrame != null)
-      UiUtils.showIf(!hide, mInnerLeftButtonsFrame);
-    if (mInnerRightButtonsFrame != null)
-      UiUtils.showIf(!hide, mInnerRightButtonsFrame);
+    for (Map.Entry<MapButtons, View> entry : mButtonsMap.entrySet())
+    {
+      final View button = entry.getValue();
+      if (button.getParent() == parent)
+      {
+        int toleranceOffset = 0;
+        // Allow offset tolerance for zoom buttons
+        switch (entry.getKey())
+        {
+        case zoomIn:
+        case zoomOut:
+        case zoom: toleranceOffset = -140; break;
+        }
+        showButton(getViewTopOffset(translation, button) >= toleranceOffset, entry.getKey());
+      }
+    }
   }
 
-  private void updateNavMyPositionButton(Integer mode)
+  private float getBottomButtonsHeight()
+  {
+    if (mBottomButtonsFrame != null && mFrame != null && UiUtils.isVisible(mFrame))
+      return mBottomButtonsFrame.getMeasuredHeight();
+    else
+      return 0;
+  }
+
+  public void setButtonsHidden(boolean buttonHidden)
+  {
+    UiUtils.showIf(!buttonHidden, mFrame);
+    if (!buttonHidden)
+      updateButtonsVisibility();
+    mMapButtonsViewModel.setBottomButtonsHeight(getBottomButtonsHeight());
+  }
+
+  private boolean isInNavigationMode()
+  {
+    return RoutingController.get().isPlanning() || RoutingController.get().isNavigating();
+  }
+
+  public void updateNavMyPositionButton(int newMode)
   {
     if (mNavMyPosition != null)
-      mNavMyPosition.update(mode);
+      mNavMyPosition.update(newMode);
   }
 
-  private void onSearchOptionChange(SearchWheel.SearchOption option)
+  private int getViewTopOffset(float translation, View v)
   {
-    if (mSearchWheel != null)
-      mSearchWheel.update(option);
-  }
-
-  @Override
-  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
-  {
-    super.onViewCreated(view, savedInstanceState);
+    return (int) (translation + v.getTop());
   }
 
   @Override
   public void onStart()
   {
     super.onStart();
-    mPlacePageViewModel.getPlacePageDistanceToTop().observe(getViewLifecycleOwner(), mPlacePageDistanceToTopObserver);
-    mRoutingPlanViewModel.getRoutingBottomDistanceToTop().observe(getViewLifecycleOwner(), mRoutingBottomDistanceToTopObserver);
-    mMapButtonsViewModel.getBottomButtonsHidden().observe(getViewLifecycleOwner(), mBottomButtonHiddenObserver);
-    mSearchPageViewModel.getSearchPageDistanceToTop().observe(getViewLifecycleOwner(), mSearchPageDistanceToTopObserver);
-    mMapButtonsViewModel.getButtonsHidden().observe(getViewLifecycleOwner(), mButtonHiddenObserver);
-    mMapButtonsViewModel.getMyPositionMode().observe(getViewLifecycleOwner(), mMyPositionModeObserver);
-    mMapButtonsViewModel.getSearchOption().observe(getViewLifecycleOwner(), mSearchOptionObserver);
-    TrackRecorder.INSTANCE.getState().observe(getViewLifecycleOwner(), mTrackRecorderObserver);
-    mMapButtonsViewModel.getTopButtonsMarginTop().observe(getViewLifecycleOwner(), mTopButtonMarginObserver);
+    final var viewLifecycleOwner = getViewLifecycleOwner();
+    mRoutingPlanViewModel.getRoutingBottomDistanceToTop().observe(viewLifecycleOwner,
+                                                                  mRoutingBottomDistanceToTopObserver);
+    mPlacePageViewModel.getPlacePageDistanceToTop().observe(viewLifecycleOwner, mPlacePageDistanceToTopObserver);
+    mMapButtonsViewModel.getBottomButtonsHidden().observe(viewLifecycleOwner, mBottomButtonHiddenObserver);
+    mMapButtonsViewModel.getButtonsHidden().observe(viewLifecycleOwner, mButtonHiddenObserver);
+    mSearchPageViewModel.getSearchPageDistanceToTop().observe(viewLifecycleOwner, mSearchPageDistanceToTopObserver);
+    mMapButtonsViewModel.getMyPositionMode().observe(viewLifecycleOwner, mMyPositionModeObserver);
+    mMapButtonsViewModel.getSearchOption().observe(viewLifecycleOwner, mSearchOptionObserver);
+    mMapButtonsViewModel.getTrackRecorderState().observe(viewLifecycleOwner, mTrackRecorderObserver);
+    mMapButtonsViewModel.getTopButtonsMarginTop().observe(viewLifecycleOwner, mTopButtonMarginObserver);
+  }
+
+  public void onResume()
+  {
+    super.onResume();
+    if (mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation)
+      mSearchWheel.onResume();
+    updateMenuBadge();
+    updateLayerButton();
+    updateHelpButtonIcon();
+    ViewCompat.setOnApplyWindowInsetsListener(
+        mFrame, WindowInsetUtils.PaddingInsetsListener.allSides(WindowInsetsCompat.Type.systemBars()
+                                                                | WindowInsetsCompat.Type.displayCutout()));
+    // Fixes insets on older Androids and with a search opened via API on all Androids.
+    if (mFrame.hasWindowFocus())
+      ViewCompat.requestApplyInsets(mFrame);
+  }
+
+  @Override
+  public void onPause()
+  {
+    ViewCompat.setOnApplyWindowInsetsListener(mFrame, null);
+    super.onPause();
   }
 
   @Override
@@ -487,37 +499,46 @@ public class MapButtonsController extends Fragment
     }
   }
 
+  public void onSearchOptionChange(@Nullable SearchWheel.SearchOption searchOption)
+  {
+    if (searchOption == null && mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation)
+      mSearchWheel.reset();
+  }
+
   public enum LayoutMode
   {
     regular,
+    planning,
     navigation
   }
 
   public enum MapButtons
   {
-    zoom,
     myPosition,
-    bookmarks,
-    search,
     toggleMapLayer,
+    zoomIn,
+    zoomOut,
+    zoom,
+    search,
+    bookmarks,
     menu,
     help,
-    trackRecordingStatus,
-    zoomIn,
-    zoomOut
+    trackRecordingStatus
   }
 
   public interface MapButtonClickListener
   {
     void onMapButtonClick(MapButtons button);
+
     void onSearchCanceled();
   }
 
   private class ContentViewLayoutChangeListener implements View.OnLayoutChangeListener
   {
+    @NonNull
     private final View mContentView;
 
-    ContentViewLayoutChangeListener(View contentView)
+    public ContentViewLayoutChangeListener(@NonNull View contentView)
     {
       mContentView = contentView;
     }
@@ -526,8 +547,10 @@ public class MapButtonsController extends Fragment
     public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight,
                                int oldBottom)
     {
-      mContentHeight = mContentView.getHeight();
-      mContentWidth = mContentView.getWidth();
+      mContentHeight = bottom - top;
+      mContentWidth = right - left;
+      mMapButtonsViewModel.setBottomButtonsHeight(getBottomButtonsHeight());
+      mContentView.removeOnLayoutChangeListener(this);
     }
   }
 }
