@@ -77,6 +77,8 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
   private Boolean mNestedScrollingSyncedHasQuery;
   @Nullable
   private Integer mNestedScrollingSyncedActiveTab;
+  @Nullable
+  private Boolean mNestedScrollingSyncedInCarMapMode;
 
   @Nullable
   private TabAdapter mTabAdapter;
@@ -373,6 +375,7 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
       mTabAdapter = null;
       mNestedScrollingSyncedHasQuery = null;
       mNestedScrollingSyncedActiveTab = null;
+      mNestedScrollingSyncedInCarMapMode = null;
     }
     UiUtils.showIf(historyEnabled, mTabLayout);
 
@@ -660,15 +663,18 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
   {
     final boolean hasQuery = mToolbarController.hasQuery();
     final int activeTab = mPager.getCurrentItem();
+    final boolean inCarMapMode = BuildConfig.IS_IN_CAR && mSearchViewModel.isInCarMapMode();
 
     if (mNestedScrollingSyncedHasQuery != null && mNestedScrollingSyncedActiveTab != null
-        && hasQuery == mNestedScrollingSyncedHasQuery && activeTab == mNestedScrollingSyncedActiveTab)
+        && mNestedScrollingSyncedInCarMapMode != null && hasQuery == mNestedScrollingSyncedHasQuery
+        && activeTab == mNestedScrollingSyncedActiveTab && inCarMapMode == mNestedScrollingSyncedInCarMapMode)
       return;
     mNestedScrollingSyncedHasQuery = hasQuery;
     mNestedScrollingSyncedActiveTab = activeTab;
+    mNestedScrollingSyncedInCarMapMode = inCarMapMode;
 
     if (mResults != null)
-      ViewCompat.setNestedScrollingEnabled(mResults, hasQuery && !mSearchViewModel.isInCarMapMode());
+      ViewCompat.setNestedScrollingEnabled(mResults, hasQuery && !inCarMapMode);
 
     if (mTabAdapter != null)
     {
