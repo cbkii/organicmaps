@@ -103,11 +103,7 @@ public final class InCarQuickDestinationsUi
     @NonNull
     private final PlacePageViewModel mPlacePageViewModel;
     @NonNull
-    private final View.OnLayoutChangeListener mRootLayoutListener =
-        (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-          if (right - left != oldRight - oldLeft)
-            mRoot.post(this::applyOverflowPolicy);
-        };
+    private final View.OnLayoutChangeListener mRootLayoutListener;
 
     @Nullable
     private MaterialButton mPrimaryButton;
@@ -127,6 +123,10 @@ public final class InCarQuickDestinationsUi
       mRoot = root;
       mContainer = container;
       mPrefs = MwmApplication.prefs(activity);
+      mRootLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+        if (right - left != oldRight - oldLeft)
+          mRoot.post(this::applyOverflowPolicy);
+      };
       mExpanded = !InCarQuickDestinationsStore.startCollapsed(activity);
       final ViewModelProvider provider = new ViewModelProvider(activity);
       mMapButtonsViewModel = provider.get(MapButtonsViewModel.class);
