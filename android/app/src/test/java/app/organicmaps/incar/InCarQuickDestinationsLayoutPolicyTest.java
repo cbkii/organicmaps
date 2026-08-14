@@ -8,15 +8,15 @@ import org.junit.Test;
 public class InCarQuickDestinationsLayoutPolicyTest
 {
   @Test
-  public void fullAndCompactWidthsFitPrimaryPlusAllEightActions()
+  public void wideHeadUnitFitsPrimaryPlusAllEightActions()
   {
     assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(1280, 8));
-    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(640, 8));
   }
 
   @Test
-  public void narrowWindowUsesDeterministicHorizontalOverflow()
+  public void compactAndNarrowWindowsUseDeterministicHorizontalOverflow()
   {
+    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(640, 8));
     assertTrue(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(480, 8));
   }
 
