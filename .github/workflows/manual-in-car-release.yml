@@ -332,6 +332,7 @@ jobs:
             -PinCarReleaseVersionName="${RELEASE_VERSION}" \
             -PinCarReleaseVersionCode="${RELEASE_VERSION_CODE}" \
             assembleInCarRelease
+          rm -f app/secure.properties
 
       - name: Verify and stage InCarRelease APK
         id: apk
