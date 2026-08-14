@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <dimen name="in_car_search_panel_max_width">512dp</dimen>
+  <dimen name="in_car_map_primary_button_size">72dp</dimen>
+  <dimen name="in_car_map_primary_icon_size">48dp</dimen>
+  <dimen name="in_car_map_zoom_icon_size">50dp</dimen>
+  <dimen name="in_car_map_zoom_gap">12dp</dimen>
+  <dimen name="automotive_preference_row_min_height">64dp</dimen>
+</resources>
