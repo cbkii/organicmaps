@@ -16,16 +16,19 @@ on:
       - README.md
       - android/app/src/fdroid/**
       - android/app/src/google/**
+      - iphone/**
       - data/organic_maps_emoji/**
       - data/strings/**
       - docs/**
       - generator/**
+      - packaging/**
       - platform/*apple*
       - platform/*_ios*
       - platform/*_linux*
       - platform/*_mac*
       - platform/*qt*
       - platform/*_win*
+      - qt*/**
       - skin_generator/**
       - tools/**
       - track_generator/**
@@ -34,9 +37,6 @@ jobs:
   lint:
     name: Android Lint
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
     env:
       JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64  # Java 17 is required for Android Gradle 8 plugin
     steps:
@@ -49,14 +49,19 @@ jobs:
           python3 -m py_compile android/tools/verify_in_car_contrast.py
           python3 android/tools/verify_in_car_contrast.py
 
+      - name: Verify offline navigation voice pack source
+        shell: bash
+        run: |
+          python3 -m py_compile android/tools/verify_offline_navigation_voice_pack.py
+          python3 android/tools/verify_offline_navigation_voice_pack.py \
+            --asset-root android/app/src/inCar/assets
+
       - name: Lint
         shell: bash
         working-directory: android
         run: ./gradlew lintAllModules
 
-      # Reviewdog reports the already-generated merged lint XML as a check. The
-      # Android-only cleanup intentionally avoids fetching the inherited full
-      # repository history merely to construct a PR diff for annotations.
+      # Reviewdog is needed for the action below to report issues in the PR.
       - name: Install reviewdog
         uses: reviewdog/action-setup@v1
 
@@ -65,9 +70,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           lint_xml_file: android/build/reports/lint/lint.xml
-          reporter: github-check
+          reporter: github-pr-review
           level: warning
-          reviewdog_flags: '-filter-mode=nofilter'
 
       - name: Upload Android Lint Report
         uses: actions/upload-artifact@v7
@@ -180,6 +184,8 @@ jobs:
             --expected-package app.organicmaps.incar.profileable \
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
+          python3 android/tools/verify_offline_navigation_voice_pack.py \
+            --apk "${in_car_apks[0]}"
 
           in_car_size="$(stat -c '%s' "${in_car_apks[0]}")"
           reference_size="$(stat -c '%s' "${reference_apks[0]}")"
@@ -305,6 +311,8 @@ jobs:
             --expected-cert-sha256 "${{ steps.ci_release_signing.outputs.cert_sha256 }}" \
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
+          python3 android/tools/verify_offline_navigation_voice_pack.py \
+            --apk "${release_apks[0]}"
 
       - name: Upload release-equivalent InCarRelease APK
         if: matrix.verify_in_car == true
