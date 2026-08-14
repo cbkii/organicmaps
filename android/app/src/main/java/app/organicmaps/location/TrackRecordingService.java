@@ -56,14 +56,14 @@ public class TrackRecordingService extends Service implements LocationListener
   @RequiresPermission(value = ACCESS_FINE_LOCATION)
   public static void startForegroundService(@NonNull Context context)
   {
-    final boolean alreadyRecording = TrackRecorder.nativeIsTrackRecordingEnabled();
     final boolean askResumeMode = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(
         context.getString(R.string.pref_track_recording_auto_resume), false);
 
-    // Keep the native restart gate synchronized with the user-facing setting. This is deliberately
-    // done at each manual/resume entry as well as by the preference itself, so restored preferences
-    // or other non-UI changes still fail closed on the next start.
+    // Keep the persisted native restart gate synchronized before reading the recorder. The feature
+    // setter does not instantiate GpsTracker, so a still-lazy tracker observes this setting when it
+    // is constructed instead of restoring stale restart consent first.
     TrackRecorder.nativeSetAutoResumeFeatureEnabled(askResumeMode);
+    final boolean alreadyRecording = TrackRecorder.nativeIsTrackRecordingEnabled();
 
     switch (TrackRecordingResumePolicy.decideStart(alreadyRecording, askResumeMode))
     {
