@@ -214,6 +214,19 @@ public class TrackRecordingService extends Service implements LocationListener
       return START_NOT_STICKY; // The service will be stopped by stopSelf().
     }
 
+    final String action = intent.getAction();
+    if (action != null && STOP_TRACK_RECORDING.equals(action))
+    {
+      // Stop is an explicit user command, so it must disarm restart consent even if location
+      // permission was revoked or the runtime recorder has already stopped.
+      Logger.d(TAG, "Stop action received");
+      TrackRecorder.nativeSetAutoResumeForCurrentRecording(false);
+      if (TrackRecorder.nativeIsTrackRecordingEnabled())
+        TrackRecorder.nativeStopTrackRecording();
+      stopSelf();
+      return START_NOT_STICKY;
+    }
+
     if (!LocationUtils.checkFineLocationPermission(this))
     {
       Logger.w(TAG, "Permission ACCESS_FINE_LOCATION is not granted, skipping TrackRecordingService");
@@ -224,16 +237,6 @@ public class TrackRecordingService extends Service implements LocationListener
     if (!TrackRecorder.nativeIsTrackRecordingEnabled())
     {
       Logger.i(TAG, "Service can't be started because Track Recorder is off");
-      stopSelf();
-      return START_NOT_STICKY;
-    }
-
-    final String action = intent.getAction();
-    if (action != null && STOP_TRACK_RECORDING.equals(action))
-    {
-      Logger.d(TAG, "Stop action received");
-      TrackRecorder.nativeSetAutoResumeForCurrentRecording(false);
-      TrackRecorder.nativeStopTrackRecording();
       stopSelf();
       return START_NOT_STICKY;
     }
