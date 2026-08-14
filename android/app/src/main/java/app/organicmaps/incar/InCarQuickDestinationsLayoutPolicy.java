@@ -18,14 +18,13 @@ public final class InCarQuickDestinationsLayoutPolicy
     if (visibleDestinationActions <= 0)
       return HORIZONTAL_PADDING_DP + PRIMARY_ACTION_WIDTH_DP + ACTION_GAP_DP;
     return HORIZONTAL_PADDING_DP + PRIMARY_ACTION_WIDTH_DP + ACTION_GAP_DP
-        + visibleDestinationActions * (ACTION_SIZE_DP + ACTION_GAP_DP);
+  + visibleDestinationActions * (ACTION_SIZE_DP + ACTION_GAP_DP);
   }
 
   @VisibleForTesting
   static int maxVisibleDestinationActions(int availableWidthDp)
   {
-    final int availableForActions =
-        availableWidthDp - HORIZONTAL_PADDING_DP - PRIMARY_ACTION_WIDTH_DP - ACTION_GAP_DP;
+    final int availableForActions = availableWidthDp - HORIZONTAL_PADDING_DP - PRIMARY_ACTION_WIDTH_DP - ACTION_GAP_DP;
     if (availableForActions <= 0)
       return 0;
     return availableForActions / (ACTION_SIZE_DP + ACTION_GAP_DP);
