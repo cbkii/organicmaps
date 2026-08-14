@@ -18,7 +18,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeSetAutoResu
                                                                                                  jclass clazz,
                                                                                                  jboolean enabled)
 {
-  GpsTracker::Instance().SetAutoResumeFeatureEnabled(enabled);
+  GpsTracker::SetAutoResumeFeatureEnabled(enabled);
 }
 
 JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeSetAutoResumeForCurrentRecording(JNIEnv * env,
