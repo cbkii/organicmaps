@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Pre-commit hook: runs clang-format and swiftformat on staged source files.
+# Pre-commit hook: runs clang-format and ktlint on staged source files.
 # Automatically reformats and re-stages non-conforming files.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -34,29 +34,6 @@ if [ -n "$CLANG_FILES" ]; then
       REFORMATTED=1
     fi
   done <<< "$CLANG_FILES"
-fi
-
-# --- swiftformat -------------------------------------------------------------
-SWIFT_DIRS=$(printf '%s|' "${SWIFTFORMAT_TARGETS[@]}" | sed 's/|$//')
-SWIFT_REGEX="^($SWIFT_DIRS)/.*\.swift$"
-SWIFT_FILES=$(echo "$STAGED_FILES" | grep -E "$SWIFT_REGEX" || true)
-
-if [ -n "$SWIFT_FILES" ]; then
-  if ! command -v swiftformat >/dev/null 2>&1; then
-    echo "Warning: swiftformat not found, skipping Swift files."
-  else
-    echo "pre-commit: using swiftformat $(swiftformat --version)"
-
-    while IFS= read -r FILE; do
-      [ -f "$FILE" ] || continue
-      if ! swiftformat --lint "$FILE" > /dev/null 2>&1; then
-        echo "swiftformat: reformatting $FILE"
-        swiftformat "$FILE"
-        git add "$FILE"
-        REFORMATTED=1
-      fi
-    done <<< "$SWIFT_FILES"
-  fi
 fi
 
 # --- ktlint ------------------------------------------------------------------
@@ -107,7 +84,7 @@ if [ -n "$KTLINT_FILES" ]; then
 fi
 
 # --- Store metadata (release notes, descriptions, URLs, etc.) ---------------
-METADATA_REGEX='^(android/app/src/(fdroid|google)/play/.+\.txt|iphone/metadata/.+\.txt)$'
+METADATA_REGEX='^android/app/src/(fdroid|google)/play/.+\.txt$'
 METADATA_FILES=$(echo "$STAGED_FILES" | grep -E "$METADATA_REGEX" || true)
 
 if [ -n "$METADATA_FILES" ]; then
