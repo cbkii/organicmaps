@@ -219,8 +219,8 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     if (!BuildConfig.IS_IN_CAR || !hasQuery)
       return;
     mInCarSearchMode.setImageResource(mapMode ? R.drawable.ic_in_car_search_list : R.drawable.ic_in_car_search_map);
-    mInCarSearchMode.setContentDescription(getString(mapMode ? R.string.in_car_search_show_list
-                                                            : R.string.in_car_search_show_map));
+    mInCarSearchMode.setContentDescription(
+        getString(mapMode ? R.string.in_car_search_show_list : R.string.in_car_search_show_map));
   }
 
   private void updatePeekHeight()
@@ -234,7 +234,7 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
   private void updateResultsPlaceholder()
   {
     final boolean show = !mSearchRunning && mSearchAdapter.getItemCount() == 0 && mToolbarController.hasQuery()
-                         && !mSearchViewModel.isInCarMapMode();
+                      && !mSearchViewModel.isInCarMapMode();
 
     UiUtils.showIf(show, mResultsPlaceholder);
   }
@@ -567,8 +567,8 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     mSearchViewModel.clearPendingRequest();
 
     SearchEngine.INSTANCE.setQuery(getQuery());
-    boolean started = SearchEngine.INSTANCE.searchInteractive(getQuery(), isCategory(), locale, System.nanoTime(),
-                                                              true, hasLocation, lat, lon);
+    boolean started = SearchEngine.INSTANCE.searchInteractive(getQuery(), isCategory(), locale, System.nanoTime(), true,
+                                                              hasLocation, lat, lon);
     if (!started)
     {
       stopSearch();
