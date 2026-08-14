@@ -73,6 +73,9 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_TrackRecorder_nativeSaveTrackRe
                                                                                                 jclass clazz,
                                                                                                 jstring name)
 {
+  // Saving is an explicit end-of-recording action in the Android flow. Disarm restart first so a
+  // process failure between save and service teardown cannot resurrect the completed recording.
+  GpsTracker::Instance().SetAutoResumeForCurrentRecording(false);
   frm()->SaveTrackRecordingWithName(jni::ToNativeString(env, name));
 }
 
