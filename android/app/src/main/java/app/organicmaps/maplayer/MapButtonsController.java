@@ -16,6 +16,7 @@ import android.view.ViewTreeObserver;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
@@ -204,7 +205,10 @@ public class MapButtonsController extends Fragment
     button.setMaxImageSize(getResources().getDimensionPixelSize(iconSizeRes));
     final ColorStateList background = button.getBackgroundTintList();
     if (background != null)
-      button.setBackgroundTintList(background.withAlpha(77));
+    {
+      final int translucent = ColorUtils.setAlphaComponent(background.getDefaultColor(), 77);
+      button.setBackgroundTintList(ColorStateList.valueOf(translucent));
+    }
   }
 
   private void setBottomButtonsHidden(boolean hide)
