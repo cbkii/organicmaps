@@ -10,10 +10,10 @@ class GpsTracker
 {
 public:
   static GpsTracker & Instance();
+  static void SetAutoResumeFeatureEnabled(bool enabled);
 
   bool IsEnabled() const;
   void SetEnabled(bool enabled);
-  void SetAutoResumeFeatureEnabled(bool enabled);
   void SetAutoResumeForCurrentRecording(bool enabled);
   void Clear();
 
