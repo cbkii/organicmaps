@@ -17,6 +17,7 @@
   </string-array>
   <string name="pref_in_car_map_age_warning" translatable="false">pref_in_car_map_age_warning</string>
   <string name="pref_in_car_quick_destinations" translatable="false">pref_in_car_quick_destinations</string>
+  <string name="pref_in_car_quick_start_collapsed" translatable="false">InCarQuickStartCollapsed</string>
   <string name="pref_in_car_quick_home_config" translatable="false">InCarQuickHomeConfig</string>
   <string name="pref_in_car_quick_work_config" translatable="false">InCarQuickWorkConfig</string>
   <string name="pref_in_car_quick_enabled_fuel_charging" translatable="false">InCarQuickEnabledFUEL_CHARGING</string>
