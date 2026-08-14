@@ -665,16 +665,17 @@ public class SearchFragment extends Fragment implements SearchListener, Categori
     final int activeTab = mPager.getCurrentItem();
     final boolean inCarMapMode = BuildConfig.IS_IN_CAR && mSearchViewModel.isInCarMapMode();
 
-    if (mNestedScrollingSyncedHasQuery != null && mNestedScrollingSyncedActiveTab != null
-        && mNestedScrollingSyncedInCarMapMode != null && hasQuery == mNestedScrollingSyncedHasQuery
-        && activeTab == mNestedScrollingSyncedActiveTab && inCarMapMode == mNestedScrollingSyncedInCarMapMode)
+    if (!InCarSearchPresentationPolicy.shouldSynchronizeNestedScrolling(
+            mNestedScrollingSyncedHasQuery, mNestedScrollingSyncedActiveTab, mNestedScrollingSyncedInCarMapMode,
+            hasQuery, activeTab, inCarMapMode))
       return;
     mNestedScrollingSyncedHasQuery = hasQuery;
     mNestedScrollingSyncedActiveTab = activeTab;
     mNestedScrollingSyncedInCarMapMode = inCarMapMode;
 
     if (mResults != null)
-      ViewCompat.setNestedScrollingEnabled(mResults, hasQuery && !inCarMapMode);
+      ViewCompat.setNestedScrollingEnabled(
+          mResults, InCarSearchPresentationPolicy.resultsNestedScrollingEnabled(hasQuery, inCarMapMode));
 
     if (mTabAdapter != null)
     {
