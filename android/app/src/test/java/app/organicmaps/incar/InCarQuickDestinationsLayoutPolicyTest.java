@@ -1,5 +1,6 @@
 package app.organicmaps.incar;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -10,19 +11,27 @@ public class InCarQuickDestinationsLayoutPolicyTest
   @Test
   public void wideHeadUnitFitsPrimaryPlusAllEightActions()
   {
-    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(1280, 8));
+    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(1280, 8));
   }
 
   @Test
-  public void compactAndNarrowWindowsUseDeterministicHorizontalOverflow()
+  public void compactWindowsReserveDeterministicActionCapacity()
   {
-    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(640, 8));
-    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(480, 8));
+    assertEquals(7, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(640));
+    assertEquals(5, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(480));
+    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresOverflow(640, 8));
+    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresOverflow(480, 8));
   }
 
   @Test
   public void enabledSubsetFitsNarrowerWindow()
   {
-    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresHorizontalScroll(480, 4));
+    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(480, 4));
+  }
+
+  @Test
+  public void veryNarrowWindowDoesNotReturnNegativeCapacity()
+  {
+    assertEquals(0, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(80));
   }
 }
