@@ -4,6 +4,7 @@ import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
+import android.app.Activity;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -22,6 +23,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
+import androidx.preference.PreferenceManager;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
@@ -30,6 +32,7 @@ import app.organicmaps.sdk.location.LocationListener;
 import app.organicmaps.sdk.location.LocationUtils;
 import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.sdk.util.log.Logger;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class TrackRecordingService extends Service implements LocationListener
 {
@@ -53,8 +56,63 @@ public class TrackRecordingService extends Service implements LocationListener
   @RequiresPermission(value = ACCESS_FINE_LOCATION)
   public static void startForegroundService(@NonNull Context context)
   {
-    if (!TrackRecorder.nativeIsTrackRecordingEnabled())
-      TrackRecorder.nativeStartTrackRecording();
+    final boolean alreadyRecording = TrackRecorder.nativeIsTrackRecordingEnabled();
+    final boolean askResumeMode = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(
+        context.getString(R.string.pref_track_recording_auto_resume), false);
+
+    // Keep the native restart gate synchronized with the user-facing setting. This is deliberately
+    // done at each manual/resume entry as well as by the preference itself, so restored preferences
+    // or other non-UI changes still fail closed on the next start.
+    TrackRecorder.nativeSetAutoResumeFeatureEnabled(askResumeMode);
+
+    switch (TrackRecordingResumePolicy.decideStart(alreadyRecording, askResumeMode))
+    {
+    case CONTINUE_EXISTING:
+      startServiceInternal(context);
+      return;
+    case START_ONCE:
+      startNewRecording(context, false);
+      return;
+    case ASK_RESUME_MODE:
+      showResumeModeDialog(context);
+      return;
+    }
+  }
+
+  @RequiresPermission(value = ACCESS_FINE_LOCATION)
+  private static void showResumeModeDialog(@NonNull Context context)
+  {
+    final Activity activity = MwmApplication.from(context).getTopActivity();
+    if (!(activity instanceof MwmActivity))
+    {
+      // The only supported OFF -> ON authority is the visible map menu. Do not silently choose a
+      // persistence mode if some future/background caller tries to start recording.
+      Logger.w(TAG, "Can't ask for track recording resume mode without a visible map activity");
+      return;
+    }
+
+    new MaterialAlertDialogBuilder(activity)
+        .setTitle(R.string.track_recording_resume_dialog_title)
+        .setMessage(R.string.track_recording_resume_dialog_message)
+        .setCancelable(false)
+        .setNegativeButton(R.string.track_recording_resume_once,
+                           (dialog, which) -> startNewRecording(context, false))
+        .setPositiveButton(R.string.track_recording_resume_auto,
+                           (dialog, which) -> startNewRecording(context, true))
+        .show();
+  }
+
+  @RequiresPermission(value = ACCESS_FINE_LOCATION)
+  private static void startNewRecording(@NonNull Context context, boolean autoResume)
+  {
+    TrackRecorder.nativeStartTrackRecording();
+    TrackRecorder.nativeSetAutoResumeForCurrentRecording(autoResume);
+    startServiceInternal(context);
+  }
+
+  @RequiresPermission(value = ACCESS_FINE_LOCATION)
+  private static void startServiceInternal(@NonNull Context context)
+  {
     MwmApplication.from(context).getLocationHelper().restartWithNewMode();
     ContextCompat.startForegroundService(context, new Intent(context, TrackRecordingService.class));
   }
@@ -122,6 +180,10 @@ public class TrackRecordingService extends Service implements LocationListener
   public static void stopService(@NonNull Context context)
   {
     Logger.i(TAG);
+    // Main-menu/place-page stop, save and cancel are explicit user actions. Disarm any future
+    // restart before stopping the live recorder. onDestroy itself intentionally preserves consent
+    // so unexpected service teardown or device shutdown can still resume an auto-resume session.
+    TrackRecorder.nativeSetAutoResumeForCurrentRecording(false);
     context.stopService(new Intent(context, TrackRecordingService.class));
   }
 
@@ -137,8 +199,9 @@ public class TrackRecordingService extends Service implements LocationListener
     // The notification is cancelled automatically by the system.
   }
 
-  // Uncommenting this code leads stopping track recording after closing the app,
-  // and more importantly, not resuming it when the app is reopened.
+  // Do not stop the recording merely because the task was removed. If the process/service is later
+  // torn down, onDestroy pauses the live recorder while the explicit auto-resume marker (if any)
+  // remains armed for the next process.
   // See https://github.com/organicmaps/organicmaps/issues/11840
   // @Override
   // public void onTaskRemoved(@NonNull Intent rootIntent)
@@ -160,8 +223,6 @@ public class TrackRecordingService extends Service implements LocationListener
 
     if (!LocationUtils.checkFineLocationPermission(this))
     {
-      // In a hypothetical scenario, the user could revoke location permissions after the app's process crashed,
-      // but before the service with START_STICKY was restarted by the system.
       Logger.w(TAG, "Permission ACCESS_FINE_LOCATION is not granted, skipping TrackRecordingService");
       stopSelf();
       return START_NOT_STICKY; // The service will be stopped by stopSelf().
@@ -169,7 +230,7 @@ public class TrackRecordingService extends Service implements LocationListener
 
     if (!TrackRecorder.nativeIsTrackRecordingEnabled())
     {
-      Logger.i(TAG, "Service can't be started because Track Recorder is turned off in settings");
+      Logger.i(TAG, "Service can't be started because Track Recorder is off");
       stopSelf();
       return START_NOT_STICKY;
     }
@@ -178,6 +239,7 @@ public class TrackRecordingService extends Service implements LocationListener
     if (action != null && STOP_TRACK_RECORDING.equals(action))
     {
       Logger.d(TAG, "Stop action received");
+      TrackRecorder.nativeSetAutoResumeForCurrentRecording(false);
       TrackRecorder.nativeStopTrackRecording();
       stopSelf();
       return START_NOT_STICKY;
