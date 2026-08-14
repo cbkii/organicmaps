@@ -113,30 +113,35 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
 
     new AlertDialog.Builder(requireContext())
         .setTitle(labelRes)
-        .setItems(items.toArray(new String[0]), (dialog, which) -> {
-          if (which == 0)
-          {
-            showDestinationSearchDialog(preference, home);
-            return;
-          }
-          if (which == 1)
-          {
-            final Location location = MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
-            final InCarQuickDestination destination = InCarQuickDestination.fromLocation(getString(labelRes), location);
-            if (destination == null)
-            {
-              Toast.makeText(requireContext(), R.string.in_car_quick_current_location_unavailable, Toast.LENGTH_SHORT)
-                  .show();
-              return;
-            }
-            saveDestination(home, destination);
-            updateDestinationSummary(preference, destination);
-            return;
-          }
+        .setItems(items.toArray(new String[0]),
+                  (dialog, which) -> {
+                    if (which == 0)
+                    {
+                      showDestinationSearchDialog(preference, home);
+                      return;
+                    }
+                    if (which == 1)
+                    {
+                      final Location location =
+                          MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
+                      final InCarQuickDestination destination =
+                          InCarQuickDestination.fromLocation(getString(labelRes), location);
+                      if (destination == null)
+                      {
+                        Toast
+                            .makeText(requireContext(), R.string.in_car_quick_current_location_unavailable,
+                                      Toast.LENGTH_SHORT)
+                            .show();
+                        return;
+                      }
+                      saveDestination(home, destination);
+                      updateDestinationSummary(preference, destination);
+                      return;
+                    }
 
-          saveDestination(home, null);
-          updateDestinationSummary(preference, null);
-        })
+                    saveDestination(home, null);
+                    updateDestinationSummary(preference, null);
+                  })
         .show();
   }
 
@@ -151,8 +156,8 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     query.setHint(R.string.in_car_quick_search_hint);
     query.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
     query.setMinHeight(dp(56));
-    root.addView(query,
-                 new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    root.addView(
+        query, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
     final ListView results = new ListView(requireContext());
     results.setDividerHeight(dp(4));
@@ -162,20 +167,20 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     root.addView(results, resultParams);
 
     final List<SearchResult> currentResults = new ArrayList<>();
-    final ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1,
-                                                            new ArrayList<>()) {
-      @NonNull
-      @Override
-      public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
-      {
-        final android.widget.TextView row = (android.widget.TextView) super.getView(position, convertView, parent);
-        row.setMinHeight(dp(64));
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(8), dp(16), dp(8));
-        row.setSingleLine(false);
-        return row;
-      }
-    };
+    final ArrayAdapter<String> adapter =
+        new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>()) {
+          @NonNull
+          @Override
+          public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
+          {
+            final android.widget.TextView row = (android.widget.TextView) super.getView(position, convertView, parent);
+            row.setMinHeight(dp(64));
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(16), dp(8), dp(16), dp(8));
+            row.setSingleLine(false);
+            return row;
+          }
+        };
     results.setAdapter(adapter);
 
     final Handler handler = new Handler(Looper.getMainLooper());
@@ -223,8 +228,12 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     });
 
     query.addTextChangedListener(new TextWatcher() {
-      @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-      @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+      @Override
+      public void beforeTextChanged(CharSequence s, int start, int count, int after)
+      {}
+      @Override
+      public void onTextChanged(CharSequence s, int start, int before, int count)
+      {}
       @Override
       public void afterTextChanged(Editable editable)
       {
@@ -238,9 +247,9 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
           SearchEngine.INSTANCE.cancel();
           return;
         }
-        pending[0] = () -> SearchEngine.INSTANCE.searchInteractive(text, false,
-                                                                  Language.getKeyboardLocale(requireContext()),
-                                                                  System.nanoTime(), false);
+        pending[0] = ()
+            -> SearchEngine.INSTANCE.searchInteractive(text, false, Language.getKeyboardLocale(requireContext()),
+                                                       System.nanoTime(), false);
         handler.postDelayed(pending[0], SEARCH_DEBOUNCE_MS);
       }
     });
