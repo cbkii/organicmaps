@@ -10,7 +10,8 @@
 namespace
 {
 
-std::string_view constexpr kEnabledKey = "GpsTrackingEnabled";
+// Kept only to neutralize the legacy behaviour where every active recording was persisted.
+std::string_view constexpr kLegacyEnabledKey = "GpsTrackingEnabled";
 std::string_view constexpr kAutoResumeFeatureKey = "GpsTrackingAutoResumeFeatureEnabled";
 std::string_view constexpr kAutoResumeSessionKey = "GpsTrackingAutoResumeSession";
 
@@ -34,14 +35,15 @@ inline void SetBoolSetting(std::string_view key, bool enabled)
 
 inline bool ShouldAutoResume()
 {
-  return GetBoolSetting(kEnabledKey) && GetBoolSetting(kAutoResumeFeatureKey) &&
-         GetBoolSetting(kAutoResumeSessionKey);
+  return GetBoolSetting(kAutoResumeFeatureKey) && GetBoolSetting(kAutoResumeSessionKey);
 }
 
-inline void ClearAutoResumeSession()
+inline void SetAutoResumeSession(bool enabled)
 {
-  SetBoolSetting(kEnabledKey, false);
-  SetBoolSetting(kAutoResumeSessionKey, false);
+  SetBoolSetting(kAutoResumeSessionKey, enabled);
+  // A new explicit session marker replaces the old generic enabled flag. Keep the old key false so
+  // downgrades/upgrades cannot accidentally turn every recording into an auto-resuming recording.
+  SetBoolSetting(kLegacyEnabledKey, false);
 }
 
 }  // namespace
@@ -54,10 +56,11 @@ GpsTracker & GpsTracker::Instance()
 
 GpsTracker::GpsTracker() : m_enabled(ShouldAutoResume()), m_track(GetFilePath(), std::make_unique<GpsTrackFilter>())
 {
-  // Old builds persisted GpsTrackingEnabled for every recording. Require both new explicit consent
-  // markers before restoring it so an upgrade cannot unexpectedly resume a legacy recording.
-  if (!m_enabled)
-    ClearAutoResumeSession();
+  // Old builds persisted GpsTrackingEnabled for every recording. Ignore and clear that legacy state;
+  // only the two new explicit consent markers may restore an interrupted recording.
+  SetBoolSetting(kLegacyEnabledKey, false);
+  if (!GetBoolSetting(kAutoResumeFeatureKey))
+    SetAutoResumeSession(false);
 }
 
 void GpsTracker::SetEnabled(bool enabled)
@@ -68,16 +71,14 @@ void GpsTracker::SetEnabled(bool enabled)
   if (enabled)
   {
     // A newly started recording is once-only until the user explicitly opts this session into
-    // auto-resume. This also prevents a crash between start and the resume-mode choice from arming
-    // future recording unexpectedly.
-    ClearAutoResumeSession();
+    // auto-resume. This also keeps a crash before the choice is committed fail-closed.
+    SetAutoResumeSession(false);
     m_track.Clear();
   }
-  else
-  {
-    ClearAutoResumeSession();
-  }
 
+  // Disabling the live recorder does not itself clear resume consent. This lets an unexpected service
+  // teardown or orderly device shutdown pause the runtime recorder while preserving a user-approved
+  // auto-resume session. Explicit user stop/save/cancel clears the session marker separately.
   m_enabled = enabled;
 }
 
@@ -85,14 +86,13 @@ void GpsTracker::SetAutoResumeFeatureEnabled(bool enabled)
 {
   SetBoolSetting(kAutoResumeFeatureKey, enabled);
   if (!enabled)
-    ClearAutoResumeSession();
+    SetAutoResumeSession(false);
 }
 
 void GpsTracker::SetAutoResumeForCurrentRecording(bool enabled)
 {
   bool const allow = enabled && m_enabled && GetBoolSetting(kAutoResumeFeatureKey);
-  SetBoolSetting(kAutoResumeSessionKey, allow);
-  SetBoolSetting(kEnabledKey, allow);
+  SetAutoResumeSession(allow);
 }
 
 void GpsTracker::Clear()
