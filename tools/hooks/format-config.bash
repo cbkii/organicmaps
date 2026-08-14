@@ -21,20 +21,10 @@ CLANG_FORMAT_TARGETS=(
   "android/sdk/widgets/speedlimit/src|*.java"
   # Android – C++
   "android/sdk/src/main/cpp|*.[hc]pp"
-  # iOS – C++/ObjC
-  "iphone|*.[hc]pp"
-  "iphone|*.[hm]"
-  "iphone|*.mm"
   # Core / C++
-  "dev_sandbox|*.[hc]pp"
   "generator|*.[hc]pp"
   "libs|*.[hc]pp"
-  "qt|*.[hc]pp"
   "tools|*.[hc]pp"
-)
-
-SWIFTFORMAT_TARGETS=(
-  "iphone"
 )
 
 KTLINT_TARGETS=(
