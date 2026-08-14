@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="pref_track_recording_auto_resume">pref_track_recording_auto_resume</string>
+  <string name="pref_track_recording_auto_resume" translatable="false">pref_track_recording_auto_resume</string>
   <string name="track_recording_auto_resume_title">Track recording restart options</string>
   <string name="track_recording_auto_resume_summary">Ask whether each new track recording should resume automatically after an app or device restart. When off, recordings are once-only.</string>
   <string name="track_recording_resume_dialog_title">Resume this recording after restart?</string>
