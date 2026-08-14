@@ -12,11 +12,11 @@ final class InCarSearchPresentationPolicy
   }
 
   static boolean shouldSynchronizeNestedScrolling(Boolean previousHasQuery, Integer previousActiveTab,
-                                                   Boolean previousMapMode, boolean hasQuery, int activeTab,
-                                                   boolean mapMode)
+                                                  Boolean previousMapMode, boolean hasQuery, int activeTab,
+                                                  boolean mapMode)
   {
     return previousHasQuery == null || previousActiveTab == null || previousMapMode == null
-        || previousHasQuery != hasQuery || previousActiveTab != activeTab || previousMapMode != mapMode;
+ || previousHasQuery != hasQuery || previousActiveTab != activeTab || previousMapMode != mapMode;
   }
 
   static boolean resultsNestedScrollingEnabled(boolean hasQuery, boolean mapMode)
