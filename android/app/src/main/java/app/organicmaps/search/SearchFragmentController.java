@@ -261,7 +261,6 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   {
     if (!BuildConfig.IS_IN_CAR || mSearchPageContainer == null)
       return;
-    int target = getResources().getDimensionPixelSize(R.dimen.in_car_search_panel_max_width);
     int available = getResources().getDisplayMetrics().widthPixels;
     if (mCurrentWindowInsets != null)
     {
@@ -269,7 +268,12 @@ public class SearchFragmentController extends Fragment implements SearchFragment
           mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
       available -= bars.left + bars.right;
     }
-    target = Math.max(1, Math.min(target, available));
+    available = Math.max(1, available);
+    final float fraction = getResources().getFraction(R.fraction.in_car_search_panel_width_fraction, 1, 1);
+    final int min = getResources().getDimensionPixelSize(R.dimen.in_car_search_panel_min_width);
+    final int max = getResources().getDimensionPixelSize(R.dimen.in_car_search_panel_max_width);
+    final int proportional = Math.round(available * fraction);
+    final int target = Math.min(available, Math.max(min, Math.min(max, proportional)));
     final ViewGroup.LayoutParams raw = mSearchPageContainer.getLayoutParams();
     raw.width = target;
     if (raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
