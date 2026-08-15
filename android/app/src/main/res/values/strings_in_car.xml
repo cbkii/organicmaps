@@ -29,6 +29,7 @@
   <string name="in_car_quick_destinations_title">Quick Destinations</string>
   <string name="in_car_quick_destinations_summary">Glanceable offline searches and saved destinations on the map.</string>
   <string name="in_car_quick_destinations_actions">Quick actions</string>
+  <string name="in_car_quick_destinations_other_actions">Other quick actions</string>
   <string name="in_car_quick_destinations_saved">Saved destinations</string>
   <string name="in_car_quick_expand">Expand Quick Destinations</string>
   <string name="in_car_quick_collapse">Collapse Quick Destinations</string>
@@ -37,6 +38,7 @@
   <string name="in_car_quick_start_collapsed_title">Start Quick Destinations collapsed</string>
   <string name="in_car_quick_start_collapsed_summary">Show only the lightning button when the map first opens.</string>
   <string name="in_car_quick_fuel_charging">Fuel + Charging</string>
+  <string name="in_car_quick_fuel_charging_summary">Enable either for a direct quick search, or both to choose Fuel or Charging when tapped.</string>
   <string name="in_car_quick_fuel">Fuel</string>
   <string name="in_car_quick_charging">Charging</string>
   <string name="in_car_quick_food">Food</string>

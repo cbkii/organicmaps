@@ -11,13 +11,24 @@
     app:singleLineTitle="false" />
 
   <androidx.preference.PreferenceCategory
-    android:title="@string/in_car_quick_destinations_actions">
+    android:title="@string/in_car_quick_fuel_charging"
+    android:summary="@string/in_car_quick_fuel_charging_summary">
 
     <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_quick_enabled_fuel_charging"
-      android:title="@string/in_car_quick_fuel_charging"
+      android:key="@string/pref_in_car_quick_enabled_fuel"
+      android:title="@string/in_car_quick_fuel"
       android:persistent="false"
       app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_quick_enabled_charging"
+      android:title="@string/in_car_quick_charging"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
+
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_quick_destinations_other_actions">
 
     <SwitchPreferenceCompat
       android:key="@string/pref_in_car_quick_enabled_parking"

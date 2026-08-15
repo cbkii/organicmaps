@@ -50,7 +50,8 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     super.onCreatePreferences(bundle, rootKey);
 
     bindStartCollapsed();
-    bindAction(InCarQuickDestinationsStore.Action.FUEL_CHARGING);
+    bindAction(InCarQuickDestinationsStore.Action.FUEL);
+    bindAction(InCarQuickDestinationsStore.Action.CHARGING);
     bindAction(InCarQuickDestinationsStore.Action.PARKING);
     bindAction(InCarQuickDestinationsStore.Action.TOILETS);
     bindAction(InCarQuickDestinationsStore.Action.FOOD);

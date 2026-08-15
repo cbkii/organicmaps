@@ -5,6 +5,14 @@ import androidx.annotation.NonNull;
 /** Pure visibility rules for the InCar Quick Destinations strip. */
 public final class InCarQuickDestinationsPolicy
 {
+  public enum FuelChargingMode
+  {
+    HIDDEN,
+    FUEL,
+    CHARGING,
+    CHOOSER
+  }
+
   private InCarQuickDestinationsPolicy() {}
 
   public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen)
@@ -20,8 +28,20 @@ public final class InCarQuickDestinationsPolicy
 
     return switch (action)
     {
-      case FUEL_CHARGING, PARKING, TOILETS, FOOD -> true;
+      case FUEL_CHARGING, FUEL, CHARGING, PARKING, TOILETS, FOOD -> true;
       case HOME, WORK, RECENT_1, RECENT_2 -> destinationAvailable;
     };
+  }
+
+  @NonNull
+  public static FuelChargingMode resolveFuelChargingMode(boolean fuelEnabled, boolean chargingEnabled)
+  {
+    if (fuelEnabled && chargingEnabled)
+      return FuelChargingMode.CHOOSER;
+    if (fuelEnabled)
+      return FuelChargingMode.FUEL;
+    if (chargingEnabled)
+      return FuelChargingMode.CHARGING;
+    return FuelChargingMode.HIDDEN;
   }
 }

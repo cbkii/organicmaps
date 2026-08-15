@@ -213,8 +213,7 @@ public final class InCarQuickDestinationsUi
       mContainer.removeAllViews();
       mOverflowButton = null;
       addPrimaryToggleAction();
-      addFixedAction(InCarQuickDestinationsStore.Action.FUEL_CHARGING, R.string.in_car_quick_fuel_charging,
-                     R.drawable.ic_in_car_quick_fuel, R.color.in_car_quick_fuel_charging, this::showFuelChargingChoice);
+      addFuelChargingAction();
       addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
                      R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
                      () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
@@ -249,6 +248,44 @@ public final class InCarQuickDestinationsUi
         renderExpansion();
       });
       mPrimaryButton = button;
+      mContainer.addView(button);
+    }
+
+    private void addFuelChargingAction()
+    {
+      final InCarQuickDestinationsPolicy.FuelChargingMode mode = InCarQuickDestinationsPolicy.resolveFuelChargingMode(
+          isEnabled(InCarQuickDestinationsStore.Action.FUEL), isEnabled(InCarQuickDestinationsStore.Action.CHARGING));
+      if (mode == InCarQuickDestinationsPolicy.FuelChargingMode.HIDDEN)
+        return;
+
+      final int labelRes;
+      final int iconRes;
+      final Runnable click;
+      switch (mode)
+      {
+        case FUEL:
+          labelRes = R.string.in_car_quick_fuel;
+          iconRes = R.drawable.ic_in_car_quick_fuel;
+          click = () -> openCategory(InCarQuickCategoryPolicy.Category.FUEL);
+          break;
+        case CHARGING:
+          labelRes = R.string.in_car_quick_charging;
+          iconRes = R.drawable.ic_in_car_quick_charging;
+          click = () -> openCategory(InCarQuickCategoryPolicy.Category.CHARGING);
+          break;
+        case CHOOSER:
+          labelRes = R.string.in_car_quick_fuel_charging;
+          iconRes = R.drawable.ic_in_car_quick_fuel;
+          click = this::showFuelChargingChoice;
+          break;
+        case HIDDEN:
+        default:
+          return;
+      }
+
+      final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);
+      button.setContentDescription(mActivity.getString(labelRes));
+      button.setOnClickListener(v -> click.run());
       mContainer.addView(button);
     }
 
