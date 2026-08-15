@@ -7,6 +7,8 @@ public final class InCarQuickDestinationsLayoutPolicy
 {
   public static final int PRIMARY_ACTION_WIDTH_DP = 64;
   public static final int ACTION_SIZE_DP = 64;
+  public static final int ACTION_ICON_SIZE_DP = 36;
+  public static final int ACTION_CORNER_RADIUS_DP = 18;
   public static final int ACTION_GAP_DP = 10;
   private static final int HORIZONTAL_PADDING_DP = 24;
 

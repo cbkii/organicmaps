@@ -10,12 +10,12 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -23,6 +23,7 @@ import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarDialogSizing;
 import app.organicmaps.incar.InCarQuickDestination;
 import app.organicmaps.incar.InCarQuickDestinationsStore;
 import app.organicmaps.sdk.search.SearchEngine;
@@ -111,38 +112,42 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     if (current != null)
       items.add(getString(R.string.in_car_quick_clear_destination));
 
-    new AlertDialog.Builder(requireContext())
-        .setTitle(labelRes)
-        .setItems(items.toArray(new String[0]),
-                  (dialog, which) -> {
-                    if (which == 0)
-                    {
-                      showDestinationSearchDialog(preference, home);
-                      return;
-                    }
-                    if (which == 1)
-                    {
-                      final Location location =
-                          MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
-                      final InCarQuickDestination destination =
-                          InCarQuickDestination.fromLocation(getString(labelRes), location);
-                      if (destination == null)
-                      {
-                        Toast
-                            .makeText(requireContext(), R.string.in_car_quick_current_location_unavailable,
-                                      Toast.LENGTH_SHORT)
-                            .show();
-                        return;
-                      }
-                      saveDestination(home, destination);
-                      updateDestinationSummary(preference, destination);
-                      return;
-                    }
+    final ArrayAdapter<String> adapter = createTouchChoiceAdapter(items, 64);
+    final AlertDialog dialog =
+        new AlertDialog.Builder(requireContext())
+            .setTitle(labelRes)
+            .setAdapter(adapter,
+                        (ignored, which) -> {
+                          if (which == 0)
+                          {
+                            showDestinationSearchDialog(preference, home);
+                            return;
+                          }
+                          if (which == 1)
+                          {
+                            final Location location =
+                                MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
+                            final InCarQuickDestination destination =
+                                InCarQuickDestination.fromLocation(getString(labelRes), location);
+                            if (destination == null)
+                            {
+                              Toast
+                                  .makeText(requireContext(), R.string.in_car_quick_current_location_unavailable,
+                                            Toast.LENGTH_SHORT)
+                                  .show();
+                              return;
+                            }
+                            saveDestination(home, destination);
+                            updateDestinationSummary(preference, destination);
+                            return;
+                          }
 
-                    saveDestination(home, null);
-                    updateDestinationSummary(preference, null);
-                  })
-        .show();
+                          saveDestination(home, null);
+                          updateDestinationSummary(preference, null);
+                        })
+            .create();
+    dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(requireActivity(), dialog));
+    dialog.show();
   }
 
   private void showDestinationSearchDialog(@NonNull Preference preference, boolean home)
@@ -173,7 +178,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
           @Override
           public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
           {
-            final android.widget.TextView row = (android.widget.TextView) super.getView(position, convertView, parent);
+            final TextView row = (TextView) super.getView(position, convertView, parent);
             row.setMinHeight(dp(64));
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(16), dp(8), dp(16), dp(8));
@@ -217,15 +222,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
       SearchEngine.INSTANCE.removeListener(listener);
       SearchEngine.INSTANCE.cancel();
     });
-    dialog.setOnShowListener(ignored -> {
-      final Window window = dialog.getWindow();
-      if (window == null)
-        return;
-      final int availableWidth = getResources().getDisplayMetrics().widthPixels - dp(32);
-      final int availableHeight = getResources().getDisplayMetrics().heightPixels - dp(48);
-      window.setLayout(Math.min(dp(720), Math.max(dp(320), Math.round(availableWidth * 0.72f))),
-                       Math.min(dp(560), Math.max(dp(280), Math.round(availableHeight * 0.82f))));
-    });
+    dialog.setOnShowListener(ignored -> InCarDialogSizing.applyPickerSize(requireActivity(), dialog));
 
     query.addTextChangedListener(new TextWatcher() {
       @Override
@@ -268,6 +265,23 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
       dialog.dismiss();
     });
     dialog.show();
+  }
+
+  @NonNull
+  private ArrayAdapter<String> createTouchChoiceAdapter(@NonNull List<String> items, int minHeightDp)
+  {
+    return new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>(items)) {
+      @NonNull
+      @Override
+      public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
+      {
+        final TextView row = (TextView) super.getView(position, convertView, parent);
+        row.setMinHeight(dp(minHeightDp));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(16), 0, dp(16), 0);
+        return row;
+      }
+    };
   }
 
   private void saveDestination(boolean home, @Nullable InCarQuickDestination destination)
