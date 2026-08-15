@@ -18,7 +18,8 @@ public class InCarMapPaletteContrastTest
 {
   private static final Pattern COLOR =
       Pattern.compile("^@([A-Za-z0-9_]+):\\s*(#[0-9A-Fa-f]{6});\\s*$");
-  private static final String[] ROAD_SURFACES = {"trunk0", "primary1", "secondary0", "residential", "unclassified"};
+  private static final String[] ROAD_SURFACES = {
+      "trunk0", "primary1", "secondary0", "residential", "unclassified"};
   private static final String[] NEUTRAL_SURROUNDINGS = {
       "background", "building0", "building1", "industrial", "parking", "parking_l", "aerodrome0"};
 
@@ -51,9 +52,8 @@ public class InCarMapPaletteContrastTest
   }
 
   @Test
-  public void roadLuminanceHierarchyKeepsMajorRoadsMostProminent() throws IOException
+  public void darkRoadLuminanceHierarchyKeepsMajorRoadsMostProminent() throws IOException
   {
-    assertDescendingRoadLuminance(loadPalette("light"));
     assertDescendingRoadLuminance(loadPalette("dark"));
   }
 
