@@ -263,24 +263,23 @@ public final class InCarQuickDestinationsUi
       final Runnable click;
       switch (mode)
       {
-        case FUEL:
-          labelRes = R.string.in_car_quick_fuel;
-          iconRes = R.drawable.ic_in_car_quick_fuel;
-          click = () -> openCategory(InCarQuickCategoryPolicy.Category.FUEL);
-          break;
-        case CHARGING:
-          labelRes = R.string.in_car_quick_charging;
-          iconRes = R.drawable.ic_in_car_quick_charging;
-          click = () -> openCategory(InCarQuickCategoryPolicy.Category.CHARGING);
-          break;
-        case CHOOSER:
-          labelRes = R.string.in_car_quick_fuel_charging;
-          iconRes = R.drawable.ic_in_car_quick_fuel;
-          click = this::showFuelChargingChoice;
-          break;
-        case HIDDEN:
-        default:
-          return;
+      case FUEL:
+        labelRes = R.string.in_car_quick_fuel;
+        iconRes = R.drawable.ic_in_car_quick_fuel;
+        click = () -> openCategory(InCarQuickCategoryPolicy.Category.FUEL);
+        break;
+      case CHARGING:
+        labelRes = R.string.in_car_quick_charging;
+        iconRes = R.drawable.ic_in_car_quick_charging;
+        click = () -> openCategory(InCarQuickCategoryPolicy.Category.CHARGING);
+        break;
+      case CHOOSER:
+        labelRes = R.string.in_car_quick_fuel_charging;
+        iconRes = R.drawable.ic_in_car_quick_fuel;
+        click = this::showFuelChargingChoice;
+        break;
+      case HIDDEN:
+      default: return;
       }
 
       final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);

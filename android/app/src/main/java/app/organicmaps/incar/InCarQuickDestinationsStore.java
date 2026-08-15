@@ -57,8 +57,7 @@ public final class InCarQuickDestinationsStore
     if (preferences.contains(key))
       return preferences.getBoolean(key, true);
 
-    if ((action == Action.FUEL || action == Action.CHARGING)
-        && preferences.contains(actionKey(Action.FUEL_CHARGING)))
+    if ((action == Action.FUEL || action == Action.CHARGING) && preferences.contains(actionKey(Action.FUEL_CHARGING)))
       return preferences.getBoolean(actionKey(Action.FUEL_CHARGING), true);
 
     return true;
