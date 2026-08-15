@@ -102,16 +102,16 @@
 /* LABELS */
 @label_dark: #202124;
 @label_medium: #34383B;
-@label_light: #4B5156;
+@label_light: #373D42;
 @label_halo_medium: #F1F3F4;
 @label_halo_light: #FFFFFF;
 
 @city_label: #202124;
-@country_label: #4B5156;
-@state_label: #4B5156;
-@district_label: #4B5156;
+@country_label: #373D42;
+@state_label: #373D42;
+@district_label: #373D42;
 @poi_label: #34383B;
-@subway_label: #4B5156;
+@subway_label: #373D42;
 
 @shield_text: #202124;
 @shield_text_halo: #FFFFFF;

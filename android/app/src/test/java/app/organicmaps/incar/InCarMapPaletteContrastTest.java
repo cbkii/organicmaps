@@ -35,6 +35,9 @@ public class InCarMapPaletteContrastTest
 
     assertContrastAtLeast(palette, "casing_road_major", "background", 5.0);
     assertContrastAtLeast(palette, "casing_road_local", "background", 3.3);
+    assertContrastAtLeast(palette, "label_light", "background", 4.5);
+    assertContrastAtLeast(palette, "building_label", "building0", 4.5);
+    assertContrastAtLeast(palette, "building_label", "building1", 4.5);
   }
 
   @Test
