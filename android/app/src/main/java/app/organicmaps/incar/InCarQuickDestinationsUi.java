@@ -300,8 +300,6 @@ public final class InCarQuickDestinationsUi
       final LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
       params.setMarginEnd(dp(InCarQuickDestinationsLayoutPolicy.ACTION_GAP_DP));
       button.setLayoutParams(params);
-      button.setMinWidth(0);
-      button.setMinHeight(0);
       button.setMinimumWidth(width);
       button.setMinimumHeight(height);
       final int iconPaddingDp = Math.max(0, (InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP
