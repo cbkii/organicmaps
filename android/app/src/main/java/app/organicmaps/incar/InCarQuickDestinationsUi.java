@@ -350,7 +350,8 @@ public final class InCarQuickDestinationsUi
       if (overflowActions.isEmpty())
         return;
 
-      final InCarQuickActionButton overflow = createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
+      final InCarQuickActionButton overflow =
+          createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
       overflow.setContentDescription(mActivity.getString(R.string.in_car_quick_more));
       overflow.setOnClickListener(v -> showOverflowChoice(overflowActions));
       mOverflowButton = overflow;

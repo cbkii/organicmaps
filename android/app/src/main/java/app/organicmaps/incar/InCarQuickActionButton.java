@@ -24,8 +24,8 @@ final class InCarQuickActionButton extends AppCompatImageButton
     setFocusable(true);
   }
 
-  void setAppearance(@DrawableRes int iconRes, @ColorInt int surfaceColor, @ColorInt int iconColor,
-                     int cornerRadiusPx, int iconPaddingPx)
+  void setAppearance(@DrawableRes int iconRes, @ColorInt int surfaceColor, @ColorInt int iconColor, int cornerRadiusPx,
+                     int iconPaddingPx)
   {
     setImageResource(iconRes);
     ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(iconColor));
@@ -39,12 +39,11 @@ final class InCarQuickActionButton extends AppCompatImageButton
   {
     final GradientDrawable surface = roundedDrawable(surfaceColor, cornerRadiusPx);
     final GradientDrawable mask = roundedDrawable(Color.WHITE, cornerRadiusPx);
-    final ColorStateList feedback =
-        new ColorStateList(new int[][] {{android.R.attr.state_pressed}, {android.R.attr.state_focused},
-                                       {android.R.attr.state_hovered}, {}},
-                           new int[] {ColorUtils.setAlphaComponent(feedbackColor, 82),
-                                      ColorUtils.setAlphaComponent(feedbackColor, 61),
-                                      ColorUtils.setAlphaComponent(feedbackColor, 61), Color.TRANSPARENT});
+    final ColorStateList feedback = new ColorStateList(
+        new int[][] {
+            {android.R.attr.state_pressed}, {android.R.attr.state_focused}, {android.R.attr.state_hovered}, {}},
+        new int[] {ColorUtils.setAlphaComponent(feedbackColor, 82), ColorUtils.setAlphaComponent(feedbackColor, 61),
+                   ColorUtils.setAlphaComponent(feedbackColor, 61), Color.TRANSPARENT});
     return new RippleDrawable(feedback, surface, mask);
   }
 
