@@ -1,4 +1,4 @@
-/* High-contrast in-car dark palette with brighter road surfaces and blacker edges. */
+/* High-contrast in-car dark palette with bright road surfaces and blacker edges. */
 
 /* BASE */
 @background: #202124;
@@ -13,9 +13,9 @@
 @primary0: #A5ACB2;
 @primary1: #A0A7AD;
 @primary2: #A0A7AD;
-@secondary0: #959CA2;
-@residential: #858C92;
-@unclassified: #7D848A;
+@secondary0: #9DA4AA;
+@residential: #90979D;
+@unclassified: #888F95;
 @pedestrian: #61676C;
 @footway: #4A4F53;
 @cycleway: #4E616D;
