@@ -16,12 +16,10 @@ import org.junit.Test;
 /** Regression checks for the direct-display InCar road-vs-surroundings palette hierarchy. */
 public class InCarMapPaletteContrastTest
 {
-  private static final Pattern COLOR =
-      Pattern.compile("^@([A-Za-z0-9_]+):\\s*(#[0-9A-Fa-f]{6});\\s*$");
-  private static final String[] ROAD_SURFACES = {
-      "trunk0", "primary1", "secondary0", "residential", "unclassified"};
-  private static final String[] NEUTRAL_SURROUNDINGS = {
-      "background", "building0", "building1", "industrial", "parking", "parking_l", "aerodrome0"};
+  private static final Pattern COLOR = Pattern.compile("^@([A-Za-z0-9_]+):\\s*(#[0-9A-Fa-f]{6});\\s*$");
+  private static final String[] ROAD_SURFACES = {"trunk0", "primary1", "secondary0", "residential", "unclassified"};
+  private static final String[] NEUTRAL_SURROUNDINGS = {"background", "building0", "building1", "industrial",
+                                                        "parking",    "parking_l", "aerodrome0"};
 
   @Test
   public void lightRoadSurfacesRemainDistinctFromNeutralSurroundings() throws IOException
