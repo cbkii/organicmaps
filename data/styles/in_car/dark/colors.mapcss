@@ -1,61 +1,61 @@
-/* Google-like in-car dark palette with strong edge separation. */
+/* High-contrast in-car dark palette with brighter road surfaces and blacker edges. */
 
 /* BASE */
 @background: #202124;
 
 /* BOUNDARIES */
-@border_country: #5F6368;
-@border_region: #4A4D50;
+@border_country: #666C72;
+@border_region: #4E5358;
 
 /* ROADS */
-@trunk0: #90969B;
-@trunk1: #90969B;
-@primary0: #858B90;
-@primary1: #7E858A;
-@primary2: #7E858A;
-@secondary0: #73787D;
-@residential: #5F6368;
-@unclassified: #55595D;
-@pedestrian: #404448;
-@footway: #34383B;
-@cycleway: #3B4A54;
-@construction: #45494C;
-@track: #4B4742;
-@path: #45413D;
-@bridleway: #3D3935;
+@trunk0: #B5BCC2;
+@trunk1: #B5BCC2;
+@primary0: #A5ACB2;
+@primary1: #A0A7AD;
+@primary2: #A0A7AD;
+@secondary0: #959CA2;
+@residential: #858C92;
+@unclassified: #7D848A;
+@pedestrian: #61676C;
+@footway: #4A4F53;
+@cycleway: #4E616D;
+@construction: #555B60;
+@track: #5C5650;
+@path: #55504A;
+@bridleway: #4C4741;
 
 @bridge_background: #202124;
-@bridge_casing: #0B0D0F;
-@casing_road: #0B0D0F;
-@casing_road_major: #0B0D0F;
-@casing_road_local: #0B0D0F;
+@bridge_casing: #050607;
+@casing_road: #080A0C;
+@casing_road_major: #050607;
+@casing_road_local: #0D0F11;
 
-@primary_tunnel: #5A6064;
-@trunk_tunnel: #62686C;
-@primary_tunnel_casing: #050607;
-@trunk_tunnel_casing: #050607;
-@secondary_tunnel: #4F5458;
-@secondary_tunnel_casing: #050607;
-@tertiary_tunnel: #454A4D;
-@tertiary_tunnel_casing: #050607;
-@unclassified_tunnel: #414548;
-@unclassified_tunnel_casing: #050607;
+@primary_tunnel: #737A80;
+@trunk_tunnel: #7D848A;
+@primary_tunnel_casing: #030405;
+@trunk_tunnel_casing: #030405;
+@secondary_tunnel: #686F75;
+@secondary_tunnel_casing: #030405;
+@tertiary_tunnel: #5E656B;
+@tertiary_tunnel_casing: #030405;
+@unclassified_tunnel: #565D63;
+@unclassified_tunnel_casing: #030405;
 
 /* TRANSPORT */
-@railway_light: #3C4145;
-@railway: #4A4F53;
-@railway_tourism: #514A43;
+@railway_light: #444A4F;
+@railway: #565C61;
+@railway_tourism: #5A524A;
 @railway_dash: #202124;
-@railway_tunnel: #34373A;
-@tram: #4B5054;
+@railway_tunnel: #3C4044;
+@tram: #555B60;
 
 /* AERODROME */
-@aerodrome0: #292B2E;
-@aerodrome1: #292B2E;
-@aerodrome2: #292B2E;
-@aerodrome3: #292B2E;
-@aerodrome4: #292B2E;
-@aerodrome5: #292B2E;
+@aerodrome0: #2C2E31;
+@aerodrome1: #2C2E31;
+@aerodrome2: #2C2E31;
+@aerodrome3: #2C2E31;
+@aerodrome4: #2C2E31;
+@aerodrome5: #2C2E31;
 
 /* NATURAL */
 @glacier: #34373A;
@@ -74,15 +74,15 @@
 @green3: #1F3526;
 @green4: #1D3325;
 @green5: #1C3224;
-@green6: #4B6038;
+@green6: #536A3E;
 @leisure: #292D29;
 
 /* BUILDINGS */
-@housenumber: #BDC1C6;
-@building_label: #BDC1C6;
+@housenumber: #D0D4D8;
+@building_label: #D0D4D8;
 @building0: #2B2D30;
 @building1: #303236;
-@building_border0: #4A4D50;
+@building_border0: #4E5358;
 
 /* LANDUSE */
 @industrial: #29272B;
@@ -90,34 +90,34 @@
 @parking: #2B2D2E;
 @parking_l: #313335;
 @military: #8F2B24;
-@prison: #666A6E;
+@prison: #747A80;
 @farmland: #2C2D24;
 @farmyard: #302D27;
 
 /* BARRIERS */
-@fence: #505458;
+@fence: #5A6065;
 @hedge: #35583A;
 @cliff: #735E4E;
 
 /* LABELS */
 @label_dark: #F1F3F4;
 @label_medium: #DADCE0;
-@label_light: #BDC1C6;
-@label_halo_medium: #0B0D0F;
-@label_halo_light: #0B0D0F;
+@label_light: #C7CBD0;
+@label_halo_medium: #050607;
+@label_halo_light: #050607;
 
 @city_label: #F1F3F4;
-@country_label: #BDC1C6;
-@state_label: #BDC1C6;
-@district_label: #9AA0A6;
+@country_label: #C7CBD0;
+@state_label: #C7CBD0;
+@district_label: #AEB4B9;
 @poi_label: #DADCE0;
-@subway_label: #BDC1C6;
+@subway_label: #C7CBD0;
 
 @shield_text: #202124;
-@shield_text_halo: #0B0D0F;
-@shield: #DADCE0;
-@shield_outline: #0B0D0F;
+@shield_text_halo: #050607;
+@shield: #E4E7EA;
+@shield_outline: #050607;
 
 @water_label: #78C7CF;
 @park_label: #9BC49A;
-@halo_park_label: #0B0D0F;
+@halo_park_label: #050607;

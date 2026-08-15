@@ -419,19 +419,19 @@ public final class InCarQuickDestinationsUi
         choices.add(action.label);
 
       final InCarChoiceAdapter adapter = new InCarChoiceAdapter(mActivity, choices);
-      final AlertDialog dialog =
-          new AlertDialog.Builder(mActivity)
-              .setTitle(R.string.in_car_quick_more)
-              .setAdapter(adapter, (ignored, which) -> actions.get(which).action.run())
-              .create();
+      final AlertDialog dialog = new AlertDialog.Builder(mActivity)
+                                     .setTitle(R.string.in_car_quick_more)
+                                     .setAdapter(adapter, (ignored, which) -> actions.get(which).action.run())
+                                     .create();
       dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(mActivity, dialog));
       dialog.show();
     }
 
     private void showFuelChargingChoice()
     {
-      final List<String> choices = List.of(mActivity.getString(R.string.in_car_quick_fuel),
-                                           mActivity.getString(R.string.in_car_quick_charging));
+      final List<String> choices = new ArrayList<>(2);
+      choices.add(mActivity.getString(R.string.in_car_quick_fuel));
+      choices.add(mActivity.getString(R.string.in_car_quick_charging));
       final InCarChoiceAdapter adapter = new InCarChoiceAdapter(mActivity, choices);
       final AlertDialog dialog =
           new AlertDialog.Builder(mActivity)

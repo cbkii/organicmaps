@@ -272,7 +272,8 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
         if (state != InCarDestinationSearchPolicy.UiState.SEARCHING)
           return;
 
-        pending[0] = () -> {
+        pending[0] = () ->
+        {
           final long timestamp = System.nanoTime();
           activeTimestamp[0] = timestamp;
           renderSearchState(InCarDestinationSearchPolicy.UiState.SEARCHING, statusRow, progress, statusText, results);
@@ -300,8 +301,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   }
 
   private void renderSearchState(@NonNull InCarDestinationSearchPolicy.UiState state, @NonNull View statusRow,
-                                 @NonNull ProgressBar progress, @NonNull TextView statusText,
-                                 @NonNull ListView results)
+                                 @NonNull ProgressBar progress, @NonNull TextView statusText, @NonNull ListView results)
   {
     if (state == InCarDestinationSearchPolicy.UiState.RESULTS)
     {
