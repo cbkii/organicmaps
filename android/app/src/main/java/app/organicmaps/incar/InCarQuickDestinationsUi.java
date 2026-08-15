@@ -5,14 +5,11 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
-import android.widget.ArrayAdapter;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -83,6 +80,23 @@ public final class InCarQuickDestinationsUi
   private static final class Controller
       implements DefaultLifecycleObserver, SharedPreferences.OnSharedPreferenceChangeListener
   {
+    private static final class QuickActionBinding
+    {
+      @NonNull
+      final InCarQuickActionButton button;
+      @NonNull
+      final String label;
+      @NonNull
+      final Runnable action;
+
+      QuickActionBinding(@NonNull InCarQuickActionButton button, @NonNull String label, @NonNull Runnable action)
+      {
+        this.button = button;
+        this.label = label;
+        this.action = action;
+      }
+    }
+
     @NonNull
     private final MwmActivity mActivity;
     @NonNull
@@ -101,6 +115,8 @@ public final class InCarQuickDestinationsUi
     private final PlacePageViewModel mPlacePageViewModel;
     @NonNull
     private final View.OnLayoutChangeListener mRootLayoutListener;
+    @NonNull
+    private final List<QuickActionBinding> mQuickActions = new ArrayList<>();
 
     @Nullable
     private InCarQuickActionButton mPrimaryButton;
@@ -211,6 +227,7 @@ public final class InCarQuickDestinationsUi
     private void rebuildButtons()
     {
       mContainer.removeAllViews();
+      mQuickActions.clear();
       mOverflowButton = null;
       addPrimaryToggleAction();
       addFuelChargingAction();
@@ -283,9 +300,7 @@ public final class InCarQuickDestinationsUi
       }
 
       final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);
-      button.setContentDescription(mActivity.getString(labelRes));
-      button.setOnClickListener(v -> click.run());
-      mContainer.addView(button);
+      addQuickAction(button, mActivity.getString(labelRes), mActivity.getString(labelRes), click);
     }
 
     private void addFixedAction(@NonNull InCarQuickDestinationsStore.Action action, @StringRes int labelRes,
@@ -295,9 +310,8 @@ public final class InCarQuickDestinationsUi
         return;
 
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
-      button.setContentDescription(mActivity.getString(labelRes));
-      button.setOnClickListener(v -> click.run());
-      mContainer.addView(button);
+      final String label = mActivity.getString(labelRes);
+      addQuickAction(button, label, label, click);
     }
 
     private void addDestinationAction(@NonNull InCarQuickDestinationsStore.Action action,
@@ -313,11 +327,19 @@ public final class InCarQuickDestinationsUi
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
       final String actionLabel = mActivity.getString(labelRes);
       final String displayLabel = destination.getDisplayLabel();
-      button.setContentDescription(
+      final String description =
           displayLabel.isEmpty()
               ? actionLabel
-              : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel));
-      button.setOnClickListener(v -> mActivity.startLocationToPoint(destination.toMapObject()));
+              : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
+      addQuickAction(button, description, description, () -> mActivity.startLocationToPoint(destination.toMapObject()));
+    }
+
+    private void addQuickAction(@NonNull InCarQuickActionButton button, @NonNull String menuLabel,
+                                @NonNull String accessibilityLabel, @NonNull Runnable action)
+    {
+      button.setContentDescription(accessibilityLabel);
+      button.setOnClickListener(v -> action.run());
+      mQuickActions.add(new QuickActionBinding(button, menuLabel, action));
       mContainer.addView(button);
     }
 
@@ -358,10 +380,10 @@ public final class InCarQuickDestinationsUi
         mOverflowButton = null;
       }
 
-      final int actionCount = Math.max(0, mContainer.getChildCount() - 1);
-      for (int index = 1; index < mContainer.getChildCount(); index++)
-        mContainer.getChildAt(index).setVisibility(View.VISIBLE);
+      for (QuickActionBinding binding : mQuickActions)
+        binding.button.setVisibility(View.VISIBLE);
 
+      final int actionCount = mQuickActions.size();
       final int availableWidthDp = Math.round(mRoot.getWidth() / mActivity.getResources().getDisplayMetrics().density);
       if (!InCarQuickDestinationsLayoutPolicy.requiresOverflow(availableWidthDp, actionCount))
         return;
@@ -371,14 +393,12 @@ public final class InCarQuickDestinationsUi
         return;
 
       final int visibleActions = Math.max(0, capacity - 1);
-      final List<InCarQuickActionButton> overflowActions = new ArrayList<>();
-      for (int index = 1; index <= actionCount; index++)
+      final List<QuickActionBinding> overflowActions = new ArrayList<>();
+      for (int index = visibleActions; index < mQuickActions.size(); index++)
       {
-        final View child = mContainer.getChildAt(index);
-        if (!(child instanceof InCarQuickActionButton button) || index <= visibleActions)
-          continue;
-        button.setVisibility(View.GONE);
-        overflowActions.add(button);
+        final QuickActionBinding binding = mQuickActions.get(index);
+        binding.button.setVisibility(View.GONE);
+        overflowActions.add(binding);
       }
 
       if (overflowActions.isEmpty())
@@ -392,32 +412,17 @@ public final class InCarQuickDestinationsUi
       mContainer.addView(overflow);
     }
 
-    private void showOverflowChoice(@NonNull List<InCarQuickActionButton> actions)
+    private void showOverflowChoice(@NonNull List<QuickActionBinding> actions)
     {
-      final List<InCarQuickActionButton> availableActions = new ArrayList<>(actions);
-      final String[] choices = new String[availableActions.size()];
-      for (int index = 0; index < availableActions.size(); index++)
-      {
-        final CharSequence description = availableActions.get(index).getContentDescription();
-        choices[index] = description == null ? mActivity.getString(R.string.in_car_quick_more) : description.toString();
-      }
+      final List<String> choices = new ArrayList<>(actions.size());
+      for (QuickActionBinding action : actions)
+        choices.add(action.label);
 
-      final ArrayAdapter<String> adapter = new ArrayAdapter<>(mActivity, android.R.layout.simple_list_item_1, choices) {
-        @NonNull
-        @Override
-        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
-        {
-          final TextView row = (TextView) super.getView(position, convertView, parent);
-          row.setMinHeight(dp(64));
-          row.setGravity(Gravity.CENTER_VERTICAL);
-          row.setPadding(dp(24), 0, dp(24), 0);
-          return row;
-        }
-      };
+      final InCarChoiceAdapter adapter = new InCarChoiceAdapter(mActivity, choices);
       final AlertDialog dialog =
           new AlertDialog.Builder(mActivity)
               .setTitle(R.string.in_car_quick_more)
-              .setAdapter(adapter, (ignored, which) -> availableActions.get(which).performClick())
+              .setAdapter(adapter, (ignored, which) -> actions.get(which).action.run())
               .create();
       dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(mActivity, dialog));
       dialog.show();
@@ -425,21 +430,9 @@ public final class InCarQuickDestinationsUi
 
     private void showFuelChargingChoice()
     {
-      final String[] choices = {mActivity.getString(R.string.in_car_quick_fuel),
-                                mActivity.getString(R.string.in_car_quick_charging)};
-      final ArrayAdapter<String> adapter = new ArrayAdapter<>(mActivity, android.R.layout.simple_list_item_1, choices) {
-        @NonNull
-        @Override
-        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
-        {
-          final TextView row = (TextView) super.getView(position, convertView, parent);
-          row.setMinHeight(dp(72));
-          row.setGravity(Gravity.CENTER_VERTICAL);
-          row.setPadding(dp(24), 0, dp(24), 0);
-          row.setTextSize(18.0f);
-          return row;
-        }
-      };
+      final List<String> choices = List.of(mActivity.getString(R.string.in_car_quick_fuel),
+                                           mActivity.getString(R.string.in_car_quick_charging));
+      final InCarChoiceAdapter adapter = new InCarChoiceAdapter(mActivity, choices);
       final AlertDialog dialog =
           new AlertDialog.Builder(mActivity)
               .setAdapter(adapter,
@@ -499,8 +492,10 @@ public final class InCarQuickDestinationsUi
     private void renderExpansion()
     {
       updateRootWidth();
-      for (int index = 1; index < mContainer.getChildCount(); index++)
-        mContainer.getChildAt(index).setVisibility(mExpanded ? View.VISIBLE : View.GONE);
+      for (QuickActionBinding binding : mQuickActions)
+        binding.button.setVisibility(mExpanded ? View.VISIBLE : View.GONE);
+      if (mOverflowButton != null)
+        mOverflowButton.setVisibility(mExpanded ? View.VISIBLE : View.GONE);
 
       if (mPrimaryButton != null)
         mPrimaryButton.setContentDescription(

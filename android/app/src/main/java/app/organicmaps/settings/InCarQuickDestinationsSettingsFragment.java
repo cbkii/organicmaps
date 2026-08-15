@@ -11,10 +11,11 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -23,6 +24,8 @@ import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarChoiceAdapter;
+import app.organicmaps.incar.InCarDestinationSearchPolicy;
 import app.organicmaps.incar.InCarDialogSizing;
 import app.organicmaps.incar.InCarQuickDestination;
 import app.organicmaps.incar.InCarQuickDestinationsStore;
@@ -37,6 +40,7 @@ import java.util.List;
 public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSettingsFragment
 {
   private static final long SEARCH_DEBOUNCE_MS = 250L;
+  private static final long NO_ACTIVE_SEARCH = Long.MIN_VALUE;
 
   @Override
   protected int getXmlResources()
@@ -113,7 +117,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     if (current != null)
       items.add(getString(R.string.in_car_quick_clear_destination));
 
-    final ArrayAdapter<String> adapter = createTouchChoiceAdapter(items, 64);
+    final InCarChoiceAdapter adapter = new InCarChoiceAdapter(requireContext(), items);
     final AlertDialog dialog =
         new AlertDialog.Builder(requireContext())
             .setTitle(labelRes)
@@ -165,37 +169,44 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     root.addView(
         query, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+    final FrameLayout content = new FrameLayout(requireContext());
+    final LinearLayout.LayoutParams contentParams =
+        new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
+    contentParams.topMargin = dp(8);
+    root.addView(content, contentParams);
+
     final ListView results = new ListView(requireContext());
     results.setDividerHeight(dp(4));
-    final LinearLayout.LayoutParams resultParams =
-        new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
-    resultParams.topMargin = dp(8);
-    root.addView(results, resultParams);
+    content.addView(results, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                                          ViewGroup.LayoutParams.MATCH_PARENT));
+
+    final LinearLayout statusRow = new LinearLayout(requireContext());
+    statusRow.setOrientation(LinearLayout.HORIZONTAL);
+    statusRow.setGravity(Gravity.CENTER);
+    statusRow.setPadding(dp(16), dp(16), dp(16), dp(16));
+    final ProgressBar progress = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleSmall);
+    statusRow.addView(progress, new LinearLayout.LayoutParams(dp(32), dp(32)));
+    final TextView statusText = new TextView(requireContext());
+    statusText.setGravity(Gravity.CENTER_VERTICAL);
+    statusText.setTextSize(18.0f);
+    statusText.setPadding(dp(12), 0, 0, 0);
+    statusRow.addView(statusText, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                                                                ViewGroup.LayoutParams.WRAP_CONTENT));
+    content.addView(statusRow, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                                            ViewGroup.LayoutParams.MATCH_PARENT));
 
     final List<SearchResult> currentResults = new ArrayList<>();
-    final ArrayAdapter<String> adapter =
-        new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>()) {
-          @NonNull
-          @Override
-          public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
-          {
-            final TextView row = (TextView) super.getView(position, convertView, parent);
-            row.setMinHeight(dp(64));
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(16), dp(8), dp(16), dp(8));
-            row.setSingleLine(false);
-            return row;
-          }
-        };
+    final InCarChoiceAdapter adapter = new InCarChoiceAdapter(requireContext(), new ArrayList<>());
     results.setAdapter(adapter);
 
     final Handler handler = new Handler(Looper.getMainLooper());
     final Runnable[] pending = new Runnable[1];
+    final long[] activeTimestamp = {NO_ACTIVE_SEARCH};
     final SearchListener listener = new SearchListener() {
       @Override
       public void onResultsUpdate(@NonNull SearchResult[] searchResults, long timestamp)
       {
-        if (!isAdded())
+        if (!isAdded() || timestamp != activeTimestamp[0])
           return;
         currentResults.clear();
         adapter.clear();
@@ -209,22 +220,31 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
           adapter.add(region.length() == 0 ? title : title + "\n" + region);
         }
         adapter.notifyDataSetChanged();
+        if (!currentResults.isEmpty())
+          renderSearchState(InCarDestinationSearchPolicy.UiState.RESULTS, statusRow, progress, statusText, results);
       }
 
       @Override
       public void onResultsEnd(long timestamp)
-      {}
+      {
+        if (!isAdded() || timestamp != activeTimestamp[0])
+          return;
+        renderSearchState(InCarDestinationSearchPolicy.stateForCompletedResults(currentResults.size()), statusRow,
+                          progress, statusText, results);
+      }
     };
 
     SearchEngine.INSTANCE.addListener(listener);
     final AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(root).create();
     dialog.setOnDismissListener(ignored -> {
+      activeTimestamp[0] = NO_ACTIVE_SEARCH;
       handler.removeCallbacksAndMessages(null);
       SearchEngine.INSTANCE.removeListener(listener);
       SearchEngine.INSTANCE.cancel();
     });
     dialog.setOnShowListener(ignored -> InCarDialogSizing.applyPickerSize(requireActivity(), dialog));
 
+    renderSearchState(InCarDestinationSearchPolicy.UiState.IDLE, statusRow, progress, statusText, results);
     query.addTextChangedListener(new TextWatcher() {
       @Override
       public void beforeTextChanged(CharSequence s, int start, int count, int after)
@@ -236,18 +256,29 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
       public void afterTextChanged(Editable editable)
       {
         if (pending[0] != null)
-          handler.removeCallbacks(pending[0]);
-        final String text = editable.toString().trim();
-        if (text.isEmpty())
         {
-          currentResults.clear();
-          adapter.clear();
-          SearchEngine.INSTANCE.cancel();
-          return;
+          handler.removeCallbacks(pending[0]);
+          pending[0] = null;
         }
-        pending[0] = ()
-            -> SearchEngine.INSTANCE.searchInteractive(text, false, Language.getKeyboardLocale(requireContext()),
-                                                       System.nanoTime(), false);
+        activeTimestamp[0] = NO_ACTIVE_SEARCH;
+        SearchEngine.INSTANCE.cancel();
+        currentResults.clear();
+        adapter.clear();
+        adapter.notifyDataSetChanged();
+
+        final String text = editable.toString().trim();
+        final InCarDestinationSearchPolicy.UiState state = InCarDestinationSearchPolicy.stateForQuery(text);
+        renderSearchState(state, statusRow, progress, statusText, results);
+        if (state != InCarDestinationSearchPolicy.UiState.SEARCHING)
+          return;
+
+        pending[0] = () -> {
+          final long timestamp = System.nanoTime();
+          activeTimestamp[0] = timestamp;
+          renderSearchState(InCarDestinationSearchPolicy.UiState.SEARCHING, statusRow, progress, statusText, results);
+          SearchEngine.INSTANCE.searchInteractive(text, false, Language.getKeyboardLocale(requireContext()), timestamp,
+                                                  false);
+        };
         handler.postDelayed(pending[0], SEARCH_DEBOUNCE_MS);
       }
     });
@@ -268,21 +299,29 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     dialog.show();
   }
 
-  @NonNull
-  private ArrayAdapter<String> createTouchChoiceAdapter(@NonNull List<String> items, int minHeightDp)
+  private void renderSearchState(@NonNull InCarDestinationSearchPolicy.UiState state, @NonNull View statusRow,
+                                 @NonNull ProgressBar progress, @NonNull TextView statusText,
+                                 @NonNull ListView results)
   {
-    return new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>(items)) {
-      @NonNull
-      @Override
-      public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent)
-      {
-        final TextView row = (TextView) super.getView(position, convertView, parent);
-        row.setMinHeight(dp(minHeightDp));
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), 0, dp(16), 0);
-        return row;
-      }
+    if (state == InCarDestinationSearchPolicy.UiState.RESULTS)
+    {
+      statusRow.setVisibility(View.GONE);
+      results.setVisibility(View.VISIBLE);
+      return;
+    }
+
+    statusRow.setVisibility(View.VISIBLE);
+    results.setVisibility(View.GONE);
+    progress.setVisibility(state == InCarDestinationSearchPolicy.UiState.SEARCHING ? View.VISIBLE : View.GONE);
+    final int messageRes = switch (state)
+    {
+      case IDLE -> R.string.in_car_quick_search_prompt;
+      case QUERY_TOO_SHORT -> R.string.in_car_quick_search_more_characters;
+      case SEARCHING -> R.string.in_car_quick_searching;
+      case EMPTY -> R.string.in_car_quick_search_no_results;
+      case RESULTS -> throw new IllegalStateException("Results state is handled above");
     };
+    statusText.setText(messageRes);
   }
 
   private void saveDestination(boolean home, @Nullable InCarQuickDestination destination)

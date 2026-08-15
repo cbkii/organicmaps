@@ -13,7 +13,6 @@ public final class InCarQuickDestinationsStore
 {
   public enum Action
   {
-    FUEL_CHARGING,
     FUEL,
     CHARGING,
     PARKING,
@@ -52,15 +51,7 @@ public final class InCarQuickDestinationsStore
 
   public static boolean isActionEnabled(@NonNull Context context, @NonNull Action action)
   {
-    final SharedPreferences preferences = prefs(context);
-    final String key = actionKey(action);
-    if (preferences.contains(key))
-      return preferences.getBoolean(key, true);
-
-    if ((action == Action.FUEL || action == Action.CHARGING) && preferences.contains(actionKey(Action.FUEL_CHARGING)))
-      return preferences.getBoolean(actionKey(Action.FUEL_CHARGING), true);
-
-    return true;
+    return prefs(context).getBoolean(actionKey(action), true);
   }
 
   public static void setActionEnabled(@NonNull Context context, @NonNull Action action, boolean enabled)

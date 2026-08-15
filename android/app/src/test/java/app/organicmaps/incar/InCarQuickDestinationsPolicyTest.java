@@ -28,9 +28,9 @@ public class InCarQuickDestinationsPolicyTest
   public void fixedActionsRespectUserEnableState()
   {
     final InCarQuickDestinationsStore.Action[] fixed = {
-        InCarQuickDestinationsStore.Action.FUEL_CHARGING, InCarQuickDestinationsStore.Action.FUEL,
-        InCarQuickDestinationsStore.Action.CHARGING,      InCarQuickDestinationsStore.Action.PARKING,
-        InCarQuickDestinationsStore.Action.TOILETS,       InCarQuickDestinationsStore.Action.FOOD};
+        InCarQuickDestinationsStore.Action.FUEL, InCarQuickDestinationsStore.Action.CHARGING,
+        InCarQuickDestinationsStore.Action.PARKING, InCarQuickDestinationsStore.Action.TOILETS,
+        InCarQuickDestinationsStore.Action.FOOD};
     for (InCarQuickDestinationsStore.Action action : fixed)
     {
       assertTrue(InCarQuickDestinationsPolicy.shouldShow(true, action, true, false));

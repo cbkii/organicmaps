@@ -28,7 +28,7 @@ public final class InCarQuickDestinationsPolicy
 
     return switch (action)
     {
-      case FUEL_CHARGING, FUEL, CHARGING, PARKING, TOILETS, FOOD -> true;
+      case FUEL, CHARGING, PARKING, TOILETS, FOOD -> true;
       case HOME, WORK, RECENT_1, RECENT_2 -> destinationAvailable;
     };
   }
