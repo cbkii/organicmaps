@@ -7,18 +7,22 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+
 public class SearchPageViewModel extends ViewModel
 {
   private static final String KEY_SEARCH_ACTIVE = "search_active";
   private static final String KEY_SEARCH_QUERY = "search_query";
   private static final String KEY_SEARCH_STATE = "search_sheet_state";
   private static final String KEY_SEARCH_IS_CATEGORY = "search_is_category";
+  private static final String KEY_IN_CAR_MAP_MODE = "in_car_search_map_mode";
 
   private final SavedStateHandle mSavedState;
+  private final MutableLiveData<Boolean> mInCarMapMode;
 
   public SearchPageViewModel(@NonNull SavedStateHandle savedStateHandle)
   {
     mSavedState = savedStateHandle;
+    mInCarMapMode = new MutableLiveData<>(Boolean.TRUE.equals(savedStateHandle.get(KEY_IN_CAR_MAP_MODE)));
   }
 
   private final MutableLiveData<Integer> mSearchPageDistanceToTop = new MutableLiveData<>();
@@ -87,6 +91,23 @@ public class SearchPageViewModel extends ViewModel
   }
 
   @NonNull
+  public LiveData<Boolean> getInCarMapMode()
+  {
+    return mInCarMapMode;
+  }
+
+  public void setInCarMapMode(boolean mapMode)
+  {
+    mInCarMapMode.setValue(mapMode);
+    mSavedState.set(KEY_IN_CAR_MAP_MODE, mapMode);
+  }
+
+  public boolean isInCarMapMode()
+  {
+    return Boolean.TRUE.equals(mInCarMapMode.getValue());
+  }
+
+  @NonNull
   public LiveData<Integer> getSearchPageLastState()
   {
     return mSearchPageLastState;
@@ -136,7 +157,10 @@ public class SearchPageViewModel extends ViewModel
     mPendingRequest = enabled ? request : null;
     mHiddenByPlacePage = false;
     if (!enabled)
+    {
       mSearchPageLastState.setValue(BottomSheetBehavior.STATE_HIDDEN);
+      setInCarMapMode(false);
+    }
     mSearchEnabled.setValue(enabled);
   }
 

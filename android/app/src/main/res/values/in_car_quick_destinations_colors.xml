@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <color name="in_car_quick_foreground">#FFFFFF</color>
-  <color name="in_car_quick_primary">#263238</color>
+  <color name="in_car_quick_primary">#175C43</color>
   <color name="in_car_quick_fuel_charging">#A63D00</color>
   <color name="in_car_quick_parking">#005A9C</color>
   <color name="in_car_quick_toilets">#5B3A8A</color>

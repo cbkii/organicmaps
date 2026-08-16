@@ -2,12 +2,14 @@ package app.organicmaps.incar;
 
 import androidx.annotation.VisibleForTesting;
 
-/** Small deterministic sizing policy for the horizontally scrollable Quick Destinations strip. */
+/** Small deterministic sizing policy for the Quick Destinations strip. */
 public final class InCarQuickDestinationsLayoutPolicy
 {
-  public static final int PRIMARY_ACTION_WIDTH_DP = 96;
-  public static final int ACTION_SIZE_DP = 56;
-  public static final int ACTION_GAP_DP = 8;
+  public static final int PRIMARY_ACTION_WIDTH_DP = 64;
+  public static final int ACTION_SIZE_DP = 64;
+  public static final int ACTION_ICON_SIZE_DP = 36;
+  public static final int ACTION_CORNER_RADIUS_DP = 18;
+  public static final int ACTION_GAP_DP = 10;
   private static final int HORIZONTAL_PADDING_DP = 24;
 
   private InCarQuickDestinationsLayoutPolicy() {}
@@ -22,8 +24,17 @@ public final class InCarQuickDestinationsLayoutPolicy
   }
 
   @VisibleForTesting
-  static boolean requiresHorizontalScroll(int availableWidthDp, int visibleDestinationActions)
+  static int maxVisibleDestinationActions(int availableWidthDp)
   {
-    return availableWidthDp > 0 && requiredWidthDp(visibleDestinationActions) > availableWidthDp;
+    final int availableForActions = availableWidthDp - HORIZONTAL_PADDING_DP - PRIMARY_ACTION_WIDTH_DP - ACTION_GAP_DP;
+    if (availableForActions <= 0)
+      return 0;
+    return availableForActions / (ACTION_SIZE_DP + ACTION_GAP_DP);
+  }
+
+  @VisibleForTesting
+  static boolean requiresOverflow(int availableWidthDp, int visibleDestinationActions)
+  {
+    return availableWidthDp > 0 && visibleDestinationActions > maxVisibleDestinationActions(availableWidthDp);
   }
 }

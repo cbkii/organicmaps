@@ -1,61 +1,61 @@
-/* Google-like in-car palette: neutral roads, teal water, restrained landuse. */
+/* High-glare in-car palette: bright roads over deliberately darker neutral surroundings. */
 
 /* BASE */
-@background: #F1F3F4;
+@background: #A0A8AF;
 
 /* BOUNDARIES */
-@border_country: #9AA0A6;
-@border_region: #BDC1C6;
+@border_country: #70777D;
+@border_region: #858C92;
 
 /* ROADS */
-@trunk0: #DADCE0;
-@trunk1: #DADCE0;
-@primary0: #E3E6E8;
-@primary1: #E8EAED;
-@primary2: #E8EAED;
-@secondary0: #F1F3F4;
+@trunk0: #FFFFFF;
+@trunk1: #FFFFFF;
+@primary0: #FFFFFF;
+@primary1: #FAFBFC;
+@primary2: #FAFBFC;
+@secondary0: #FFFFFF;
 @residential: #FFFFFF;
-@unclassified: #F8F9FA;
-@pedestrian: #E8EAED;
-@footway: #C7CBCF;
-@cycleway: #AAB4BE;
-@construction: #BDC1C6;
-@track: #A7A29B;
-@path: #B0ACA6;
-@bridleway: #A09B95;
+@unclassified: #F7F9FA;
+@pedestrian: #E4E8EB;
+@footway: #AAB1B7;
+@cycleway: #8E9CA7;
+@construction: #A7ADB3;
+@track: #8F8982;
+@path: #9B958F;
+@bridleway: #87817B;
 
-@bridge_background: #F1F3F4;
-@bridge_casing: #5F6368;
-@casing_road: #80868B;
-@casing_road_major: #5F6368;
-@casing_road_local: #80868B;
+@bridge_background: #A0A8AF;
+@bridge_casing: #30363B;
+@casing_road: #41484E;
+@casing_road_major: #30363B;
+@casing_road_local: #484F55;
 
-@primary_tunnel: #DADCE0;
-@trunk_tunnel: #DADCE0;
-@primary_tunnel_casing: #5F6368;
-@trunk_tunnel_casing: #5F6368;
-@secondary_tunnel: #E8EAED;
-@secondary_tunnel_casing: #80868B;
-@tertiary_tunnel: #F1F3F4;
-@tertiary_tunnel_casing: #80868B;
-@unclassified_tunnel: #F1F3F4;
-@unclassified_tunnel_casing: #80868B;
+@primary_tunnel: #E2E7EA;
+@trunk_tunnel: #E5EAED;
+@primary_tunnel_casing: #30363B;
+@trunk_tunnel_casing: #30363B;
+@secondary_tunnel: #DEE4E8;
+@secondary_tunnel_casing: #41484E;
+@tertiary_tunnel: #D8DEE2;
+@tertiary_tunnel_casing: #41484E;
+@unclassified_tunnel: #D4DADE;
+@unclassified_tunnel_casing: #484F55;
 
 /* TRANSPORT */
-@railway_light: #C8CDD1;
-@railway: #AEB4B9;
-@railway_tourism: #B8AEA5;
-@railway_dash: #F1F3F4;
-@railway_tunnel: #9AA0A6;
-@tram: #B0B5BA;
+@railway_light: #AEB5BB;
+@railway: #8F979E;
+@railway_tourism: #A5998E;
+@railway_dash: #A0A8AF;
+@railway_tunnel: #7E868D;
+@tram: #969EA5;
 
 /* AERODROME */
-@aerodrome0: #E8EAED;
-@aerodrome1: #E8EAED;
-@aerodrome2: #E8EAED;
-@aerodrome3: #E8EAED;
-@aerodrome4: #E8EAED;
-@aerodrome5: #E8EAED;
+@aerodrome0: #ABB2B7;
+@aerodrome1: #ABB2B7;
+@aerodrome2: #ABB2B7;
+@aerodrome3: #ABB2B7;
+@aerodrome4: #ABB2B7;
+@aerodrome5: #ABB2B7;
 
 /* NATURAL */
 @glacier: #FFFFFF;
@@ -65,7 +65,7 @@
 @wetland: #D7E7E2;
 @forest: #C8DFC3;
 @beach: #F8E7A5;
-@barerock: #E1DDD5;
+@barerock: #D5D0C8;
 @desert: #EFE4BC;
 
 @green0: #D8EAD3;
@@ -74,50 +74,50 @@
 @green3: #CCE3C7;
 @green4: #C8DFC3;
 @green5: #C8DFC3;
-@green6: #7F995D;
-@leisure: #EEF1EA;
+@green6: #6F8950;
+@leisure: #B0B8B0;
 
 /* BUILDINGS */
-@housenumber: #5F6368;
-@building_label: #5F6368;
-@building0: #E8EAED;
-@building1: #DFE2E5;
-@building_border0: #BDC1C6;
+@housenumber: #34383B;
+@building_label: #34383B;
+@building0: #A8B0B6;
+@building1: #A3ABB2;
+@building_border0: #858D93;
 
 /* LANDUSE */
-@industrial: #E9E7EA;
-@sport: #D9E8D5;
-@parking: #E7E9EA;
-@parking_l: #F0F1F2;
+@industrial: #A5ABB0;
+@sport: #CDE0C9;
+@parking: #A4ACB2;
+@parking_l: #AAB1B7;
 @military: #D93025;
-@prison: #80868B;
-@farmland: #ECEBD7;
-@farmyard: #E7E1D3;
+@prison: #697178;
+@farmland: #E1E0C8;
+@farmyard: #DCD5C6;
 
 /* BARRIERS */
-@fence: #9AA0A6;
-@hedge: #6F9B66;
-@cliff: #9A806B;
+@fence: #70777D;
+@hedge: #5F8D58;
+@cliff: #8A715E;
 
 /* LABELS */
 @label_dark: #202124;
-@label_medium: #3C4043;
-@label_light: #5F6368;
+@label_medium: #34383B;
+@label_light: #373D42;
 @label_halo_medium: #F1F3F4;
 @label_halo_light: #FFFFFF;
 
 @city_label: #202124;
-@country_label: #5F6368;
-@state_label: #5F6368;
-@district_label: #5F6368;
-@poi_label: #3C4043;
-@subway_label: #5F6368;
+@country_label: #373D42;
+@state_label: #373D42;
+@district_label: #373D42;
+@poi_label: #34383B;
+@subway_label: #373D42;
 
 @shield_text: #202124;
 @shield_text_halo: #FFFFFF;
 @shield: #FFFFFF;
-@shield_outline: #5F6368;
+@shield_outline: #30363B;
 
-@water_label: #006064;
-@park_label: #356A3A;
+@water_label: #00565B;
+@park_label: #2E6033;
 @halo_park_label: #FFFFFF;

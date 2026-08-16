@@ -13,7 +13,8 @@ public final class InCarQuickDestinationsStore
 {
   public enum Action
   {
-    FUEL_CHARGING,
+    FUEL,
+    CHARGING,
     PARKING,
     TOILETS,
     FOOD,
@@ -24,12 +25,29 @@ public final class InCarQuickDestinationsStore
   }
 
   private static final String PREFIX = "InCarQuick";
+  private static final String KEY_START_COLLAPSED = PREFIX + "StartCollapsed";
   private static final String KEY_HOME = PREFIX + "HomeDestination";
   private static final String KEY_WORK = PREFIX + "WorkDestination";
   private static final String KEY_RECENT_1 = PREFIX + "RecentDestination1";
   private static final String KEY_RECENT_2 = PREFIX + "RecentDestination2";
 
   private InCarQuickDestinationsStore() {}
+
+  public static boolean startCollapsed(@NonNull Context context)
+  {
+    return prefs(context).getBoolean(KEY_START_COLLAPSED, true);
+  }
+
+  public static void setStartCollapsed(@NonNull Context context, boolean collapsed)
+  {
+    prefs(context).edit().putBoolean(KEY_START_COLLAPSED, collapsed).apply();
+  }
+
+  @NonNull
+  public static String startCollapsedPreferenceKey()
+  {
+    return KEY_START_COLLAPSED;
+  }
 
   public static boolean isActionEnabled(@NonNull Context context, @NonNull Action action)
   {

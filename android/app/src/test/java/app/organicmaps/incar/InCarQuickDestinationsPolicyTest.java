@@ -1,5 +1,6 @@
 package app.organicmaps.incar;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -27,13 +28,27 @@ public class InCarQuickDestinationsPolicyTest
   public void fixedActionsRespectUserEnableState()
   {
     final InCarQuickDestinationsStore.Action[] fixed = {
-        InCarQuickDestinationsStore.Action.FUEL_CHARGING, InCarQuickDestinationsStore.Action.PARKING,
-        InCarQuickDestinationsStore.Action.TOILETS, InCarQuickDestinationsStore.Action.FOOD};
+        InCarQuickDestinationsStore.Action.FUEL, InCarQuickDestinationsStore.Action.CHARGING,
+        InCarQuickDestinationsStore.Action.PARKING, InCarQuickDestinationsStore.Action.TOILETS,
+        InCarQuickDestinationsStore.Action.FOOD};
     for (InCarQuickDestinationsStore.Action action : fixed)
     {
       assertTrue(InCarQuickDestinationsPolicy.shouldShow(true, action, true, false));
       assertFalse(InCarQuickDestinationsPolicy.shouldShow(true, action, false, true));
     }
+  }
+
+  @Test
+  public void fuelChargingModeUsesDirectActionUnlessBothAreEnabled()
+  {
+    assertEquals(InCarQuickDestinationsPolicy.FuelChargingMode.HIDDEN,
+                 InCarQuickDestinationsPolicy.resolveFuelChargingMode(false, false));
+    assertEquals(InCarQuickDestinationsPolicy.FuelChargingMode.FUEL,
+                 InCarQuickDestinationsPolicy.resolveFuelChargingMode(true, false));
+    assertEquals(InCarQuickDestinationsPolicy.FuelChargingMode.CHARGING,
+                 InCarQuickDestinationsPolicy.resolveFuelChargingMode(false, true));
+    assertEquals(InCarQuickDestinationsPolicy.FuelChargingMode.CHOOSER,
+                 InCarQuickDestinationsPolicy.resolveFuelChargingMode(true, true));
   }
 
   @Test

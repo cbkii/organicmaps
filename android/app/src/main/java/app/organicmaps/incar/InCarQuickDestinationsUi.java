@@ -3,7 +3,6 @@ package app.organicmaps.incar;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.view.View;
@@ -36,7 +35,8 @@ import app.organicmaps.sdk.util.Language;
 import app.organicmaps.search.SearchPageViewModel;
 import app.organicmaps.search.SearchRequest;
 import app.organicmaps.widget.placepage.PlacePageViewModel;
-import com.google.android.material.button.MaterialButton;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /** Lifecycle-owned presentation/controller adapter for the InCar Quick Destinations strip. */
@@ -80,6 +80,23 @@ public final class InCarQuickDestinationsUi
   private static final class Controller
       implements DefaultLifecycleObserver, SharedPreferences.OnSharedPreferenceChangeListener
   {
+    private static final class QuickActionBinding
+    {
+      @NonNull
+      final InCarQuickActionButton button;
+      @NonNull
+      final String label;
+      @NonNull
+      final Runnable action;
+
+      QuickActionBinding(@NonNull InCarQuickActionButton button, @NonNull String label, @NonNull Runnable action)
+      {
+        this.button = button;
+        this.label = label;
+        this.action = action;
+      }
+    }
+
     @NonNull
     private final MwmActivity mActivity;
     @NonNull
@@ -96,10 +113,16 @@ public final class InCarQuickDestinationsUi
     private final SearchPageViewModel mSearchPageViewModel;
     @NonNull
     private final PlacePageViewModel mPlacePageViewModel;
+    @NonNull
+    private final View.OnLayoutChangeListener mRootLayoutListener;
+    @NonNull
+    private final List<QuickActionBinding> mQuickActions = new ArrayList<>();
 
     @Nullable
-    private MaterialButton mPrimaryButton;
-    private boolean mExpanded = true;
+    private InCarQuickActionButton mPrimaryButton;
+    @Nullable
+    private InCarQuickActionButton mOverflowButton;
+    private boolean mExpanded;
     private boolean mRegular = true;
     private boolean mButtonsHidden;
     private boolean mSearchOpen;
@@ -113,6 +136,12 @@ public final class InCarQuickDestinationsUi
       mRoot = root;
       mContainer = container;
       mPrefs = MwmApplication.prefs(activity);
+      mRootLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+      {
+        if (right - left != oldRight - oldLeft)
+          mRoot.post(this::applyOverflowPolicy);
+      };
+      mExpanded = !InCarQuickDestinationsStore.startCollapsed(activity);
       final ViewModelProvider provider = new ViewModelProvider(activity);
       mMapButtonsViewModel = provider.get(MapButtonsViewModel.class);
       mRoutingPlanViewModel = provider.get(RoutingPlanViewModel.class);
@@ -123,6 +152,7 @@ public final class InCarQuickDestinationsUi
     void attach()
     {
       mPrefs.registerOnSharedPreferenceChangeListener(this);
+      mRoot.addOnLayoutChangeListener(mRootLayoutListener);
       applyInsets();
 
       mMapButtonsViewModel.getLayoutMode().observe(mActivity, layoutMode -> {
@@ -174,6 +204,7 @@ public final class InCarQuickDestinationsUi
     public void onDestroy(@NonNull LifecycleOwner owner)
     {
       mPrefs.unregisterOnSharedPreferenceChangeListener(this);
+      mRoot.removeOnLayoutChangeListener(mRootLayoutListener);
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, null);
       mRoot.setTag(null);
     }
@@ -196,9 +227,10 @@ public final class InCarQuickDestinationsUi
     private void rebuildButtons()
     {
       mContainer.removeAllViews();
+      mQuickActions.clear();
+      mOverflowButton = null;
       addPrimaryToggleAction();
-      addFixedAction(InCarQuickDestinationsStore.Action.FUEL_CHARGING, R.string.in_car_quick_fuel_charging,
-                     R.drawable.ic_in_car_quick_fuel, R.color.in_car_quick_fuel_charging, this::showFuelChargingChoice);
+      addFuelChargingAction();
       addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
                      R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
                      () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
@@ -210,27 +242,24 @@ public final class InCarQuickDestinationsUi
                      () -> openCategory(InCarQuickCategoryPolicy.Category.FOOD));
 
       addDestinationAction(InCarQuickDestinationsStore.Action.HOME, InCarQuickDestinationsStore.getHome(mActivity),
-                           R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home,
-                           false);
+                           R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home);
       addDestinationAction(InCarQuickDestinationsStore.Action.WORK, InCarQuickDestinationsStore.getWork(mActivity),
-                           R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work, R.color.in_car_quick_work,
-                           false);
+                           R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work, R.color.in_car_quick_work);
       addDestinationAction(InCarQuickDestinationsStore.Action.RECENT_1,
-                           InCarQuickDestinationsStore.getRecent(mActivity, 1), R.string.in_car_quick_recent_1, 0,
-                           R.color.in_car_quick_recent_1, true);
+                           InCarQuickDestinationsStore.getRecent(mActivity, 1), R.string.in_car_quick_recent_1,
+                           R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_1);
       addDestinationAction(InCarQuickDestinationsStore.Action.RECENT_2,
-                           InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2, 0,
-                           R.color.in_car_quick_recent_2, true);
+                           InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2,
+                           R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_2);
       renderVisibility();
       renderExpansion();
     }
 
     private void addPrimaryToggleAction()
     {
-      final MaterialButton button =
-          createButton(R.color.in_car_quick_primary, InCarQuickDestinationsLayoutPolicy.PRIMARY_ACTION_WIDTH_DP);
-      button.setTextColor(quickForegroundColor());
-      button.setTextSize(14.0f);
+      final InCarQuickActionButton button =
+          createButton(R.color.in_car_quick_primary, InCarQuickDestinationsLayoutPolicy.PRIMARY_ACTION_WIDTH_DP,
+                       R.drawable.ic_in_car_quick_toggle);
       button.setOnClickListener(v -> {
         mExpanded = !mExpanded;
         renderExpansion();
@@ -239,23 +268,55 @@ public final class InCarQuickDestinationsUi
       mContainer.addView(button);
     }
 
+    private void addFuelChargingAction()
+    {
+      final InCarQuickDestinationsPolicy.FuelChargingMode mode = InCarQuickDestinationsPolicy.resolveFuelChargingMode(
+          isEnabled(InCarQuickDestinationsStore.Action.FUEL), isEnabled(InCarQuickDestinationsStore.Action.CHARGING));
+      if (mode == InCarQuickDestinationsPolicy.FuelChargingMode.HIDDEN)
+        return;
+
+      final int labelRes;
+      final int iconRes;
+      final Runnable click;
+      switch (mode)
+      {
+      case FUEL:
+        labelRes = R.string.in_car_quick_fuel;
+        iconRes = R.drawable.ic_in_car_quick_fuel;
+        click = () -> openCategory(InCarQuickCategoryPolicy.Category.FUEL);
+        break;
+      case CHARGING:
+        labelRes = R.string.in_car_quick_charging;
+        iconRes = R.drawable.ic_in_car_quick_charging;
+        click = () -> openCategory(InCarQuickCategoryPolicy.Category.CHARGING);
+        break;
+      case CHOOSER:
+        labelRes = R.string.in_car_quick_fuel_charging;
+        iconRes = R.drawable.ic_in_car_quick_fuel;
+        click = this::showFuelChargingChoice;
+        break;
+      case HIDDEN:
+      default: return;
+      }
+
+      final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);
+      addQuickAction(button, mActivity.getString(labelRes), mActivity.getString(labelRes), click);
+    }
+
     private void addFixedAction(@NonNull InCarQuickDestinationsStore.Action action, @StringRes int labelRes,
                                 @DrawableRes int iconRes, @ColorRes int colorRes, @NonNull Runnable click)
     {
       if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action), true))
         return;
 
-      final MaterialButton button = createButton(colorRes);
-      button.setIconResource(iconRes);
-      button.setIconTint(ColorStateList.valueOf(quickForegroundColor()));
-      button.setContentDescription(mActivity.getString(labelRes));
-      button.setOnClickListener(v -> click.run());
-      mContainer.addView(button);
+      final InCarQuickActionButton button = createButton(colorRes, iconRes);
+      final String label = mActivity.getString(labelRes);
+      addQuickAction(button, label, label, click);
     }
 
     private void addDestinationAction(@NonNull InCarQuickDestinationsStore.Action action,
                                       @Nullable InCarQuickDestination destination, @StringRes int labelRes,
-                                      @DrawableRes int iconRes, @ColorRes int colorRes, boolean useGlyph)
+                                      @DrawableRes int iconRes, @ColorRes int colorRes)
     {
       if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action),
                                                    destination != null))
@@ -263,69 +324,124 @@ public final class InCarQuickDestinationsUi
       if (destination == null)
         return;
 
-      final MaterialButton button = createButton(colorRes);
-      if (useGlyph)
-      {
-        button.setText(InCarQuickDestinationGlyphPolicy.glyph(destination.getDisplayLabel()));
-        button.setTextColor(quickForegroundColor());
-        button.setTextSize(18.0f);
-      }
-      else
-      {
-        button.setIconResource(iconRes);
-        button.setIconTint(ColorStateList.valueOf(quickForegroundColor()));
-      }
-
+      final InCarQuickActionButton button = createButton(colorRes, iconRes);
+      final String actionLabel = mActivity.getString(labelRes);
       final String displayLabel = destination.getDisplayLabel();
-      button.setContentDescription(displayLabel.isEmpty() ? mActivity.getString(labelRes) : displayLabel);
-      button.setOnClickListener(v -> mActivity.startLocationToPoint(destination.toMapObject()));
+      final String description =
+          displayLabel.isEmpty()
+              ? actionLabel
+              : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
+      addQuickAction(button, description, description, () -> mActivity.startLocationToPoint(destination.toMapObject()));
+    }
+
+    private void addQuickAction(@NonNull InCarQuickActionButton button, @NonNull String menuLabel,
+                                @NonNull String accessibilityLabel, @NonNull Runnable action)
+    {
+      button.setContentDescription(accessibilityLabel);
+      button.setOnClickListener(v -> action.run());
+      mQuickActions.add(new QuickActionBinding(button, menuLabel, action));
       mContainer.addView(button);
     }
 
     @NonNull
-    private MaterialButton createButton(@ColorRes int colorRes)
+    private InCarQuickActionButton createButton(@ColorRes int colorRes, @DrawableRes int iconRes)
     {
-      return createButton(colorRes, InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
+      return createButton(colorRes, InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP, iconRes);
     }
 
     @NonNull
-    private MaterialButton createButton(@ColorRes int colorRes, int widthDp)
+    private InCarQuickActionButton createButton(@ColorRes int colorRes, int widthDp, @DrawableRes int iconRes)
     {
-      final MaterialButton button =
-          new MaterialButton(mActivity, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+      final InCarQuickActionButton button = new InCarQuickActionButton(mActivity);
       final int width = dp(widthDp);
       final int height = dp(InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
       final LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
       params.setMarginEnd(dp(InCarQuickDestinationsLayoutPolicy.ACTION_GAP_DP));
       button.setLayoutParams(params);
-      button.setMinWidth(0);
-      button.setMinHeight(0);
       button.setMinimumWidth(width);
       button.setMinimumHeight(height);
-      button.setPadding(0, 0, 0, 0);
-      button.setInsetTop(0);
-      button.setInsetBottom(0);
-      button.setCornerRadius(dp(18));
-      button.setIconSize(dp(32));
-      button.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(mActivity, colorRes)));
-      button.setStrokeWidth(0);
-      button.setAllCaps(false);
+      final int iconPaddingDp = Math.max(0, (InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP
+                                             - InCarQuickDestinationsLayoutPolicy.ACTION_ICON_SIZE_DP)
+                                                / 2);
+      button.setAppearance(iconRes, ContextCompat.getColor(mActivity, colorRes), quickForegroundColor(),
+                           dp(InCarQuickDestinationsLayoutPolicy.ACTION_CORNER_RADIUS_DP), dp(iconPaddingDp));
       ViewCompat.setElevation(button, dp(4));
       return button;
     }
 
+    private void applyOverflowPolicy()
+    {
+      if (!mExpanded || mRoot.getWidth() <= 0)
+        return;
+
+      if (mOverflowButton != null)
+      {
+        mContainer.removeView(mOverflowButton);
+        mOverflowButton = null;
+      }
+
+      for (QuickActionBinding binding : mQuickActions)
+        binding.button.setVisibility(View.VISIBLE);
+
+      final int actionCount = mQuickActions.size();
+      final int availableWidthDp = Math.round(mRoot.getWidth() / mActivity.getResources().getDisplayMetrics().density);
+      if (!InCarQuickDestinationsLayoutPolicy.requiresOverflow(availableWidthDp, actionCount))
+        return;
+
+      final int capacity = InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(availableWidthDp);
+      if (capacity <= 0)
+        return;
+
+      final int visibleActions = Math.max(0, capacity - 1);
+      final List<QuickActionBinding> overflowActions = new ArrayList<>();
+      for (int index = visibleActions; index < mQuickActions.size(); index++)
+      {
+        final QuickActionBinding binding = mQuickActions.get(index);
+        binding.button.setVisibility(View.GONE);
+        overflowActions.add(binding);
+      }
+
+      if (overflowActions.isEmpty())
+        return;
+
+      final InCarQuickActionButton overflow =
+          createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
+      overflow.setContentDescription(mActivity.getString(R.string.in_car_quick_more));
+      overflow.setOnClickListener(v -> showOverflowChoice(overflowActions));
+      mOverflowButton = overflow;
+      mContainer.addView(overflow);
+    }
+
+    private void showOverflowChoice(@NonNull List<QuickActionBinding> actions)
+    {
+      final List<String> choices = new ArrayList<>(actions.size());
+      for (QuickActionBinding action : actions)
+        choices.add(action.label);
+
+      final InCarChoiceAdapter adapter = new InCarChoiceAdapter(mActivity, choices);
+      final AlertDialog dialog = new AlertDialog.Builder(mActivity)
+                                     .setTitle(R.string.in_car_quick_more)
+                                     .setAdapter(adapter, (ignored, which) -> actions.get(which).action.run())
+                                     .create();
+      dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(mActivity, dialog));
+      dialog.show();
+    }
+
     private void showFuelChargingChoice()
     {
-      final String[] choices = {mActivity.getString(R.string.in_car_quick_fuel),
-                                mActivity.getString(R.string.in_car_quick_charging)};
-      new AlertDialog.Builder(mActivity)
-          .setTitle(R.string.in_car_quick_fuel_charging)
-          .setItems(choices,
-                    (dialog, which) -> {
-                      openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
-                                              : InCarQuickCategoryPolicy.Category.CHARGING);
-                    })
-          .show();
+      final List<String> choices = new ArrayList<>(2);
+      choices.add(mActivity.getString(R.string.in_car_quick_fuel));
+      choices.add(mActivity.getString(R.string.in_car_quick_charging));
+      final InCarChoiceAdapter adapter = new InCarChoiceAdapter(mActivity, choices);
+      final AlertDialog dialog =
+          new AlertDialog.Builder(mActivity)
+              .setAdapter(adapter,
+                          (ignored, which)
+                              -> openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
+                                                         : InCarQuickCategoryPolicy.Category.CHARGING))
+              .create();
+      dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(mActivity, dialog));
+      dialog.show();
     }
 
     private void openCategory(@NonNull InCarQuickCategoryPolicy.Category category)
@@ -376,19 +492,19 @@ public final class InCarQuickDestinationsUi
     private void renderExpansion()
     {
       updateRootWidth();
-      for (int index = 1; index < mContainer.getChildCount(); index++)
-        mContainer.getChildAt(index).setVisibility(mExpanded ? View.VISIBLE : View.GONE);
+      for (QuickActionBinding binding : mQuickActions)
+        binding.button.setVisibility(mExpanded ? View.VISIBLE : View.GONE);
+      if (mOverflowButton != null)
+        mOverflowButton.setVisibility(mExpanded ? View.VISIBLE : View.GONE);
 
       if (mPrimaryButton != null)
-      {
-        mPrimaryButton.setText(mExpanded ? R.string.in_car_quick_toggle_expanded
-                                         : R.string.in_car_quick_toggle_collapsed);
         mPrimaryButton.setContentDescription(
             mActivity.getString(mExpanded ? R.string.in_car_quick_collapse : R.string.in_car_quick_expand));
-      }
 
       if (!mExpanded)
         mRoot.scrollTo(0, 0);
+      else
+        mRoot.post(this::applyOverflowPolicy);
     }
 
     private void updateRootWidth()
@@ -414,6 +530,7 @@ public final class InCarQuickDestinationsUi
         final Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
         mSystemBottomInset = bars.bottom;
         updateBottomMargin();
+        mRoot.post(this::applyOverflowPolicy);
         return windowInsets;
       });
       ViewCompat.requestApplyInsets(mRoot);

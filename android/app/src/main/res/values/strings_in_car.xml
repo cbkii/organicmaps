@@ -29,12 +29,16 @@
   <string name="in_car_quick_destinations_title">Quick Destinations</string>
   <string name="in_car_quick_destinations_summary">Glanceable offline searches and saved destinations on the map.</string>
   <string name="in_car_quick_destinations_actions">Quick actions</string>
+  <string name="in_car_quick_destinations_other_actions">Other quick actions</string>
   <string name="in_car_quick_destinations_saved">Saved destinations</string>
-  <string name="in_car_quick_toggle_expanded">Quick -</string>
-  <string name="in_car_quick_toggle_collapsed">Quick +</string>
   <string name="in_car_quick_expand">Expand Quick Destinations</string>
   <string name="in_car_quick_collapse">Collapse Quick Destinations</string>
+  <string name="in_car_quick_more">More Quick Destinations</string>
+  <string name="in_car_quick_destination_description">%1$s: %2$s</string>
+  <string name="in_car_quick_start_collapsed_title">Start Quick Destinations collapsed</string>
+  <string name="in_car_quick_start_collapsed_summary">Show only the lightning button when the map first opens.</string>
   <string name="in_car_quick_fuel_charging">Fuel + Charging</string>
+  <string name="in_car_quick_fuel_charging_summary">Enable either for a direct quick search, or both to choose Fuel or Charging when tapped.</string>
   <string name="in_car_quick_fuel">Fuel</string>
   <string name="in_car_quick_charging">Charging</string>
   <string name="in_car_quick_food">Food</string>
@@ -44,13 +48,21 @@
   <string name="in_car_quick_recent_2">Recent 2</string>
   <string name="in_car_quick_home_config_title">Set Home</string>
   <string name="in_car_quick_work_config_title">Set Work</string>
-  <string name="in_car_quick_config_summary">Use the current GPS position or clear the saved destination.</string>
+  <string name="in_car_quick_config_summary">Search for an address or place, use the current GPS position, or clear the saved destination.</string>
+  <string name="in_car_quick_search_destination">Search address or place</string>
+  <string name="in_car_quick_search_hint">Search address or place</string>
+  <string name="in_car_quick_search_prompt">Search for an address or place</string>
+  <string name="in_car_quick_search_more_characters">Type at least 2 characters</string>
+  <string name="in_car_quick_searching">Searching…</string>
+  <string name="in_car_quick_search_no_results">No results</string>
   <string name="in_car_quick_use_current_location">Use current location</string>
   <string name="in_car_quick_clear_destination">Clear saved destination</string>
   <string name="in_car_quick_current_location_unavailable">Current location is unavailable</string>
   <string name="in_car_quick_not_configured">Not configured</string>
   <string name="in_car_quick_configured">Configured</string>
   <string name="in_car_quick_charging_category_query" translatable="false">EV Charging</string>
+  <string name="in_car_search_show_map">Show all current search results on map</string>
+  <string name="in_car_search_show_list">Show search results list</string>
 
   <string name="in_car_budget_rendering_title">Budget Rendering</string>
   <string name="in_car_budget_rendering_summary">Reduce optional rendering cost by disabling 3D buildings while keeping Driving View perspective available.</string>
