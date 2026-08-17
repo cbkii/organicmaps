@@ -4,6 +4,30 @@ This repository is an Android-focused derivative of [Organic Maps](https://githu
 
 The upstream project remains the authoritative source for removed platforms and historical material.
 
+## Organic Maps In-Car
+
+**Organic Maps adapted for fixed-display Android car head units.**
+
+This fork adds a dedicated **In-Car edition** focused on simpler, clearer and more reliable use on vehicle touchscreens.
+
+### Highlights
+
+* Offline maps and navigation
+* Larger, clearer in-car controls and improved day/night visibility
+* Quick Destinations for common routes
+* Improved full-screen, split-screen and smaller-window layouts
+* Offline navigation audio fallback
+* Automatic Follow-and-Rotate behaviour
+* Traffic, search, bookmarks, downloads and track recording
+* OpenGL ES 3 by default, with Vulkan available
+* Designed with Android 10/API 29 head units such as the Topway TS18 in mind
+
+The In-Car release uses package `app.organicmaps.incar` and is published as an **arm64-v8a APK**.
+
+**[Download the latest In-Car release](https://github.com/cbkii/organicmaps/releases)**
+
+> This is an independent fork of Organic Maps, not the official upstream project.
+
 ## Supported Android surfaces
 
 - `inCar`: the fork's primary direct-display/in-car product; release package `app.organicmaps.incar`.
