@@ -54,7 +54,11 @@ public:
 
   /// Returns false until SetRouter() has installed an underlying synchronous router.
   /// Used by optional display-only helpers that must fail open during early framework startup.
-  bool HasRouter();
+  bool HasRouter()
+  {
+    std::lock_guard lock(m_guard);
+    return m_router != nullptr;
+  }
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                    EdgeProj & proj);
@@ -89,8 +93,8 @@ private:
 
     std::mutex m_guard;
     ReadyCallbackOwnership const m_onReadyOwnership;
-    RemoveRouteCallback const m_onRemoveRoute;
     NeedMoreMapsCallback const m_onNeedMoreMaps;
+    RemoveRouteCallback const m_onRemoveRoute;
     PointCheckCallback const m_onPointCheck;
     ProgressCallback const m_onProgress;
     RouterDelegate m_delegate;
