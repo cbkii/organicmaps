@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.Fragment;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ViewModelProvider;
@@ -32,6 +33,7 @@ import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.search.DisplayedCategories;
 import app.organicmaps.sdk.util.Language;
+import app.organicmaps.search.SearchFragmentController;
 import app.organicmaps.search.SearchPageViewModel;
 import app.organicmaps.search.SearchRequest;
 import app.organicmaps.widget.placepage.PlacePageViewModel;
@@ -129,7 +131,6 @@ public final class InCarQuickDestinationsUi
     private boolean mButtonsHidden;
     private boolean mSearchOpen;
     private boolean mPlacePageOpen;
-    private boolean mQuickSearchActive;
     private boolean mLayoutPassScheduled;
     private int mBottomButtonsHeight;
     private int mSystemTopInset;
@@ -188,14 +189,10 @@ public final class InCarQuickDestinationsUi
       mRoutingPlanViewModel.getMenuUpdateTrigger().observe(mActivity, ignored -> recordConfirmedDestination());
       mSearchPageViewModel.getSearchEnabled().observe(mActivity, enabled -> {
         mSearchOpen = Boolean.TRUE.equals(enabled);
-        if (!mSearchOpen)
-          mQuickSearchActive = false;
-        updateQuickSearchScrim();
         renderVisibility();
       });
       mPlacePageViewModel.getMapObject().observe(mActivity, mapObject -> {
         mPlacePageOpen = mapObject != null;
-        updateQuickSearchScrim();
         renderVisibility();
       });
 
@@ -222,8 +219,6 @@ public final class InCarQuickDestinationsUi
       if (mAnchorParent != null)
         mAnchorParent.removeOnLayoutChangeListener(mLayoutListener);
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, null);
-      mQuickSearchActive = false;
-      updateQuickSearchScrim();
       mRoot.setTag(null);
     }
 
@@ -304,7 +299,7 @@ public final class InCarQuickDestinationsUi
         break;
       case CHARGING:
         labelRes = R.string.in_car_quick_charging;
-        iconRes = R.drawable.ic_in_car_quick_fuel;
+        iconRes = R.drawable.ic_in_car_quick_charging;
         click = () -> openCategory(InCarQuickCategoryPolicy.Category.CHARGING);
         break;
       case CHOOSER:
@@ -488,9 +483,11 @@ public final class InCarQuickDestinationsUi
         }
       }
 
-      mQuickSearchActive = true;
+      final Fragment searchController =
+          mActivity.getSupportFragmentManager().findFragmentById(R.id.search_container_fragment);
+      if (searchController instanceof SearchFragmentController controller)
+        controller.beginInCarQuickDestinationsSearch();
       mSearchOpen = true;
-      updateQuickSearchScrim();
       mSearchPageViewModel.setSearchEnabled(true, new SearchRequest(term + " ", locale, true));
     }
 
@@ -594,29 +591,6 @@ public final class InCarQuickDestinationsUi
       final boolean visible =
           InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
       mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
-    }
-
-    private void updateQuickSearchScrim()
-    {
-      final View scrim = mActivity.findViewById(R.id.in_car_quick_search_scrim);
-      if (scrim == null)
-        return;
-      final boolean visible = mQuickSearchActive && mSearchOpen && !mPlacePageOpen;
-      if (visible)
-      {
-        scrim.setOnClickListener(v -> {
-          mQuickSearchActive = false;
-          mSearchPageViewModel.setSearchEnabled(false, null);
-          updateQuickSearchScrim();
-        });
-      }
-      else
-      {
-        scrim.setOnClickListener(null);
-      }
-      scrim.setClickable(visible);
-      scrim.setFocusable(visible);
-      scrim.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void applyInsets()
