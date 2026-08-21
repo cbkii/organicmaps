@@ -43,6 +43,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   private BottomSheetBehavior<FrameLayout> mBottomSheetBehavior;
   private boolean mInCarQuickDestinationsSearch;
   private boolean mQuickOutsideTapPending;
+  private boolean mQuickPreviousButtonsHidden;
   private final Runnable mFinishQuickOutsideTap = this::endInCarQuickDestinationsSearch;
   private final Observer<MapObject> mPlacePageMapObjectObserver = new Observer<>() {
     @Override
@@ -308,16 +309,24 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       return;
     if (mMapView != null)
       mMapView.removeCallbacks(mFinishQuickOutsideTap);
+    if (!mInCarQuickDestinationsSearch && !mQuickOutsideTapPending)
+      mQuickPreviousButtonsHidden = Boolean.TRUE.equals(mMapButtonsViewModel.getButtonsHidden().getValue());
     mQuickOutsideTapPending = false;
     mInCarQuickDestinationsSearch = true;
+    // Search-result markers remain part of MapView, but regular map controls are removed from the
+    // Quick interaction surface. Their prior visibility is restored when the Quick search ends.
+    mMapButtonsViewModel.setButtonsHidden(true);
   }
 
   private void endInCarQuickDestinationsSearch()
   {
+    final boolean wasQuickSearch = mInCarQuickDestinationsSearch || mQuickOutsideTapPending;
     if (mMapView != null)
       mMapView.removeCallbacks(mFinishQuickOutsideTap);
     mQuickOutsideTapPending = false;
     mInCarQuickDestinationsSearch = false;
+    if (wasQuickSearch && mMapButtonsViewModel != null)
+      mMapButtonsViewModel.setButtonsHidden(mQuickPreviousButtonsHidden);
   }
 
   private void applyInCarSearchPanelWidth()
