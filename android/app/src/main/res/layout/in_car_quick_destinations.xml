@@ -1,20 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<HorizontalScrollView
+<FrameLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/in_car_quick_destinations"
-  android:layout_width="match_parent"
+  android:layout_width="wrap_content"
   android:layout_height="wrap_content"
-  android:clipToPadding="false"
-  android:fillViewport="false"
-  android:overScrollMode="never"
-  android:paddingStart="12dp"
-  android:paddingEnd="12dp"
-  android:scrollbars="none">
+  android:clipChildren="false"
+  android:clipToPadding="false">
 
   <LinearLayout
     android:id="@+id/in_car_quick_destinations_container"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:gravity="center_vertical"
-    android:orientation="horizontal" />
-</HorizontalScrollView>
+    android:layout_gravity="bottom|start"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:gravity="bottom|start"
+    android:orientation="vertical" />
+</FrameLayout>
