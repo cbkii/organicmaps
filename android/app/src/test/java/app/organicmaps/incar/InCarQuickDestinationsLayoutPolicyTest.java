@@ -9,29 +9,44 @@ import org.junit.Test;
 public class InCarQuickDestinationsLayoutPolicyTest
 {
   @Test
-  public void wideHeadUnitFitsPrimaryPlusAllEightActions()
+  public void tallWindowFitsPrimaryPlusAllEightActions()
   {
-    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(1280, 8));
+    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(656, 8));
+    assertEquals(10, InCarQuickDestinationsLayoutPolicy.resolvedGapDp(656, 8));
   }
 
   @Test
-  public void compactWindowsReserveDeterministicActionCapacity()
+  public void constrainedHeightReducesGapBeforeOverflow()
   {
-    assertEquals(7, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(640));
-    assertEquals(5, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(480));
-    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresOverflow(640, 8));
-    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresOverflow(480, 8));
+    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(616, 8));
+    assertEquals(5, InCarQuickDestinationsLayoutPolicy.resolvedGapDp(616, 8));
   }
 
   @Test
-  public void enabledSubsetFitsNarrowerWindow()
+  public void compactHeightUsesDeterministicOverflowCapacity()
   {
-    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(480, 4));
+    assertEquals(5, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(420));
+    assertEquals(3, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(300));
+    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresOverflow(420, 8));
+    assertTrue(InCarQuickDestinationsLayoutPolicy.requiresOverflow(300, 8));
   }
 
   @Test
-  public void veryNarrowWindowDoesNotReturnNegativeCapacity()
+  public void enabledSubsetFitsCompactHeight()
   {
-    assertEquals(0, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(80));
+    assertFalse(InCarQuickDestinationsLayoutPolicy.requiresOverflow(350, 4));
+  }
+
+  @Test
+  public void tinyHeightDoesNotReturnNegativeCapacity()
+  {
+    assertEquals(0, InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(64));
+  }
+
+  @Test
+  public void touchTargetIsNeverShrunkBySizingPolicy()
+  {
+    assertEquals(64, InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP);
+    assertTrue(InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP >= 0);
   }
 }
