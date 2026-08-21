@@ -17,6 +17,7 @@ set(SRC
   edge_estimator_tests.cpp
   fake_graph_test.cpp
   followed_polyline_test.cpp
+  free_driving_road_snap_policy_tests.cpp
   guides_tests.cpp
   index_graph_test.cpp
   index_graph_tools.cpp
