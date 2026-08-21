@@ -6,18 +6,6 @@
   android:id="@+id/search_bottom_container"
   android:layout_width="match_parent"
   android:layout_height="match_parent">
-
-  <!-- Enabled only by InCar Quick-category searches. It consumes outside taps so the
-       dismissal gesture cannot also trigger the map or an underlying map button. -->
-  <View
-    android:id="@+id/in_car_quick_search_scrim"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/transparent"
-    android:clickable="false"
-    android:focusable="false"
-    android:visibility="gone" />
-
   <FrameLayout
     android:id="@+id/search_page_container"
     android:layout_width="match_parent"
