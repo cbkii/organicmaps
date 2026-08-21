@@ -311,6 +311,11 @@ public class MapObject implements PlacePageData
     return mMapObjectType == BOOKMARK;
   }
 
+  public final boolean isSearch()
+  {
+    return mMapObjectType == SEARCH;
+  }
+
   public final boolean isTrack()
   {
     return mMapObjectType == TRACK;
