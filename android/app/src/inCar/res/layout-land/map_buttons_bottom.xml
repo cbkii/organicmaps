@@ -29,7 +29,7 @@
     layout="@layout/map_buttons_bookmarks_square"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_marginStart="@dimen/margin_half"
+    android:layout_marginStart="@dimen/in_car_runtime_button_gap"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintStart_toEndOf="@+id/btn_search" />
 
@@ -37,7 +37,7 @@
     layout="@layout/map_buttons_menu"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_marginStart="@dimen/margin_half"
+    android:layout_marginStart="@dimen/in_car_runtime_button_gap"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintStart_toEndOf="@+id/btn_bookmarks" />
 </androidx.constraintlayout.widget.ConstraintLayout>
