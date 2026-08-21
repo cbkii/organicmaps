@@ -391,7 +391,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   {
     if (BookmarkManager.INSTANCE.isAsyncBookmarksLoadingInProgress())
     {
-      Toast.makeText(requireContext(), R.string.wait_several_minutes, Toast.LENGTH_SHORT).show();
+      Toast.makeText(requireContext(), R.string.in_car_quick_saved_places_loading, Toast.LENGTH_SHORT).show();
       return;
     }
 
