@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="in_car_quick_saved_places">Saved Places</string>
+  <string name="in_car_quick_saved_places_loading">Saved Places are still loading. Try again shortly.</string>
   <string name="in_car_quick_saved_places_empty">No saved Places are available.</string>
 </resources>
