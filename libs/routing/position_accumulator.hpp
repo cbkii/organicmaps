@@ -29,6 +29,11 @@ public:
   /// \returns direction or {0.0, 0.0} if |m_points| is empty or contains only one item.
   m2::PointD GetDirection() const;
 
+  /// \returns a direction vector based on the newest |trackLengthM| metres of accepted points.
+  /// Unlike GetDirection(), this does not change the accumulator's existing ~70 m routing behaviour.
+  /// If less history is available, all available accepted history is used.
+  m2::PointD GetRecentDirection(double trackLengthM) const;
+
   // Getters for testing this class.
   std::deque<m2::PointD> const & GetPointsForTesting() const { return m_points; }
   double GetTrackLengthMForTesting() const { return m_trackLengthM; }
