@@ -5,6 +5,11 @@
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
   <dimen name="in_car_runtime_button_gap">6dp</dimen>
 
+  <!-- Quick controls use one neutral translucent surface plus restrained semantic state feedback. -->
+  <integer name="in_car_quick_surface_alpha">199</integer>
+  <integer name="in_car_quick_pressed_feedback_alpha">82</integer>
+  <integer name="in_car_quick_focused_feedback_alpha">61</integer>
+
   <!-- A 28dp radius gives rendered Quick search markers a 56dp in-car tap target. -->
   <dimen name="in_car_quick_marker_touch_radius">28dp</dimen>
 
