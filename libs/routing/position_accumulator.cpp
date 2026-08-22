@@ -76,4 +76,22 @@ m2::PointD PositionAccumulator::GetDirection() const
 
   return m_points.back() - m_points.front();
 }
+
+m2::PointD PositionAccumulator::GetRecentDirection(double trackLengthM) const
+{
+  if (m_points.size() <= 1 || trackLengthM <= 0.0)
+    return m2::PointD::Zero();
+
+  double accumulatedM = 0.0;
+  size_t startIndex = m_points.size() - 2;
+  for (size_t i = m_points.size() - 1; i > 0; --i)
+  {
+    accumulatedM += mercator::DistanceOnEarth(m_points[i], m_points[i - 1]);
+    startIndex = i - 1;
+    if (accumulatedM >= trackLengthM)
+      break;
+  }
+
+  return m_points.back() - m_points[startIndex];
+}
 }  // namespace routing

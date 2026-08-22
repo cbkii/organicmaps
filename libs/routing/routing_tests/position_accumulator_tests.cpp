@@ -47,6 +47,27 @@ UNIT_CLASS_TEST(PositionAccumulator, GoodSegment)
   TEST(AlmostEqualAbs(GetTrackLengthMForTesting(), 77.92, kEpsMeters), (GetTrackLengthMForTesting()));
 }
 
+UNIT_CLASS_TEST(PositionAccumulator, RecentDirectionUsesOnlyNewestTrackLength)
+{
+  double constexpr kStep = 0.0001;  // Roughly 11.1 m at the equator.
+  for (size_t i = 0; i < 8; ++i)
+    PushNextPoint({kStep * i, 0.0});
+
+  // The ordinary routing direction keeps the full retained history.
+  TEST(AlmostEqualAbs(GetDirection(), m2::PointD(0.0007, 0.0), kEps), (GetDirection()));
+
+  // A 20 m request needs only the newest two accepted ~11 m segments.
+  TEST(AlmostEqualAbs(GetRecentDirection(20.0), m2::PointD(0.0002, 0.0), kEps), (GetRecentDirection(20.0)));
+}
+
+UNIT_CLASS_TEST(PositionAccumulator, RecentDirectionUsesAvailableHistoryWhenShort)
+{
+  PushNextPoint({0.0, 0.0});
+  PushNextPoint({0.0001, 0.0});
+  TEST(AlmostEqualAbs(GetRecentDirection(20.0), m2::PointD(0.0001, 0.0), kEps), (GetRecentDirection(20.0)));
+  TEST(AlmostEqualAbs(GetRecentDirection(0.0), m2::PointD::Zero(), kEps), (GetRecentDirection(0.0)));
+}
+
 // Test on removing too outdated elements from the position accumulator.
 // Adding short but still valid segments.
 UNIT_CLASS_TEST(PositionAccumulator, RemovingOutdated)

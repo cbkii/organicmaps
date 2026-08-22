@@ -61,6 +61,7 @@ set(SRC
   features_road_graph.cpp
   features_road_graph.hpp
   following_info.hpp
+  free_driving_road_snap_policy.hpp
   gate_access.hpp
   geometry.cpp
   geometry.hpp
@@ -121,7 +122,6 @@ set(SRC
   restrictions_serialization.hpp
   road_access.cpp
   road_access.hpp
-  road_access_serialization.cpp
   road_access_serialization.hpp
   road_graph.cpp
   road_graph.hpp
@@ -146,6 +146,7 @@ set(SRC
   routing_result_graph.hpp
   routing_session.cpp
   routing_session.hpp
+  routing_session_free_driving.cpp
   routing_settings.cpp
   routing_settings.hpp
   ruler_router.cpp

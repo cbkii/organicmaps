@@ -10,6 +10,7 @@ import androidx.annotation.AttrRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 import app.organicmaps.R;
 import app.organicmaps.sdk.search.SearchResult;
@@ -17,9 +18,19 @@ import app.organicmaps.util.Graphics;
 import app.organicmaps.util.ThemeUtils;
 import app.organicmaps.util.UiUtils;
 
-class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHolder>
+/** Shared adapter for the standard Organic Maps search-result and suggestion rows. */
+public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHolder>
 {
-  private final SearchFragment mSearchFragment;
+  public interface Listener
+  {
+    void onSuggestionSelected(@NonNull SearchResult result);
+    void onResultSelected(@NonNull SearchResult result, int order);
+  }
+
+  @NonNull
+  private final Fragment mHostFragment;
+  @NonNull
+  private final Listener mListener;
   @Nullable
   private SearchResult[] mResults;
 
@@ -89,7 +100,7 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
     @Override
     void processClick(SearchResult result, int order)
     {
-      mSearchFragment.setQuery(result.suggestion, result.type == SearchResult.TYPE_PURE_SUGGEST);
+      mListener.onSuggestionSelected(result);
     }
   }
 
@@ -145,7 +156,7 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
 
     private void formatOpeningHours(SearchResult result)
     {
-      final Resources resources = mSearchFragment.getResources();
+      final Resources resources = mHostFragment.getResources();
 
       switch (result.description.openNow)
       {
@@ -157,12 +168,12 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
           final String string = resources.getString(R.string.closes_in, time);
 
           UiUtils.setTextAndShow(mOpen, string);
-          mOpen.setTextColor(ContextCompat.getColor(mSearchFragment.getContext(), R.color.base_yellow));
+          mOpen.setTextColor(ContextCompat.getColor(mHostFragment.requireContext(), R.color.base_yellow));
         }
         else
         {
           UiUtils.setTextAndShow(mOpen, resources.getString(R.string.editor_time_open));
-          mOpen.setTextColor(ContextCompat.getColor(mSearchFragment.getContext(), R.color.base_green));
+          mOpen.setTextColor(ContextCompat.getColor(mHostFragment.requireContext(), R.color.base_green));
         }
       }
       case SearchResult.OPEN_NOW_NO ->
@@ -173,12 +184,12 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
           final String string = resources.getString(R.string.opens_in, time);
 
           UiUtils.setTextAndShow(mOpen, string);
-          mOpen.setTextColor(ContextCompat.getColor(mSearchFragment.getContext(), R.color.base_red));
+          mOpen.setTextColor(ContextCompat.getColor(mHostFragment.requireContext(), R.color.base_red));
         }
         else
         {
           UiUtils.setTextAndShow(mOpen, resources.getString(R.string.closed));
-          mOpen.setTextColor(ContextCompat.getColor(mSearchFragment.getContext(), R.color.base_red));
+          mOpen.setTextColor(ContextCompat.getColor(mHostFragment.requireContext(), R.color.base_red));
         }
       }
       default -> UiUtils.hide(mOpen);
@@ -187,7 +198,7 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
 
     private void setBackground()
     {
-      final Context context = mSearchFragment.requireActivity();
+      final Context context = mHostFragment.requireActivity();
       final int itemBg = ThemeUtils.getResource(context, R.attr.clickableBackground);
       mFrame.setBackgroundResource(itemBg);
     }
@@ -195,13 +206,31 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
     @Override
     void processClick(SearchResult result, int order)
     {
-      mSearchFragment.showSingleResultOnMap(result, order);
+      mListener.onResultSelected(result, order);
     }
   }
 
-  SearchAdapter(SearchFragment fragment)
+  SearchAdapter(@NonNull SearchFragment fragment)
   {
-    mSearchFragment = fragment;
+    this(fragment, new Listener() {
+      @Override
+      public void onSuggestionSelected(@NonNull SearchResult result)
+      {
+        fragment.setQuery(result.suggestion, result.type == SearchResult.TYPE_PURE_SUGGEST);
+      }
+
+      @Override
+      public void onResultSelected(@NonNull SearchResult result, int order)
+      {
+        fragment.showSingleResultOnMap(result, order);
+      }
+    });
+  }
+
+  public SearchAdapter(@NonNull Fragment hostFragment, @NonNull Listener listener)
+  {
+    mHostFragment = hostFragment;
+    mListener = listener;
   }
 
   @NonNull
@@ -254,7 +283,7 @@ class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchDataViewHol
     refreshData(null);
   }
 
-  void refreshData(@Nullable SearchResult[] results)
+  public void refreshData(@Nullable SearchResult[] results)
   {
     mResults = results;
     notifyDataSetChanged();
