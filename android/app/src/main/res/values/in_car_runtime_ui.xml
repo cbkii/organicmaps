@@ -5,6 +5,9 @@
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
   <dimen name="in_car_runtime_button_gap">6dp</dimen>
 
+  <!-- A 28dp radius gives rendered Quick search markers a 56dp in-car tap target. -->
+  <dimen name="in_car_quick_marker_touch_radius">28dp</dimen>
+
   <!-- Place-page route actions use horizontal icon/text composition to protect bottom clearance. -->
   <dimen name="in_car_place_page_route_width">104dp</dimen>
   <dimen name="in_car_place_page_save_width">62dp</dimen>
