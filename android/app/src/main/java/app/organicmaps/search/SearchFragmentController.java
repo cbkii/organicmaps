@@ -24,6 +24,7 @@ import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
+import app.organicmaps.sdk.SearchMarkerHitTest;
 import app.organicmaps.sdk.bookmarks.data.MapObject;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.util.InputUtils;
@@ -51,9 +52,9 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     {
       if (mapObject != null && BuildConfig.IS_IN_CAR && mInCarQuickDestinationsSearch)
       {
-        // While a Quick Destinations result list is active, normal map objects are deliberately
-        // inert. Existing native SEARCH markers are the only outside-map targets: selecting one
-        // immediately routes to it instead of opening a place page.
+        // Quick map taps are pre-filtered against the currently rendered SEARCH mark group. Keep
+        // this second guard for lifecycle/race safety so a stale or non-search selection can never
+        // become the Quick destination.
         final boolean routeToSearchResult = mapObject.isSearch();
         endInCarQuickDestinationsSearch();
         if (routeToSearchResult && requireActivity() instanceof MwmActivity activity)
@@ -178,6 +179,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   private float mInitialX = 0f;
   private float mInitialY = 0f;
   private int mTouchSlop = 0;
+  private int mQuickMarkerTouchRadiusPx = 0;
+  private boolean mMapGestureDragged;
 
   private int mMinCollapsedPeekHeight = 0;
   private final Observer<Integer> mTopHeaderHeightObserver = height ->
@@ -198,23 +201,63 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     @Override
     public boolean onTouch(View v, MotionEvent event)
     {
-      if (event.getAction() == MotionEvent.ACTION_DOWN)
-        InputUtils.hideKeyboard(v);
-      boolean drag = isDrag(event);
-      if (event.getAction() == MotionEvent.ACTION_UP && !drag)
+      final int action = event.getActionMasked();
+      if (action == MotionEvent.ACTION_DOWN)
       {
-        v.performClick();
+        InputUtils.hideKeyboard(v);
+        mMapGestureDragged = false;
+      }
+      else if (action == MotionEvent.ACTION_POINTER_DOWN)
+      {
+        // A multi-touch gesture is a map gesture, not a Quick destination tap. Let MapView retain
+        // the full pinch/zoom sequence and do not close the Quick search when the fingers lift.
+        mMapGestureDragged = true;
+      }
+
+      final boolean drag = isDrag(event);
+      if (drag)
+        mMapGestureDragged = true;
+
+      if (action == MotionEvent.ACTION_CANCEL)
+      {
+        mMapGestureDragged = false;
+        return false;
+      }
+
+      if (action == MotionEvent.ACTION_UP)
+      {
+        final boolean completedMapGesture = mMapGestureDragged;
+        mMapGestureDragged = false;
+        if (completedMapGesture)
+          return false;
+
         if (BuildConfig.IS_IN_CAR && mInCarQuickDestinationsSearch)
         {
-          // Close the Quick list immediately, but let this exact touch continue into MapView.
-          // Native search-marker selection will then be intercepted by mPlacePageMapObjectObserver.
+          final boolean searchMarkerTap = SearchMarkerHitTest.nativeHasSearchMarkerAt(
+              event.getX(), event.getY(), mQuickMarkerTouchRadiusPx);
+
+          // Preserve the existing immediate list close for a completed tap. Keep the one-shot Quick
+          // state alive briefly so any asynchronous native callback from an admitted marker remains
+          // under the SEARCH-only observer guard.
           mQuickOutsideTapPending = true;
           mViewModel.setSearchEnabled(false, null);
           v.removeCallbacks(mFinishQuickOutsideTap);
           v.postDelayed(mFinishQuickOutsideTap, QUICK_MARKER_SELECTION_WINDOW_MS);
+
+          if (!searchMarkerTap)
+          {
+            // ACTION_DOWN has already reached MapView. Finish its gesture with CANCEL instead of UP,
+            // so blank-map taps and non-SEARCH marks cannot enter the native place-page selection
+            // pipeline. Pan and pinch events are never cancelled by this path.
+            cancelMapTap(v, event);
+            return true;
+          }
         }
+
+        v.performClick();
         return false;
       }
+
       if (!drag)
         return false;
       if (mBottomSheetBehavior.getState() == BottomSheetBehavior.STATE_SETTLING)
@@ -248,6 +291,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
 
     mSearchPageContainer = view.findViewById(R.id.search_page_container);
     mTouchSlop = ViewConfiguration.get(requireContext()).getScaledTouchSlop();
+    mQuickMarkerTouchRadiusPx = getResources().getDimensionPixelSize(R.dimen.in_car_quick_marker_touch_radius);
     applyInCarSearchPanelWidth();
 
     mMinCollapsedPeekHeight = (int) getResources().getDimension(
@@ -313,8 +357,9 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       mQuickPreviousButtonsHidden = Boolean.TRUE.equals(mMapButtonsViewModel.getButtonsHidden().getValue());
     mQuickOutsideTapPending = false;
     mInCarQuickDestinationsSearch = true;
-    // Search-result markers remain part of MapView, but regular map controls are removed from the
-    // Quick interaction surface. Their prior visibility is restored when the Quick search ends.
+    mMapGestureDragged = false;
+    // Search-result markers remain part of MapView, and the map itself stays fully pannable/pinch-zoomable.
+    // Regular map controls are removed from the Quick interaction surface and restored when it ends.
     mMapButtonsViewModel.setButtonsHidden(true);
   }
 
@@ -325,6 +370,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       mMapView.removeCallbacks(mFinishQuickOutsideTap);
     mQuickOutsideTapPending = false;
     mInCarQuickDestinationsSearch = false;
+    mMapGestureDragged = false;
     if (wasQuickSearch && mMapButtonsViewModel != null)
       mMapButtonsViewModel.setButtonsHidden(mQuickPreviousButtonsHidden);
   }
@@ -419,9 +465,23 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       mMapView.setOnTouchListener(mMapTouchListener);
   }
 
+  private void cancelMapTap(@NonNull View mapView, @NonNull MotionEvent source)
+  {
+    final MotionEvent cancel = MotionEvent.obtain(source);
+    try
+    {
+      cancel.setAction(MotionEvent.ACTION_CANCEL);
+      mapView.onTouchEvent(cancel);
+    }
+    finally
+    {
+      cancel.recycle();
+    }
+  }
+
   boolean isDrag(MotionEvent event)
   {
-    return switch (event.getAction())
+    return switch (event.getActionMasked())
     {
       case MotionEvent.ACTION_DOWN ->
       {
@@ -429,7 +489,6 @@ public class SearchFragmentController extends Fragment implements SearchFragment
         mInitialY = event.getY();
         yield false;
       }
-      case MotionEvent.ACTION_UP -> false;
       case MotionEvent.ACTION_MOVE ->
       {
         float dx = Math.abs(event.getX() - mInitialX);
