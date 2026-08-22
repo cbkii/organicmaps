@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <!-- Day-mode Quick buttons use a neutral translucent surface with a dark foreground. -->
+  <!-- Quick buttons share the InCar floating surface; alpha is applied by InCarQuickActionButton. -->
+  <color name="in_car_quick_surface">@color/bg_menu</color>
   <color name="in_car_quick_foreground">#FF202124</color>
   <!-- These semantic colours are interaction accents, not persistent button backgrounds. -->
   <color name="in_car_quick_primary">#175C43</color>
