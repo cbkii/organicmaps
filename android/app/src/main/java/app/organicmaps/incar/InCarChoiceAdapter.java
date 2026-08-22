@@ -17,6 +17,7 @@ import java.util.List;
 public final class InCarChoiceAdapter extends ArrayAdapter<String>
 {
   private static final int MIN_ROW_HEIGHT_DP = 64;
+  private static final int MAX_ROW_HEIGHT_DP = 80;
   private static final int HORIZONTAL_PADDING_DP = 24;
   private static final int VERTICAL_PADDING_DP = 8;
   private static final float TEXT_SIZE_SP = 18.0f;
@@ -32,11 +33,12 @@ public final class InCarChoiceAdapter extends ArrayAdapter<String>
   {
     final TextView row = (TextView) super.getView(position, convertView, parent);
     row.setMinHeight(dp(getContext(), MIN_ROW_HEIGHT_DP));
+    row.setMaxHeight(dp(getContext(), MAX_ROW_HEIGHT_DP));
     row.setGravity(Gravity.CENTER_VERTICAL);
     row.setPadding(dp(getContext(), HORIZONTAL_PADDING_DP), dp(getContext(), VERTICAL_PADDING_DP),
                    dp(getContext(), HORIZONTAL_PADDING_DP), dp(getContext(), VERTICAL_PADDING_DP));
     row.setSingleLine(false);
-    row.setMaxLines(3);
+    row.setMaxLines(2);
     row.setEllipsize(TextUtils.TruncateAt.END);
     row.setTextSize(TypedValue.COMPLEX_UNIT_SP, TEXT_SIZE_SP);
     return row;
