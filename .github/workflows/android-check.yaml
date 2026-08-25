@@ -56,14 +56,13 @@ jobs:
           python3 android/tools/verify_offline_navigation_voice_pack.py \
             --asset-root android/app/src/inCar/assets
 
+      # Keep repository-wide lint as a shared-code quality gate. Web/F-Droid
+      # build and publication lanes are intentionally not CI release gates.
       - name: Lint
         shell: bash
         working-directory: android
         run: ./gradlew lintAllModules
 
-      # Reviewdog reports the already-generated merged lint XML as a check. The
-      # Android-only cleanup intentionally avoids fetching the inherited full
-      # repository history merely to construct a PR diff for annotations.
       - name: Install reviewdog
         uses: reviewdog/action-setup@v1
 
@@ -84,34 +83,16 @@ jobs:
           retention-days: 30
 
   android-check:
-    name: Build Android Debug
+    name: Build Android Debug (InCarProfileable)
     runs-on: ubuntu-latest
     env:
       JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
       CI_IN_CAR_RELEASE_VERSION: '0.0.0'
       CI_IN_CAR_RELEASE_VERSION_CODE: '1000000000'
-    strategy:
-      fail-fast: false
-      matrix:
-        flavor: [WebDebug, FdroidDebug, InCarProfileable]
-        include:
-          - flavor: WebDebug
-            arch: arm64
-            run-tests: true
-            verify_in_car: false
-            artifact_path: android/app/build/outputs/apk/web/debug/OrganicMaps-*.apk
-          - flavor: FdroidDebug
-            arch: arm32
-            verify_in_car: false
-            artifact_path: android/app/build/outputs/apk/fdroid/debug/OrganicMaps-*.apk
-          - flavor: InCarProfileable
-            arch: arm64
-            verify_in_car: true
-            artifact_path: android/app/build/outputs/apk/inCar/profileable/OrganicMaps-*.apk
     # Cancels previous jobs if the same branch or PR was updated again.
     # Only cancel PR runs: master runs must finish to populate the shared ccache.
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.flavor }}-${{ github.event.pull_request.number || github.ref }}
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
     steps:
@@ -124,8 +105,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v6
         with:
-          # Needed for versioning script
-          fetch-depth: 200 # enough to get all commits for the current day
+          # Needed for versioning script.
+          fetch-depth: 200
 
       - name: Cache Boost submodule
         uses: ./.github/actions/cache-boost
@@ -141,12 +122,11 @@ jobs:
       - name: Configure ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ github.workflow }}-${{ matrix.flavor }}
+          key: ${{ github.workflow }}-InCarProfileable
           # Restore-only on PRs: master populates the shared cache, PRs read it.
-          # Avoids overflowing the 10GB repo limit, which evicts master's caches.
           save: ${{ github.ref == 'refs/heads/master' }}
 
-      - name: Compile ${{ matrix.flavor }}
+      - name: Compile InCarProfileable
         shell: bash
         working-directory: android
         env:
@@ -155,30 +135,18 @@ jobs:
         run: |
           cmake --version
           ninja --version
-          ./gradlew -P${{ matrix.arch }} assemble${{ matrix.flavor }}
-
-      - name: Build arm64 FdroidProfileable comparison
-        if: matrix.verify_in_car == true
-        shell: bash
-        working-directory: android
-        env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        run: ./gradlew -Parm64 assembleFdroidProfileable
+          ./gradlew -Parm64 assembleInCarProfileable
 
       - name: Verify InCarProfileable package
-        if: matrix.verify_in_car == true
         shell: bash
         run: |
           proof_dir="${RUNNER_TEMP}/in-car-package-proof"
           mkdir -p "${proof_dir}"
 
           mapfile -t in_car_apks < <(find android/app/build/outputs/apk/inCar/profileable -maxdepth 1 -type f -name '*.apk' -print | sort)
-          mapfile -t reference_apks < <(find android/app/build/outputs/apk/fdroid/profileable -maxdepth 1 -type f -name '*.apk' -print | sort)
-          if [[ "${#in_car_apks[@]}" -ne 1 || "${#reference_apks[@]}" -ne 1 ]]; then
-            echo "::error::Expected exactly one InCarProfileable and one FdroidProfileable APK."
+          if [[ "${#in_car_apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one InCarProfileable APK; found ${#in_car_apks[@]}."
             printf 'in-car: %s\n' "${in_car_apks[*]:-none}"
-            printf 'reference: %s\n' "${reference_apks[*]:-none}"
             exit 1
           fi
 
@@ -190,20 +158,15 @@ jobs:
           python3 android/tools/verify_offline_navigation_voice_pack.py \
             --apk "${in_car_apks[0]}"
 
-          in_car_size="$(stat -c '%s' "${in_car_apks[0]}")"
-          reference_size="$(stat -c '%s' "${reference_apks[0]}")"
-          delta="$((in_car_size - reference_size))"
-          {
-            echo
-            echo '### In-car profileable comparison'
-            echo
-            echo "- InCarProfileable bytes: \`${in_car_size}\`"
-            echo "- FdroidProfileable bytes: \`${reference_size}\`"
-            echo "- In-car minus reference: \`${delta}\` bytes"
-          } >> "${GITHUB_STEP_SUMMARY}"
+      - name: Upload InCarProfileable APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-InCarProfileable
+          path: android/app/build/outputs/apk/inCar/profileable/OrganicMaps-*.apk
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Build x86_64 InCarDebug smoke APK
-        if: matrix.verify_in_car == true
         shell: bash
         working-directory: android
         env:
@@ -211,14 +174,12 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: ./gradlew -Px86_64 assembleInCarDebug
 
-      - name: Run InCar unit tests
-        if: matrix.verify_in_car == true
+      - name: Run InCar and SDK unit tests
         shell: bash
         working-directory: android
-        run: ./gradlew -Px86_64 app:testInCarDebug
+        run: ./gradlew -Px86_64 app:testInCarDebug sdk:testDebug
 
       - name: Upload x86_64 InCarDebug smoke APK
-        if: matrix.verify_in_car == true
         uses: actions/upload-artifact@v7
         with:
           name: android-InCarDebug-x86_64-ci
@@ -226,8 +187,28 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Free disk space for SDK emulator tests
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force > /dev/null
+
+      - name: Enable KVM for SDK emulator tests
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run SDK connected tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          script: cd android && ./gradlew -Px86_64 sdk:connectedDebugAndroidTest
+
       - name: Configure CI release signing
-        if: matrix.verify_in_car == true
         id: ci_release_signing
         shell: bash
         run: |
@@ -272,7 +253,6 @@ jobs:
           echo "cert_sha256=${cert_sha256}" >> "${GITHUB_OUTPUT}"
 
       - name: Build release-equivalent arm64 InCarRelease
-        if: matrix.verify_in_car == true
         shell: bash
         working-directory: android
         env:
@@ -294,7 +274,6 @@ jobs:
             assembleInCarRelease
 
       - name: Verify release-equivalent InCarRelease
-        if: matrix.verify_in_car == true
         shell: bash
         run: |
           proof_dir="${RUNNER_TEMP}/in-car-release-ci-proof"
@@ -318,7 +297,6 @@ jobs:
             --apk "${release_apks[0]}"
 
       - name: Upload release-equivalent InCarRelease APK
-        if: matrix.verify_in_car == true
         uses: actions/upload-artifact@v7
         with:
           name: android-InCarRelease-ci
@@ -327,7 +305,6 @@ jobs:
           retention-days: 7
 
       - name: Stage release diagnostics
-        if: matrix.verify_in_car == true
         id: release_diagnostics
         shell: bash
         run: |
@@ -346,7 +323,6 @@ jobs:
           echo "path=${diagnostics_dir}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release diagnostics
-        if: matrix.verify_in_car == true
         uses: actions/upload-artifact@v7
         with:
           name: android-InCarRelease-ci-diagnostics
@@ -355,52 +331,13 @@ jobs:
           retention-days: 90
 
       - name: Remove CI release signing material
-        if: always() && matrix.verify_in_car == true
+        if: always()
         shell: bash
         run: |
           rm -f \
             android/app/secure.properties \
             "${RUNNER_TEMP}/in-car-ci-release.keystore" \
             "${RUNNER_TEMP}/in-car-ci-keytool.txt"
-
-      - name: Compile Wear Google Debug
-        if: matrix.flavor == 'WebDebug'
-        shell: bash
-        working-directory: android
-        run: ./gradlew :wear:assembleGoogleDebug
-
-      - name: Free disk space for emulator
-        if: matrix.run-tests == true
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force > /dev/null
-
-      - name: Enable KVM
-        if: matrix.run-tests == true
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run tests
-        if: matrix.run-tests == true
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          script: |
-            cd android && ./gradlew -P${{ matrix.arch }} app:test${{ matrix.flavor }} sdk:testDebug sdk:connectedDebugAndroidTest
-
-      - name: Upload ${{ matrix.flavor }} apk
-        uses: actions/upload-artifact@v7
-        with:
-          name: android-${{ matrix.flavor }}
-          path: ${{ matrix.artifact_path }}
-          if-no-files-found: error
-          retention-days: 30
 
   in-car-release-smoke:
     name: Smoke InCar startup on x86_64

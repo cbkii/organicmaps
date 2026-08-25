@@ -26,16 +26,18 @@ This verifies the size budget, forbidden paths, large-asset allow-list, tracked 
 
 ## Android validation
 
+The release-gating Android validation surface is InCar-focused:
+
 ```bash
 cd android
 ./gradlew lintAllModules detektCheckAll
-./gradlew -Parm64 assembleWebDebug
-./gradlew -Parm32 assembleFdroidDebug
 ./gradlew -Parm64 assembleInCarProfileable
-./gradlew :wear:assembleGoogleDebug
+./gradlew -Px86_64 app:testInCarDebug sdk:testDebug
 ```
 
-The CI matrix is authoritative for the exact supported command set if Gradle task names change.
+CI additionally runs the retained SDK connected tests and an x86_64 InCar startup smoke test. Other retained Android flavours and Wear may still be built manually when a change specifically affects those compatibility surfaces, but Web/F-Droid/Google/Huawei/Wear builds are not publication or release CI gates for this fork.
+
+The current CI workflow is authoritative for the exact release-gating command set if Gradle task names change.
 
 ## InCar release-equivalent build
 

@@ -10,7 +10,7 @@ This repository is an Android-focused derivative of Organic Maps. Treat the reta
 4. minimum third-party and runtime-data closure required by those layers;
 5. Android-focused build, validation, release and selective-upstream tooling.
 
-Android-only does not mean InCar-only. The `inCar` flavour is the primary fork-specific product, while useful general Android flavours, Wear and SDK modules remain valid unless current evidence proves otherwise.
+Android-only does not mean the source tree is InCar-only. The `inCar` flavour is the primary fork-specific product and the only supported public release target. Other retained Android flavours, Wear and SDK modules may remain buildable for source compatibility or local regression work, but they are not release CI gates unless repository policy is deliberately changed.
 
 ## Source of truth
 
@@ -39,12 +39,11 @@ git submodule update --init --recursive --depth 1
 ./configure.sh
 cd android
 ./gradlew lintAllModules detektCheckAll
-./gradlew -Parm64 assembleWebDebug
-./gradlew -Parm32 assembleFdroidDebug
 ./gradlew -Parm64 assembleInCarProfileable
+./gradlew -Px86_64 app:testInCarDebug sdk:testDebug
 ```
 
-For InCar release-equivalent validation, use the current CI workflow and `android/tools/verify_in_car_apk.sh`; never commit signing material.
+The Android CI additionally runs the retained SDK connected tests, x86_64 InCar startup smoke coverage, an arm64 release-equivalent InCar build and `android/tools/verify_in_car_apk.sh`. Web, F-Droid, Google/Huawei store and Maven Central publication workflows are not release gates for this fork.
 
 Emulator/CI success is not physical TS18 validation. Record physical validation separately.
 

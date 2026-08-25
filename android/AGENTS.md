@@ -9,7 +9,8 @@ These instructions supplement the root `AGENTS.md`.
 - `libs/`: Android feature libraries, including retained car/compatibility modules.
 - `wear/`: retained Wear build.
 - Flavours currently include `google`, `web`, `fdroid`, `huawei` and `inCar`; build types include `debug`, `release`, `beta` and `profileable` where configured.
-- Do not infer publication support from a compile flavour. This fork's supported public release workflow is InCar unless repository policy is deliberately changed.
+- Do not infer publication support from a compile flavour. This fork's only supported public release surface is the InCar APK on GitHub Releases unless repository policy is deliberately changed.
+- Retained Web/F-Droid/Google/Huawei/Wear/SDK buildability may still be useful for local compatibility work, but those surfaces are not release CI gates.
 
 ## Compatibility
 
@@ -37,17 +38,17 @@ Use runtime window bounds and insets. Support normal, split/windowed and InCar l
 
 ## Validation
 
-Useful local/fresh-clone commands:
+Release-gating local/fresh-clone commands are:
 
 ```bash
 cd android
 ./gradlew lintAllModules detektCheckAll
-./gradlew -Parm64 assembleWebDebug
-./gradlew -Parm32 assembleFdroidDebug
 ./gradlew -Parm64 assembleInCarProfileable
-./gradlew :wear:assembleGoogleDebug
+./gradlew -Px86_64 app:testInCarDebug sdk:testDebug
 ```
 
-The CI InCar lane additionally creates an ephemeral signer, builds release-equivalent `InCarRelease`, and verifies package/version/certificate properties with `android/tools/verify_in_car_apk.sh`.
+The CI InCar lane additionally runs the retained SDK connected tests, creates an ephemeral signer, builds release-equivalent `InCarRelease`, verifies package/version/certificate properties with `android/tools/verify_in_car_apk.sh`, and performs an x86_64 startup smoke test.
+
+Other retained flavours and Wear may be compiled manually when a change affects those compatibility surfaces, but they are not required publication or release CI lanes for this fork.
 
 An emulator validates Android behaviour only. Physical TS18 launch, windowing, audio and vehicle lifecycle claims require separate device evidence.

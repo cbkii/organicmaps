@@ -1,6 +1,8 @@
 # Releasing
 
-The supported fork release surface is the InCar APK. General Android flavours remain buildable for compatibility/regression purposes but their compile presence does not imply store publication by this fork.
+The supported fork release surface is the signed InCar APK published on this repository's GitHub Releases page. GitHub Releases is the only supported public distribution target for this fork; do not publish this fork through F-Droid, Google Play, Huawei AppGallery, Maven Central, Firebase App Distribution or inherited upstream release infrastructure unless repository policy is deliberately changed.
+
+General Android flavours, Wear and SDK modules may remain buildable for source compatibility or local regression work, but their compile presence does not imply publication support or a release CI obligation.
 
 ## Authoritative workflow
 
@@ -14,7 +16,7 @@ The release path must preserve:
 - production signing without exposing key material;
 - previous-signer continuity checks;
 - APK package/version/certificate verification;
-- publication only after validation succeeds.
+- publication only to GitHub Releases and only after validation succeeds.
 
 `android/tools/verify_in_car_apk.sh` is the current package verifier.
 
