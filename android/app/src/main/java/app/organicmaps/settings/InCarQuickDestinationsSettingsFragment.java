@@ -154,25 +154,26 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     }
 
     final InCarChoiceAdapter adapter = new InCarChoiceAdapter(requireContext(), labels);
-    final AlertDialog dialog =
-        new AlertDialog.Builder(requireContext())
-            .setTitle(labelRes)
-            .setAdapter(adapter,
-                        (ignored, which) -> {
-                          if (which < 0 || which >= actions.size())
-                            return;
-                          switch (actions.get(which))
-                          {
-                          case SEARCH -> showDestinationSearchDialog(preference, home);
-                          case SAVED_PLACE -> showSavedPlacesDialog(preference, home);
-                          case CURRENT_LOCATION -> saveCurrentLocation(preference, labelRes, home);
-                          case CLEAR -> {
-                            saveDestination(home, null);
-                            updateDestinationSummary(preference, null);
-                          }
-                          }
-                        })
-            .create();
+    final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                                   .setTitle(labelRes)
+                                   .setAdapter(adapter,
+                                               (ignored, which) -> {
+                                                 if (which < 0 || which >= actions.size())
+                                                   return;
+                                                 switch (actions.get(which))
+                                                 {
+                                                 case SEARCH -> showDestinationSearchDialog(preference, home);
+                                                 case SAVED_PLACE -> showSavedPlacesDialog(preference, home);
+                                                 case CURRENT_LOCATION ->
+                                                   saveCurrentLocation(preference, labelRes, home);
+                                                 case CLEAR ->
+                                                 {
+                                                   saveDestination(home, null);
+                                                   updateDestinationSummary(preference, null);
+                                                 }
+                                                 }
+                                               })
+                                   .create();
     dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(requireActivity(), dialog));
     dialog.show();
   }
@@ -327,8 +328,9 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
 
         showSearchStatus(statusRow, progress, statusText, results, R.string.in_car_quick_searching, true);
         final boolean isCategory = categoryQuery[0];
-        pending[0] = () -> runStandardInteractiveSearch(text, isCategory, activeTimestamp, statusRow, progress,
-                                                        statusText, results);
+        pending[0] = ()
+            -> runStandardInteractiveSearch(text, isCategory, activeTimestamp, statusRow, progress, statusText,
+                                            results);
         handler.postDelayed(pending[0], SEARCH_DEBOUNCE_MS);
       }
     });
@@ -412,17 +414,18 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
       labels.add(choice.label);
 
     final InCarChoiceAdapter adapter = new InCarChoiceAdapter(requireContext(), labels);
-    final AlertDialog dialog =
-        new AlertDialog.Builder(requireContext())
-            .setTitle(R.string.in_car_quick_saved_places)
-            .setAdapter(adapter, (ignored, which) -> {
-              if (which < 0 || which >= choices.size())
-                return;
-              final InCarQuickDestination destination = choices.get(which).destination;
-              saveDestination(home, destination);
-              updateDestinationSummary(preference, destination);
-            })
-            .create();
+    final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                                   .setTitle(R.string.in_car_quick_saved_places)
+                                   .setAdapter(adapter,
+                                               (ignored, which) -> {
+                                                 if (which < 0 || which >= choices.size())
+                                                   return;
+                                                 final InCarQuickDestination destination =
+                                                     choices.get(which).destination;
+                                                 saveDestination(home, destination);
+                                                 updateDestinationSummary(preference, destination);
+                                               })
+                                   .create();
     dialog.setOnShowListener(ignored -> InCarDialogSizing.applyPickerSize(requireActivity(), dialog));
     dialog.show();
   }

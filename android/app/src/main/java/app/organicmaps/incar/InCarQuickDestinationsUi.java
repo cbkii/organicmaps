@@ -142,7 +142,8 @@ public final class InCarQuickDestinationsUi
       mRoot = root;
       mContainer = container;
       mPrefs = MwmApplication.prefs(activity);
-      mLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+      mLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+      {
         if (mExpanded && (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop))
           scheduleExpandedLayout();
       };
@@ -596,8 +597,8 @@ public final class InCarQuickDestinationsUi
     private void applyInsets()
     {
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, (view, windowInsets) -> {
-        final Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
-                                                   | WindowInsetsCompat.Type.displayCutout());
+        final Insets bars =
+            windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
         mSystemTopInset = bars.top;
         mSystemBottomInset = bars.bottom;
         updateBottomMargin();

@@ -115,8 +115,7 @@ public:
   /// Display-only free-driving projection. |rawLocation| is never mutated; |displayLocation| starts as a copy
   /// and is changed only after conservative, repeated road-match evidence. Returns true if display coordinates
   /// were projected to a road. This is intentionally separate from normal route matching.
-  bool MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const & rawLocation,
-                                           location::GpsInfo & displayLocation);
+  bool MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const & rawLocation, location::GpsInfo & displayLocation);
   void ResetFreeDrivingRoadGraphMatch();
 
   // Get traffic speed for the current route position.

@@ -51,8 +51,8 @@ bool RoutingSession::MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const
   m2::PointD const rawPoint = mercator::FromLatLon(rawLocation.m_latitude, rawLocation.m_longitude);
   m_freeDrivingPositionAccumulator.PushNextPoint(rawPoint);
 
-  auto const mode = free_driving_snap::ResolveMode(rawLocation, m_freeDrivingConfident,
-                                                   m_freeDrivingLastConfidentMovingTimestamp);
+  auto const mode =
+      free_driving_snap::ResolveMode(rawLocation, m_freeDrivingConfident, m_freeDrivingLastConfidentMovingTimestamp);
   if (mode == free_driving_snap::Mode::None)
   {
     // Preserve accepted raw direction history so a later >15 km/h sample can qualify quickly, but do not
@@ -109,8 +109,8 @@ bool RoutingSession::MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const
 
   if (mode == free_driving_snap::Mode::StationaryHold)
   {
-    if (!m_freeDrivingProjectionSeeded || !m_freeDrivingConfident
-        || !SameRoadFeature(m_freeDrivingProjection, projection))
+    if (!m_freeDrivingProjectionSeeded || !m_freeDrivingConfident ||
+        !SameRoadFeature(m_freeDrivingProjection, projection))
     {
       m_freeDrivingProjectionSeeded = false;
       m_freeDrivingConfident = false;

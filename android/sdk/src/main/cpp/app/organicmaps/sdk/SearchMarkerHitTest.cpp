@@ -9,8 +9,8 @@
 
 extern "C"
 {
-JNIEXPORT jboolean Java_app_organicmaps_sdk_SearchMarkerHitTest_nativeHasSearchMarkerAt(
-    JNIEnv *, jclass, jfloat xPx, jfloat yPx, jfloat radiusPx)
+JNIEXPORT jboolean Java_app_organicmaps_sdk_SearchMarkerHitTest_nativeHasSearchMarkerAt(JNIEnv *, jclass, jfloat xPx,
+                                                                                        jfloat yPx, jfloat radiusPx)
 {
   if (!g_framework || !g_framework->IsDrapeEngineCreated() || radiusPx <= 0.0f)
     return JNI_FALSE;
@@ -33,8 +33,7 @@ JNIEXPORT jboolean Java_app_organicmaps_sdk_SearchMarkerHitTest_nativeHasSearchM
 
   m2::AnyRectD const touchRect(globalRect);
   auto const * mark = framework->GetBookmarkManager().FindNearestUserMark(
-      [&touchRect](UserMark::Type) { return touchRect; },
-      [](UserMark::Type) { return true; } /* findOnlyVisible */);
+      [&touchRect](UserMark::Type) { return touchRect; }, [](UserMark::Type) { return true; } /* findOnlyVisible */);
 
   // FindNearestUserMark preserves the map's user-mark priority. A routing, road-warning, bookmark,
   // API or track mark overlapping the touch target therefore blocks the Quick tap rather than being

@@ -28,8 +28,8 @@ final class InCarQuickActionButton extends AppCompatImageButton
     setFocusable(true);
   }
 
-  void setAppearance(@DrawableRes int iconRes, @ColorInt int feedbackColor, @ColorInt int iconColor,
-                     int cornerRadiusPx, int iconPaddingPx)
+  void setAppearance(@DrawableRes int iconRes, @ColorInt int feedbackColor, @ColorInt int iconColor, int cornerRadiusPx,
+                     int iconPaddingPx)
   {
     setImageResource(iconRes);
     ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(iconColor));

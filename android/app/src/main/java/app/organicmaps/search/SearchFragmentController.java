@@ -233,8 +233,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
 
         if (BuildConfig.IS_IN_CAR && mInCarQuickDestinationsSearch)
         {
-          final boolean searchMarkerTap = SearchMarkerHitTest.nativeHasSearchMarkerAt(
-              event.getX(), event.getY(), mQuickMarkerTouchRadiusPx);
+          final boolean searchMarkerTap =
+              SearchMarkerHitTest.nativeHasSearchMarkerAt(event.getX(), event.getY(), mQuickMarkerTouchRadiusPx);
 
           // Preserve the existing immediate list close for a completed tap. Keep the one-shot Quick
           // state alive briefly so any asynchronous native callback from an admitted marker remains
