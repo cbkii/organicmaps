@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.sdk.routing.RoutingInfo;
@@ -94,6 +95,13 @@ public class NavMenu implements DefaultLifecycleObserver
         mBottomSheetBackground.setAlpha(slideOffset);
       }
     });
+
+    // InCar: stable footer — no drag, always shows the collapsed ETA/distance footer.
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mNavBottomSheetBehavior.setDraggable(false);
+      mHeaderFrame.setOnClickListener(null); // Disable expand/collapse toggle for InCar.
+    }
 
     // Bottom frame
     mSpeedViewContainer = bottomFrame.findViewById(R.id.speed_view_container);

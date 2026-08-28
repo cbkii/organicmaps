@@ -150,6 +150,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private static final String MAIN_MENU_ID = "MAIN_MENU_BOTTOM_SHEET";
   private static final String LAYERS_MENU_ID = "LAYERS_MENU_BOTTOM_SHEET";
+  private static final String ADVANCED_MENU_ID = "ADVANCED_MENU_BOTTOM_SHEET";
 
   private static final String POWER_SAVE_DISCLAIMER_SHOWN = "POWER_SAVE_DISCLAIMER_SHOWN";
 
@@ -852,6 +853,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     closeBottomSheet(LAYERS_MENU_ID);
     closeBottomSheet(MAIN_MENU_ID);
+    closeBottomSheet(ADVANCED_MENU_ID);
     forceCloseSearchFragment();
     closePlacePage();
   }
@@ -1079,7 +1081,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public boolean handleBackPress()
   {
     final RoutingController routingController = RoutingController.get();
-    return (closeBottomSheet(MAIN_MENU_ID) || closeBottomSheet(LAYERS_MENU_ID) || collapseNavMenu() || closePlacePage()
+    return (closeBottomSheet(MAIN_MENU_ID) || closeBottomSheet(LAYERS_MENU_ID) || closeBottomSheet(ADVANCED_MENU_ID) || collapseNavMenu() || closePlacePage()
             || closePositionChooser() || closeSearchFragment() || routingController.resetToPlanningStateIfNavigating()
             || routingController.cancel());
   }
@@ -2068,13 +2070,26 @@ public class MwmActivity extends BaseMwmFragmentActivity
       items.add(new MenuBottomSheetItem(R.string.download_maps, R.drawable.ic_download, getDownloadMapsCounter(),
                                         this::onDownloadMapsOptionSelected));
       mDonatesUrl = Utils.getDonateUrl(getApplicationContext());
-      if (!TextUtils.isEmpty(mDonatesUrl))
+      // InCar: donate and other low-frequency items are in Advanced; non-InCar keeps them in primary menu.
+      if (!BuildConfig.IS_IN_CAR && !TextUtils.isEmpty(mDonatesUrl))
         items.add(new MenuBottomSheetItem(R.string.donate, R.drawable.ic_donate, this::onDonateOptionSelected));
       items.add(new MenuBottomSheetItem(R.string.settings, R.drawable.ic_settings, this::onSettingsOptionSelected));
       items.add(new MenuBottomSheetItem(R.string.start_track_recording, R.drawable.ic_track_recording_off, -1,
                                         this::onTrackRecordingOptionSelected));
       items.add(new MenuBottomSheetItem(R.string.share_my_location, R.drawable.ic_share,
                                         this::onShareLocationOptionSelected));
+      // InCar: Advanced submenu for low-frequency items (donate, etc.).
+      if (BuildConfig.IS_IN_CAR)
+        items.add(new MenuBottomSheetItem(R.string.in_car_advanced_menu_title, R.drawable.ic_settings,
+                                          () -> showBottomSheet(ADVANCED_MENU_ID)));
+      return items;
+    }
+    if (id.equals(ADVANCED_MENU_ID))
+    {
+      ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
+      mDonatesUrl = Utils.getDonateUrl(getApplicationContext());
+      if (!TextUtils.isEmpty(mDonatesUrl))
+        items.add(new MenuBottomSheetItem(R.string.donate, R.drawable.ic_donate, this::onDonateOptionSelected));
       return items;
     }
     return null;
