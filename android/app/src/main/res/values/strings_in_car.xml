@@ -95,6 +95,7 @@
   <string name="in_car_show_track_recording_button_summary">Keep a track recording control near the zoom buttons so recording can be started or opened directly.</string>
   <string name="in_car_advanced_menu_title">Advanced</string>
   <string name="in_car_navigation_more">More navigation options</string>
+  <string name="in_car_navigation_voice">Voice guidance</string>
   <string name="in_car_end_navigation">End navigation</string>
   <string name="in_car_edit_route">Edit route</string>
   <string name="in_car_route_more">More route options</string>
