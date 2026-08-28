@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
+import app.organicmaps.BuildConfig;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
 public class SearchPageViewModel extends ViewModel
@@ -30,8 +31,8 @@ public class SearchPageViewModel extends ViewModel
   private final MutableLiveData<Integer> mSearchPageWidth = new MutableLiveData<>();
   private final MutableLiveData<Integer> mHistoryRefreshRequest = new MutableLiveData<>(0);
   // Stores the BottomSheet's last stable non-hidden state (set from onStateChanged). Used to restore
-  // the sheet after the place page temporarily hides it. Disabling search — including the user
-  // dragging the sheet to hidden, which triggers the hidden callback — resets it to STATE_HIDDEN.
+  // the sheet after the place page temporarily hides it. InCar deliberately normalises this to
+  // EXPANDED: presentation geometry is transient and only the semantic open/closed state is restored.
   private final MutableLiveData<Integer> mSearchPageLastState = new MutableLiveData<>(BottomSheetBehavior.STATE_HIDDEN);
   private final MutableLiveData<Boolean> mSearchEnabled = new MutableLiveData<>();
   private final MutableLiveData<Integer> mToolbarHeight = new MutableLiveData<>();
@@ -115,6 +116,13 @@ public class SearchPageViewModel extends ViewModel
 
   public void setSearchPageLastState(@BottomSheetBehavior.State int state)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      if (state != BottomSheetBehavior.STATE_HIDDEN)
+        mSearchPageLastState.setValue(BottomSheetBehavior.STATE_EXPANDED);
+      return;
+    }
+
     // Only stable, non-hidden states are restorable: setState() rejects DRAGGING/SETTLING, and
     // HIDDEN means "no restorable state" (set explicitly via setSearchEnabled(false) instead).
     if (state != BottomSheetBehavior.STATE_EXPANDED && state != BottomSheetBehavior.STATE_HALF_EXPANDED
@@ -192,7 +200,10 @@ public class SearchPageViewModel extends ViewModel
   {
     mSavedState.set(KEY_SEARCH_ACTIVE, active);
     mSavedState.set(KEY_SEARCH_QUERY, query);
-    mSavedState.set(KEY_SEARCH_STATE, sheetState);
+    mSavedState.set(KEY_SEARCH_STATE,
+                    BuildConfig.IS_IN_CAR
+                        ? (active ? BottomSheetBehavior.STATE_EXPANDED : BottomSheetBehavior.STATE_HIDDEN)
+                        : sheetState);
     mSavedState.set(KEY_SEARCH_IS_CATEGORY, isCategory);
   }
 
@@ -210,6 +221,8 @@ public class SearchPageViewModel extends ViewModel
 
   public int getPersistedSheetState()
   {
+    if (BuildConfig.IS_IN_CAR)
+      return BottomSheetBehavior.STATE_EXPANDED;
     Integer state = mSavedState.get(KEY_SEARCH_STATE);
     return state != null ? state : BottomSheetBehavior.STATE_EXPANDED;
   }
