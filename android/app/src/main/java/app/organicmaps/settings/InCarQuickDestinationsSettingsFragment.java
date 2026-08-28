@@ -117,11 +117,21 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     updateDestinationSummary(preference, home ? InCarQuickDestinationsStore.getHome(requireContext())
                                               : InCarQuickDestinationsStore.getWork(requireContext()));
     preference.setOnPreferenceClickListener(pref -> {
-      showDestinationDialog(pref, labelRes, home);
+      // Phase 11: skip chooser dialog — go directly to the flat destination editor.
+      showFlatDestinationEditor(pref, labelRes, home);
       return true;
     });
   }
 
+  /**
+   * Flat destination editor — Phase 11. Opens the search dialog directly with shortcut buttons
+   * for "Use Current Location" and "Clear", removing the intermediate chooser step.
+   */
+  private void showFlatDestinationEditor(@NonNull Preference preference, int labelRes, boolean home)
+  {
+    // Open the search dialog directly — no intermediate chooser.
+    showDestinationSearchDialog(preference, home);
+  }
   private void showDestinationDialog(@NonNull Preference preference, int labelRes, boolean home)
   {
     final InCarQuickDestination current = home ? InCarQuickDestinationsStore.getHome(requireContext())
@@ -196,6 +206,25 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     root.addView(
         query, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+    // Shortcut bar: "Use Current Location" and "Clear" (if destination is set).
+    // This eliminates the intermediate chooser step (Phase 11).
+    final LinearLayout shortcutBar = new LinearLayout(requireContext());
+    shortcutBar.setOrientation(LinearLayout.HORIZONTAL);
+    shortcutBar.setPadding(0, dp(4), 0, dp(4));
+    final android.widget.Button currentLocationBtn = new android.widget.Button(requireContext());
+    currentLocationBtn.setText(R.string.in_car_quick_use_current_location);
+    currentLocationBtn.setAllCaps(false);
+    shortcutBar.addView(currentLocationBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    final InCarQuickDestination currentDest = home ? InCarQuickDestinationsStore.getHome(requireContext())
+                                                   : InCarQuickDestinationsStore.getWork(requireContext());
+    final android.widget.Button clearBtn = new android.widget.Button(requireContext());
+    clearBtn.setText(R.string.in_car_quick_clear_destination);
+    clearBtn.setAllCaps(false);
+    clearBtn.setVisibility(currentDest != null ? android.view.View.VISIBLE : android.view.View.GONE);
+    shortcutBar.addView(clearBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    root.addView(shortcutBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                                            ViewGroup.LayoutParams.WRAP_CONTENT));
+
     final FrameLayout content = new FrameLayout(requireContext());
     final LinearLayout.LayoutParams contentParams =
         new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
@@ -224,6 +253,17 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
                                                             ViewGroup.LayoutParams.MATCH_PARENT));
 
     final AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(root).create();
+    // Wire shortcut button click listeners (Phase 11 flat editor).
+    currentLocationBtn.setOnClickListener(v -> {
+      final int labelRes = home ? R.string.in_car_quick_home : R.string.in_car_quick_work;
+      saveCurrentLocation(preference, labelRes, home);
+      dialog.dismiss();
+    });
+    clearBtn.setOnClickListener(v -> {
+      saveDestination(home, null);
+      updateDestinationSummary(preference, null);
+      dialog.dismiss();
+    });
     final boolean[] suggestionChange = {false};
     final boolean[] categoryQuery = {false};
     final SearchAdapter adapter = new SearchAdapter(this, new SearchAdapter.Listener() {
