@@ -1,6 +1,7 @@
 package app.organicmaps.search;
 
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.graphics.Outline;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -80,9 +81,9 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       }
       else
       {
-        Boolean searchEnabled = mViewModel.getSearchEnabled().getValue();
-        Integer lastState = mViewModel.getSearchPageLastState().getValue();
-        if (searchEnabled != null && searchEnabled && lastState != null && lastState != BottomSheetBehavior.STATE_HIDDEN
+        final Boolean searchEnabled = mViewModel.getSearchEnabled().getValue();
+        final Integer lastState = mViewModel.getSearchPageLastState().getValue();
+        if (Boolean.TRUE.equals(searchEnabled) && lastState != null && lastState != BottomSheetBehavior.STATE_HIDDEN
             && mViewModel.isHiddenByPlacePage())
         {
           showSearchSheet(lastState);
@@ -107,7 +108,14 @@ public class SearchFragmentController extends Fragment implements SearchFragment
           mPlacePageViewModel.setMapObject(null);
         if (mViewModel.isHiddenByPlacePage())
           return;
-        Integer lastState = mViewModel.getSearchPageLastState().getValue();
+
+        if (BuildConfig.IS_IN_CAR)
+        {
+          showSearchSheet(BottomSheetBehavior.STATE_EXPANDED);
+          return;
+        }
+
+        final Integer lastState = mViewModel.getSearchPageLastState().getValue();
         if (lastState != null && lastState != BottomSheetBehavior.STATE_HIDDEN)
           showSearchSheet(lastState);
         else if (mBottomSheetBehavior.getState() == BottomSheetBehavior.STATE_HIDDEN)
@@ -125,15 +133,18 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   {
     if (!BuildConfig.IS_IN_CAR || mBottomSheetBehavior == null)
       return;
+
     final boolean showMap = Boolean.TRUE.equals(mapMode);
-    mBottomSheetBehavior.setDraggable(!showMap);
+    mBottomSheetBehavior.setDraggable(false);
     if (showMap)
-    {
       InputUtils.hideKeyboard(mSearchPageContainer);
-      showSearchSheet(BottomSheetBehavior.STATE_COLLAPSED);
-    }
-    else if (Boolean.TRUE.equals(mViewModel.getSearchEnabled().getValue()))
-      showSearchSheet(BottomSheetBehavior.STATE_HALF_EXPANDED);
+    if (Boolean.TRUE.equals(mViewModel.getSearchEnabled().getValue()))
+      showSearchSheet(BottomSheetBehavior.STATE_EXPANDED);
+
+    // Map mode is a semantic presentation change, not a third sheet state. When SearchFragment
+    // hides its list content, make the surrounding surface transparent so map gestures can fall
+    // through the empty side-panel area while the toolbar remains usable.
+    applyInCarPanelSurface(showMap);
   };
   private PlacePageViewModel mPlacePageViewModel;
   private MapButtonsViewModel mMapButtonsViewModel;
@@ -160,8 +171,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
 
           if (PlacePageUtils.isHiddenState(newState))
           {
-            if (!mViewModel.isHiddenByPlacePage() && mViewModel.getSearchEnabled().getValue() != null
-                && mViewModel.getSearchEnabled().getValue())
+            if (!mViewModel.isHiddenByPlacePage() && Boolean.TRUE.equals(mViewModel.getSearchEnabled().getValue()))
               mViewModel.setSearchEnabled(false, null);
             if (mInCarQuickDestinationsSearch && !mQuickOutsideTapPending)
               endInCarQuickDestinationsSearch();
@@ -192,7 +202,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     @Override
     public void onChanged(Integer height)
     {
-      if (height != null && height > 0)
+      if (!BuildConfig.IS_IN_CAR && height != null && height > 0)
         mBottomSheetBehavior.setPeekHeight(Math.max(height, mMinCollapsedPeekHeight) + navBarHeight());
     }
   };
@@ -258,7 +268,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
         return false;
       }
 
-      if (!drag)
+      if (BuildConfig.IS_IN_CAR || !drag)
         return false;
       if (mBottomSheetBehavior.getState() == BottomSheetBehavior.STATE_SETTLING)
         return false;
@@ -297,8 +307,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     mMinCollapsedPeekHeight = (int) getResources().getDimension(
         ThemeUtils.getResource(requireContext(), androidx.appcompat.R.attr.actionBarSize));
 
-    float topRadius = getResources().getDimension(R.dimen.bottom_sheet_corner_radius);
-    int surface = MaterialColors.getColor(mSearchPageContainer, com.google.android.material.R.attr.colorSurface);
+    final float topRadius = getResources().getDimension(R.dimen.bottom_sheet_corner_radius);
+    final int surface = MaterialColors.getColor(mSearchPageContainer, com.google.android.material.R.attr.colorSurface);
     mSearchPageContainer.setBackgroundColor(surface);
     mSearchPageContainer.setOutlineProvider(new ViewOutlineProvider() {
       @Override
@@ -313,7 +323,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     mBottomSheetBehavior.setFitToContents(false);
     mBottomSheetBehavior.setHalfExpandedRatio(0.5f);
     mBottomSheetBehavior.setHideable(true);
-    mBottomSheetBehavior.setDraggable(true);
+    mBottomSheetBehavior.setDraggable(!BuildConfig.IS_IN_CAR);
     mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
 
     mSearchPageContainer.post(this::updateExpandedOffset);
@@ -324,17 +334,17 @@ public class SearchFragmentController extends Fragment implements SearchFragment
 
     ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
       mCurrentWindowInsets = insets;
-      int navH = navBarHeight();
-      Integer toolbarH = mViewModel.getToolbarHeight().getValue();
-      if (toolbarH != null && toolbarH > 0)
+      final int navH = navBarHeight();
+      final Integer toolbarH = mViewModel.getToolbarHeight().getValue();
+      if (!BuildConfig.IS_IN_CAR && toolbarH != null && toolbarH > 0)
         mBottomSheetBehavior.setPeekHeight(Math.max(toolbarH, mMinCollapsedPeekHeight) + navH);
-      boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
+      final boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
       applyInCarSearchPanelWidth();
       updateExpandedOffset();
-      if (imeVisible && mViewModel.getSearchEnabled().getValue() != null && mViewModel.getSearchEnabled().getValue()
+      if (imeVisible && Boolean.TRUE.equals(mViewModel.getSearchEnabled().getValue())
           && !mViewModel.isHiddenByPlacePage() && !mViewModel.isInCarMapMode())
         showSearchSheet(BottomSheetBehavior.STATE_EXPANDED);
-      Insets horizontalInsets =
+      final Insets horizontalInsets =
           insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
       searchBottomContainer.setPadding(horizontalInsets.left, searchBottomContainer.getPaddingTop(),
                                        horizontalInsets.right, searchBottomContainer.getPaddingBottom());
@@ -393,8 +403,16 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     final ViewGroup.LayoutParams raw = mSearchPageContainer.getLayoutParams();
     raw.width = target;
     if (raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
-      params.gravity = Gravity.BOTTOM | Gravity.START;
+      params.gravity = Gravity.BOTTOM | Gravity.RIGHT;
     mSearchPageContainer.setLayoutParams(raw);
+  }
+
+  private void applyInCarPanelSurface(boolean mapMode)
+  {
+    if (!BuildConfig.IS_IN_CAR || mSearchPageContainer == null)
+      return;
+    final int surface = MaterialColors.getColor(mSearchPageContainer, com.google.android.material.R.attr.colorSurface);
+    mSearchPageContainer.setBackgroundColor(mapMode ? Color.TRANSPARENT : surface);
   }
 
   @SuppressLint("ClickableViewAccessibility")
@@ -445,11 +463,11 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     int topInset = 0;
     if (mCurrentWindowInsets != null)
     {
-      int systemBarsTop = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
-      int cutoutTop = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.displayCutout()).top;
+      final int systemBarsTop = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+      final int cutoutTop = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.displayCutout()).top;
       topInset = Math.max(systemBarsTop, cutoutTop);
     }
-    int expandedOffset = topInset + mTopHeaderHeight;
+    final int expandedOffset = topInset + mTopHeaderHeight;
     mBottomSheetBehavior.setExpandedOffset(expandedOffset);
     mViewModel.setExpandedOffset(expandedOffset);
     mSearchPageContainer.requestLayout();
@@ -491,8 +509,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       }
       case MotionEvent.ACTION_MOVE ->
       {
-        float dx = Math.abs(event.getX() - mInitialX);
-        float dy = Math.abs(event.getY() - mInitialY);
+        final float dx = Math.abs(event.getX() - mInitialX);
+        final float dy = Math.abs(event.getY() - mInitialY);
         yield dx >= mTouchSlop || dy >= mTouchSlop;
       }
       default -> false;
@@ -501,7 +519,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
 
   public boolean onBackPressed()
   {
-    Fragment fragment = getChildFragmentManager().findFragmentById(R.id.search_fragment);
+    final Fragment fragment = getChildFragmentManager().findFragmentById(R.id.search_fragment);
     if (fragment instanceof SearchFragment searchFragment && searchFragment.onBackPressed())
       return true;
 
@@ -517,10 +535,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   @Override
   public void onSearchClicked()
   {
-    if (BuildConfig.IS_IN_CAR && mViewModel.isInCarMapMode())
-      showSearchSheet(BottomSheetBehavior.STATE_COLLAPSED);
-    else
-      showSearchSheet(BottomSheetBehavior.STATE_HALF_EXPANDED);
+    showSearchSheet(BuildConfig.IS_IN_CAR ? BottomSheetBehavior.STATE_EXPANDED
+                                         : BottomSheetBehavior.STATE_HALF_EXPANDED);
   }
 
   @Override
@@ -535,11 +551,13 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     InputUtils.hideKeyboard(mSearchPageContainer);
     mBottomSheetBehavior.setHideable(true);
     mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+    applyInCarPanelSurface(false);
   }
 
   private void showSearchSheet(@BottomSheetBehavior.State int state)
   {
-    mBottomSheetBehavior.setState(state);
+    final int resolvedState = BuildConfig.IS_IN_CAR ? BottomSheetBehavior.STATE_EXPANDED : state;
+    mBottomSheetBehavior.setState(resolvedState);
     mBottomSheetBehavior.setHideable(false);
   }
 }
