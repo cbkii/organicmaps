@@ -9,6 +9,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
@@ -29,6 +30,9 @@ import java.util.concurrent.TimeUnit;
 
 public class NavMenu implements DefaultLifecycleObserver
 {
+  private static final int IN_CAR_MORE_VOICE = 1;
+  private static final int IN_CAR_MORE_SETTINGS = 2;
+
   private final BottomSheetBehavior<View> mNavBottomSheetBehavior;
   private final View mBottomSheetBackground;
   private final View mHeaderFrame;
@@ -96,14 +100,18 @@ public class NavMenu implements DefaultLifecycleObserver
       }
     });
 
-    // InCar: stable footer — no drag, always shows the collapsed ETA/distance footer.
     if (BuildConfig.IS_IN_CAR)
     {
+      // The InCar resource overlay puts ETA/distance/progress, More and End Navigation in the fixed
+      // header. There is no draggable/expanded presentation state.
       mNavBottomSheetBehavior.setDraggable(false);
-      mHeaderFrame.setOnClickListener(null); // Disable expand/collapse toggle for InCar.
+      mHeaderFrame.setOnClickListener(null);
+      final View more = bottomFrame.findViewById(R.id.nav_more);
+      if (more != null)
+        more.setOnClickListener(this::showInCarMoreMenu);
     }
 
-    // Bottom frame
+    // Bottom frame.
     mSpeedViewContainer = bottomFrame.findViewById(R.id.speed_view_container);
     mSpeedValue = bottomFrame.findViewById(R.id.speed_value);
     mSpeedUnits = bottomFrame.findViewById(R.id.speed_dimen);
@@ -116,12 +124,13 @@ public class NavMenu implements DefaultLifecycleObserver
     mDistanceUnits = bottomFrame.findViewById(R.id.distance_dimen);
     mRouteProgress = bottomFrame.findViewById(R.id.navigation_progress);
 
-    // Bottom frame buttons
-    ImageView mSettings = bottomFrame.findViewById(R.id.settings);
-    mSettings.setOnClickListener(v -> onSettingsClicked());
+    // Existing controls remain the functional authority. InCar exposes TTS and Settings through
+    // More while reusing these same callbacks; Stop remains the existing cancellation path.
+    final ImageView settings = bottomFrame.findViewById(R.id.settings);
+    settings.setOnClickListener(v -> onSettingsClicked());
     mTts = bottomFrame.findViewById(R.id.tts_volume);
     mTts.setOnClickListener(v -> onTtsClicked());
-    Button stop = bottomFrame.findViewById(R.id.stop);
+    final Button stop = bottomFrame.findViewById(R.id.stop);
     stop.setOnClickListener(v -> onStopClicked());
     UiUtils.updateRedButton(stop);
 
@@ -133,6 +142,27 @@ public class NavMenu implements DefaultLifecycleObserver
   public void onDestroy(@NonNull LifecycleOwner owner)
   {
     TtsPlayer.removeStateChangedListener(mTtsStateListener);
+  }
+
+  private void showInCarMoreMenu(@NonNull View anchor)
+  {
+    final PopupMenu menu = new PopupMenu(mActivity, anchor);
+    menu.getMenu().add(0, IN_CAR_MORE_VOICE, 0, R.string.in_car_navigation_voice);
+    menu.getMenu().add(0, IN_CAR_MORE_SETTINGS, 1, R.string.settings);
+    menu.setOnMenuItemClickListener(item -> {
+      if (item.getItemId() == IN_CAR_MORE_VOICE)
+      {
+        onTtsClicked();
+        return true;
+      }
+      if (item.getItemId() == IN_CAR_MORE_SETTINGS)
+      {
+        onSettingsClicked();
+        return true;
+      }
+      return false;
+    });
+    menu.show();
   }
 
   private void onStopClicked()
@@ -168,7 +198,7 @@ public class NavMenu implements DefaultLifecycleObserver
 
   public void setPeekHeight()
   {
-    int headerHeight = mHeaderFrame.getHeight();
+    final int headerHeight = mHeaderFrame.getHeight();
     if (currentPeekHeight != headerHeight)
     {
       currentPeekHeight = headerHeight;
@@ -184,7 +214,8 @@ public class NavMenu implements DefaultLifecycleObserver
 
   public void expandNavBottomSheet()
   {
-    mNavBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+    if (!BuildConfig.IS_IN_CAR)
+      mNavBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
   }
 
   public int getBottomSheetState()
@@ -220,7 +251,7 @@ public class NavMenu implements DefaultLifecycleObserver
     final long hours = TimeUnit.SECONDS.toHours(seconds);
     final long minutes = TimeUnit.SECONDS.toMinutes(seconds) % 60;
     mTimeMinuteValue.setText(String.valueOf(minutes));
-    String min = mActivity.getResources().getString(R.string.minute);
+    final String min = mActivity.getResources().getString(R.string.minute);
     mTimeMinuteUnits.setText(min);
     if (hours == 0)
     {
@@ -228,7 +259,7 @@ public class NavMenu implements DefaultLifecycleObserver
       return;
     }
     UiUtils.setTextAndShow(mTimeHourValue, String.valueOf(hours));
-    String hour = mActivity.getResources().getString(R.string.hour);
+    final String hour = mActivity.getResources().getString(R.string.hour);
     UiUtils.setTextAndShow(mTimeHourUnits, hour);
   }
 
@@ -246,7 +277,7 @@ public class NavMenu implements DefaultLifecycleObserver
     if (last == null)
       return;
 
-    Pair<String, String> speedAndUnits = StringUtils.nativeFormatSpeedAndUnits(last.getSpeed());
+    final Pair<String, String> speedAndUnits = StringUtils.nativeFormatSpeedAndUnits(last.getSpeed());
     mSpeedValue.setText(speedAndUnits.first);
 
     if (info.speedLimitMps > 0.0 && last.getSpeed() > info.speedLimitMps)
