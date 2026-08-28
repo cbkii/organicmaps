@@ -31,6 +31,7 @@ set(SRC
   app/organicmaps/sdk/MapStyle.cpp
   app/organicmaps/sdk/OrganicMaps.cpp
   app/organicmaps/sdk/Router.cpp
+  app/organicmaps/sdk/SearchMarkerHitTest.cpp
   app/organicmaps/sdk/core/jni_helper.cpp
   app/organicmaps/sdk/core/jni_java_methods.cpp
   app/organicmaps/sdk/core/logging.cpp

@@ -46,7 +46,7 @@ It keeps the privacy-friendly, offline-first navigation foundation of Organic Ma
 - 🧭 simpler navigation interactions;
 - ⚡ reliable startup and embedded-device behaviour.
 
-The dedicated **`inCar`** variant is the primary product published by this fork.
+The dedicated **`inCar`** variant is the only supported public release product published by this fork.
 
 ---
 
@@ -81,6 +81,8 @@ The In-Car build also removes or reduces application surfaces that are unnecessa
 
 **Release package**: `app.organicmaps.incar`
 **Current release architecture**: `arm64-v8a`
+
+GitHub Releases is the only supported public distribution surface for this fork.
 
 > [!NOTE]
 > In-Car builds will be published as **pre-releases** while development and physical head-unit validation continue.
@@ -161,19 +163,19 @@ Organic Maps, OpenStreetMap and retained third-party components remain subject t
 
 ## 🏗️ Repository scope
 
-This repository is **Android-focused, but not In-Car-only.**
+This repository is **Android-focused, but the retained source tree is not In-Car-only**.
 
-The `inCar` variant is the primary release product.
+The `inCar` variant is the only supported public release product and the release-gating CI surface.
 
-Other Android flavours remain where useful for **compatibility, compilation and regression testing**:
+Other Android flavours remain where useful for **source compatibility or targeted local regression work**, but they are not publication or release CI gates:
 
 | Variant | Purpose |
 |---|---|
-| `inCar` | 🚗 Primary direct-display vehicle product |
-| `web` | Android compatibility/regression surface |
-| `fdroid` | Android compatibility/regression surface |
-| `google` | Android compatibility/regression surface |
-| `huawei` | Android compatibility/regression surface |
+| `inCar` | 🚗 Primary direct-display vehicle product and supported release target |
+| `web` | Optional Android compatibility surface |
+| `fdroid` | Optional Android compatibility surface |
+| `google` | Optional Android compatibility surface |
+| `huawei` | Optional Android compatibility surface |
 
 > [!NOTE]
 > The presence of a build flavour does **not** mean this fork publishes through the corresponding application store.
@@ -205,7 +207,6 @@ git submodule update --init --recursive --depth 1
 ./configure.sh
 
 cd android
-./gradlew -Parm64 assembleWebDebug
 ./gradlew -Parm64 assembleInCarProfileable
 ```
 
@@ -223,7 +224,7 @@ This validates the repository's Android-focused path boundary and related reposi
 
 ## 🚀 Releases
 
-The supported publication surface of this fork is the **Organic Maps In-Car APK**, via:
+The only supported publication surface of this fork is the **Organic Maps In-Car APK on GitHub Releases**, via:
 
 ```text
 .github/workflows/manual-in-car-release.yml

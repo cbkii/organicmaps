@@ -9,8 +9,10 @@
   <include layout="@layout/divider_horizontal" />
   <LinearLayout
     android:id="@+id/container"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="@dimen/place_page_buttons_height"
+    android:layout_centerHorizontal="true"
+    android:gravity="center_horizontal|top"
     android:orientation="horizontal"
     android:paddingBottom="@dimen/in_car_place_page_action_bottom_padding" />
 </RelativeLayout>

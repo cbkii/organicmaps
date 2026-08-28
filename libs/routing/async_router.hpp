@@ -28,7 +28,6 @@ public:
 
   /// Sets a synchronous router, current route calculation will be cancelled
   /// @param router pointer to a router implementation
-  /// @param finder pointer to a router for generated absent wmwms.
   void SetRouter(std::unique_ptr<IRouter> && router, std::unique_ptr<AbsentRegionsFinder> && finder);
 
   /// Main method to calculate new route from startPt to finalPt with start direction
@@ -52,6 +51,14 @@ public:
   void ClearState();
   /// Forward to the underlying IRouter. See IRouter::SwapAltRouteToActive.
   void SwapAltRouteToActive();
+
+  /// Returns false until SetRouter() has installed an underlying synchronous router.
+  /// Used by optional display-only helpers that must fail open during early framework startup.
+  bool HasRouter()
+  {
+    std::lock_guard lock(m_guard);
+    return m_router != nullptr;
+  }
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                    EdgeProj & proj);
@@ -86,9 +93,6 @@ private:
 
     std::mutex m_guard;
     ReadyCallbackOwnership const m_onReadyOwnership;
-    // |m_onNeedMoreMaps| may be called after |m_onReadyOwnership| if
-    // - it's possible to build route only if to load some maps
-    // - there's a faster route, but it's necessary to load some more maps to build it
     NeedMoreMapsCallback const m_onNeedMoreMaps;
     RemoveRouteCallback const m_onRemoveRoute;
     PointCheckCallback const m_onPointCheck;

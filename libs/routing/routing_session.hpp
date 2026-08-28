@@ -111,6 +111,13 @@ public:
 
   bool MatchLocationToRoute(location::GpsInfo & location, location::RouteMatchingInfo & routeMatchingInfo);
   void MatchLocationToRoadGraph(location::GpsInfo & location);
+
+  /// Display-only free-driving projection. |rawLocation| is never mutated; |displayLocation| starts as a copy
+  /// and is changed only after conservative, repeated road-match evidence. Returns true if display coordinates
+  /// were projected to a road. This is intentionally separate from normal route matching.
+  bool MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const & rawLocation, location::GpsInfo & displayLocation);
+  void ResetFreeDrivingRoadGraphMatch();
+
   // Get traffic speed for the current route position.
   // Returns SpeedGroup::Unknown if any trouble happens: position doesn't match with route or something else.
   traffic::SpeedGroup MatchTraffic(location::RouteMatchingInfo const & routeMatchingInfo) const;
@@ -144,7 +151,7 @@ public:
   void SetSpeedCamShowCallback(SpeedCameraShowCallback && callback);
   void SetSpeedCamClearCallback(SpeedCameraClearCallback && callback);
 
-  // Sound notifications for turn instructions.
+  // Sound turn notification parameters.
   NotificationEvent GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets,
                                           NotificationStage * stage = nullptr);
   void EnableTurnNotifications(bool enable);
@@ -230,7 +237,14 @@ private:
   SpeedCameraManager m_speedCameraManager;
   RoutingSettings m_routingSettings;
 
+  // Existing routing history is kept untouched. Free-driving display projection owns a separate raw-position
+  // accumulator so snapped Drape positions can never feed back into route-start direction or rerouting state.
   PositionAccumulator m_positionAccumulator;
+  PositionAccumulator m_freeDrivingPositionAccumulator;
+  EdgeProj m_freeDrivingProjection;
+  bool m_freeDrivingProjectionSeeded = false;
+  bool m_freeDrivingConfident = false;
+  double m_freeDrivingLastConfidentMovingTimestamp = 0.0;
 
   ReadyCallback m_buildReadyCallback;
   ReadyCallback m_rebuildReadyCallback;
