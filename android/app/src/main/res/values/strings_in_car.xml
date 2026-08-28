@@ -3,6 +3,7 @@
   <string name="in_car_settings_title">In-Car Settings</string>
   <string name="in_car_settings_summary">Driving View, map display and head-unit options.</string>
   <string name="in_car_settings_driving_view">Driving View</string>
+  <string name="in_car_settings_driving_view_advanced">Advanced Driving View</string>
   <string name="in_car_settings_map_display">Map &amp; Display</string>
   <string name="in_car_settings_navigation_audio">Navigation Audio</string>
   <string name="in_car_settings_maintenance">Maintenance</string>
@@ -10,6 +11,13 @@
   <string name="in_car_optimised_visuals_title">In-Car Optimised Visuals</string>
   <string name="in_car_optimised_visuals_summary">Use a higher-contrast driving map and larger touch controls for in-car use.</string>
 
+  <string name="in_car_driving_view_mode_title">Driving View mode</string>
+  <string name="in_car_driving_view_mode_summary">Off disables the route-independent driving camera; Manual keeps the map button; Automatic uses the existing speed-based activation policy.</string>
+  <string-array name="in_car_driving_view_mode_entries">
+    <item>Off</item>
+    <item>Manual</item>
+    <item>Automatic</item>
+  </string-array>
   <string name="in_car_show_driving_view_button_title">Show Driving View button</string>
   <string name="in_car_show_driving_view_button_summary">Show a dedicated map button for the route-independent driving camera.</string>
   <string name="in_car_start_driving_view_title">Start Driving View on launch</string>
@@ -48,13 +56,14 @@
   <string name="in_car_quick_recent_2">Recent 2</string>
   <string name="in_car_quick_home_config_title">Set Home</string>
   <string name="in_car_quick_work_config_title">Set Work</string>
-  <string name="in_car_quick_config_summary">Search for an address or place, use the current GPS position, or clear the saved destination.</string>
+  <string name="in_car_quick_config_summary">Search for an address or place, choose a saved place, use the current GPS position, or clear the saved destination.</string>
   <string name="in_car_quick_search_destination">Search address or place</string>
   <string name="in_car_quick_search_hint">Search address or place</string>
   <string name="in_car_quick_search_prompt">Search for an address or place</string>
   <string name="in_car_quick_search_more_characters">Type at least 2 characters</string>
   <string name="in_car_quick_searching">Searching…</string>
   <string name="in_car_quick_search_no_results">No results</string>
+  <string name="in_car_quick_saved_places">Saved places</string>
   <string name="in_car_quick_use_current_location">Use current location</string>
   <string name="in_car_quick_clear_destination">Clear saved destination</string>
   <string name="in_car_quick_current_location_unavailable">Current location is unavailable</string>
@@ -83,6 +92,11 @@
   <string name="in_car_map_age_warning_summary">Show a non-blocking notice when the installed global map-data version is more than six months old.</string>
   <string name="in_car_maps_may_be_outdated">Maps may be outdated</string>
   <string name="in_car_show_track_recording_button_title">Track recording button</string>
-  <string name="in_car_show_track_recording_button_summary">Show a track recording button near the zoom controls on the map.</string>
+  <string name="in_car_show_track_recording_button_summary">Keep a track recording control near the zoom buttons so recording can be started or opened directly.</string>
   <string name="in_car_advanced_menu_title">Advanced</string>
+  <string name="in_car_navigation_more">More navigation options</string>
+  <string name="in_car_end_navigation">End navigation</string>
+  <string name="in_car_edit_route">Edit route</string>
+  <string name="in_car_route_more">More route options</string>
+  <string name="in_car_place_details">Details</string>
 </resources>
