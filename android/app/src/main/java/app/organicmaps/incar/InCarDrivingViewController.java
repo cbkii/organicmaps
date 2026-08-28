@@ -9,6 +9,7 @@ import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode;
 import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationListener;
@@ -83,11 +84,16 @@ public final class InCarDrivingViewController implements LocationListener
     mContext = context.getApplicationContext();
     mLocationHelper = locationHelper;
 
+    // Migrate the old boolean settings once and project the canonical mode back onto the established
+    // keys consumed below. This keeps one runtime authority instead of introducing another state machine.
+    InCarDrivingViewModePolicy.getMode(mContext);
+
     final boolean restored = InCarSettingsStore.restoredDrivingViewEnabled(mContext);
     final InCarDrivingViewPolicy.ActivationSource restoredSource =
         restored ? InCarSettingsStore.restoredDrivingViewSource(mContext) : InCarDrivingViewPolicy.ActivationSource.OFF;
     mPolicy = new InCarDrivingViewPolicy(restored, restoredSource);
     mPolicy.beginNewSession();
+    reconcileModeWithSession();
     publishSnapshot();
   }
 
@@ -175,6 +181,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onSettingsChanged()
   {
+    reconcileModeWithSession();
     syncNativeState(false /* recenter */);
     publishSnapshot();
   }
@@ -203,6 +210,9 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onDrivingViewButtonPressed()
   {
+    if (InCarDrivingViewModePolicy.getMode(mContext) == DrivingViewMode.OFF)
+      return;
+
     if (mPolicy.isEnabled())
     {
       if (mLifecycle.canAccessNativeState() && Map.isEngineCreated()
@@ -281,6 +291,29 @@ public final class InCarDrivingViewController implements LocationListener
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
                           InCarSettingsStore.automaticDrivingViewEnabled(mContext));
     publishSnapshot();
+  }
+
+  private void reconcileModeWithSession()
+  {
+    final DrivingViewMode mode = InCarDrivingViewModePolicy.getMode(mContext);
+    if (mode == DrivingViewMode.OFF)
+    {
+      if (mPolicy.isEnabled())
+      {
+        mPolicy.disableManually();
+        persistPolicy();
+      }
+      return;
+    }
+
+    // A session that was entered automatically must stop behaving like an automatic session after
+    // the user switches to Manual. Reuse the existing policy transition to reclassify its source.
+    if (mode == DrivingViewMode.MANUAL && mPolicy.isEnabled()
+        && mPolicy.getActivationSource() == InCarDrivingViewPolicy.ActivationSource.AUTOMATIC)
+    {
+      mPolicy.enableManually();
+      persistPolicy();
+    }
   }
 
   private void applyLifecycleTransition(@NonNull InCarDrivingViewLifecycle.Transition transition)
