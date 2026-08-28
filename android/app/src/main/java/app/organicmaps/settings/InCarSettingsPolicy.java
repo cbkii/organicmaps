@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.TwoStatePreference;
@@ -16,6 +17,8 @@ import app.organicmaps.R;
 import app.organicmaps.incar.InCarBudgetRendering;
 import app.organicmaps.incar.InCarDrivingUi;
 import app.organicmaps.incar.InCarDrivingViewController;
+import app.organicmaps.incar.InCarDrivingViewModePolicy;
+import app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.Config;
@@ -93,21 +96,28 @@ final class InCarSettingsPolicy
     if (!showDedicatedPreference(fragment))
       return;
 
-    bindBoolean(fragment, R.string.pref_in_car_show_driving_view_button,
-                ()
-                    -> InCarSettingsStore.showDrivingViewButton(fragment.requireContext()),
-                enabled -> InCarSettingsStore.setShowDrivingViewButton(fragment.requireContext(), enabled));
-    bindBoolean(fragment, R.string.pref_in_car_start_driving_view,
-                ()
-                    -> InCarSettingsStore.startDrivingViewOnLaunch(fragment.requireContext()),
-                enabled -> InCarSettingsStore.setStartDrivingViewOnLaunch(fragment.requireContext(), enabled));
-    bindBoolean(fragment, R.string.pref_in_car_automatic_driving_view,
-                ()
-                    -> InCarSettingsStore.automaticDrivingViewEnabled(fragment.requireContext()),
-                enabled -> InCarSettingsStore.setAutomaticDrivingViewEnabled(fragment.requireContext(), enabled));
+    @Nullable
+    final Preference modePreference =
+        fragment.findPreference(fragment.getString(R.string.pref_in_car_driving_view_mode));
+    if (modePreference instanceof ListPreference listPreference)
+    {
+      final DrivingViewMode mode = InCarDrivingViewModePolicy.getMode(fragment.requireContext());
+      listPreference.setValue(mode.preferenceValue());
+      listPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+        if (!(newValue instanceof String value))
+          return false;
+        final DrivingViewMode selected = DrivingViewMode.fromPreferenceValue(value);
+        InCarDrivingViewModePolicy.setMode(fragment.requireContext(), selected);
+        listPreference.setValue(selected.preferenceValue());
+        notifyMapRuntime(fragment);
+        return true;
+      });
+    }
+
+    // Auto-return remains a specialist behaviour, but it is now visually separated from the
+    // primary Off/Manual/Automatic mode selector rather than presented as another peer mode.
     bindBoolean(fragment, R.string.pref_in_car_auto_return_driving_view,
-                ()
-                    -> InCarSettingsStore.autoReturnDrivingViewEnabled(fragment.requireContext()),
+                () -> InCarSettingsStore.autoReturnDrivingViewEnabled(fragment.requireContext()),
                 enabled -> InCarSettingsStore.setAutoReturnDrivingViewEnabled(fragment.requireContext(), enabled));
   }
 
@@ -174,7 +184,8 @@ final class InCarSettingsPolicy
     });
   }
 
-  private static void installGenericPreferenceGuardObserver(@NonNull PreferenceFragmentCompat fragment)  {
+  private static void installGenericPreferenceGuardObserver(@NonNull PreferenceFragmentCompat fragment)
+  {
     if (!BuildConfig.IS_IN_CAR || fragment instanceof InCarSettingsFragment)
       return;
 
