@@ -25,9 +25,11 @@ import androidx.fragment.app.FragmentManager;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.api.Const;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.sdk.ChoosePositionMode;
 import app.organicmaps.sdk.Framework;
@@ -523,7 +525,17 @@ public class PlacePageController
     case ROUTE_AVOID_TOLL -> onAvoidTollBtnClicked();
     case ROUTE_AVOID_UNPAVED -> onAvoidUnpavedBtnClicked();
     case ROUTE_AVOID_FERRY -> onAvoidFerryBtnClicked();
+    case WALK_TO -> onWalkToBtnClicked();
     }
+  }
+
+  private void onWalkToBtnClicked()
+  {
+    if (mMapObject == null)
+      return;
+    // Activate the InCar walking last-mile session, then route with Pedestrian via startLocationToPoint.
+    InCarSettingsStore.setWalkingSessionActive(requireContext(), true);
+    ((MwmActivity) requireActivity()).startLocationToPoint(mMapObject);
   }
 
   private void onBookmarkBtnClicked()
@@ -778,6 +790,9 @@ public class PlacePageController
           if (RoutingController.get().isStopPointAllowed())
             buttons.add(mapObject.isBookmark() ? PlacePageButtons.ButtonType.BOOKMARK_DELETE
                                                : PlacePageButtons.ButtonType.BOOKMARK_SAVE);
+          // In InCar, offer a Walk-to action in the More overflow for last-mile walking.
+          if (BuildConfig.IS_IN_CAR)
+            buttons.add(PlacePageButtons.ButtonType.WALK_TO);
         }
       }
     }

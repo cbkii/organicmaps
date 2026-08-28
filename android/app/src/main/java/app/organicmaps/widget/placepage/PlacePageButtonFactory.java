@@ -89,6 +89,11 @@ public class PlacePageButtonFactory
         titleId = R.string.placepage_more_button;
         yield R.drawable.ic_more;
       }
+      case WALK_TO ->
+      {
+        titleId = R.string.in_car_walk_to;
+        yield R.drawable.ic_pedestrian;
+      }
     };
     return new PlacePageButton(titleId, iconId, buttonType);
   }

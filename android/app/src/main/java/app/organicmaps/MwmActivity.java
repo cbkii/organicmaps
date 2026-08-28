@@ -1320,6 +1320,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mMapButtonsViewModel.setLayoutMode(MapButtonsController.LayoutMode.regular);
     refreshLightStatusBar();
     Utils.keepScreenOn(Config.isKeepScreenOnEnabled(), getWindow());
+    // InCar: ending any navigation (including walking last-mile) returns to Vehicle authority.
+    if (BuildConfig.IS_IN_CAR)
+      InCarSettingsStore.setWalkingSessionActive(this, false);
   }
 
   private void restoreRoutingUI(@NonNull MapButtonsController.LayoutMode layoutMode)
@@ -1361,6 +1364,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     closeFloatingToolbarsAndPanels();
     mMapButtonsViewModel.setLayoutMode(MapButtonsController.LayoutMode.regular);
     refreshLightStatusBar();
+    // InCar: cancelling a walking route preview also returns to Vehicle authority.
+    if (BuildConfig.IS_IN_CAR)
+      InCarSettingsStore.setWalkingSessionActive(this, false);
   }
 
   @Override

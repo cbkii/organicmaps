@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import app.organicmaps.MwmActivity;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.bookmarks.data.DistanceAndAzimut;
@@ -214,6 +215,11 @@ final class RoutingBottomMenuController
     mTransitRecyclerView.setNestedScrollingEnabled(false);
     mTransitRecyclerView.addItemDecoration(mTransitViewDecorator);
     mTransitRecyclerView.setAdapter(mTransitAdapter);
+    // InCar route preview: hide elevation chart and save-route button — not relevant for automotive use.
+    if (BuildConfig.IS_IN_CAR)
+    {
+      UiUtils.hide(mAltitudeChartFrame, mSaveButton);
+    }
   }
 
   private void openSearchForRoutePick()
@@ -234,6 +240,13 @@ final class RoutingBottomMenuController
 
   void showAltitudeChartAndRoutingDetails()
   {
+    // In InCar the elevation chart panel is permanently hidden; show only the routing time/distance details.
+    if (BuildConfig.IS_IN_CAR)
+    {
+      showRoutingDetails();
+      notifyVisibilityChanged();
+      return;
+    }
     UiUtils.hide(mError, mAltitudeChart, mTimeElevationLine);
 
     if (!RoutingController.get().isVehicleRouterType() && !RoutingController.get().isRulerRouterType())
