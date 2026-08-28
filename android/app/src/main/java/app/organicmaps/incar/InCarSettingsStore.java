@@ -18,6 +18,7 @@ public final class InCarSettingsStore
   private static final String KEY_DRIVING_VIEW_SESSION_SOURCE = "InCarDrivingViewSessionSource";
   private static final String KEY_BUDGET_SAVED_3D_BUILDINGS = "InCarBudgetSaved3dBuildings";
   private static final String KEY_BUDGET_HAS_SAVED_3D_BUILDINGS = "InCarBudgetHasSaved3dBuildings";
+  private static final String KEY_WALKING_SESSION_ACTIVE = "InCarWalkingSessionActive";
 
   private InCarSettingsStore() {}
 
@@ -137,6 +138,16 @@ public final class InCarSettingsStore
   public static void clearSavedBudget3dBuildings(@NonNull Context context)
   {
     prefs(context).edit().remove(KEY_BUDGET_SAVED_3D_BUILDINGS).remove(KEY_BUDGET_HAS_SAVED_3D_BUILDINGS).apply();
+  }
+
+  public static boolean isWalkingSessionActive(@NonNull Context context)
+  {
+    return prefs(context).getBoolean(KEY_WALKING_SESSION_ACTIVE, false);
+  }
+
+  public static void setWalkingSessionActive(@NonNull Context context, boolean active)
+  {
+    prefs(context).edit().putBoolean(KEY_WALKING_SESSION_ACTIVE, active).apply();
   }
 
   @NonNull

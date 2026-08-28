@@ -52,8 +52,11 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.api.Const;
 import app.organicmaps.base.BaseMwmFragmentActivity;
+import app.organicmaps.incar.InCarRouterPolicy;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.bookmarks.BookmarkCategoriesActivity;
 import app.organicmaps.downloader.DownloaderActivity;
 import app.organicmaps.downloader.OnmapDownloader;
@@ -866,7 +869,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
 
     MapObject startPoint = MwmApplication.from(this).getLocationHelper().getMyPosition();
-    RoutingController.get().prepare(startPoint, endPoint);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final boolean walkingActive = InCarSettingsStore.isWalkingSessionActive(this);
+      final Router inCarRouter = InCarRouterPolicy.routerForNewDestination(walkingActive);
+      RoutingController.get().prepare(startPoint, endPoint, inCarRouter);
+    }
+    else
+    {
+      RoutingController.get().prepare(startPoint, endPoint);
+    }
   }
 
   private void initOnmapDownloader()

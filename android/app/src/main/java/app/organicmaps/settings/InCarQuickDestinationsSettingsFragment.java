@@ -81,7 +81,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   {
     super.onCreatePreferences(bundle, rootKey);
 
-    bindStartCollapsed();
     bindAction(InCarQuickDestinationsStore.Action.FUEL);
     bindAction(InCarQuickDestinationsStore.Action.CHARGING);
     bindAction(InCarQuickDestinationsStore.Action.PARKING);
@@ -94,18 +93,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
 
     bindDestinationConfig(R.string.pref_in_car_quick_home_config, R.string.in_car_quick_home, true);
     bindDestinationConfig(R.string.pref_in_car_quick_work_config, R.string.in_car_quick_work, false);
-  }
-
-  private void bindStartCollapsed()
-  {
-    final Preference preference = findPreference(InCarQuickDestinationsStore.startCollapsedPreferenceKey());
-    if (!(preference instanceof TwoStatePreference toggle))
-      return;
-    toggle.setChecked(InCarQuickDestinationsStore.startCollapsed(requireContext()));
-    toggle.setOnPreferenceChangeListener((ignored, newValue) -> {
-      InCarQuickDestinationsStore.setStartCollapsed(requireContext(), (boolean) newValue);
-      return true;
-    });
   }
 
   private void bindAction(@NonNull InCarQuickDestinationsStore.Action action)

@@ -20,6 +20,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.sdk.Framework;
@@ -114,6 +115,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mBottomButtonsMaxHeight = getResources().getDimensionPixelSize(R.dimen.routing_bottom_buttons_max_height);
 
     setupRouterButtons();
+    if (BuildConfig.IS_IN_CAR)
+      mRoutingTypesContainer.setVisibility(View.GONE);
 
     mChartHeaderAdapter = new ChartHeaderAdapter(mChartPanel);
     mRoutingContainer = requireActivity().findViewById(R.id.routing_container);

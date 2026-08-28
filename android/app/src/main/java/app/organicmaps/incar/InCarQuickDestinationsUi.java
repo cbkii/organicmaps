@@ -27,7 +27,6 @@ import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
-import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.routing.RoutingController;
@@ -116,24 +115,11 @@ public final class InCarQuickDestinationsUi
     @NonNull
     private final PlacePageViewModel mPlacePageViewModel;
     @NonNull
-    private final View.OnLayoutChangeListener mLayoutListener;
-    @NonNull
-    private final List<QuickActionBinding> mQuickActions = new ArrayList<>();
+    private final List<QuickActionBinding> mOverflowActions = new ArrayList<>();
 
-    @Nullable
-    private InCarQuickActionButton mPrimaryButton;
-    @Nullable
-    private InCarQuickActionButton mOverflowButton;
-    @Nullable
-    private ViewGroup mAnchorParent;
-    private boolean mExpanded;
-    private boolean mRegular = true;
-    private boolean mButtonsHidden;
     private boolean mSearchOpen;
     private boolean mPlacePageOpen;
-    private boolean mLayoutPassScheduled;
     private int mBottomButtonsHeight;
-    private int mSystemTopInset;
     private int mSystemBottomInset;
 
     Controller(@NonNull MwmActivity activity, @NonNull FrameLayout root, @NonNull LinearLayout container)
@@ -142,12 +128,6 @@ public final class InCarQuickDestinationsUi
       mRoot = root;
       mContainer = container;
       mPrefs = MwmApplication.prefs(activity);
-      mLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
-      {
-        if (mExpanded && (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop))
-          scheduleExpandedLayout();
-      };
-      mExpanded = !InCarQuickDestinationsStore.startCollapsed(activity);
       final ViewModelProvider provider = new ViewModelProvider(activity);
       mMapButtonsViewModel = provider.get(MapButtonsViewModel.class);
       mRoutingPlanViewModel = provider.get(RoutingPlanViewModel.class);
@@ -158,31 +138,11 @@ public final class InCarQuickDestinationsUi
     void attach()
     {
       mPrefs.registerOnSharedPreferenceChangeListener(this);
-      mRoot.addOnLayoutChangeListener(mLayoutListener);
-      if (mRoot.getParent() instanceof ViewGroup parent)
-      {
-        mAnchorParent = parent;
-        parent.addOnLayoutChangeListener(mLayoutListener);
-      }
       ViewCompat.setElevation(mRoot, dp(8));
       applyInsets();
 
-      mMapButtonsViewModel.getLayoutMode().observe(mActivity, layoutMode -> {
-        if (layoutMode == null)
-          return;
-        final boolean regular = layoutMode == MapButtonsController.LayoutMode.regular;
-        if (mRegular && !regular)
-          collapseForMapTransition();
-        mRegular = regular;
-        renderVisibility();
-      });
-      mMapButtonsViewModel.getButtonsHidden().observe(mActivity, hidden -> {
-        final boolean buttonsHidden = Boolean.TRUE.equals(hidden);
-        if (!mButtonsHidden && buttonsHidden)
-          collapseForMapTransition();
-        mButtonsHidden = buttonsHidden;
-        renderVisibility();
-      });
+      mMapButtonsViewModel.getLayoutMode().observe(mActivity, layoutMode -> renderVisibility());
+      mMapButtonsViewModel.getButtonsHidden().observe(mActivity, hidden -> renderVisibility());
       mMapButtonsViewModel.getBottomButtonsHeight().observe(mActivity, height -> {
         mBottomButtonsHeight = height == null ? 0 : Math.max(0, Math.round(height));
         updateBottomMargin();
@@ -216,9 +176,6 @@ public final class InCarQuickDestinationsUi
     public void onDestroy(@NonNull LifecycleOwner owner)
     {
       mPrefs.unregisterOnSharedPreferenceChangeListener(this);
-      mRoot.removeOnLayoutChangeListener(mLayoutListener);
-      if (mAnchorParent != null)
-        mAnchorParent.removeOnLayoutChangeListener(mLayoutListener);
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, null);
       mRoot.setTag(null);
     }
@@ -241,44 +198,80 @@ public final class InCarQuickDestinationsUi
     private void rebuildButtons()
     {
       mContainer.removeAllViews();
-      mQuickActions.clear();
-      mOverflowButton = null;
-      addPrimaryToggleAction();
-      addFuelChargingAction();
-      addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
-                     R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
-                     () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
-      addFixedAction(InCarQuickDestinationsStore.Action.TOILETS, R.string.category_toilet,
-                     R.drawable.ic_in_car_quick_toilets, R.color.in_car_quick_toilets,
-                     () -> openCategory(InCarQuickCategoryPolicy.Category.TOILETS));
-      addFixedAction(InCarQuickDestinationsStore.Action.FOOD, R.string.in_car_quick_food,
-                     R.drawable.ic_in_car_quick_food, R.color.in_car_quick_food,
-                     () -> openCategory(InCarQuickCategoryPolicy.Category.FOOD));
+      mOverflowActions.clear();
 
+      // Fixed order: Home → Work → Parking → Fuel/Charging → More
       addDestinationAction(InCarQuickDestinationsStore.Action.HOME, InCarQuickDestinationsStore.getHome(mActivity),
                            R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home);
       addDestinationAction(InCarQuickDestinationsStore.Action.WORK, InCarQuickDestinationsStore.getWork(mActivity),
                            R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work, R.color.in_car_quick_work);
-      addDestinationAction(InCarQuickDestinationsStore.Action.RECENT_1,
-                           InCarQuickDestinationsStore.getRecent(mActivity, 1), R.string.in_car_quick_recent_1,
-                           R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_1);
-      addDestinationAction(InCarQuickDestinationsStore.Action.RECENT_2,
-                           InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2,
-                           R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_2);
+      addFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
+                     R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
+                     () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
+      addFuelChargingAction();
+
+      // Overflow actions shown via More button
+      collectOverflowAction(InCarQuickDestinationsStore.Action.TOILETS, R.string.category_toilet,
+                            R.drawable.ic_in_car_quick_toilets, R.color.in_car_quick_toilets,
+                            () -> openCategory(InCarQuickCategoryPolicy.Category.TOILETS));
+      collectOverflowAction(InCarQuickDestinationsStore.Action.FOOD, R.string.in_car_quick_food,
+                            R.drawable.ic_in_car_quick_food, R.color.in_car_quick_food,
+                            () -> openCategory(InCarQuickCategoryPolicy.Category.FOOD));
+      collectOverflowDestination(InCarQuickDestinationsStore.Action.RECENT_1,
+                                 InCarQuickDestinationsStore.getRecent(mActivity, 1), R.string.in_car_quick_recent_1,
+                                 R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_1);
+      collectOverflowDestination(InCarQuickDestinationsStore.Action.RECENT_2,
+                                 InCarQuickDestinationsStore.getRecent(mActivity, 2), R.string.in_car_quick_recent_2,
+                                 R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_2);
+
+      if (!mOverflowActions.isEmpty())
+        addMoreButton();
+
       renderVisibility();
-      renderExpansion();
+      updateRootBounds();
     }
 
-    private void addPrimaryToggleAction()
+    private void collectOverflowAction(@NonNull InCarQuickDestinationsStore.Action action,
+                                       @StringRes int labelRes, @DrawableRes int iconRes,
+                                       @ColorRes int colorRes, @NonNull Runnable click)
     {
-      final InCarQuickActionButton button =
-          createButton(R.color.in_car_quick_primary, InCarQuickDestinationsLayoutPolicy.PRIMARY_ACTION_WIDTH_DP,
-                       R.drawable.ic_in_car_quick_toggle);
-      button.setOnClickListener(v -> {
-        mExpanded = !mExpanded;
-        renderExpansion();
-      });
-      mPrimaryButton = button;
+      if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action), true))
+        return;
+      final String label = mActivity.getString(labelRes);
+      final InCarQuickActionButton button = createButton(colorRes, iconRes);
+      mOverflowActions.add(new QuickActionBinding(button, label, click));
+    }
+
+    private void collectOverflowDestination(@NonNull InCarQuickDestinationsStore.Action action,
+                                            @Nullable InCarQuickDestination destination,
+                                            @StringRes int labelRes, @DrawableRes int iconRes,
+                                            @ColorRes int colorRes)
+    {
+      if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action),
+                                                   destination != null))
+        return;
+      if (destination == null)
+        return;
+      final InCarQuickActionButton button = createButton(colorRes, iconRes);
+      final String actionLabel = mActivity.getString(labelRes);
+      final String displayLabel = destination.getDisplayLabel();
+      final String description =
+          displayLabel.isEmpty()
+              ? actionLabel
+              : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
+      mOverflowActions.add(
+          new QuickActionBinding(button, description, () -> mActivity.startLocationToPoint(destination.toMapObject())));
+    }
+
+    private void addMoreButton()
+    {
+      final InCarQuickActionButton moreButton =
+          createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
+      moreButton.setContentDescription(mActivity.getString(R.string.in_car_quick_more));
+      moreButton.setOnClickListener(v -> showOverflowChoice(mOverflowActions));
+      final int gapDp = InCarQuickDestinationsLayoutPolicy.PREFERRED_ACTION_GAP_DP;
+      setBottomGap(moreButton, gapDp);
+      mContainer.addView(moreButton);
     }
 
     private void addFuelChargingAction()
@@ -313,7 +306,11 @@ public final class InCarQuickDestinationsUi
       }
 
       final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);
-      addQuickAction(button, mActivity.getString(labelRes), mActivity.getString(labelRes), click);
+      button.setContentDescription(mActivity.getString(labelRes));
+      button.setOnClickListener(v -> click.run());
+      final int gapDp = InCarQuickDestinationsLayoutPolicy.PREFERRED_ACTION_GAP_DP;
+      setBottomGap(button, gapDp);
+      mContainer.addView(button);
     }
 
     private void addFixedAction(@NonNull InCarQuickDestinationsStore.Action action, @StringRes int labelRes,
@@ -324,7 +321,11 @@ public final class InCarQuickDestinationsUi
 
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
       final String label = mActivity.getString(labelRes);
-      addQuickAction(button, label, label, click);
+      button.setContentDescription(label);
+      button.setOnClickListener(v -> click.run());
+      final int gapDp = InCarQuickDestinationsLayoutPolicy.PREFERRED_ACTION_GAP_DP;
+      setBottomGap(button, gapDp);
+      mContainer.addView(button);
     }
 
     private void addDestinationAction(@NonNull InCarQuickDestinationsStore.Action action,
@@ -344,15 +345,11 @@ public final class InCarQuickDestinationsUi
           displayLabel.isEmpty()
               ? actionLabel
               : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
-      addQuickAction(button, description, description, () -> mActivity.startLocationToPoint(destination.toMapObject()));
-    }
-
-    private void addQuickAction(@NonNull InCarQuickActionButton button, @NonNull String menuLabel,
-                                @NonNull String accessibilityLabel, @NonNull Runnable action)
-    {
-      button.setContentDescription(accessibilityLabel);
-      button.setOnClickListener(v -> action.run());
-      mQuickActions.add(new QuickActionBinding(button, menuLabel, action));
+      button.setContentDescription(description);
+      button.setOnClickListener(v -> mActivity.startLocationToPoint(destination.toMapObject()));
+      final int gapDp = InCarQuickDestinationsLayoutPolicy.PREFERRED_ACTION_GAP_DP;
+      setBottomGap(button, gapDp);
+      mContainer.addView(button);
     }
 
     @NonNull
@@ -377,54 +374,6 @@ public final class InCarQuickDestinationsUi
                            dp(InCarQuickDestinationsLayoutPolicy.ACTION_CORNER_RADIUS_DP), dp(iconPaddingDp));
       ViewCompat.setElevation(button, dp(4));
       return button;
-    }
-
-    private void renderExpandedLayout()
-    {
-      if (!mExpanded || mPrimaryButton == null)
-        return;
-
-      final int availableHeightDp = availableHeightDp();
-      final int capacity = InCarQuickDestinationsLayoutPolicy.maxVisibleDestinationActions(availableHeightDp);
-      final boolean needsOverflow =
-          InCarQuickDestinationsLayoutPolicy.requiresOverflow(availableHeightDp, mQuickActions.size());
-      final int directCount = needsOverflow ? Math.max(0, capacity - 1) : Math.min(capacity, mQuickActions.size());
-      final List<QuickActionBinding> overflowActions = new ArrayList<>();
-      if (needsOverflow)
-      {
-        for (int i = directCount; i < mQuickActions.size(); ++i)
-          overflowActions.add(mQuickActions.get(i));
-      }
-
-      mContainer.removeAllViews();
-      mOverflowButton = null;
-      final boolean showOverflow = needsOverflow && capacity > 0 && !overflowActions.isEmpty();
-      final int visibleActionSlots = directCount + (showOverflow ? 1 : 0);
-      final int gapDp = InCarQuickDestinationsLayoutPolicy.resolvedGapDp(availableHeightDp, visibleActionSlots);
-
-      if (showOverflow)
-      {
-        final InCarQuickActionButton overflow =
-            createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
-        overflow.setContentDescription(mActivity.getString(R.string.in_car_quick_more));
-        overflow.setOnClickListener(v -> showOverflowChoice(overflowActions));
-        setBottomGap(overflow, gapDp);
-        mOverflowButton = overflow;
-        mContainer.addView(overflow);
-      }
-
-      // Highest-priority actions stay closest to the Quick anchor at the bottom of the stack.
-      for (int i = directCount - 1; i >= 0; --i)
-      {
-        final InCarQuickActionButton button = mQuickActions.get(i).button;
-        setBottomGap(button, gapDp);
-        mContainer.addView(button);
-      }
-
-      setBottomGap(mPrimaryButton, 0);
-      mContainer.addView(mPrimaryButton);
-      mRoot.bringToFront();
-      updateRootBounds();
     }
 
     private void showOverflowChoice(@NonNull List<QuickActionBinding> actions)
@@ -501,62 +450,6 @@ public final class InCarQuickDestinationsUi
       return localized.getResources();
     }
 
-    private void collapseForMapTransition()
-    {
-      if (!mExpanded)
-        return;
-      mExpanded = false;
-      renderExpansion();
-    }
-
-    private void renderExpansion()
-    {
-      if (mPrimaryButton == null)
-        return;
-
-      mPrimaryButton.setContentDescription(
-          mActivity.getString(mExpanded ? R.string.in_car_quick_collapse : R.string.in_car_quick_expand));
-
-      if (!mExpanded)
-      {
-        mContainer.removeAllViews();
-        mOverflowButton = null;
-        setBottomGap(mPrimaryButton, 0);
-        mContainer.addView(mPrimaryButton);
-        updateRootBounds();
-        return;
-      }
-
-      scheduleExpandedLayout();
-    }
-
-    private void scheduleExpandedLayout()
-    {
-      if (!mExpanded || mLayoutPassScheduled)
-        return;
-      mLayoutPassScheduled = true;
-      mRoot.post(() -> {
-        mLayoutPassScheduled = false;
-        renderExpandedLayout();
-      });
-    }
-
-    private int availableHeightDp()
-    {
-      int parentHeight = mAnchorParent == null ? 0 : mAnchorParent.getHeight();
-      if (parentHeight <= 0)
-        parentHeight = mActivity.getResources().getDisplayMetrics().heightPixels;
-
-      int bottomMargin = 0;
-      if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
-        bottomMargin = Math.max(0, params.bottomMargin);
-      final int availablePx = Math.max(
-          dp(InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP),
-          parentHeight - mSystemTopInset - dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP) - bottomMargin);
-      return Math.max(InCarQuickDestinationsLayoutPolicy.ACTION_SIZE_DP,
-                      Math.round(availablePx / mActivity.getResources().getDisplayMetrics().density));
-    }
-
     private void setBottomGap(@NonNull View button, int gapDp)
     {
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
@@ -599,10 +492,8 @@ public final class InCarQuickDestinationsUi
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, (view, windowInsets) -> {
         final Insets bars =
             windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-        mSystemTopInset = bars.top;
         mSystemBottomInset = bars.bottom;
         updateBottomMargin();
-        scheduleExpandedLayout();
         return windowInsets;
       });
       ViewCompat.requestApplyInsets(mRoot);
@@ -615,13 +506,9 @@ public final class InCarQuickDestinationsUi
         return;
       final int bottom = mBottomButtonsHeight + mSystemBottomInset + dp(12);
       if (params.bottomMargin == bottom)
-      {
-        scheduleExpandedLayout();
         return;
-      }
       params.bottomMargin = bottom;
       mRoot.setLayoutParams(params);
-      scheduleExpandedLayout();
     }
 
     private boolean isEnabled(@NonNull InCarQuickDestinationsStore.Action action)
