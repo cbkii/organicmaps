@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:id="@+id/nav_bottom_frame"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="vertical">
+
+  <LinearLayout
+    android:id="@+id/line_frame"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clickable="false"
+    android:focusable="false"
+    android:gravity="center_vertical"
+    android:orientation="vertical">
+
+    <include layout="@layout/layout_nav_bottom_numbers" />
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+      android:id="@+id/navigation_progress"
+      style="@style/Widget.MaterialComponents.LinearProgressIndicator"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      app:indicatorColor="?colorAccent"
+      app:trackCornerRadius="@dimen/nav_progress_head"
+      app:trackThickness="@dimen/nav_progress"
+      app:trackColor="@color/bg_routing_progress" />
+
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_vertical|right"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/nav_bottom_gap"
+      android:paddingTop="@dimen/margin_half"
+      android:paddingEnd="@dimen/nav_bottom_gap"
+      android:paddingBottom="@dimen/margin_half">
+
+      <ImageView
+        android:id="@+id/nav_more"
+        android:layout_width="@dimen/nav_button_height"
+        android:layout_height="@dimen/nav_button_height"
+        android:background="?selectableItemBackgroundBorderless"
+        android:contentDescription="@string/in_car_navigation_more"
+        android:padding="@dimen/margin_base"
+        android:scaleType="centerInside"
+        app:srcCompat="@drawable/ic_more"
+        app:tint="?iconTint" />
+
+      <Button
+        android:id="@+id/stop"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/nav_button_height"
+        android:layout_marginStart="@dimen/nav_bottom_gap"
+        android:background="?redButtonBackground"
+        android:fontFamily="@string/robotoMedium"
+        android:minWidth="@dimen/start_button_width"
+        android:text="@string/in_car_end_navigation"
+        android:textAppearance="@style/MwmTextAppearance.Button.Red" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <!-- Existing controls are retained as the functional backing for the More menu. They stay in
+       the hierarchy for established state/listener code but are not separately exposed in InCar. -->
+  <LinearLayout
+    android:id="@+id/content_frame"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:orientation="horizontal"
+    android:visibility="gone">
+
+    <ImageView
+      android:id="@+id/tts_volume"
+      android:layout_width="1dp"
+      android:layout_height="1dp"
+      app:srcCompat="@drawable/ic_voice_on" />
+
+    <ImageView
+      android:id="@+id/settings"
+      android:layout_width="1dp"
+      android:layout_height="1dp"
+      app:srcCompat="@drawable/ic_menu_settings" />
+  </LinearLayout>
+</LinearLayout>
