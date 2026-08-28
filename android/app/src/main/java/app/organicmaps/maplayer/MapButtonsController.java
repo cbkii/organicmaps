@@ -21,8 +21,10 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.downloader.MapManager;
@@ -84,7 +86,10 @@ public class MapButtonsController extends Fragment
   private final Observer<Boolean> mTrackRecorderObserver = (enable) ->
   {
     updateMenuBadge(enable);
-    showButton(enable, MapButtons.trackRecordingStatus);
+    // In InCar, also respect the "show track recording button" preference.
+    final boolean show = enable && (!BuildConfig.IS_IN_CAR
+                                    || InCarSettingsStore.isShowTrackRecordingButton(requireContext()));
+    showButton(show, MapButtons.trackRecordingStatus);
   };
   private final Observer<Integer> mTopButtonMarginObserver = this::updateTopButtonsMargin;
 

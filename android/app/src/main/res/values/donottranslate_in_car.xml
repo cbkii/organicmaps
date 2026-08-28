@@ -29,4 +29,5 @@
   <string name="pref_in_car_quick_enabled_work" translatable="false">InCarQuickEnabledWORK</string>
   <string name="pref_in_car_quick_enabled_recent_1" translatable="false">InCarQuickEnabledRECENT_1</string>
   <string name="pref_in_car_quick_enabled_recent_2" translatable="false">InCarQuickEnabledRECENT_2</string>
+  <string name="pref_in_car_show_track_recording_button" translatable="false">InCarShowTrackRecordingButton</string>
 </resources>

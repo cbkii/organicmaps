@@ -23,4 +23,16 @@
     app:fabCustomSize="@dimen/in_car_map_primary_button_size"
     app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
     app:srcCompat="@drawable/ic_minus" />
+  <!-- Track Recording button: separated from zoom cluster by extra margin. Physical-right placement
+       is inherited from the parent container. Wired by MapButtonsController.mTrackRecordingStatusButton. -->
+  <com.google.android.material.floatingactionbutton.FloatingActionButton
+    android:id="@+id/track_recording_status"
+    style="@style/MwmWidget.MapButton.Zoom"
+    android:layout_marginTop="@dimen/in_car_track_record_gap"
+    android:contentDescription="@string/track_recording_title"
+    app:backgroundTint="@color/in_car_map_button_background"
+    app:fabCustomSize="@dimen/in_car_compact_map_button_size"
+    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
+    app:srcCompat="@drawable/ic_track_recording_status"
+    android:visibility="gone" />
 </LinearLayout>

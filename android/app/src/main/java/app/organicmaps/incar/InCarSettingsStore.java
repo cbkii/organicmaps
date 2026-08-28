@@ -150,6 +150,23 @@ public final class InCarSettingsStore
     prefs(context).edit().putBoolean(KEY_WALKING_SESSION_ACTIVE, active).apply();
   }
 
+  private static final String KEY_SHOW_TRACK_RECORDING_BUTTON = "InCarShowTrackRecordingButton";
+
+  public static boolean isShowTrackRecordingButton(@NonNull Context context)
+  {
+    return prefs(context).getBoolean(KEY_SHOW_TRACK_RECORDING_BUTTON, true);
+  }
+
+  public static void setShowTrackRecordingButton(@NonNull Context context, boolean show)
+  {
+    prefs(context).edit().putBoolean(KEY_SHOW_TRACK_RECORDING_BUTTON, show).apply();
+  }
+
+  public static String showTrackRecordingButtonPreferenceKey()
+  {
+    return KEY_SHOW_TRACK_RECORDING_BUTTON;
+  }
+
   @NonNull
   private static SharedPreferences prefs(@NonNull Context context)
   {

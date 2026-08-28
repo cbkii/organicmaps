@@ -5,7 +5,6 @@ import static app.organicmaps.sdk.util.Utils.dimen;
 import android.content.res.Configuration;
 import android.location.Location;
 import android.text.TextUtils;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -21,6 +20,7 @@ import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarDriverSidePolicy;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Router;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
@@ -97,9 +97,9 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       endNavButton.setBackgroundResource(android.R.color.transparent);
       endNavButton.setContentDescription(activity.getString(R.string.close));
       endNavButton.setOnClickListener(v -> RoutingController.get().cancel());
-      // Use Gravity.RIGHT (physical) not Gravity.END, per InCar RHD physical-right layout policy.
+      // Use InCarDriverSidePolicy (physical right) per RHD layout policy.
       final FrameLayout.LayoutParams lp =
-          new FrameLayout.LayoutParams(sizePx, sizePx, Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+          new FrameLayout.LayoutParams(sizePx, sizePx, InCarDriverSidePolicy.driverSideCenterVerticalGravity());
       final int margin = dimen(activity, R.dimen.margin_half);
       lp.rightMargin = margin;
       ((FrameLayout) mStreetFrame).addView(endNavButton, lp);
