@@ -12,33 +12,26 @@
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_driving_view">
 
+    <ListPreference
+      android:key="@string/pref_in_car_driving_view_mode"
+      android:title="@string/in_car_driving_view_mode_title"
+      android:summary="@string/in_car_driving_view_mode_summary"
+      android:entries="@array/in_car_driving_view_mode_entries"
+      android:entryValues="@array/in_car_driving_view_mode_values"
+      android:defaultValue="MANUAL"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
     <SwitchPreferenceCompat
       android:key="@string/pref_auto_follow_location_on_launch"
       android:title="@string/auto_follow_location_on_launch"
       android:summary="@string/auto_follow_location_on_launch_summary"
       android:persistent="false"
       app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
 
-    <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_show_driving_view_button"
-      android:title="@string/in_car_show_driving_view_button_title"
-      android:summary="@string/in_car_show_driving_view_button_summary"
-      android:persistent="false"
-      app:singleLineTitle="false" />
-
-    <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_start_driving_view"
-      android:title="@string/in_car_start_driving_view_title"
-      android:summary="@string/in_car_start_driving_view_summary"
-      android:persistent="false"
-      app:singleLineTitle="false" />
-
-    <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_automatic_driving_view"
-      android:title="@string/in_car_automatic_driving_view_title"
-      android:summary="@string/in_car_automatic_driving_view_summary"
-      android:persistent="false"
-      app:singleLineTitle="false" />
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_settings_driving_view_advanced">
 
     <SwitchPreferenceCompat
       android:key="@string/pref_in_car_auto_return_driving_view"
