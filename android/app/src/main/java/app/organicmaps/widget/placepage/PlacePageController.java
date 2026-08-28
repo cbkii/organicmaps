@@ -159,6 +159,12 @@ public class PlacePageController
     mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
     mPlacePageBehavior.setFitToContents(true);
     mPlacePageBehavior.setSkipCollapsed(false);
+    // InCar: fixed automotive card — no dragging, full card height always shown.
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mPlacePageBehavior.setDraggable(false);
+      mPlacePageBehavior.setSkipCollapsed(true);
+    }
     // Clip to outline so top corners stay rounded regardless of BottomSheetBehavior shape
     // animations. Extending the rect past the bottom hides the bottom corner rounding.
     final int topRadius = res.getDimensionPixelSize(R.dimen.bottom_sheet_corner_radius);
@@ -264,8 +270,10 @@ public class PlacePageController
 
   private void setPlacePageInteractions(boolean enabled)
   {
-    // Prevent place page scrolling when playing the close animation
-    mPlacePageBehavior.setDraggable(enabled);
+    // Prevent place page scrolling when playing the close animation.
+    // InCar: dragging is permanently disabled for the fixed automotive card.
+    if (!BuildConfig.IS_IN_CAR)
+      mPlacePageBehavior.setDraggable(enabled);
     mPlacePage.setNestedScrollingEnabled(enabled);
     // Prevent user interaction with place page content when closing
     mPlacePageContainer.setEnabled(enabled);

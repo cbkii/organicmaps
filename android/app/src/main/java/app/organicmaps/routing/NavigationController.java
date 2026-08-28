@@ -5,8 +5,11 @@ import static app.organicmaps.sdk.util.Utils.dimen;
 import android.content.res.Configuration;
 import android.location.Location;
 import android.text.TextUtils;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -15,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsViewModel;
@@ -83,6 +87,23 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     mStreetFrame = mTopFrame.findViewById(R.id.street_frame);
     mNextStreet = mStreetFrame.findViewById(R.id.street);
+
+    // InCar: add a dedicated End Navigation button on the physical-right side of the street frame.
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final int sizePx = dimen(activity, R.dimen.map_button_size);
+      final ImageButton endNavButton = new ImageButton(activity);
+      endNavButton.setImageResource(R.drawable.ic_close_rounded);
+      endNavButton.setBackgroundResource(android.R.color.transparent);
+      endNavButton.setContentDescription(activity.getString(R.string.close));
+      endNavButton.setOnClickListener(v -> RoutingController.get().cancel());
+      // Use Gravity.RIGHT (physical) not Gravity.END, per InCar RHD physical-right layout policy.
+      final FrameLayout.LayoutParams lp =
+          new FrameLayout.LayoutParams(sizePx, sizePx, Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+      final int margin = dimen(activity, R.dimen.margin_half);
+      lp.rightMargin = margin;
+      ((FrameLayout) mStreetFrame).addView(endNavButton, lp);
+    }
 
     mLanesView = mTopFrame.findViewById(R.id.lanes);
 
