@@ -122,6 +122,7 @@ set(SRC
   restrictions_serialization.hpp
   road_access.cpp
   road_access.hpp
+  road_access_serialization.cpp
   road_access_serialization.hpp
   road_graph.cpp
   road_graph.hpp
