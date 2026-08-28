@@ -7,8 +7,6 @@ import android.location.Location;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -17,10 +15,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.lifecycle.ViewModelProvider;
-import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
-import app.organicmaps.incar.InCarDriverSidePolicy;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Router;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
@@ -74,11 +70,11 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     mOnSettingsClickListener = onSettingsClickListener;
     mOnVoiceSettingsClickListener = onVoiceSettingsClickListener;
 
-    // Top frame
+    // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
     mTopFrame.addOnLayoutChangeListener(
         (v, l, t, r, b, ol, ot, or, ob) -> mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight()));
-    View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
+    final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
 
@@ -88,25 +84,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     mStreetFrame = mTopFrame.findViewById(R.id.street_frame);
     mNextStreet = mStreetFrame.findViewById(R.id.street);
 
-    // InCar: add a dedicated End Navigation button on the physical-right side of the street frame.
-    if (BuildConfig.IS_IN_CAR)
-    {
-      final int sizePx = dimen(activity, R.dimen.map_button_size);
-      final ImageButton endNavButton = new ImageButton(activity);
-      endNavButton.setImageResource(R.drawable.ic_close_rounded);
-      endNavButton.setBackgroundResource(android.R.color.transparent);
-      endNavButton.setContentDescription(activity.getString(R.string.close));
-      endNavButton.setOnClickListener(v -> RoutingController.get().cancel());
-      // Use InCarDriverSidePolicy (physical right) per RHD layout policy.
-      final FrameLayout.LayoutParams lp =
-          new FrameLayout.LayoutParams(sizePx, sizePx, InCarDriverSidePolicy.driverSideCenterVerticalGravity());
-      final int margin = dimen(activity, R.dimen.margin_half);
-      lp.rightMargin = margin;
-      ((FrameLayout) mStreetFrame).addView(endNavButton, lp);
-    }
-
     mLanesView = mTopFrame.findViewById(R.id.lanes);
-
     mSpeedLimit = mTopFrame.findViewById(R.id.nav_speed_limit);
 
     // Blank rectangle below the navbar that hides menu content behind it.
@@ -202,7 +180,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updateStreetView(@NonNull RoutingInfo info)
   {
-    boolean hasStreet = !TextUtils.isEmpty(info.nextStreet);
+    final boolean hasStreet = !TextUtils.isEmpty(info.nextStreet);
     // Sic: don't use UiUtils.showIf() here because View.GONE breaks layout
     // https://github.com/organicmaps/organicmaps/issues/3732
     UiUtils.visibleIf(hasStreet, mStreetFrame);
@@ -311,10 +289,12 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   @Override
   public void onStopClicked()
   {
+    // Reuse the established navigation cancellation authority for both normal Android and the
+    // fixed InCar End Navigation button supplied by the resource overlay.
     RoutingController.get().cancel();
   }
 
-  private void updateSpeedLimit(@NonNull final RoutingInfo info)
+  private void updateSpeedLimit(@NonNull RoutingInfo info)
   {
     final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
     final boolean speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
