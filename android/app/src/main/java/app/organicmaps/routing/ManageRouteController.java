@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.routing.RouteMarkData;
@@ -50,11 +51,25 @@ public class ManageRouteController implements ManageRouteAdapter.ManageRouteList
     LinearLayoutManager layoutManager = new LinearLayoutManager(mContext);
     manageRouteList.setLayoutManager(layoutManager);
     mManageRouteAdapter = new ManageRouteAdapter(mContext, Framework.nativeGetRoutePoints(), this);
+    // InCar initially presents only the existing route summary/header. The exact same route adapter
+    // remains attached and is revealed by More -> Edit route, so no second editing implementation exists.
+    if (BuildConfig.IS_IN_CAR)
+      mManageRouteAdapter.setVisible(false);
     manageRouteList.addItemDecoration(new RoundedSectionItemDecoration(mContext, mManageRouteAdapter));
     manageRouteList.addItemDecoration(new SectionDividerItemDecoration(mContext, mManageRouteAdapter));
     manageRouteList.setAdapter(new ConcatAdapter(mHeaderAdapter, mManageRouteAdapter));
     mTouchHelper = new ItemTouchHelper(new ManageRouteItemTouchHelperCallback(mManageRouteAdapter, this));
     mTouchHelper.attachToRecyclerView(manageRouteList);
+  }
+
+  public void setEditing(boolean editing)
+  {
+    mManageRouteAdapter.setVisible(!BuildConfig.IS_IN_CAR || editing);
+  }
+
+  public boolean isEditing()
+  {
+    return !BuildConfig.IS_IN_CAR || mManageRouteAdapter.isVisible();
   }
 
   public void onRouteOrderChanged(@NonNull ArrayList<RouteMarkData> newRoutePoints)
