@@ -29,6 +29,8 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
   private final ManageRouteListener mManageRouteListener;
   private static final int TYPE_POINT = 0;
   private static final int TYPE_ADD_BUTTON = 1;
+  private boolean mVisible = true;
+
   public interface ManageRouteListener
   {
     void startDrag(RecyclerView.ViewHolder viewHolder);
@@ -86,7 +88,7 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
   {
     if (holder instanceof AddStopViewHolder)
     {
-      holder.itemView.setOnClickListener((v) -> { mManageRouteListener.onAddStopButtonClicked(); });
+      holder.itemView.setOnClickListener(v -> mManageRouteListener.onAddStopButtonClicked());
       return;
     }
     if (!(holder instanceof ManageRouteViewHolder pointHolder))
@@ -118,13 +120,9 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     pointHolder.mImageViewIcon.setImageDrawable(AppCompatResources.getDrawable(mContext, iconId));
     String title;
     if (mRoutePoints.get(position).mIsMyPosition)
-    {
       title = mContext.getString(app.organicmaps.sdk.R.string.core_my_position);
-    }
     else
-    {
       title = mRoutePoints.get(position).mTitle;
-    }
     pointHolder.mTextViewTitle.setText(title);
     pointHolder.mTextViewTitle.setTextColor(ThemeUtils.getColor(mContext, android.R.attr.textColorPrimary));
     UiUtils.show(pointHolder.mImageViewDrag);
@@ -134,7 +132,7 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                    pointHolder.mImageViewDelete);
     pointHolder.mImageViewDelete.setOnClickListener(v -> mManageRouteListener.onRoutePointDeleted(pointHolder));
     pointHolder.itemView.setOnClickListener(
-        v -> { mManageRouteListener.onRoutePointClicked(pointHolder.getBindingAdapterPosition()); });
+        v -> mManageRouteListener.onRoutePointClicked(pointHolder.getBindingAdapterPosition()));
 
     // touch listener on drag handle to initiate drag !
     pointHolder.mImageViewDrag.setOnTouchListener((v, event) -> {
@@ -156,9 +154,7 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
 
     final String title;
     if (isPlaceholder)
-    {
       title = mContext.getString(slotType == RouteMarkType.Start ? R.string.p2p_from_here : R.string.p2p_to_here);
-    }
     else
     {
       final RouteMarkData point = mRoutePoints.get(0);
@@ -172,9 +168,7 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     pointHolder.mImageViewDrag.setOnTouchListener(null);
 
     if (isPlaceholder)
-    {
       pointHolder.itemView.setOnClickListener(v -> mManageRouteListener.onPartialSlotClicked(slotType));
-    }
     else
     {
       final RouteMarkType realType = mRoutePoints.get(0).mPointType;
@@ -185,9 +179,24 @@ public class ManageRouteAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
   @Override
   public int getItemCount()
   {
+    if (!mVisible)
+      return 0;
     if (isPartial())
       return 2;
     return mRoutePoints.size() + 1;
+  }
+
+  public void setVisible(boolean visible)
+  {
+    if (mVisible == visible)
+      return;
+    mVisible = visible;
+    notifyDataSetChanged();
+  }
+
+  public boolean isVisible()
+  {
+    return mVisible;
   }
 
   public void moveRoutePoint(@NonNull RecyclerView.ViewHolder draggedItem, @NonNull RecyclerView.ViewHolder targetItem)
