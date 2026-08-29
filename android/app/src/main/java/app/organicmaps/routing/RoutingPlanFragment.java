@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.PopupMenu;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
@@ -13,6 +14,8 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -39,6 +42,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   public static final String TAG = RoutingPlanFragment.class.getSimpleName();
 
   private static final Router[] ROUTERS = Router.values();
+  private static final int IN_CAR_MORE_EDIT_ROUTE = 1;
+  private static final int IN_CAR_MORE_DRIVING_OPTIONS = 2;
 
   private RoutingPlanViewModel mViewModel;
   private View mChartPanel;
@@ -53,6 +58,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   private TextView mDrivingOptionsBadge;
   private View mSearchBtn;
   private View mBookmarkBtn;
+  private View mRouteMoreBtn;
   private View mRoutingContainer;
   private View mRoutingTypesContainer;
   private MapButtonsController.MapButtonClickListener mMapButtonClickListener;
@@ -114,9 +120,10 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mPeekHeightMargins = getResources().getDimensionPixelSize(R.dimen.routing_margin_peek_height);
     mBottomButtonsMaxHeight = getResources().getDimensionPixelSize(R.dimen.routing_bottom_buttons_max_height);
 
-    setupRouterButtons();
     if (BuildConfig.IS_IN_CAR)
       mRoutingTypesContainer.setVisibility(View.GONE);
+    else
+      setupRouterButtons();
 
     mChartHeaderAdapter = new ChartHeaderAdapter(mChartPanel);
     mRoutingContainer = requireActivity().findViewById(R.id.routing_container);
@@ -127,6 +134,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mRoutingBottomMenuController.setVisibilityChangedCallback(this::updateSheetLayout);
     mRoutingRoot = view.findViewById(R.id.routing_root);
     mRoutingBottomContainer = view.findViewById(R.id.routing_bottom_container);
+    applyInCarPhysicalSide();
 
     mTransitStepsView = mChartPanel.findViewById(R.id.transit_recycler_view);
     mDrivingOptionsBadge = mChartPanel.findViewById(R.id.driving_options_badge);
@@ -136,10 +144,21 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
     mSearchBtn = mRoutingRoot.findViewById(R.id.routing_btn_search);
     mBookmarkBtn = mButtonsLayout.findViewById(R.id.routing_btn_bookmarks);
+    mRouteMoreBtn = mButtonsLayout.findViewById(R.id.routing_btn_more);
     mSearchBtn.setOnClickListener(
         v -> mMapButtonClickListener.onMapButtonClick(MapButtonsController.MapButtons.search));
     mBookmarkBtn.setOnClickListener(
         v -> mMapButtonClickListener.onMapButtonClick(MapButtonsController.MapButtons.bookmarks));
+
+    if (BuildConfig.IS_IN_CAR)
+    {
+      UiUtils.hide(mSearchBtn, mBookmarkBtn, mDrivingOptionsBtn, mDrivingOptionsBadge);
+      UiUtils.show(mRouteMoreBtn);
+      mRouteMoreBtn.setOnClickListener(this::showInCarRouteMoreMenu);
+      final View pullHandle = mFrame.findViewById(R.id.pull_icon_container);
+      if (pullHandle != null)
+        UiUtils.hide(pullHandle);
+    }
 
     final View closeButton = mRoutingTypesContainer.findViewById(R.id.back);
     closeButton.setOnClickListener(v -> mRoutingPlanController.handleBackPress());
@@ -158,9 +177,47 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
     if (savedInstanceState != null)
       restoreRoutingPanelState(savedInstanceState);
+    else if (BuildConfig.IS_IN_CAR)
+      mRoutingBottomMenuController.setManageRouteEditing(false);
 
     updateBadgeCount(RoutingOptions.getActiveRoadTypes().size());
     mRoutingContainer.addOnLayoutChangeListener(this);
+  }
+
+  private void applyInCarPhysicalSide()
+  {
+    if (!BuildConfig.IS_IN_CAR || mRoutingBottomContainer == null)
+      return;
+    final ViewGroup.LayoutParams raw = mRoutingBottomContainer.getLayoutParams();
+    if (!(raw instanceof ConstraintLayout.LayoutParams params))
+      return;
+    params.startToStart = ConstraintSet.UNSET;
+    params.endToEnd = ConstraintSet.PARENT_ID;
+    mRoutingBottomContainer.setLayoutParams(params);
+  }
+
+  private void showInCarRouteMoreMenu(@NonNull View anchor)
+  {
+    final PopupMenu menu = new PopupMenu(requireContext(), anchor);
+    final boolean editing = mRoutingBottomMenuController.isManageRouteEditing();
+    menu.getMenu().add(0, IN_CAR_MORE_EDIT_ROUTE, 0,
+                       editing ? R.string.in_car_done_editing : R.string.in_car_edit_route);
+    menu.getMenu().add(0, IN_CAR_MORE_DRIVING_OPTIONS, 1, R.string.in_car_driving_options);
+    menu.setOnMenuItemClickListener(item -> {
+      if (item.getItemId() == IN_CAR_MORE_EDIT_ROUTE)
+      {
+        mRoutingBottomMenuController.setManageRouteEditing(!editing);
+        updateSheetLayout();
+        return true;
+      }
+      if (item.getItemId() == IN_CAR_MORE_DRIVING_OPTIONS)
+      {
+        DrivingOptionsActivity.start(requireActivity(), startDrivingOptionsForResult);
+        return true;
+      }
+      return false;
+    });
+    menu.show();
   }
 
   private void setInsets()
@@ -186,12 +243,13 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mSheetBehavior.setHideable(true);
     mSheetBehavior.setFitToContents(true);
     mSheetBehavior.setShouldRemoveExpandedCorners(false);
+    mSheetBehavior.setDraggable(!BuildConfig.IS_IN_CAR);
     mSheetBehavior.addBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
       @Override
       public void onStateChanged(@NonNull View bottomSheet, int newState)
       {
-        if (newState != BottomSheetBehavior.STATE_SETTLING && newState != BottomSheetBehavior.STATE_DRAGGING
-            && newState != BottomSheetBehavior.STATE_HIDDEN)
+        if (!BuildConfig.IS_IN_CAR && newState != BottomSheetBehavior.STATE_SETTLING
+            && newState != BottomSheetBehavior.STATE_DRAGGING && newState != BottomSheetBehavior.STATE_HIDDEN)
           mViewModel.setBottomSheetState(newState);
         if (newState == BottomSheetBehavior.STATE_HIDDEN)
           UiUtils.hide(mButtonsLayout);
@@ -246,9 +304,14 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
         if (getView() == null || !Boolean.TRUE.equals(mSheetVisible.getValue()))
           return;
         mSheetBehavior.setHideable(false);
-        final int state = mViewModel.getBottomSheetState();
-        mSheetBehavior.setState(state == BottomSheetBehavior.STATE_HIDDEN ? BottomSheetBehavior.STATE_COLLAPSED
-                                                                          : state);
+        if (BuildConfig.IS_IN_CAR)
+          mSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+        else
+        {
+          final int state = mViewModel.getBottomSheetState();
+          mSheetBehavior.setState(state == BottomSheetBehavior.STATE_HIDDEN ? BottomSheetBehavior.STATE_COLLAPSED
+                                                                            : state);
+        }
       });
     }
     else
@@ -287,6 +350,18 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     final int parentHeight = parent == null ? 0 : parent.getHeight();
     if (parentHeight > 0)
       mSheetBehavior.setMaxHeight(parentHeight);
+
+    if (BuildConfig.IS_IN_CAR && mRoutingBottomMenuController.isManageRouteEditing())
+    {
+      // Editing is an explicit secondary surface. Reuse the existing route editor at its natural
+      // height and make that entire surface the fixed peek rather than enabling drag/expand states.
+      final int frameHeight = mFrame.getHeight();
+      final int editingHeight = frameHeight > 0 && parentHeight > 0 ? Math.min(frameHeight, parentHeight) : parentHeight;
+      if (editingHeight > 0)
+        mSheetBehavior.setPeekHeight(editingHeight);
+      return;
+    }
+
     // Peek excludes the scrollable steps/list: it ends at the steps' top (or the full header when there are
     // none), while setMaxHeight caps a long list to scroll inside the sheet instead of covering the map.
     final boolean stepsVisible = mTransitStepsView.getVisibility() == View.VISIBLE;
@@ -332,7 +407,9 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       return;
     }
 
-    if (controller.isTransitType())
+    // Unsupported modes can still exist in retained generic/native state, but InCar never presents
+    // their specialised Transit/Ruler surfaces. New InCar routes are clamped by the app routing policy.
+    if (!BuildConfig.IS_IN_CAR && controller.isTransitType())
     {
       TransitRouteInfo info = controller.getCachedTransitInfo();
       if (info != null)
@@ -340,7 +417,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       return;
     }
 
-    if (controller.isRulerRouterType())
+    if (!BuildConfig.IS_IN_CAR && controller.isRulerRouterType())
     {
       RoutingInfo routingInfo = controller.getCachedRoutingInfo();
       if (routingInfo != null)
@@ -354,6 +431,11 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void updateBadgeCount(int count)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      UiUtils.hide(mDrivingOptionsBadge);
+      return;
+    }
     if (count > 0)
     {
       UiUtils.show(mDrivingOptionsBadge);
@@ -393,14 +475,17 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   public void onSaveInstanceState(@NonNull Bundle outState)
   {
     super.onSaveInstanceState(outState);
-    outState.putInt(TAG + "_bottom_sheet_state", mViewModel.getBottomSheetState());
+    if (!BuildConfig.IS_IN_CAR)
+      outState.putInt(TAG + "_bottom_sheet_state", mViewModel.getBottomSheetState());
     if (mRoutingBottomMenuController != null)
       mRoutingBottomMenuController.saveRoutingPanelState(outState);
   }
 
   private void restoreRoutingPanelState(@NonNull Bundle state)
   {
-    mViewModel.setBottomSheetState(state.getInt(TAG + "_bottom_sheet_state", BottomSheetBehavior.STATE_COLLAPSED));
+    mViewModel.setBottomSheetState(BuildConfig.IS_IN_CAR
+                                       ? BottomSheetBehavior.STATE_COLLAPSED
+                                       : state.getInt(TAG + "_bottom_sheet_state", BottomSheetBehavior.STATE_COLLAPSED));
     if (mRoutingBottomMenuController != null)
       mRoutingBottomMenuController.restoreRoutingPanelState(state);
     updateBadgeCount(RoutingOptions.getActiveRoadTypes().size());
