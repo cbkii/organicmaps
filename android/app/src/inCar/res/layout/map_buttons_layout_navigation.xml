@@ -14,6 +14,9 @@
     android:layout_height="match_parent"
     android:visibility="gone"
     tools:visibility="visible" />
+  <!-- Preserve the controller-owned Search/Bookmarks views for lifecycle/state wiring without
+       exposing duplicated map chrome during active InCar navigation. Navigation interaction stays
+       on the physical-right zoom/recentre rail and the fixed navigation footer. -->
   <androidx.constraintlayout.widget.ConstraintLayout
     android:id="@+id/map_buttons_inner_left"
     android:layout_width="wrap_content"
@@ -23,6 +26,7 @@
     android:clipChildren="false"
     android:clipToPadding="false"
     android:padding="@dimen/nav_frame_padding"
+    android:visibility="gone"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintLeft_toLeftOf="parent">
     <include
