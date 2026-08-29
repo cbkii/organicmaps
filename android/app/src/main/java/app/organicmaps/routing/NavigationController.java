@@ -19,7 +19,6 @@ import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsViewModel;
-import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.Router;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
 import app.organicmaps.sdk.routing.RoutingController;
@@ -74,11 +73,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
-    mTopFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-      mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight());
-      if (BuildConfig.IS_IN_CAR && UiUtils.isVisible(mFrame))
-        updateInCarNavigationViewport(true);
-    });
+    mTopFrame.addOnLayoutChangeListener(
+        (v, l, t, r, b, ol, ot, or, ob) -> mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight()));
     final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
@@ -217,35 +213,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       update(RoutingController.get().getCachedRoutingInfo());
     }
     UiUtils.showIf(show, mFrame);
-    if (BuildConfig.IS_IN_CAR)
-      updateInCarNavigationViewport(show);
     if (!show)
       mMapButtonsViewModel.setTopHeaderHeight(0);
-  }
-
-  private void updateInCarNavigationViewport(boolean navigationVisible)
-  {
-    if (!BuildConfig.IS_IN_CAR)
-      return;
-    mFrame.post(() -> {
-      // Android Auto/car-display owns its own stable area. This direct-display adaptation only
-      // applies to the InCar phone/head-unit surface, matching the existing Place Page guard.
-      if (MwmApplication.from(mFrame.getContext()).getDisplayManager().isCarDisplayUsed())
-        return;
-      final int width = mFrame.getWidth();
-      final int height = mFrame.getHeight();
-      if (width <= 0 || height <= 0)
-        return;
-      if (!navigationVisible)
-      {
-        Framework.nativeSetVisibleRect(0, 0, width, height);
-        return;
-      }
-
-      final int reserve = mNextTurnContainer.getWidth() + dimen(mFrame.getContext(), R.dimen.nav_frame_padding);
-      final int visibleRight = Math.max(width / 2, width - Math.max(0, reserve));
-      Framework.nativeSetVisibleRect(0, 0, visibleRight, height);
-    });
   }
 
   public boolean isNavMenuCollapsed()
