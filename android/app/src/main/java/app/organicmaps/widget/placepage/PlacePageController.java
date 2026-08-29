@@ -106,7 +106,7 @@ public class PlacePageController
           if (PlacePageUtils.isExpandedState(newState))
             mEasyDismissEnabled = false;
           else if (PlacePageUtils.isCollapsedState(newState))
-            mEasyDismissEnabled = true;
+            mEasyDismissEnabled = !BuildConfig.IS_IN_CAR;
 
           if (PlacePageUtils.isHiddenState(newState))
           {
@@ -118,10 +118,11 @@ public class PlacePageController
         @Override
         public void onSlide(@NonNull View bottomSheet, float slideOffset)
         {
-          stopCustomPeekHeightAnimation();
+          if (!BuildConfig.IS_IN_CAR)
+            stopCustomPeekHeightAnimation();
           mDistanceToTop = bottomSheet.getTop();
           mViewModel.setPlacePageDistanceToTop(mDistanceToTop);
-          if (slideOffset < EASY_DISMISS_SLIDE_THRESHOLD && mEasyDismissEnabled)
+          if (!BuildConfig.IS_IN_CAR && slideOffset < EASY_DISMISS_SLIDE_THRESHOLD && mEasyDismissEnabled)
             mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
         }
       };
@@ -159,11 +160,12 @@ public class PlacePageController
     mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
     mPlacePageBehavior.setFitToContents(true);
     mPlacePageBehavior.setSkipCollapsed(false);
-    // InCar: fixed automotive card — no dragging, full card height always shown.
     if (BuildConfig.IS_IN_CAR)
     {
+      // InCar uses the existing collapsed card geometry as a single deterministic presentation.
+      // It is still hideable by explicit close/back actions, but never draggable or expandable.
       mPlacePageBehavior.setDraggable(false);
-      mPlacePageBehavior.setSkipCollapsed(true);
+      mPlacePageBehavior.setSkipCollapsed(false);
     }
     // Clip to outline so top corners stay rounded regardless of BottomSheetBehavior shape
     // animations. Extending the rect past the bottom hides the bottom corner rounding.
@@ -271,7 +273,6 @@ public class PlacePageController
   private void setPlacePageInteractions(boolean enabled)
   {
     // Prevent place page scrolling when playing the close animation.
-    // InCar: dragging is permanently disabled for the fixed automotive card.
     if (!BuildConfig.IS_IN_CAR)
       mPlacePageBehavior.setDraggable(enabled);
     mPlacePage.setNestedScrollingEnabled(enabled);
@@ -320,9 +321,7 @@ public class PlacePageController
       mPpBottomContainer.setPadding(insets.left, mPpBottomContainer.getPaddingTop(), insets.right, 0);
   }
 
-  /**
-   * Make sure the place page can reach the peek height
-   */
+  /** Make sure the place page can reach the peek height. */
   private void preparePlacePageMinHeight(int peekHeight)
   {
     final int currentHeight = mPlacePageContainer.getHeight();
@@ -334,6 +333,15 @@ public class PlacePageController
   {
     final int peekHeight = calculatePeekHeight();
     preparePlacePageMinHeight(peekHeight);
+
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Automotive presentation is geometry-stable: update the fixed card immediately rather than
+      // animating through an internal sheet state that has no user-facing meaning.
+      mPlacePageBehavior.setPeekHeight(peekHeight);
+      setPlacePageHeightBounds();
+      return;
+    }
 
     final int state = mPlacePageBehavior.getState();
     // Do not animate the peek height if the place page should not be collapsed (eg: when returning from editor)
@@ -404,9 +412,7 @@ public class PlacePageController
     final View routeRef = mPlacePage.findViewById(R.id.ll__place_route_ref);
     final boolean hasRouteRefs = routeRef != null && routeRef.getVisibility() == View.VISIBLE;
     if (mMapObject != null && mMapObject.getOpeningMode() == MapObject.OPENING_MODE_PREVIEW_PLUS && !hasRouteRefs)
-    {
       peekHeight += plusDetailsContainer.getHeight();
-    }
     final int topInset =
         (mCurrentWindowInsets != null) ? mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top : 0;
     return Math.min(peekHeight + (isLandscape ? bottomInsets : 0), mCoordinator.getHeight() - topInset);
@@ -426,6 +432,16 @@ public class PlacePageController
         return;
 
       setPeekHeight();
+      if (BuildConfig.IS_IN_CAR)
+      {
+        if (!PlacePageUtils.isCollapsedState(mPlacePageBehavior.getState()))
+          mPlacePageBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+        if (mPlacePage.getScrollY() != 0)
+          mPlacePage.setScrollY(0);
+        mShouldCollapse = false;
+        return;
+      }
+
       if (mShouldCollapse && !PlacePageUtils.isCollapsedState(mPlacePageBehavior.getState()))
       {
         mEasyDismissEnabled = false;
@@ -500,6 +516,9 @@ public class PlacePageController
   @Override
   public void onPlacePageRequestToggleState()
   {
+    if (BuildConfig.IS_IN_CAR)
+      return;
+
     @BottomSheetBehavior.State
     int state = mPlacePageBehavior.getState();
     stopCustomPeekHeightAnimation();
@@ -534,6 +553,7 @@ public class PlacePageController
     case ROUTE_AVOID_UNPAVED -> onAvoidUnpavedBtnClicked();
     case ROUTE_AVOID_FERRY -> onAvoidFerryBtnClicked();
     case WALK_TO -> onWalkToBtnClicked();
+    case RETURN_TO_DRIVING -> onReturnToDrivingBtnClicked();
     }
   }
 
@@ -541,8 +561,15 @@ public class PlacePageController
   {
     if (mMapObject == null)
       return;
-    // Activate the InCar walking last-mile session, then route with Pedestrian via startLocationToPoint.
     InCarSettingsStore.setWalkingSessionActive(requireContext(), true);
+    ((MwmActivity) requireActivity()).startLocationToPoint(mMapObject);
+  }
+
+  private void onReturnToDrivingBtnClicked()
+  {
+    if (mMapObject == null)
+      return;
+    InCarSettingsStore.setWalkingSessionActive(requireContext(), false);
     ((MwmActivity) requireActivity()).startLocationToPoint(mMapObject);
   }
 
@@ -798,9 +825,12 @@ public class PlacePageController
           if (RoutingController.get().isStopPointAllowed())
             buttons.add(mapObject.isBookmark() ? PlacePageButtons.ButtonType.BOOKMARK_DELETE
                                                : PlacePageButtons.ButtonType.BOOKMARK_SAVE);
-          // In InCar, offer a Walk-to action in the More overflow for last-mile walking.
           if (BuildConfig.IS_IN_CAR)
-            buttons.add(PlacePageButtons.ButtonType.WALK_TO);
+          {
+            buttons.add(InCarSettingsStore.isWalkingSessionActive(requireContext())
+                            ? PlacePageButtons.ButtonType.RETURN_TO_DRIVING
+                            : PlacePageButtons.ButtonType.WALK_TO);
+          }
         }
       }
     }
