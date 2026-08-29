@@ -28,10 +28,13 @@
       app:trackThickness="@dimen/nav_progress"
       app:trackColor="@color/bg_routing_progress" />
 
+    <!-- Keep the driver controls in a fixed physical order. The row itself is anchored with
+         Gravity.RIGHT, and forcing LTR here prevents an RTL locale from swapping More and End. -->
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:gravity="center_vertical|right"
+      android:layoutDirection="ltr"
       android:orientation="horizontal"
       android:paddingStart="@dimen/nav_bottom_gap"
       android:paddingTop="@dimen/margin_half"
