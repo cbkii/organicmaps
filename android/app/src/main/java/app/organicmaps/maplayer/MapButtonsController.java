@@ -89,8 +89,8 @@ public class MapButtonsController extends Fragment
     updateMenuBadge(recording);
     // InCar keeps the control available while idle so it can start recording; the setting controls
     // visibility, while the recorder state controls only the active/blinking appearance.
-    final boolean show = BuildConfig.IS_IN_CAR ? InCarSettingsStore.isShowTrackRecordingButton(requireContext())
-                                               : recording;
+    final boolean show =
+        BuildConfig.IS_IN_CAR ? InCarSettingsStore.isShowTrackRecordingButton(requireContext()) : recording;
     showButton(show, MapButtons.trackRecordingStatus);
   };
   private final Observer<Integer> mTopButtonMarginObserver = this::updateTopButtonsMargin;
@@ -158,9 +158,11 @@ public class MapButtonsController extends Fragment
     if (helpButton != null)
       helpButton.setOnClickListener(v -> mMapButtonClickListener.onMapButtonClick(MapButtons.help));
 
-    mSearchWheel = new SearchWheel(mFrame, v -> mMapButtonClickListener.onMapButtonClick(MapButtons.search),
-                                   v -> mMapButtonClickListener.onSearchCanceled(), mMapButtonsViewModel,
-                                   mSearchPageViewModel);
+    mSearchWheel =
+        new SearchWheel(mFrame,
+                        v
+                        -> mMapButtonClickListener.onMapButtonClick(MapButtons.search),
+                        v -> mMapButtonClickListener.onSearchCanceled(), mMapButtonsViewModel, mSearchPageViewModel);
     final View searchButton = mFrame.findViewById(R.id.btn_search);
 
     // Used to get the maximum height the buttons will evolve in.

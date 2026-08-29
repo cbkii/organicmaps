@@ -1,7 +1,6 @@
 package app.organicmaps.incar;
 
 import android.view.Gravity;
-
 import androidx.annotation.NonNull;
 
 /**
@@ -55,8 +54,8 @@ public final class InCarDriverSidePolicy
    * @param baseMarginPx the desired margin in pixels, typically a dp-converted value
    */
   @NonNull
-  public static android.widget.FrameLayout.LayoutParams driverSideLayoutParams(
-      int widthPx, int heightPx, int rightMarginPx)
+  public static android.widget.FrameLayout.LayoutParams driverSideLayoutParams(int widthPx, int heightPx,
+                                                                               int rightMarginPx)
   {
     final android.widget.FrameLayout.LayoutParams lp =
         new android.widget.FrameLayout.LayoutParams(widthPx, heightPx, driverSideGravity());

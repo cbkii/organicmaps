@@ -3,7 +3,6 @@ package app.organicmaps.incar;
 import static org.junit.Assert.assertEquals;
 
 import app.organicmaps.sdk.Router;
-
 import org.junit.Test;
 
 public class InCarRouterPolicyTest
@@ -30,10 +29,9 @@ public class InCarRouterPolicyTest
     assertEquals(Router.Vehicle, withoutWalking);
     assertEquals(Router.Pedestrian, withWalking);
     // Neither is Bicycle, Transit or Ruler
-    assertEquals(false, withoutWalking == Router.Bicycle || withoutWalking == Router.Transit
-                         || withoutWalking == Router.Ruler);
-    assertEquals(false, withWalking == Router.Bicycle || withWalking == Router.Transit
-                         || withWalking == Router.Ruler);
+    assertEquals(
+        false, withoutWalking == Router.Bicycle || withoutWalking == Router.Transit || withoutWalking == Router.Ruler);
+    assertEquals(false, withWalking == Router.Bicycle || withWalking == Router.Transit || withWalking == Router.Ruler);
   }
 
   @Test

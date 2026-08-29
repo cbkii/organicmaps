@@ -536,7 +536,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   public void onSearchClicked()
   {
     showSearchSheet(BuildConfig.IS_IN_CAR ? BottomSheetBehavior.STATE_EXPANDED
-                                         : BottomSheetBehavior.STATE_HALF_EXPANDED);
+                                          : BottomSheetBehavior.STATE_HALF_EXPANDED);
   }
 
   @Override

@@ -7,8 +7,8 @@ import app.organicmaps.sdk.Router;
  * Authoritative routing-mode policy for the InCar flavour.
  *
  * <p>Normal InCar destination routing always uses {@link Router#Vehicle}. {@link Router#Pedestrian}
- * is only used when the user has explicitly activated a walking last-mile session via
- * {@link InCarWalkingSessionPolicy}. No other router type (Bicycle, Transit, Ruler) is ever
+ * is only used when the user has explicitly activated a walking last-mile session recorded by
+ * {@link InCarSettingsStore}. No other router type (Bicycle, Transit, Ruler) is ever
  * selected through InCar presentation; any stale last-used value from a previous session is
  * ignored.
  */

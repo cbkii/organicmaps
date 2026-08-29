@@ -117,7 +117,8 @@ final class InCarSettingsPolicy
     // Auto-return remains a specialist behaviour, but it is now visually separated from the
     // primary Off/Manual/Automatic mode selector rather than presented as another peer mode.
     bindBoolean(fragment, R.string.pref_in_car_auto_return_driving_view,
-                () -> InCarSettingsStore.autoReturnDrivingViewEnabled(fragment.requireContext()),
+                ()
+                    -> InCarSettingsStore.autoReturnDrivingViewEnabled(fragment.requireContext()),
                 enabled -> InCarSettingsStore.setAutoReturnDrivingViewEnabled(fragment.requireContext(), enabled));
   }
 

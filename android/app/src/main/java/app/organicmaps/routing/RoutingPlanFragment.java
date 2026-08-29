@@ -356,7 +356,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       // Editing is an explicit secondary surface. Reuse the existing route editor at its natural
       // height and make that entire surface the fixed peek rather than enabling drag/expand states.
       final int frameHeight = mFrame.getHeight();
-      final int editingHeight = frameHeight > 0 && parentHeight > 0 ? Math.min(frameHeight, parentHeight) : parentHeight;
+      final int editingHeight =
+          frameHeight > 0 && parentHeight > 0 ? Math.min(frameHeight, parentHeight) : parentHeight;
       if (editingHeight > 0)
         mSheetBehavior.setPeekHeight(editingHeight);
       return;
@@ -471,6 +472,17 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       mRoutingBottomMenuController.resetBuildProgress();
   }
 
+  /** Close the explicit InCar route-edit surface without cancelling route planning. */
+  public boolean closeInCarRouteEditor()
+  {
+    if (!BuildConfig.IS_IN_CAR || mRoutingBottomMenuController == null
+        || !mRoutingBottomMenuController.isManageRouteEditing())
+      return false;
+    mRoutingBottomMenuController.setManageRouteEditing(false);
+    updateSheetLayout();
+    return true;
+  }
+
   @Override
   public void onSaveInstanceState(@NonNull Bundle outState)
   {
@@ -483,9 +495,9 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void restoreRoutingPanelState(@NonNull Bundle state)
   {
-    mViewModel.setBottomSheetState(BuildConfig.IS_IN_CAR
-                                       ? BottomSheetBehavior.STATE_COLLAPSED
-                                       : state.getInt(TAG + "_bottom_sheet_state", BottomSheetBehavior.STATE_COLLAPSED));
+    mViewModel.setBottomSheetState(
+        BuildConfig.IS_IN_CAR ? BottomSheetBehavior.STATE_COLLAPSED
+                              : state.getInt(TAG + "_bottom_sheet_state", BottomSheetBehavior.STATE_COLLAPSED));
     if (mRoutingBottomMenuController != null)
       mRoutingBottomMenuController.restoreRoutingPanelState(state);
     updateBadgeCount(RoutingOptions.getActiveRoadTypes().size());

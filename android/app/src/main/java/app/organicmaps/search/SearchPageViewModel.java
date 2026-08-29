@@ -200,10 +200,9 @@ public class SearchPageViewModel extends ViewModel
   {
     mSavedState.set(KEY_SEARCH_ACTIVE, active);
     mSavedState.set(KEY_SEARCH_QUERY, query);
-    mSavedState.set(KEY_SEARCH_STATE,
-                    BuildConfig.IS_IN_CAR
-                        ? (active ? BottomSheetBehavior.STATE_EXPANDED : BottomSheetBehavior.STATE_HIDDEN)
-                        : sheetState);
+    mSavedState.set(KEY_SEARCH_STATE, BuildConfig.IS_IN_CAR ? (active ? BottomSheetBehavior.STATE_EXPANDED
+                                                                      : BottomSheetBehavior.STATE_HIDDEN)
+                                                            : sheetState);
     mSavedState.set(KEY_SEARCH_IS_CATEGORY, isCategory);
   }
 

@@ -3,7 +3,6 @@ package app.organicmaps.incar;
 import static org.junit.Assert.assertEquals;
 
 import android.content.SharedPreferences;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,8 +17,8 @@ public class InCarDrivingViewModePolicyTest
   @Before
   public void setUp()
   {
-    mPrefs = RuntimeEnvironment.getApplication().getSharedPreferences("test_prefs",
-                                                                      android.content.Context.MODE_PRIVATE);
+    mPrefs =
+        RuntimeEnvironment.getApplication().getSharedPreferences("test_prefs", android.content.Context.MODE_PRIVATE);
     mPrefs.edit().clear().apply();
   }
 
@@ -37,9 +36,9 @@ public class InCarDrivingViewModePolicyTest
   public void migrationAutoFalseShowButtonTrueYieldsManual()
   {
     mPrefs.edit()
-          .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)
-          .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, true)
-          .apply();
+        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)
+        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, true)
+        .apply();
     assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.MANUAL,
                  InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
   }
@@ -48,11 +47,10 @@ public class InCarDrivingViewModePolicyTest
   public void migrationAutoFalseShowButtonFalseYieldsOff()
   {
     mPrefs.edit()
-          .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)
-          .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, false)
-          .apply();
-    assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.OFF,
-                 InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
+        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)
+        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, false)
+        .apply();
+    assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.OFF, InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
   }
 
   @Test

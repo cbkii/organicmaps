@@ -154,8 +154,8 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     clearBtn.setText(R.string.in_car_quick_clear_destination);
     clearBtn.setAllCaps(false);
     clearBtn.setVisibility(currentDest != null ? View.VISIBLE : View.GONE);
-    root.addView(clearBtn,
-                 new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    root.addView(clearBtn, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                                         ViewGroup.LayoutParams.WRAP_CONTENT));
 
     final FrameLayout content = new FrameLayout(requireContext());
     final LinearLayout.LayoutParams contentParams =
@@ -393,7 +393,8 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
                                                (ignored, which) -> {
                                                  if (which < 0 || which >= choices.size())
                                                    return;
-                                                 final InCarQuickDestination destination = choices.get(which).destination;
+                                                 final InCarQuickDestination destination =
+                                                     choices.get(which).destination;
                                                  saveDestination(home, destination);
                                                  updateDestinationSummary(preference, destination);
                                                })

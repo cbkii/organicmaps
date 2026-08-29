@@ -231,9 +231,8 @@ public final class InCarQuickDestinationsUi
       updateRootBounds();
     }
 
-    private void collectOverflowAction(@NonNull InCarQuickDestinationsStore.Action action,
-                                       @StringRes int labelRes, @DrawableRes int iconRes,
-                                       @ColorRes int colorRes, @NonNull Runnable click)
+    private void collectOverflowAction(@NonNull InCarQuickDestinationsStore.Action action, @StringRes int labelRes,
+                                       @DrawableRes int iconRes, @ColorRes int colorRes, @NonNull Runnable click)
     {
       if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action), true))
         return;
@@ -243,9 +242,8 @@ public final class InCarQuickDestinationsUi
     }
 
     private void collectOverflowDestination(@NonNull InCarQuickDestinationsStore.Action action,
-                                            @Nullable InCarQuickDestination destination,
-                                            @StringRes int labelRes, @DrawableRes int iconRes,
-                                            @ColorRes int colorRes)
+                                            @Nullable InCarQuickDestination destination, @StringRes int labelRes,
+                                            @DrawableRes int iconRes, @ColorRes int colorRes)
     {
       if (!InCarQuickDestinationsPolicy.shouldShow(BuildConfig.IS_IN_CAR, action, isEnabled(action),
                                                    destination != null))
