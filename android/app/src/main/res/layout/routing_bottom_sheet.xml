@@ -97,6 +97,17 @@
               app:maxImageSize="28dp"
               app:shapeAppearanceOverlay="@style/MwmWidget.MapButton.Square.bottom"
               app:srcCompat="@drawable/icon_save" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/routing_btn_more"
+              style="@style/MwmWidget.MapButton.Square.bottom"
+              android:layout_marginEnd="@dimen/margin_base"
+              android:contentDescription="@string/in_car_route_more"
+              android:visibility="gone"
+              app:fabCustomSize="40dp"
+              app:maxImageSize="28dp"
+              app:shapeAppearanceOverlay="@style/MwmWidget.MapButton.Square.bottom"
+              app:srcCompat="@drawable/ic_more" />
           </LinearLayout>
 
           <include layout="@layout/routing_start_button" />
