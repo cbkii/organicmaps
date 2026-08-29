@@ -191,8 +191,16 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     final ViewGroup.LayoutParams raw = mRoutingBottomContainer.getLayoutParams();
     if (!(raw instanceof ConstraintLayout.LayoutParams params))
       return;
+    // This is deliberately absolute physical-right placement for the RHD InCar product. Clear all
+    // locale-relative horizontal constraints first so RTL locales cannot mirror the control surface.
     params.startToStart = ConstraintSet.UNSET;
-    params.endToEnd = ConstraintSet.PARENT_ID;
+    params.startToEnd = ConstraintSet.UNSET;
+    params.endToStart = ConstraintSet.UNSET;
+    params.endToEnd = ConstraintSet.UNSET;
+    params.leftToLeft = ConstraintSet.UNSET;
+    params.leftToRight = ConstraintSet.UNSET;
+    params.rightToLeft = ConstraintSet.UNSET;
+    params.rightToRight = ConstraintSet.PARENT_ID;
     mRoutingBottomContainer.setLayoutParams(params);
   }
 
