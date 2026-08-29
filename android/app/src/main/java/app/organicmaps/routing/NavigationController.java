@@ -74,12 +74,11 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
-    mTopFrame.addOnLayoutChangeListener(
-        (v, l, t, r, b, ol, ot, or, ob) -> {
-          mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight());
-          if (BuildConfig.IS_IN_CAR && UiUtils.isVisible(mFrame))
-            updateInCarNavigationViewport(true);
-        });
+    mTopFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+      mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight());
+      if (BuildConfig.IS_IN_CAR && UiUtils.isVisible(mFrame))
+        updateInCarNavigationViewport(true);
+    });
     final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
@@ -115,7 +114,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
         final boolean isRtl = v.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
         final int startInset = isRtl ? safeDrawing.right : safeDrawing.left;
         mNextTurnContainer.setPaddingRelative(startInset, mNextTurnContainer.getPaddingTop(),
-                                              mNextTurnContainer.getPaddingEnd(), mNextTurnContainer.getPaddingBottom());
+                                              mNextTurnContainer.getPaddingEnd(),
+                                              mNextTurnContainer.getPaddingBottom());
       }
       return windowInsets;
     });
