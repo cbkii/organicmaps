@@ -1,64 +1,56 @@
 package app.organicmaps.incar;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.content.SharedPreferences;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
 public class InCarDrivingViewModePolicyTest
 {
-  private SharedPreferences mPrefs;
-
-  @Before
-  public void setUp()
-  {
-    mPrefs =
-        RuntimeEnvironment.getApplication().getSharedPreferences("test_prefs", android.content.Context.MODE_PRIVATE);
-    mPrefs.edit().clear().apply();
-  }
-
   // --- Migration from legacy keys ---
 
   @Test
   public void migrationAutoTrueYieldsAutomatic()
   {
-    mPrefs.edit().putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, true).apply();
+    final SharedPreferences prefs = mock(SharedPreferences.class);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)).thenReturn(true);
+
     assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.AUTOMATIC,
-                 InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
+                 InCarDrivingViewModePolicy.migrateFromLegacy(prefs));
   }
 
   @Test
   public void migrationAutoFalseShowButtonTrueYieldsManual()
   {
-    mPrefs.edit()
-        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)
-        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, true)
-        .apply();
+    final SharedPreferences prefs = mock(SharedPreferences.class);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)).thenReturn(false);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, true)).thenReturn(true);
+
     assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.MANUAL,
-                 InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
+                 InCarDrivingViewModePolicy.migrateFromLegacy(prefs));
   }
 
   @Test
   public void migrationAutoFalseShowButtonFalseYieldsOff()
   {
-    mPrefs.edit()
-        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)
-        .putBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, false)
-        .apply();
-    assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.OFF, InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
+    final SharedPreferences prefs = mock(SharedPreferences.class);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)).thenReturn(false);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, true)).thenReturn(false);
+
+    assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.OFF, InCarDrivingViewModePolicy.migrateFromLegacy(prefs));
   }
 
   @Test
   public void migrationDefaultsToManualWhenNoLegacyKeys()
   {
-    // No legacy keys set — default show_button=true, auto=false → MANUAL
+    final SharedPreferences prefs = mock(SharedPreferences.class);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_AUTO_DRIVING_VIEW, false)).thenReturn(false);
+    when(prefs.getBoolean(InCarDrivingViewModePolicy.LEGACY_KEY_SHOW_BUTTON, true)).thenReturn(true);
+
     assertEquals(InCarDrivingViewModePolicy.DrivingViewMode.MANUAL,
-                 InCarDrivingViewModePolicy.migrateFromLegacy(mPrefs));
+                 InCarDrivingViewModePolicy.migrateFromLegacy(prefs));
   }
 
   // --- Preference value roundtrip ---
