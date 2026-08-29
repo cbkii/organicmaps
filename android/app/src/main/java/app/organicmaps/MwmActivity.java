@@ -52,6 +52,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.api.Const;
 import app.organicmaps.base.BaseMwmFragmentActivity;
 import app.organicmaps.bookmarks.BookmarkCategoriesActivity;
@@ -61,6 +62,9 @@ import app.organicmaps.editor.EditorActivity;
 import app.organicmaps.editor.FeatureCategoryActivity;
 import app.organicmaps.editor.OsmLoginActivity;
 import app.organicmaps.help.HelpActivity;
+import app.organicmaps.incar.InCarBackPolicy;
+import app.organicmaps.incar.InCarRouterPolicy;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.intent.IntentProcessor;
 import app.organicmaps.location.TrackRecordingService;
@@ -147,6 +151,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private static final String MAIN_MENU_ID = "MAIN_MENU_BOTTOM_SHEET";
   private static final String LAYERS_MENU_ID = "LAYERS_MENU_BOTTOM_SHEET";
+  private static final String ADVANCED_MENU_ID = "ADVANCED_MENU_BOTTOM_SHEET";
 
   private static final String POWER_SAVE_DISCLAIMER_SHOWN = "POWER_SAVE_DISCLAIMER_SHOWN";
 
@@ -245,7 +250,22 @@ public class MwmActivity extends BaseMwmFragmentActivity
     else if (RoutingController.get().isNavigating())
       restoreRoutingUI(MapButtonsController.LayoutMode.navigation);
     else if (RoutingController.get().hasSavedRoute())
-      RoutingController.get().restoreRoute();
+    {
+      if (BuildConfig.IS_IN_CAR)
+      {
+        final Router restoreRouter =
+            InCarRouterPolicy.routerForNewDestination(InCarSettingsStore.isWalkingSessionActive(this));
+        RoutingController.get().restoreRoute(restoreRouter);
+      }
+      else
+        RoutingController.get().restoreRoute();
+    }
+    else if (BuildConfig.IS_IN_CAR)
+    {
+      // A walking session only has authority while a walking route is active/restorable. Do not let a
+      // process-death residue turn the next ordinary InCar destination into a pedestrian route.
+      InCarSettingsStore.setWalkingSessionActive(this, false);
+    }
     if (mSearchPageViewModel.getSearchEnabled().getValue() == null && mSearchPageViewModel.isSearchPersistedActive())
     {
       mSearchPageViewModel.setSearchPageLastState(mSearchPageViewModel.getPersistedSheetState());
@@ -779,7 +799,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       showBottomSheet(MAIN_MENU_ID);
     }
     case help -> showHelp();
-    case trackRecordingStatus -> toggleTrackRecordingPP();
+    case trackRecordingStatus -> onTrackRecordingOptionSelected();
     }
   }
 
@@ -826,6 +846,14 @@ public class MwmActivity extends BaseMwmFragmentActivity
     return true;
   }
 
+  private boolean closeInCarRouteEditor()
+  {
+    if (!BuildConfig.IS_IN_CAR)
+      return false;
+    final Fragment fragment = getSupportFragmentManager().findFragmentByTag(RoutingPlanFragment.TAG);
+    return fragment instanceof RoutingPlanFragment plan && plan.closeInCarRouteEditor();
+  }
+
   /**
    * @return False if the position chooser was already closed, true otherwise
    */
@@ -849,6 +877,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     closeBottomSheet(LAYERS_MENU_ID);
     closeBottomSheet(MAIN_MENU_ID);
+    closeBottomSheet(ADVANCED_MENU_ID);
     forceCloseSearchFragment();
     closePlacePage();
   }
@@ -866,7 +895,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
 
     MapObject startPoint = MwmApplication.from(this).getLocationHelper().getMyPosition();
-    RoutingController.get().prepare(startPoint, endPoint);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final boolean walkingActive = InCarSettingsStore.isWalkingSessionActive(this);
+      final Router inCarRouter = InCarRouterPolicy.routerForNewDestination(walkingActive);
+      RoutingController.get().prepare(startPoint, endPoint, inCarRouter);
+    }
+    else
+    {
+      RoutingController.get().prepare(startPoint, endPoint);
+    }
   }
 
   private void initOnmapDownloader()
@@ -1067,9 +1105,18 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public boolean handleBackPress()
   {
     final RoutingController routingController = RoutingController.get();
-    return (closeBottomSheet(MAIN_MENU_ID) || closeBottomSheet(LAYERS_MENU_ID) || collapseNavMenu() || closePlacePage()
-            || closePositionChooser() || closeSearchFragment() || routingController.resetToPlanningStateIfNavigating()
-            || routingController.cancel());
+    if (closeBottomSheet(MAIN_MENU_ID) || closeBottomSheet(LAYERS_MENU_ID) || closeBottomSheet(ADVANCED_MENU_ID)
+        || collapseNavMenu() || closePlacePage() || closePositionChooser() || closeSearchFragment()
+        || closeInCarRouteEditor())
+      return true;
+
+    // InCar active navigation has a dedicated visible End control. Once transient UI is closed,
+    // Back is intentionally consumed here instead of falling through to reset/cancel routing.
+    if (BuildConfig.IS_IN_CAR
+        && InCarBackPolicy.shouldBlockBackFromCancellingNavigation(routingController.isNavigating()))
+      return true;
+
+    return routingController.resetToPlanningStateIfNavigating() || routingController.cancel();
   }
 
   @Override
@@ -1308,6 +1355,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mMapButtonsViewModel.setLayoutMode(MapButtonsController.LayoutMode.regular);
     refreshLightStatusBar();
     Utils.keepScreenOn(Config.isKeepScreenOnEnabled(), getWindow());
+    // InCar: ending any navigation (including walking last-mile) returns to Vehicle authority.
+    if (BuildConfig.IS_IN_CAR)
+      InCarSettingsStore.setWalkingSessionActive(this, false);
   }
 
   private void restoreRoutingUI(@NonNull MapButtonsController.LayoutMode layoutMode)
@@ -1349,6 +1399,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     closeFloatingToolbarsAndPanels();
     mMapButtonsViewModel.setLayoutMode(MapButtonsController.LayoutMode.regular);
     refreshLightStatusBar();
+    // InCar: cancelling a walking route preview also returns to Vehicle authority.
+    if (BuildConfig.IS_IN_CAR)
+      InCarSettingsStore.setWalkingSessionActive(this, false);
   }
 
   @Override
@@ -2049,6 +2102,29 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                         this::onAddPlaceOptionSelected));
       items.add(new MenuBottomSheetItem(R.string.download_maps, R.drawable.ic_download, getDownloadMapsCounter(),
                                         this::onDownloadMapsOptionSelected));
+
+      if (BuildConfig.IS_IN_CAR)
+      {
+        // Keep the primary automotive menu task-oriented and stable. These entries reuse the existing
+        // bookmark/layer/settings/share authorities rather than introducing InCar-specific copies.
+        items.add(new MenuBottomSheetItem(R.string.bookmarks, R.drawable.ic_bookmarks_and_tracks, () -> {
+          closeFloatingPanels();
+          showBookmarks();
+        }));
+        items.add(new MenuBottomSheetItem(R.string.layers_title, R.drawable.ic_layers, () -> {
+          closeFloatingPanels();
+          showBottomSheet(LAYERS_MENU_ID);
+        }));
+        items.add(new MenuBottomSheetItem(R.string.settings, R.drawable.ic_settings, this::onSettingsOptionSelected));
+        items.add(new MenuBottomSheetItem(R.string.share_my_location, R.drawable.ic_share,
+                                          this::onShareLocationOptionSelected));
+        items.add(new MenuBottomSheetItem(R.string.in_car_advanced_menu_title, R.drawable.ic_settings, () -> {
+          closeBottomSheet(MAIN_MENU_ID);
+          showBottomSheet(ADVANCED_MENU_ID);
+        }));
+        return items;
+      }
+
       mDonatesUrl = Utils.getDonateUrl(getApplicationContext());
       if (!TextUtils.isEmpty(mDonatesUrl))
         items.add(new MenuBottomSheetItem(R.string.donate, R.drawable.ic_donate, this::onDonateOptionSelected));
@@ -2057,6 +2133,21 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                         this::onTrackRecordingOptionSelected));
       items.add(new MenuBottomSheetItem(R.string.share_my_location, R.drawable.ic_share,
                                         this::onShareLocationOptionSelected));
+      return items;
+    }
+    if (id.equals(ADVANCED_MENU_ID))
+    {
+      ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
+      if (BuildConfig.IS_IN_CAR)
+      {
+        final int trackRecordingTitle = TrackRecorder.nativeIsTrackRecordingEnabled() ? R.string.track_recording_title
+                                                                                      : R.string.start_track_recording;
+        items.add(new MenuBottomSheetItem(trackRecordingTitle, R.drawable.ic_track_recording_off, -1,
+                                          this::onTrackRecordingOptionSelected));
+      }
+      mDonatesUrl = Utils.getDonateUrl(getApplicationContext());
+      if (!TextUtils.isEmpty(mDonatesUrl))
+        items.add(new MenuBottomSheetItem(R.string.donate, R.drawable.ic_donate, this::onDonateOptionSelected));
       return items;
     }
     return null;

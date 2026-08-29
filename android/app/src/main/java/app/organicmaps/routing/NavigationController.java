@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.lifecycle.ViewModelProvider;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsViewModel;
@@ -70,11 +71,11 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     mOnSettingsClickListener = onSettingsClickListener;
     mOnVoiceSettingsClickListener = onVoiceSettingsClickListener;
 
-    // Top frame
+    // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
     mTopFrame.addOnLayoutChangeListener(
         (v, l, t, r, b, ol, ot, or, ob) -> mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight()));
-    View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
+    final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
 
@@ -85,7 +86,6 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     mNextStreet = mStreetFrame.findViewById(R.id.street);
 
     mLanesView = mTopFrame.findViewById(R.id.lanes);
-
     mSpeedLimit = mTopFrame.findViewById(R.id.nav_speed_limit);
 
     // Blank rectangle below the navbar that hides menu content behind it.
@@ -97,12 +97,22 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     ViewCompat.setOnApplyWindowInsetsListener(mTopFrame, (v, windowInsets) -> {
       final Insets safeDrawing = windowInsets.getInsets(WindowInsetUtils.TYPE_SAFE_DRAWING);
-      // Pad the start edge (LTR: left, RTL: right) so the next-turn container clears side
-      // cutouts and system bars regardless of layout direction.
-      final boolean isRtl = v.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
-      final int startInset = isRtl ? safeDrawing.right : safeDrawing.left;
-      mNextTurnContainer.setPaddingRelative(startInset, mNextTurnContainer.getPaddingTop(),
-                                            mNextTurnContainer.getPaddingEnd(), mNextTurnContainer.getPaddingBottom());
+      if (BuildConfig.IS_IN_CAR)
+      {
+        // The InCar manoeuvre cluster is deliberately physical-right for the RHD product. Protect
+        // that physical edge from the TS18/SystemUI inset; never let locale direction mirror it.
+        mNextTurnContainer.setPadding(mNextTurnContainer.getPaddingLeft(), mNextTurnContainer.getPaddingTop(),
+                                      safeDrawing.right, mNextTurnContainer.getPaddingBottom());
+      }
+      else
+      {
+        // Normal Android keeps locale-relative start-edge behaviour.
+        final boolean isRtl = v.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+        final int startInset = isRtl ? safeDrawing.right : safeDrawing.left;
+        mNextTurnContainer.setPaddingRelative(startInset, mNextTurnContainer.getPaddingTop(),
+                                              mNextTurnContainer.getPaddingEnd(),
+                                              mNextTurnContainer.getPaddingBottom());
+      }
       return windowInsets;
     });
 
@@ -181,7 +191,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updateStreetView(@NonNull RoutingInfo info)
   {
-    boolean hasStreet = !TextUtils.isEmpty(info.nextStreet);
+    final boolean hasStreet = !TextUtils.isEmpty(info.nextStreet);
     // Sic: don't use UiUtils.showIf() here because View.GONE breaks layout
     // https://github.com/organicmaps/organicmaps/issues/3732
     UiUtils.visibleIf(hasStreet, mStreetFrame);
@@ -290,10 +300,12 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   @Override
   public void onStopClicked()
   {
+    // Reuse the established navigation cancellation authority for both normal Android and the
+    // fixed InCar End Navigation button supplied by the resource overlay.
     RoutingController.get().cancel();
   }
 
-  private void updateSpeedLimit(@NonNull final RoutingInfo info)
+  private void updateSpeedLimit(@NonNull RoutingInfo info)
   {
     final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
     final boolean speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();

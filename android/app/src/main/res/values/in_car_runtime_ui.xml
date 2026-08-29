@@ -28,4 +28,6 @@
 
   <string name="in_car_go_from">GO\nFROM</string>
   <string name="in_car_go_to">GO\nTO</string>
+  <string name="in_car_walk_to">Walk to</string>
+  <string name="in_car_return_to_driving">Return to Driving</string>
 </resources>

@@ -48,14 +48,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   private static final long SEARCH_DEBOUNCE_MS = 200L;
   private static final long NO_ACTIVE_SEARCH = Long.MIN_VALUE;
 
-  private enum DestinationAction
-  {
-    SEARCH,
-    SAVED_PLACE,
-    CURRENT_LOCATION,
-    CLEAR
-  }
-
   private static final class SavedPlaceChoice
   {
     @NonNull
@@ -81,7 +73,6 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
   {
     super.onCreatePreferences(bundle, rootKey);
 
-    bindStartCollapsed();
     bindAction(InCarQuickDestinationsStore.Action.FUEL);
     bindAction(InCarQuickDestinationsStore.Action.CHARGING);
     bindAction(InCarQuickDestinationsStore.Action.PARKING);
@@ -92,20 +83,8 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     bindAction(InCarQuickDestinationsStore.Action.RECENT_1);
     bindAction(InCarQuickDestinationsStore.Action.RECENT_2);
 
-    bindDestinationConfig(R.string.pref_in_car_quick_home_config, R.string.in_car_quick_home, true);
-    bindDestinationConfig(R.string.pref_in_car_quick_work_config, R.string.in_car_quick_work, false);
-  }
-
-  private void bindStartCollapsed()
-  {
-    final Preference preference = findPreference(InCarQuickDestinationsStore.startCollapsedPreferenceKey());
-    if (!(preference instanceof TwoStatePreference toggle))
-      return;
-    toggle.setChecked(InCarQuickDestinationsStore.startCollapsed(requireContext()));
-    toggle.setOnPreferenceChangeListener((ignored, newValue) -> {
-      InCarQuickDestinationsStore.setStartCollapsed(requireContext(), (boolean) newValue);
-      return true;
-    });
+    bindDestinationConfig(R.string.pref_in_car_quick_home_config, true);
+    bindDestinationConfig(R.string.pref_in_car_quick_work_config, false);
   }
 
   private void bindAction(@NonNull InCarQuickDestinationsStore.Action action)
@@ -121,7 +100,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     });
   }
 
-  private void bindDestinationConfig(int keyRes, int labelRes, boolean home)
+  private void bindDestinationConfig(int keyRes, boolean home)
   {
     final Preference preference = findPreference(getString(keyRes));
     if (preference == null)
@@ -130,72 +109,16 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     updateDestinationSummary(preference, home ? InCarQuickDestinationsStore.getHome(requireContext())
                                               : InCarQuickDestinationsStore.getWork(requireContext()));
     preference.setOnPreferenceClickListener(pref -> {
-      showDestinationDialog(pref, labelRes, home);
+      showDestinationEditor(pref, home);
       return true;
     });
   }
 
-  private void showDestinationDialog(@NonNull Preference preference, int labelRes, boolean home)
-  {
-    final InCarQuickDestination current = home ? InCarQuickDestinationsStore.getHome(requireContext())
-                                               : InCarQuickDestinationsStore.getWork(requireContext());
-    final List<String> labels = new ArrayList<>();
-    final List<DestinationAction> actions = new ArrayList<>();
-    labels.add(getString(R.string.in_car_quick_search_destination));
-    actions.add(DestinationAction.SEARCH);
-    labels.add(getString(R.string.in_car_quick_saved_places));
-    actions.add(DestinationAction.SAVED_PLACE);
-    labels.add(getString(R.string.in_car_quick_use_current_location));
-    actions.add(DestinationAction.CURRENT_LOCATION);
-    if (current != null)
-    {
-      labels.add(getString(R.string.in_car_quick_clear_destination));
-      actions.add(DestinationAction.CLEAR);
-    }
-
-    final InCarChoiceAdapter adapter = new InCarChoiceAdapter(requireContext(), labels);
-    final AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                                   .setTitle(labelRes)
-                                   .setAdapter(adapter,
-                                               (ignored, which) -> {
-                                                 if (which < 0 || which >= actions.size())
-                                                   return;
-                                                 switch (actions.get(which))
-                                                 {
-                                                 case SEARCH -> showDestinationSearchDialog(preference, home);
-                                                 case SAVED_PLACE -> showSavedPlacesDialog(preference, home);
-                                                 case CURRENT_LOCATION ->
-                                                   saveCurrentLocation(preference, labelRes, home);
-                                                 case CLEAR ->
-                                                 {
-                                                   saveDestination(home, null);
-                                                   updateDestinationSummary(preference, null);
-                                                 }
-                                                 }
-                                               })
-                                   .create();
-    dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(requireActivity(), dialog));
-    dialog.show();
-  }
-
-  private void saveCurrentLocation(@NonNull Preference preference, int labelRes, boolean home)
-  {
-    final Location location = MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
-    final InCarQuickDestination destination = InCarQuickDestination.fromLocation(getString(labelRes), location);
-    if (destination == null)
-    {
-      Toast.makeText(requireContext(), R.string.in_car_quick_current_location_unavailable, Toast.LENGTH_SHORT).show();
-      return;
-    }
-    saveDestination(home, destination);
-    updateDestinationSummary(preference, destination);
-  }
-
   /**
-   * Uses the normal Organic Maps SearchEngine call shape and the normal SearchAdapter rows/suggestions.
-   * The only InCar-specific behaviour here is that selecting a result persists it as Home or Work.
+   * One-level destination editor. Search is immediately available and Saved Places, Current Location
+   * and Clear are direct actions on the same surface instead of being hidden behind a chooser dialog.
    */
-  private void showDestinationSearchDialog(@NonNull Preference preference, boolean home)
+  private void showDestinationEditor(@NonNull Preference preference, boolean home)
   {
     final LinearLayout root = new LinearLayout(requireContext());
     root.setOrientation(LinearLayout.VERTICAL);
@@ -208,6 +131,31 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     query.setMinHeight(dp(56));
     root.addView(
         query, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+    final LinearLayout shortcutBar = new LinearLayout(requireContext());
+    shortcutBar.setOrientation(LinearLayout.HORIZONTAL);
+    shortcutBar.setPadding(0, dp(4), 0, dp(4));
+
+    final android.widget.Button savedPlacesBtn = new android.widget.Button(requireContext());
+    savedPlacesBtn.setText(R.string.in_car_quick_saved_places);
+    savedPlacesBtn.setAllCaps(false);
+    shortcutBar.addView(savedPlacesBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+    final android.widget.Button currentLocationBtn = new android.widget.Button(requireContext());
+    currentLocationBtn.setText(R.string.in_car_quick_use_current_location);
+    currentLocationBtn.setAllCaps(false);
+    shortcutBar.addView(currentLocationBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    root.addView(shortcutBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                                            ViewGroup.LayoutParams.WRAP_CONTENT));
+
+    final InCarQuickDestination currentDest = home ? InCarQuickDestinationsStore.getHome(requireContext())
+                                                   : InCarQuickDestinationsStore.getWork(requireContext());
+    final android.widget.Button clearBtn = new android.widget.Button(requireContext());
+    clearBtn.setText(R.string.in_car_quick_clear_destination);
+    clearBtn.setAllCaps(false);
+    clearBtn.setVisibility(currentDest != null ? View.VISIBLE : View.GONE);
+    root.addView(clearBtn, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                                         ViewGroup.LayoutParams.WRAP_CONTENT));
 
     final FrameLayout content = new FrameLayout(requireContext());
     final LinearLayout.LayoutParams contentParams =
@@ -237,6 +185,18 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
                                                             ViewGroup.LayoutParams.MATCH_PARENT));
 
     final AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(root).create();
+    savedPlacesBtn.setOnClickListener(v -> showSavedPlacesDialog(preference, home));
+    currentLocationBtn.setOnClickListener(v -> {
+      final int labelRes = home ? R.string.in_car_quick_home : R.string.in_car_quick_work;
+      saveCurrentLocation(preference, labelRes, home);
+      dialog.dismiss();
+    });
+    clearBtn.setOnClickListener(v -> {
+      saveDestination(home, null);
+      updateDestinationSummary(preference, null);
+      dialog.dismiss();
+    });
+
     final boolean[] suggestionChange = {false};
     final boolean[] categoryQuery = {false};
     final SearchAdapter adapter = new SearchAdapter(this, new SearchAdapter.Listener() {
@@ -336,6 +296,19 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     });
 
     dialog.show();
+  }
+
+  private void saveCurrentLocation(@NonNull Preference preference, int labelRes, boolean home)
+  {
+    final Location location = MwmApplication.from(requireContext()).getLocationHelper().getSavedLocation();
+    final InCarQuickDestination destination = InCarQuickDestination.fromLocation(getString(labelRes), location);
+    if (destination == null)
+    {
+      Toast.makeText(requireContext(), R.string.in_car_quick_current_location_unavailable, Toast.LENGTH_SHORT).show();
+      return;
+    }
+    saveDestination(home, destination);
+    updateDestinationSummary(preference, destination);
   }
 
   private void runStandardInteractiveSearch(@NonNull String text, boolean isCategory, @NonNull long[] activeTimestamp,

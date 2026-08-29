@@ -221,7 +221,11 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     ROUTE_AVOID_UNPAVED,
     TRACK_RECORDING_SAVE,
     TRACK_RECORDING_DELETE,
-    MORE
+    MORE,
+    /** InCar only: build a Pedestrian route to this place (activates the walking last-mile session). */
+    WALK_TO,
+    /** InCar only: leave the walking last-mile session and rebuild this destination as Vehicle. */
+    RETURN_TO_DRIVING
   }
 
   public interface PlacePageButtonClickListener

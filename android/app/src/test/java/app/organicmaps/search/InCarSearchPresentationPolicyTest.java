@@ -8,6 +8,31 @@ import org.junit.Test;
 
 public class InCarSearchPresentationPolicyTest
 {
+  // --- Open/closed two-state (InCar only has these two stable states) ---
+
+  @Test
+  public void searchIsOpenWhenEnabled()
+  {
+    assertTrue(InCarSearchPresentationPolicy.isOpen(true));
+  }
+
+  @Test
+  public void searchIsClosedWhenDisabled()
+  {
+    assertTrue(InCarSearchPresentationPolicy.isClosed(false));
+  }
+
+  @Test
+  public void openAndClosedAreMutuallyExclusive()
+  {
+    assertTrue(InCarSearchPresentationPolicy.isOpen(true));
+    assertFalse(InCarSearchPresentationPolicy.isClosed(true));
+    assertFalse(InCarSearchPresentationPolicy.isOpen(false));
+    assertTrue(InCarSearchPresentationPolicy.isClosed(false));
+  }
+
+  // --- Panel width ---
+
   @Test
   public void panelWidthUsesFractionWithinBounds()
   {
@@ -17,6 +42,8 @@ public class InCarSearchPresentationPolicyTest
     assertEquals(300, InCarSearchPresentationPolicy.panelWidthPx(300, 360, 512, 0.4f));
     assertEquals(512, InCarSearchPresentationPolicy.panelWidthPx(1920, 360, 512, 0.4f));
   }
+
+  // --- Nested scrolling ---
 
   @Test
   public void mapModeChangeInvalidatesNestedScrollingSnapshot()

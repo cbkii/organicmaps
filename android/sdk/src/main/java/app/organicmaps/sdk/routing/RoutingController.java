@@ -70,6 +70,8 @@ public class RoutingController
   private RouteMarkType mWaitingPoiPickType = null;
   private int mLastBuildProgress;
   private Router mLastRouterType;
+  @Nullable
+  private Router mRestoreRouterOverride;
   private boolean isPoiPickReplaceStop;
   private int mReplaceStopIndex = -1;
   private boolean mHasContainerSavedState;
@@ -130,7 +132,17 @@ public class RoutingController
 
   private final RoutingLoadPointsListener mRoutingLoadPointsListener = success ->
   {
-    if (success)
+    if (!success)
+    {
+      mRestoreRouterOverride = null;
+      return;
+    }
+
+    final Router restoreRouter = mRestoreRouterOverride;
+    mRestoreRouterOverride = null;
+    if (restoreRouter != null)
+      prepare(getStartPoint(), getEndPoint(), restoreRouter);
+    else
       prepare(getStartPoint(), getEndPoint());
   };
 
@@ -291,6 +303,17 @@ public class RoutingController
 
   public void restoreRoute()
   {
+    restoreRoute(null);
+  }
+
+  /**
+   * Restores native route points and optionally forces the router used to rebuild them. This keeps
+   * product-specific routing policy at the caller while preserving the generic restore behaviour
+   * for existing SDK clients.
+   */
+  public void restoreRoute(@Nullable Router routerOverride)
+  {
+    mRestoreRouterOverride = routerOverride;
     Framework.nativeLoadRoutePoints();
   }
 
@@ -324,7 +347,9 @@ public class RoutingController
   {
     setState(State.NONE);
     setBuildState(BuildState.NONE);
-    prepare(getStartPoint(), getEndPoint());
+    // A rebuild should preserve the user's current router. Re-running getBest() here can silently
+    // change mode after a driving-option edit or other route mutation.
+    prepare(getStartPoint(), getEndPoint(), mLastRouterType);
   }
 
   public void prepare(@Nullable MapObject startPoint, @Nullable MapObject endPoint)
@@ -371,6 +396,7 @@ public class RoutingController
 
     Framework.nativeFollowRoute();
   }
+
   public void replaceStop(@NonNull MapObject mapObject)
   {
     RouteMarkType type = mWaitingPoiPickType != null ? mWaitingPoiPickType : RouteMarkType.Intermediate;
@@ -826,6 +852,7 @@ public class RoutingController
     checkAndBuildRoute();
     return true;
   }
+
   private static void replaceRoutePoint(@NonNull RouteMarkType type, @NonNull MapObject point, int replaceStopIndex)
   {
     Pair<String, String> description = getDescriptionForPoint(point);

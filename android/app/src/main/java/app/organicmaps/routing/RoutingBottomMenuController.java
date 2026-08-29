@@ -22,6 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.sdk.Framework;
@@ -214,6 +215,14 @@ final class RoutingBottomMenuController
     mTransitRecyclerView.setNestedScrollingEnabled(false);
     mTransitRecyclerView.addItemDecoration(mTransitViewDecorator);
     mTransitRecyclerView.setAdapter(mTransitAdapter);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Keep the existing summary/header visible; only the walking-oriented chart/list and route-save
+      // affordance are removed. The previous PR hid the whole header, including the useful ETA/distance.
+      UiUtils.hide(mAltitudeChart, mAltitudeDifference, mTransitTime, mTimeRuler, mTransitRecyclerView, mSaveButton);
+      UiUtils.show(mAltitudeChartFrame);
+      setManageRouteEditing(false);
+    }
   }
 
   private void openSearchForRoutePick()
@@ -226,6 +235,20 @@ final class RoutingBottomMenuController
     mVisibilityChangedCallback = callback;
   }
 
+  void setManageRouteEditing(boolean editing)
+  {
+    if (mManageRouteController == null)
+      return;
+    mManageRouteController.setEditing(editing);
+    refreshManageRoute();
+    notifyVisibilityChanged();
+  }
+
+  boolean isManageRouteEditing()
+  {
+    return mManageRouteController != null && mManageRouteController.isEditing();
+  }
+
   private void notifyVisibilityChanged()
   {
     if (mVisibilityChangedCallback != null)
@@ -234,6 +257,16 @@ final class RoutingBottomMenuController
 
   void showAltitudeChartAndRoutingDetails()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      UiUtils.show(mAltitudeChartFrame);
+      UiUtils.hide(mError, mAltitudeChart, mAltitudeDifference, mTransitTime, mTimeRuler, mTransitRecyclerView,
+                   mSaveButton);
+      showRoutingDetails();
+      refreshManageRoute();
+      notifyVisibilityChanged();
+      return;
+    }
     UiUtils.hide(mError, mAltitudeChart, mTimeElevationLine);
 
     if (!RoutingController.get().isVehicleRouterType() && !RoutingController.get().isRulerRouterType())
@@ -275,11 +308,11 @@ final class RoutingBottomMenuController
   {
     refreshManageRoute();
     updateSaveButton();
-    View transit_time = mAltitudeChartFrame.findViewById(R.id.transit_time);
+    View transitTime = mAltitudeChartFrame.findViewById(R.id.transit_time);
     hideAltitudeChartAndRoutingDetails();
     UiUtils.hide(mError, mTimeElevationLine, mTimeVehicle);
     setStartState(StartState.DISABLED);
-    UiUtils.show(transit_time, mTransitRecyclerView);
+    UiUtils.show(transitTime, mTransitRecyclerView);
     mTransitAdapter.setItems(info.getTransitSteps());
 
     TextView totalTimeView = mAltitudeChartFrame.findViewById(R.id.total_time);
@@ -366,14 +399,24 @@ final class RoutingBottomMenuController
 
   void saveRoutingPanelState(@NonNull Bundle outState)
   {
-    outState.putBoolean(STATE_ALTITUDE_CHART_SHOWN, UiUtils.isVisible(mAltitudeChartFrame));
+    if (!BuildConfig.IS_IN_CAR)
+      outState.putBoolean(STATE_ALTITUDE_CHART_SHOWN, UiUtils.isVisible(mAltitudeChartFrame));
     if (UiUtils.isVisible(mError))
       outState.putString(STATE_ERROR, mError.getText().toString());
   }
 
   void restoreRoutingPanelState(@NonNull Bundle state)
   {
-    if (state.getBoolean(STATE_ALTITUDE_CHART_SHOWN))
+    if (BuildConfig.IS_IN_CAR)
+    {
+      setManageRouteEditing(false);
+      if (RoutingController.get().isBuilt())
+      {
+        setStartState(StartState.ENABLED);
+        showAltitudeChartAndRoutingDetails();
+      }
+    }
+    else if (state.getBoolean(STATE_ALTITUDE_CHART_SHOWN))
     {
       if (RoutingController.get().isTransitType())
       {
@@ -451,7 +494,6 @@ final class RoutingBottomMenuController
 
   @NonNull
   private static Spanned makeSpannedRoutingDetails(@NonNull Context context, @NonNull RoutingInfo routingInfo)
-
   {
     CharSequence time =
         Utils.formatRoutingTime(context, routingInfo.totalTimeInSeconds, R.dimen.text_size_routing_number);

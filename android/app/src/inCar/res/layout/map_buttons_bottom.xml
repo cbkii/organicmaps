@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:id="@+id/map_buttons_bottom"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content">
+
+  <androidx.constraintlayout.widget.ConstraintLayout
+    style="@style/MwmWidget.MapButton.Bottom"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_centerInParent="true"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- Retain required controller IDs, but Saved Places and Help are intentionally not persistent
+         InCar map chrome; Saved Places is in the automotive main menu. -->
+    <include
+      layout="@layout/map_buttons_help"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:visibility="gone" />
+
+    <include
+      layout="@layout/map_buttons_bookmarks_square"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:visibility="gone" />
+
+    <!-- Physical-right driver actions. Search stays adjacent to More/Menu, while Quick grows upward
+         above this row and zoom/recentre remain on the same right-edge interaction spine. -->
+    <include
+      layout="@layout/map_buttons_search_square"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginRight="@dimen/in_car_runtime_button_gap"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintRight_toLeftOf="@+id/menu_button" />
+
+    <include
+      layout="@layout/map_buttons_menu"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginRight="@dimen/margin_half"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintRight_toRightOf="parent" />
+  </androidx.constraintlayout.widget.ConstraintLayout>
+</RelativeLayout>

@@ -2,6 +2,7 @@
 <resources>
   <string name="pref_in_car_settings" translatable="false">pref_in_car_settings</string>
   <string name="pref_in_car_optimised_visuals" translatable="false">pref_in_car_optimised_visuals</string>
+  <string name="pref_in_car_driving_view_mode" translatable="false">InCarDrivingViewMode</string>
   <string name="pref_in_car_show_driving_view_button" translatable="false">pref_in_car_show_driving_view_button</string>
   <string name="pref_in_car_start_driving_view" translatable="false">pref_in_car_start_driving_view</string>
   <string name="pref_in_car_automatic_driving_view" translatable="false">pref_in_car_automatic_driving_view</string>
@@ -9,6 +10,11 @@
   <string name="pref_in_car_budget_rendering" translatable="false">pref_in_car_budget_rendering</string>
   <string name="pref_in_car_navigation_fallback_mode" translatable="false">pref_in_car_navigation_fallback_mode</string>
   <string name="pref_in_car_offline_navigation_voice_pack" translatable="false">pref_in_car_offline_navigation_voice_pack</string>
+  <string-array name="in_car_driving_view_mode_values" translatable="false">
+    <item>OFF</item>
+    <item>MANUAL</item>
+    <item>AUTOMATIC</item>
+  </string-array>
   <string-array name="in_car_navigation_fallback_mode_values" translatable="false">
     <item>off</item>
     <item>voice</item>
@@ -29,4 +35,5 @@
   <string name="pref_in_car_quick_enabled_work" translatable="false">InCarQuickEnabledWORK</string>
   <string name="pref_in_car_quick_enabled_recent_1" translatable="false">InCarQuickEnabledRECENT_1</string>
   <string name="pref_in_car_quick_enabled_recent_2" translatable="false">InCarQuickEnabledRECENT_2</string>
+  <string name="pref_in_car_show_track_recording_button" translatable="false">InCarShowTrackRecordingButton</string>
 </resources>

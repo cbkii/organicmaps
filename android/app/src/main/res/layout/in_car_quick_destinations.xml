@@ -11,9 +11,9 @@
     android:id="@+id/in_car_quick_destinations_container"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_gravity="bottom|start"
+    android:layout_gravity="bottom|right"
     android:clipChildren="false"
     android:clipToPadding="false"
-    android:gravity="bottom|start"
+    android:gravity="bottom|right"
     android:orientation="vertical" />
 </FrameLayout>

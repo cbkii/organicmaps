@@ -3,6 +3,7 @@ package app.organicmaps.maplayer
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import app.organicmaps.BuildConfig
 import app.organicmaps.sdk.location.TrackRecorder
 
 class MapButtonsViewModel : ViewModel() {
@@ -55,7 +56,11 @@ class MapButtonsViewModel : ViewModel() {
     }
 
     fun setTopButtonsMarginTop(margin: Int) {
-        _topButtonsMarginTop.value = margin
+        // The InCar track control is part of the fixed zoom rail, not the legacy top status slot.
+        // Preserve its explicit gap from +/- instead of translating it below navigation headers.
+        if (!BuildConfig.IS_IN_CAR) {
+            _topButtonsMarginTop.value = margin
+        }
     }
 
     fun setLayoutMode(layoutMode: MapButtonsController.LayoutMode) {
