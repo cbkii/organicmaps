@@ -8,7 +8,7 @@ on:
     branches: [ master ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   repository-scope:
@@ -22,3 +22,45 @@ jobs:
 
       - name: Verify Android-only repository scope
         run: python3 tools/ci/verify_android_repo_scope.py
+
+  pr22-finish:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 22 && github.event.pull_request.head.ref == 'copilot/rework-incar-ui-navigation'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          ref: copilot/rework-incar-ui-navigation
+          fetch-depth: 0
+
+      - name: Install clang-format 22
+        shell: bash
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm.sh -o /tmp/llvm.sh
+          sudo bash /tmp/llvm.sh 22
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 100
+          clang-format --version
+
+      - name: Apply guarded final integration
+        run: python3 tools/ci/pr22_finish.py
+
+      - name: Format and push
+        shell: bash
+        run: |
+          tools/unix/clang-format.sh >/tmp/clang-format.diff 2>&1 || format_rc=$?
+          if [ "${format_rc:-0}" -gt 1 ]; then
+            cat /tmp/clang-format.diff
+            exit "$format_rc"
+          fi
+          git diff --check
+          git status --short
+          git diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Finish InCar automotive UX integration"
+          git push origin HEAD:copilot/rework-incar-ui-navigation
