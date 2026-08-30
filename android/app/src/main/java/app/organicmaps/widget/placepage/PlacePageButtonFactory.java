@@ -6,6 +6,7 @@ import android.content.Context;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.util.ThemeUtils;
@@ -46,13 +47,13 @@ public class PlacePageButtonFactory
       }
       case ROUTE_FROM ->
       {
-        titleId = R.string.p2p_from_here;
-        yield R.drawable.ic_route_from;
+        titleId = BuildConfig.IS_IN_CAR ? R.string.in_car_go_from : R.string.p2p_from_here;
+        yield BuildConfig.IS_IN_CAR ? R.drawable.ic_in_car_go_from : R.drawable.ic_route_from;
       }
       case ROUTE_TO ->
       {
-        titleId = R.string.p2p_to_here;
-        yield R.drawable.ic_route_to;
+        titleId = BuildConfig.IS_IN_CAR ? R.string.in_car_go_to : R.string.p2p_to_here;
+        yield BuildConfig.IS_IN_CAR ? R.drawable.ic_in_car_go_to : R.drawable.ic_route_to;
       }
       case ROUTE_ADD ->
       {
