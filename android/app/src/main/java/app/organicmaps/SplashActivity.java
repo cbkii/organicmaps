@@ -20,6 +20,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 import app.organicmaps.downloader.DownloaderActivity;
+import app.organicmaps.incar.InCarStartupCameraPolicy;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationUtils;
@@ -165,6 +166,11 @@ public class SplashActivity extends AppCompatActivity
     // Re-use original intent with the known safe subset of flags to retain security permissions.
     // https://github.com/organicmaps/organicmaps/issues/6944
     final Intent intent = Objects.requireNonNull(getIntent());
+
+    // Mark only a genuine launcher request. MwmActivity is singleTask, so this marker also distinguishes a warm
+    // launcher re-entry from Settings/permission/configuration resumes without recentering on every onResume().
+    if (BuildConfig.IS_IN_CAR && InCarStartupCameraPolicy.isPlainLauncherIntent(intent))
+      intent.putExtra(InCarStartupCameraPolicy.EXTRA_STARTUP_CAMERA_PENDING, true);
 
     if (isManageSpaceActivity(intent))
     {
