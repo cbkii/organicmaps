@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify critical direct-display InCar colour contrast from Android resources.
+"""Verify critical direct-display InCar colour contrast and layout contracts.
 
 Requires Python 3.10 or newer and uses only the standard library.
 """
@@ -11,6 +11,8 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
+
+from verify_in_car_layout_contracts import LayoutContractError, verify_layout_contracts
 
 
 class PaletteError(RuntimeError):
@@ -251,11 +253,12 @@ def main(argv: list[str]) -> int:
     repo_root = args.repo_root.resolve()
 
     try:
+        failures = verify_layout_contracts(repo_root)
         day_palette = build_palette(repo_root, night=False)
         night_palette = build_palette(repo_root, night=True)
-        failures = verify_palette("day", day_palette, DAY_CHECKS)
+        failures.extend(verify_palette("day", day_palette, DAY_CHECKS))
         failures.extend(verify_palette("night", night_palette, NIGHT_CHECKS))
-    except PaletteError as exc:
+    except (LayoutContractError, PaletteError) as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 2
 
