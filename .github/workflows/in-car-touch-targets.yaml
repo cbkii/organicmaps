@@ -1,0 +1,43 @@
+name: InCar Touch Target Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/in-car-touch-targets.yaml'
+      - 'android/app/src/inCar/**'
+      - 'android/app/src/main/java/app/organicmaps/incar/**'
+      - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
+      - 'android/app/src/main/res/layout/routing_bottom_sheet.xml'
+      - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
+      - 'android/app/src/main/res/values/in_car_*.xml'
+      - 'android/tools/verify_in_car_touch_targets.py'
+  pull_request:
+    paths:
+      - '.github/workflows/in-car-touch-targets.yaml'
+      - 'android/app/src/inCar/**'
+      - 'android/app/src/main/java/app/organicmaps/incar/**'
+      - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
+      - 'android/app/src/main/res/layout/routing_bottom_sheet.xml'
+      - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
+      - 'android/app/src/main/res/values/in_car_*.xml'
+      - 'android/tools/verify_in_car_touch_targets.py'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify InCar automotive touch targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Verify touch-target contract
+        shell: bash
+        run: |
+          python3 -m py_compile android/tools/verify_in_car_touch_targets.py
+          python3 -X dev -W default android/tools/verify_in_car_touch_targets.py
