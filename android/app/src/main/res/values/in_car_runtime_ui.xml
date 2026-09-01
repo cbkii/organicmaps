@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <!-- Direct-display interaction contract: prefer 76dp; never compact below ceil(90% * 76dp) = 69dp. -->
+  <dimen name="in_car_touch_target_preferred">76dp</dimen>
+  <dimen name="in_car_touch_target_min">69dp</dimen>
+
   <!-- Shared direct-display sizing tokens. Keep map, Quick and place-page controls aligned. -->
-  <dimen name="in_car_runtime_button_size">56dp</dimen>
+  <dimen name="in_car_runtime_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
   <dimen name="in_car_runtime_button_gap">6dp</dimen>
 
@@ -10,26 +14,26 @@
   <integer name="in_car_quick_pressed_feedback_alpha">82</integer>
   <integer name="in_car_quick_focused_feedback_alpha">61</integer>
 
-  <!-- A 28dp radius gives rendered Quick search markers a 56dp in-car tap target. -->
-  <dimen name="in_car_quick_marker_touch_radius">28dp</dimen>
+  <!-- A 38dp radius gives rendered Quick search markers a 76dp in-car tap target. -->
+  <dimen name="in_car_quick_marker_touch_radius">38dp</dimen>
 
   <!-- Place-page actions are deliberately larger and visibly separated for direct-display use. -->
   <dimen name="in_car_place_page_action_width">108dp</dimen>
-  <dimen name="in_car_place_page_action_min_height">76dp</dimen>
+  <dimen name="in_car_place_page_action_min_height">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_place_page_action_icon_size">32dp</dimen>
   <dimen name="in_car_place_page_action_gap_half">8dp</dimen>
 
   <!-- Legacy per-action tokens retained for source compatibility with older branches. -->
   <dimen name="in_car_place_page_route_width">104dp</dimen>
-  <dimen name="in_car_place_page_save_width">62dp</dimen>
-  <dimen name="in_car_place_page_other_width">72dp</dimen>
+  <dimen name="in_car_place_page_save_width">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="in_car_place_page_other_width">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_place_page_route_icon_size">32dp</dimen>
   <dimen name="in_car_place_page_save_icon_size">24dp</dimen>
   <dimen name="in_car_place_page_other_icon_size">28dp</dimen>
   <dimen name="in_car_place_page_route_text_gap">4dp</dimen>
 
-  <!-- Runtime rows stay easy to hit without allowing low-information rows to become oversized. -->
-  <dimen name="in_car_runtime_row_min_height">64dp</dimen>
+  <!-- Runtime rows keep the preferred automotive touch height; 80dp remains the content cap. -->
+  <dimen name="in_car_runtime_row_min_height">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_row_max_height">80dp</dimen>
 
   <string name="in_car_go_from">Go From</string>
