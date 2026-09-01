@@ -255,8 +255,13 @@ route_entry_once() {
     tail -n 300 "${system_logcat_file}" >&2
     fail "Crash evidence was found during landscape route entry."
   fi
+  if ! grep -E 'RoutingController.*prepare \(p2p\)' "${system_logcat_file}" >/dev/null; then
+    tail -n 300 "${system_logcat_file}" >&2
+    fail "Landscape route-entry deep link did not reach RoutingController.prepare(p2p)."
+  fi
 
-  printf 'Landscape route entry remained alive as pid %s for %s seconds.\n' "${after_pid}" "${wait_seconds}"
+  printf 'Landscape route entry reached RoutingController and remained alive as pid %s for %s seconds.\n' \
+    "${after_pid}" "${wait_seconds}"
 }
 
 launch_once 1
@@ -277,7 +282,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo '- Cold launches: `2`'
     printf -- '- Alive window per launch: `%s seconds`\n' "${wait_seconds}"
     if [[ "${route_entry_smoke}" == "true" ]]; then
-      echo '- Landscape route-entry deep link: `passed without process replacement`'
+      echo '- Landscape route-entry deep link: `reached RoutingController and passed without process replacement`'
     else
       echo '- Landscape route-entry deep link: `skipped`'
     fi
