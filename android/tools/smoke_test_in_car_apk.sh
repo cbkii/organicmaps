@@ -37,13 +37,13 @@ restore_rotation_settings() {
     return
   fi
 
-  if [[ -z "${original_accelerometer_rotation}" || "${original_accelerometer_rotation}" == "null" ]]; then
+  if [[ "${original_accelerometer_rotation}" == "null" ]]; then
     adb shell settings delete system accelerometer_rotation >/dev/null 2>&1 || true
   else
     adb shell settings put system accelerometer_rotation "${original_accelerometer_rotation}" >/dev/null 2>&1 || true
   fi
 
-  if [[ -z "${original_user_rotation}" || "${original_user_rotation}" == "null" ]]; then
+  if [[ "${original_user_rotation}" == "null" ]]; then
     adb shell settings delete system user_rotation >/dev/null 2>&1 || true
   else
     adb shell settings put system user_rotation "${original_user_rotation}" >/dev/null 2>&1 || true
@@ -147,6 +147,66 @@ has_crash_evidence() {
     grep -E 'tombstoned.*received crash request' "${system_logcat_file}" >/dev/null
 }
 
+capture_rotation_settings() {
+  local capture_log="${proof_dir}/rotation-settings-capture.txt"
+  : > "${capture_log}" || fail "Unable to create rotation-settings evidence log."
+
+  if ! original_accelerometer_rotation="$(adb shell settings get system accelerometer_rotation 2>> "${capture_log}")"; then
+    fail "Unable to read accelerometer_rotation before changing emulator rotation."
+  fi
+  if ! original_user_rotation="$(adb shell settings get system user_rotation 2>> "${capture_log}")"; then
+    fail "Unable to read user_rotation before changing emulator rotation."
+  fi
+
+  original_accelerometer_rotation="$(printf '%s' "${original_accelerometer_rotation}" | tr -d '\r[:space:]')"
+  original_user_rotation="$(printf '%s' "${original_user_rotation}" | tr -d '\r[:space:]')"
+  [[ -n "${original_accelerometer_rotation}" ]] ||
+    fail "accelerometer_rotation returned an empty value; refusing to mutate rotation settings."
+  [[ -n "${original_user_rotation}" ]] ||
+    fail "user_rotation returned an empty value; refusing to mutate rotation settings."
+
+  {
+    printf 'accelerometer_rotation=%s\n' "${original_accelerometer_rotation}"
+    printf 'user_rotation=%s\n' "${original_user_rotation}"
+  } >> "${capture_log}"
+  rotation_settings_captured="true"
+}
+
+wait_for_landscape() {
+  local evidence_file="$1"
+  local attempt=1
+  local window_dump
+  local activity_dump
+  local current_size
+  local width
+  local height
+
+  : > "${evidence_file}" || return 1
+  while [[ "${attempt}" -le 10 ]]; do
+    if window_dump="$(adb shell dumpsys window displays 2>/dev/null | tr -d '\r')"; then
+      printf '%s\n' "${window_dump}" > "${evidence_file}"
+      current_size="$(printf '%s\n' "${window_dump}" | sed -n 's/.*cur=\([0-9][0-9]*\)x\([0-9][0-9]*\).*/\1 \2/p' | head -n1)"
+      if [[ -n "${current_size}" ]]; then
+        read -r width height <<< "${current_size}"
+        if [[ "${width}" -gt "${height}" ]]; then
+          return 0
+        fi
+      fi
+    fi
+
+    if activity_dump="$(adb shell dumpsys activity activities 2>/dev/null | tr -d '\r')"; then
+      printf '\n===== activity fallback =====\n%s\n' "${activity_dump}" >> "${evidence_file}"
+      if printf '%s\n' "${activity_dump}" | grep -Eq 'Configuration=.*[[:space:]]land([[:space:]}]|$)'; then
+        return 0
+      fi
+    fi
+
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  return 1
+}
+
 launch_once() {
   local attempt="$1"
   local launch_log="${proof_dir}/launch-${attempt}.txt"
@@ -201,21 +261,22 @@ route_entry_once() {
   local app_logcat_file="${proof_dir}/logcat-app-route-entry.txt"
   local system_logcat_file="${proof_dir}/logcat-system-route-entry.txt"
   local window_log="${proof_dir}/route-entry-window.txt"
+  local orientation_log="${proof_dir}/route-entry-orientation.txt"
   local before_pid
   local after_pid
 
   before_pid="$(adb shell pidof -s "${package_name}" 2>/dev/null | tr -d '\r[:space:]')"
   [[ -n "${before_pid}" ]] || fail "${package_name} was not alive before route-entry smoke."
 
-  original_accelerometer_rotation="$(adb shell settings get system accelerometer_rotation 2>/dev/null | tr -d '\r[:space:]')"
-  original_user_rotation="$(adb shell settings get system user_rotation 2>/dev/null | tr -d '\r[:space:]')"
-  rotation_settings_captured="true"
-
+  capture_rotation_settings
   adb shell settings put system accelerometer_rotation 0 ||
     fail "Unable to disable emulator auto-rotation for landscape route-entry smoke."
   adb shell settings put system user_rotation 1 ||
     fail "Unable to request landscape rotation for route-entry smoke."
-  sleep 2
+  if ! wait_for_landscape "${orientation_log}"; then
+    sed -n '1,240p' "${orientation_log}" >&2
+    fail "Emulator did not enter landscape before route-entry smoke."
+  fi
 
   adb logcat -c || fail "Unable to clear logcat before route-entry smoke."
   if ! adb shell "am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d '${route_uri}' -p '${package_name}'" \
