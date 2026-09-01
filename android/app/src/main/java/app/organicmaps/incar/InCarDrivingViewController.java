@@ -72,7 +72,6 @@ public final class InCarDrivingViewController implements LocationListener
   private LocationHealth mLocationHealth = LocationHealth.UNAVAILABLE;
   @Nullable
   private Location mLastLocation;
-  private boolean mLaunchHandled;
   private boolean mNativeStateApplied;
   private boolean mLastNativeEnabled;
   private boolean mLastNativeAutoReturn;
@@ -84,8 +83,9 @@ public final class InCarDrivingViewController implements LocationListener
     mContext = context.getApplicationContext();
     mLocationHelper = locationHelper;
 
-    // Migrate the old boolean settings once and project the canonical mode back onto the established
-    // keys consumed below. This keeps one runtime authority instead of introducing another state machine.
+    // Migrate the old Driving View settings once and project the canonical mode back onto the established
+    // Driving View keys consumed below. Normal launcher follow remains independently owned by
+    // AutoStartLocationFollowAndRotate.
     InCarDrivingViewModePolicy.getMode(mContext);
 
     final boolean restored = InCarSettingsStore.restoredDrivingViewEnabled(mContext);
@@ -151,17 +151,6 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onMapActivityResumed()
   {
-    if (!mLaunchHandled)
-    {
-      mLaunchHandled = true;
-      if (!mPolicy.isEnabled() && InCarSettingsStore.startDrivingViewOnLaunch(mContext))
-      {
-        final InCarDrivingViewPolicy.Transition transition = mPolicy.enableFromLaunch();
-        persistPolicy();
-        applyTransition(transition, true /* recenter */);
-      }
-    }
-
     if (mLifecycle.isAttached())
       mWasNavigating = RoutingController.get().isNavigating();
     syncNativeState(false /* recenter */);
