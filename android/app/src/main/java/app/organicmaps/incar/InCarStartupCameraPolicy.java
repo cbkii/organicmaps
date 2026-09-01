@@ -8,6 +8,8 @@ import app.organicmaps.MwmActivity;
 /** Pure decisions for the one-shot InCar launcher camera. */
 public final class InCarStartupCameraPolicy
 {
+  public static final String EXTRA_STARTUP_CAMERA_PENDING = "app.organicmaps.incar.STARTUP_CAMERA_PENDING";
+
   private InCarStartupCameraPolicy() {}
 
   /**
