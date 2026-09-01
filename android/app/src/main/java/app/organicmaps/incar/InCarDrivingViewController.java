@@ -1,6 +1,8 @@
 package app.organicmaps.incar;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.location.Location;
 import android.os.SystemClock;
 import androidx.annotation.NonNull;
@@ -9,12 +11,18 @@ import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import app.organicmaps.MwmActivity;
+import app.organicmaps.MwmApplication;
 import app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode;
+import app.organicmaps.incar.InCarStartupCameraStore.Anchor;
+import app.organicmaps.incar.InCarStartupCameraStore.StartupMapView;
+import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationListener;
 import app.organicmaps.sdk.location.LocationState;
 import app.organicmaps.sdk.routing.RoutingController;
+import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.log.Logger;
 
 /**
@@ -66,6 +74,8 @@ public final class InCarDrivingViewController implements LocationListener
   @NonNull
   private final InCarDrivingViewLifecycle mLifecycle = new InCarDrivingViewLifecycle();
   @NonNull
+  private final InCarStartupCameraStore mStartupCameraStore;
+  @NonNull
   private final MutableLiveData<Snapshot> mSnapshot = new MutableLiveData<>();
 
   @NonNull
@@ -82,6 +92,7 @@ public final class InCarDrivingViewController implements LocationListener
   {
     mContext = context.getApplicationContext();
     mLocationHelper = locationHelper;
+    mStartupCameraStore = new InCarStartupCameraStore(mContext);
 
     // Migrate the old Driving View settings once and project the canonical mode back onto the established
     // Driving View keys consumed below. Normal launcher follow remains independently owned by
@@ -129,6 +140,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onMapActivityStopped()
   {
+    mStartupCameraStore.flush();
     applyLifecycleTransition(mLifecycle.onMapActivityStopped());
   }
 
@@ -136,6 +148,7 @@ public final class InCarDrivingViewController implements LocationListener
   public void onRenderingCreated()
   {
     mLifecycle.onRenderingCreated();
+    applyPendingStartupCamera();
     syncNativeState(false /* recenter */);
     publishSnapshot();
   }
@@ -153,6 +166,7 @@ public final class InCarDrivingViewController implements LocationListener
   {
     if (mLifecycle.isAttached())
       mWasNavigating = RoutingController.get().isNavigating();
+    applyPendingStartupCamera();
     syncNativeState(false /* recenter */);
     publishSnapshot();
   }
@@ -236,6 +250,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onLocationUpdated(@NonNull Location location)
   {
+    mStartupCameraStore.recordAcceptedLocation(location);
     mLastLocation = location;
     mLocationHealth = LocationHealth.CURRENT;
 
@@ -280,6 +295,61 @@ public final class InCarDrivingViewController implements LocationListener
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
                           InCarSettingsStore.automaticDrivingViewEnabled(mContext));
     publishSnapshot();
+  }
+
+  /**
+   * Applies a launcher camera request exactly once, after the renderer can accept it. The marker originates in
+   * SplashActivity, so returning from Settings or another transient Activity never looks like a new launcher entry.
+   */
+  private void applyPendingStartupCamera()
+  {
+    if (!mLifecycle.canAccessNativeState() || !Map.isEngineCreated())
+      return;
+
+    final Activity topActivity = MwmApplication.from(mContext).getTopActivity();
+    if (!(topActivity instanceof MwmActivity mapActivity))
+      return;
+
+    final Intent intent = mapActivity.getIntent();
+    if (intent == null || !intent.getBooleanExtra(InCarStartupCameraPolicy.EXTRA_STARTUP_CAMERA_PENDING, false))
+      return;
+
+    // Consume before any camera work so duplicate rendering/resume callbacks are idempotent.
+    intent.removeExtra(InCarStartupCameraPolicy.EXTRA_STARTUP_CAMERA_PENDING);
+
+    final boolean autoFollow = Config.isAutoStartLocationFollowAndRotateEnabled();
+    if (!autoFollow)
+    {
+      Logger.i(TAG, "InCar startup camera: preserve last map view because launch follow is disabled");
+      return;
+    }
+
+    final RoutingController routing = RoutingController.get();
+    final boolean routingAuthority =
+        InCarStartupCameraPolicy.hasRoutingCameraAuthority(routing.isPlanning(), routing.isBuilding(),
+                                                          routing.isNavigating(), routing.hasSavedRoute(),
+                                                          Framework.nativeIsRoutingActive());
+    if (!InCarStartupCameraPolicy.shouldRequestFollowAndRotate(autoFollow, routingAuthority))
+    {
+      Logger.i(TAG, "InCar startup camera: routing retains camera authority");
+      return;
+    }
+
+    final StartupMapView startupMapView = mStartupCameraStore.getStartupMapView();
+    final boolean hasLiveLocation = mLocationHelper.getSavedLocation() != null;
+    final Anchor anchor = hasLiveLocation ? null : mStartupCameraStore.readAnchor();
+    if (InCarStartupCameraPolicy.shouldShowCachedAnchor(autoFollow, startupMapView, anchor != null, routingAuthority))
+    {
+      InCarStartupCameraNative.showLocalArea(anchor.latitude, anchor.longitude,
+                                             InCarStartupCameraStore.DRIVING_AREA_RADIUS_METERS);
+      Logger.i(TAG, "InCar startup camera: cached driving area");
+    }
+    else
+    {
+      Logger.i(TAG, "InCar startup camera: no cached pre-fix framing applied");
+    }
+
+    InCarStartupCameraNative.requestFollowAndRotate(startupMapView == StartupMapView.DRIVING_AREA);
   }
 
   private void reconcileModeWithSession()
