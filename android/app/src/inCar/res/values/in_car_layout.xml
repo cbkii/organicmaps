@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <dimen name="place_page_buttons_height">76dp</dimen>
-  <dimen name="in_car_place_page_action_bottom_padding">16dp</dimen>
+  <dimen name="place_page_buttons_height">96dp</dimen>
+  <dimen name="in_car_place_page_action_bottom_padding">12dp</dimen>
 </resources>
