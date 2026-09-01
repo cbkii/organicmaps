@@ -7,6 +7,7 @@ Usage: smoke_test_in_car_apk.sh --apk PATH --package PACKAGE [options]
 Options:
   --wait-seconds SECONDS   Time each launched process must remain alive (default: 10)
   --proof-dir PATH         Directory for install, launch and logcat evidence
+  --skip-route-entry       Skip the landscape route-plan entry regression smoke
 USAGE
 }
 
@@ -25,6 +26,30 @@ apk=""
 package_name=""
 wait_seconds="10"
 proof_dir=""
+route_entry_smoke="true"
+original_accelerometer_rotation=""
+original_user_rotation=""
+rotation_settings_captured="false"
+
+restore_rotation_settings() {
+  if [[ "${rotation_settings_captured}" != "true" ]]; then
+    return
+  fi
+
+  if [[ -z "${original_accelerometer_rotation}" || "${original_accelerometer_rotation}" == "null" ]]; then
+    adb shell settings delete system accelerometer_rotation >/dev/null 2>&1 || true
+  else
+    adb shell settings put system accelerometer_rotation "${original_accelerometer_rotation}" >/dev/null 2>&1 || true
+  fi
+
+  if [[ -z "${original_user_rotation}" || "${original_user_rotation}" == "null" ]]; then
+    adb shell settings delete system user_rotation >/dev/null 2>&1 || true
+  else
+    adb shell settings put system user_rotation "${original_user_rotation}" >/dev/null 2>&1 || true
+  fi
+}
+
+trap restore_rotation_settings EXIT
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +72,10 @@ while [[ $# -gt 0 ]]; do
       require_value "$1" "${2:-}"
       proof_dir="$2"
       shift 2
+      ;;
+    --skip-route-entry)
+      route_entry_smoke="false"
+      shift
       ;;
     -h|--help)
       usage
@@ -107,6 +136,16 @@ component="$(
 [[ "${component}" == "${package_name}/"* ]] ||
   fail "Unable to resolve the launcher activity for ${package_name}: ${component:-not found}"
 
+has_crash_evidence() {
+  local app_logcat_file="$1"
+  local system_logcat_file="$2"
+
+  grep -E \
+      'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:' \
+      "${app_logcat_file}" >/dev/null ||
+    grep -E 'tombstoned.*received crash request' "${system_logcat_file}" >/dev/null
+}
+
 launch_once() {
   local attempt="$1"
   local launch_log="${proof_dir}/launch-${attempt}.txt"
@@ -147,10 +186,7 @@ launch_once() {
       fail "Unable to preserve fallback logcat after launch ${attempt}."
   fi
 
-  if grep -E \
-      'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:' \
-      "${app_logcat_file}" >/dev/null ||
-     grep -E 'tombstoned.*received crash request' "${system_logcat_file}" >/dev/null; then
+  if has_crash_evidence "${app_logcat_file}" "${system_logcat_file}"; then
     tail -n 300 "${system_logcat_file}" >&2
     fail "Crash evidence was found after launch ${attempt}."
   fi
@@ -158,8 +194,76 @@ launch_once() {
   printf 'Launch %s remained alive as pid %s for %s seconds.\n' "${attempt}" "${pid}" "${wait_seconds}"
 }
 
+route_entry_once() {
+  local route_uri='om://route?sll=-35.2809,149.1300&saddr=Start&dll=-35.2819,149.1320&daddr=Destination&type=vehicle'
+  local route_launch_log="${proof_dir}/route-entry-launch.txt"
+  local app_logcat_file="${proof_dir}/logcat-app-route-entry.txt"
+  local system_logcat_file="${proof_dir}/logcat-system-route-entry.txt"
+  local window_log="${proof_dir}/route-entry-window.txt"
+  local before_pid
+  local after_pid
+
+  before_pid="$(adb shell pidof -s "${package_name}" 2>/dev/null | tr -d '\r[:space:]')"
+  [[ -n "${before_pid}" ]] || fail "${package_name} was not alive before route-entry smoke."
+
+  original_accelerometer_rotation="$(adb shell settings get system accelerometer_rotation 2>/dev/null | tr -d '\r[:space:]')"
+  original_user_rotation="$(adb shell settings get system user_rotation 2>/dev/null | tr -d '\r[:space:]')"
+  rotation_settings_captured="true"
+
+  adb shell settings put system accelerometer_rotation 0 ||
+    fail "Unable to disable emulator auto-rotation for landscape route-entry smoke."
+  adb shell settings put system user_rotation 1 ||
+    fail "Unable to request landscape rotation for route-entry smoke."
+  sleep 2
+
+  adb logcat -c || fail "Unable to clear logcat before route-entry smoke."
+  if ! adb shell "am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d '${route_uri}' -p '${package_name}'" \
+      > "${route_launch_log}" 2>&1; then
+    sed -n '1,200p' "${route_launch_log}" >&2
+    adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 || true
+    fail "Unable to start the InCar route deep link."
+  fi
+
+  if grep -Eq '^Error:|^Error type [0-9]+|^Exception' "${route_launch_log}" ||
+     ! grep -Eq '^Status:[[:space:]]+ok$' "${route_launch_log}"; then
+    sed -n '1,200p' "${route_launch_log}" >&2
+    adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 || true
+    fail "Route-entry deep link did not report a successful launch."
+  fi
+
+  sleep "${wait_seconds}"
+  after_pid="$(adb shell pidof -s "${package_name}" 2>/dev/null | tr -d '\r[:space:]')"
+  adb logcat -d -v threadtime > "${system_logcat_file}" 2>&1 ||
+    fail "Unable to capture system logcat after route-entry smoke."
+  if [[ -n "${after_pid}" ]] && ! adb logcat -d -v threadtime --pid="${after_pid}" > "${app_logcat_file}" 2>&1; then
+    cp "${system_logcat_file}" "${app_logcat_file}" ||
+      fail "Unable to preserve fallback route-entry logcat."
+  elif [[ -z "${after_pid}" ]]; then
+    cp "${system_logcat_file}" "${app_logcat_file}" || true
+  fi
+  adb shell dumpsys window windows > "${window_log}" 2>&1 || true
+
+  if [[ -z "${after_pid}" ]]; then
+    tail -n 300 "${system_logcat_file}" >&2
+    fail "${package_name} died during landscape route entry."
+  fi
+  if [[ "${after_pid}" != "${before_pid}" ]]; then
+    tail -n 300 "${system_logcat_file}" >&2
+    fail "${package_name} changed pid during landscape route entry (${before_pid} -> ${after_pid})."
+  fi
+  if has_crash_evidence "${app_logcat_file}" "${system_logcat_file}"; then
+    tail -n 300 "${system_logcat_file}" >&2
+    fail "Crash evidence was found during landscape route entry."
+  fi
+
+  printf 'Landscape route entry remained alive as pid %s for %s seconds.\n' "${after_pid}" "${wait_seconds}"
+}
+
 launch_once 1
 launch_once 2
+if [[ "${route_entry_smoke}" == "true" ]]; then
+  route_entry_once
+fi
 adb shell am force-stop "${package_name}" ||
   fail "Unable to force-stop ${package_name} after the smoke test."
 
@@ -172,6 +276,11 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo '- Clean app-data state with location pre-granted for deterministic relaunch: `yes`'
     echo '- Cold launches: `2`'
     printf -- '- Alive window per launch: `%s seconds`\n' "${wait_seconds}"
+    if [[ "${route_entry_smoke}" == "true" ]]; then
+      echo '- Landscape route-entry deep link: `passed without process replacement`'
+    else
+      echo '- Landscape route-entry deep link: `skipped`'
+    fi
     echo '- Fatal Java/native crash and tombstone scan: `passed`'
   } >> "${GITHUB_STEP_SUMMARY}"
 fi
