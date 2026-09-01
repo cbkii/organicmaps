@@ -10,18 +10,60 @@ from pathlib import Path
 
 ANDROID_ID = "{http://schemas.android.com/apk/res/android}id"
 
-# These IDs are dereferenced as required views by RoutingPlanFragment before any
-# optional InCar presentation logic can safely continue. Every routing bottom-sheet
-# qualifier selected by Android must therefore provide the same structural contract.
-ROUTING_BOTTOM_SHEET_REQUIRED_IDS = (
-    "routing_root",
-    "routing_bottom_container",
-    "routing_sheet_frame",
-    "routing_bottom_buttons",
-    "routing_btn_search",
-    "routing_btn_bookmarks",
-    "btn__save",
-    "routing_btn_more",
+# Each entry models views that current routing code treats as structurally
+# mandatory. Android may independently select any matching layout qualifier for
+# an included layout, so validate every variant of each owning resource rather
+# than comparing only the top-level routing_bottom_sheet files.
+LAYOUT_CONTRACTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "routing_bottom_sheet.xml",
+        (
+            "routing_root",
+            "routing_bottom_container",
+            "routing_sheet_frame",
+            "routing_bottom_buttons",
+            "routing_btn_search",
+            "routing_btn_bookmarks",
+            "btn__save",
+            "routing_btn_more",
+        ),
+    ),
+    (
+        "route_plan_line.xml",
+        (
+            "routing_types_frame",
+            "manage_route_panel",
+            "error",
+        ),
+    ),
+    (
+        "routing_plan_header.xml",
+        (
+            "route_type",
+            "back",
+        ),
+    ),
+    (
+        "routing_start_button.xml",
+        (
+            "start",
+        ),
+    ),
+    (
+        "altitude_chart_panel.xml",
+        (
+            "time_vehicle",
+            "time_elevation_line",
+            "time",
+            "altitude_difference",
+            "transit_time",
+            "time_ruler",
+            "driving_options_btn_img",
+            "driving_options_badge",
+            "altitude_chart",
+            "transit_recycler_view",
+        ),
+    ),
 )
 
 
@@ -64,17 +106,17 @@ def read_layout_ids(path: Path) -> set[str]:
     return ids
 
 
-def verify_routing_bottom_sheet_contract(repo_root: Path) -> list[str]:
+def verify_layout_contract(repo_root: Path, filename: str, required_ids: tuple[str, ...]) -> list[str]:
     res_root = repo_root / "android/app/src/main/res"
-    variants = sorted(res_root.glob("layout*/routing_bottom_sheet.xml"))
+    variants = sorted(res_root.glob(f"layout*/{filename}"))
     if not variants:
-        raise LayoutContractError(f"no routing_bottom_sheet.xml layouts found under {res_root}")
+        raise LayoutContractError(f"no {filename} layouts found under {res_root}")
 
     failures: list[str] = []
-    print("[routing-layout-contract]")
+    print(f"[{filename} contract]")
     for path in variants:
         ids = read_layout_ids(path)
-        missing = [view_id for view_id in ROUTING_BOTTOM_SHEET_REQUIRED_IDS if view_id not in ids]
+        missing = [view_id for view_id in required_ids if view_id not in ids]
         relative = path.relative_to(repo_root)
         if missing:
             print(f"FAIL {relative}: missing {', '.join(missing)}")
@@ -86,7 +128,10 @@ def verify_routing_bottom_sheet_contract(repo_root: Path) -> list[str]:
 
 
 def verify_layout_contracts(repo_root: Path) -> list[str]:
-    return verify_routing_bottom_sheet_contract(repo_root)
+    failures: list[str] = []
+    for filename, required_ids in LAYOUT_CONTRACTS:
+        failures.extend(verify_layout_contract(repo_root, filename, required_ids))
+    return failures
 
 
 def main(argv: list[str]) -> int:
