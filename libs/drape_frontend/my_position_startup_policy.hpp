@@ -28,4 +28,9 @@ inline MyPositionStartupModes ResolveMyPositionStartupModes(bool autoStartFollow
 
   return modes;
 }
+
+inline bool ShouldUseStartupDrivingAreaZoom(bool forceDrivingArea, int currentZoom, int pathologicalZoomThreshold)
+{
+  return forceDrivingArea || currentZoom < pathologicalZoomThreshold;
+}
 }  // namespace df
