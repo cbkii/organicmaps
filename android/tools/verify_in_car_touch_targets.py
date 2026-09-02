@@ -159,21 +159,41 @@ def verify_camera_control_rail(root: Path) -> None:
     overlay_layout = root / "android/app/src/main/res/layout/in_car_driving_overlay.xml"
     zoom_root = parse_xml(zoom_layout)
     id_attr = f"{{{ANDROID_NS}}}id"
-    child_ids = []
+
+    if zoom_root.attrib.get(id_attr) != "@+id/in_car_camera_controls_rail":
+        raise VerificationError(f"{zoom_layout}: camera controls must have a dedicated stable rail root")
+
+    direct_ids = []
     for child in zoom_root:
         raw_id = child.attrib.get(id_attr, "")
         if raw_id.startswith("@+id/"):
-            child_ids.append(raw_id.removeprefix("@+id/"))
+            direct_ids.append(raw_id.removeprefix("@+id/"))
         elif raw_id.startswith("@id/"):
-            child_ids.append(raw_id.removeprefix("@id/"))
-
-    expected_prefix = ["in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out"]
-    if child_ids[:3] != expected_prefix:
+            direct_ids.append(raw_id.removeprefix("@id/"))
+    if direct_ids[:2] != ["in_car_driving_view_button", "zoom_buttons_container"]:
         raise VerificationError(
-            f"{zoom_layout}: camera-control rail must begin Driving View, zoom in, zoom out; found {child_ids[:3]}"
+            f"{zoom_layout}: Driving View must sit directly above the independent +/- container; found {direct_ids[:2]}"
         )
 
-    for view_id in expected_prefix:
+    zoom_container = None
+    for element in zoom_root.iter():
+        if element.attrib.get(id_attr) in ("@+id/zoom_buttons_container", "@id/zoom_buttons_container"):
+            zoom_container = element
+            break
+    if zoom_container is None:
+        raise VerificationError(f"{zoom_layout}: missing independent zoom_buttons_container")
+
+    nested_zoom_ids = []
+    for child in zoom_container:
+        raw_id = child.attrib.get(id_attr, "")
+        if raw_id.startswith("@+id/"):
+            nested_zoom_ids.append(raw_id.removeprefix("@+id/"))
+        elif raw_id.startswith("@id/"):
+            nested_zoom_ids.append(raw_id.removeprefix("@id/"))
+    if nested_zoom_ids != ["nav_zoom_in", "nav_zoom_out"]:
+        raise VerificationError(f"{zoom_layout}: +/- visibility container must contain only zoom in/out")
+
+    for view_id in ("in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out"):
         require_layout_attr(
             zoom_layout,
             view_id,
