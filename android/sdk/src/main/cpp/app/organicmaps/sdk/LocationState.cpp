@@ -120,8 +120,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
     info.m_speed = speed;
 
   auto const drapeEngine = GetDrapeEngine();
-  bool const hasPendingStartupCamera =
-      drapeEngine != nullptr && g_startupCameraBridge.m_engine == drapeEngine.get();
+  bool const hasPendingStartupCamera = drapeEngine != nullptr && g_startupCameraBridge.m_engine == drapeEngine.get();
 
   // If launch happened before a live fix, frame the requested driving area immediately before the GPS message.
   // Both operations use the render thread's normal-priority queue, so follow-and-rotate inherits this sane scale.
@@ -149,8 +148,8 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingV
 }
 
 JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeShowLocalArea(JNIEnv * env, jclass clazz,
-                                                                                      jdouble lat, jdouble lon,
-                                                                                      jdouble radiusMeters)
+                                                                                       jdouble lat, jdouble lon,
+                                                                                       jdouble radiusMeters)
 {
   ShowLocalArea(lat, lon, radiusMeters);
 }
@@ -168,8 +167,7 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequest
   ResetStartupCameraBridge();
 
   auto const mode = drapeEngine->GetMyPositionMode();
-  bool const waitingForLocation =
-      mode == location::PendingPosition || mode == location::NotFollowNoPosition;
+  bool const waitingForLocation = mode == location::PendingPosition || mode == location::NotFollowNoPosition;
 
   // Reuse the established native camera transition only as a bounded launch bridge. When ordinary Driving View is
   // not enabled, it is disabled again after the first queued GPS update (or immediately when a position already
