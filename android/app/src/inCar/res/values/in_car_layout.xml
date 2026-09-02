@@ -2,4 +2,17 @@
 <resources>
   <dimen name="place_page_buttons_height">96dp</dimen>
   <dimen name="in_car_place_page_action_bottom_padding">12dp</dimen>
+
+  <!-- InCar must not fall back to mobile-sized touch targets when optimised visuals are disabled. -->
+  <dimen name="map_button_size">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="primary_button_min_height">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="menu_line_height">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="menu_list_item_height">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="nav_button_height">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="nav_street_height">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="routing_action_button_size">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="routing_toolbar_cell_height">@dimen/in_car_touch_target_preferred</dimen>
+
+  <!-- 76dp route actions plus 10dp top/bottom bar padding require a 96dp peek allowance. -->
+  <dimen name="routing_bottom_buttons_max_height">96dp</dimen>
 </resources>
