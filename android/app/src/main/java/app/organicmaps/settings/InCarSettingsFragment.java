@@ -65,7 +65,7 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     for (CharSequence entry : entries)
       labels.add(entry.toString());
 
-    final InCarChoiceAdapter adapter = new InCarChoiceAdapter(requireContext(), labels);
+    final InCarChoiceAdapter adapter = InCarChoiceAdapter.singleChoice(requireContext(), labels);
     final CharSequence title =
         listPreference.getDialogTitle() != null ? listPreference.getDialogTitle() : listPreference.getTitle();
     final AlertDialog dialog =
