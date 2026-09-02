@@ -30,6 +30,8 @@
     <item>Driving area (~10 km)</item>
     <item>Remember last map view</item>
   </string-array>
+  <string name="in_car_free_driving_auto_zoom_title">Free-driving auto zoom</string>
+  <string name="in_car_free_driving_auto_zoom_summary">Adjust map scale with vehicle speed while following your location at 10 km/h or faster.</string>
   <string name="in_car_driving_view_button">Driving View</string>
   <string name="in_car_driving_view_recenter">Return to Driving View</string>
 
