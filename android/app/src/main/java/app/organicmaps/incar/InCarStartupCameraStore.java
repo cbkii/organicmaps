@@ -191,8 +191,8 @@ public final class InCarStartupCameraStore
   {
     if (!persistedInSession)
       return true;
-    return nowElapsedRealtime >= lastWriteElapsedRealtime
-        && nowElapsedRealtime - lastWriteElapsedRealtime >= WRITE_INTERVAL_MS;
+    final long elapsedSinceWrite = nowElapsedRealtime - lastWriteElapsedRealtime;
+    return nowElapsedRealtime >= lastWriteElapsedRealtime && elapsedSinceWrite >= WRITE_INTERVAL_MS;
   }
 
   private void persist(@NonNull Anchor anchor, long nowElapsedRealtime)
