@@ -143,8 +143,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
     info.m_speed = speed;
 
   auto const drapeEngine = GetDrapeEngine();
-  bool hasPendingStartupCamera =
-      drapeEngine != nullptr && HasCurrentStartupCameraBridge(drapeEngine.get());
+  bool hasPendingStartupCamera = drapeEngine != nullptr && HasCurrentStartupCameraBridge(drapeEngine.get());
   if (!hasPendingStartupCamera && g_startupCameraBridge.m_engine != nullptr)
   {
     CancelStartupCameraBridge();
