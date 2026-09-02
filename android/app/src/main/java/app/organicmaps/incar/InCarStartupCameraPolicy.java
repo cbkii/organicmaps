@@ -32,12 +32,12 @@ public final class InCarStartupCameraPolicy
     return planning || building || navigating || hasSavedRoute || nativeRoutingActive;
   }
 
-  public static boolean shouldShowCachedAnchor(boolean autoFollowOnLaunch,
-                                               @NonNull InCarStartupCameraStore.StartupMapView startupMapView,
-                                               boolean hasAnchor, boolean routingCameraAuthority)
+  public static boolean shouldShowDrivingArea(boolean autoFollowOnLaunch,
+                                              @NonNull InCarStartupCameraStore.StartupMapView startupMapView,
+                                              boolean hasCameraAnchor, boolean routingCameraAuthority)
   {
-    return autoFollowOnLaunch && startupMapView == InCarStartupCameraStore.StartupMapView.DRIVING_AREA && hasAnchor
-        && !routingCameraAuthority;
+    return autoFollowOnLaunch && startupMapView == InCarStartupCameraStore.StartupMapView.DRIVING_AREA
+        && hasCameraAnchor && !routingCameraAuthority;
   }
 
   public static boolean shouldRequestFollowAndRotate(boolean autoFollowOnLaunch, boolean routingCameraAuthority)
