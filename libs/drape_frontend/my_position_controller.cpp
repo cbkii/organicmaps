@@ -275,9 +275,8 @@ void MyPositionController::Scrolled(m2::PointD const & distance)
 void MyPositionController::ResetRoutingNotFollowTimer(bool blockTimer)
 {
   RefreshFreeDrivingSettings();
-  if (driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView,
-                                       m_isInCarFreeDriving, m_autoStartFollowAndRotate, m_hasLocationSpeed,
-                                       m_locationSpeedMps))
+  if (driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView, m_isInCarFreeDriving,
+                                       m_autoStartFollowAndRotate, m_hasLocationSpeed, m_locationSpeedMps))
   {
     m_routingNotFollowTimer.Reset();
     m_blockRoutingNotFollowTimer = blockTimer;
@@ -295,8 +294,8 @@ void MyPositionController::ResetBlockAutoZoomTimer()
   RefreshFreeDrivingSettings();
   bool const freeDrivingAutoZoom = !m_isInRouting && !m_isDrivingView && m_isInCarFreeDriving &&
                                    m_enableFreeDrivingAutoZoom && m_autoStartFollowAndRotate;
-  bool const autoZoomActive = (m_isInRouting && m_enableAutoZoomInRouting) || (!m_isInRouting && m_isDrivingView) ||
-                              freeDrivingAutoZoom;
+  bool const autoZoomActive =
+      (m_isInRouting && m_enableAutoZoomInRouting) || (!m_isInRouting && m_isDrivingView) || freeDrivingAutoZoom;
   if (autoZoomActive)
   {
     m_needBlockAutoZoom = true;
@@ -558,7 +557,8 @@ void MyPositionController::LoseLocation()
 {
   m_hasLocationSpeed = false;
   m_locationSpeedMps = -1.0;
-  ResetRoutingNotFollowTimer();
+  if (!m_isInRouting && !m_isDrivingView)
+    ResetRoutingNotFollowTimer();
 
   if (m_mode == location::NotFollowNoPosition)
     return;
@@ -1008,13 +1008,12 @@ void MyPositionController::DeactivateRouting()
 void MyPositionController::CheckNotFollowRouting()
 {
   if (!m_blockRoutingNotFollowTimer &&
-      driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView,
-                                       m_isInCarFreeDriving, m_autoStartFollowAndRotate, m_hasLocationSpeed,
-                                       m_locationSpeedMps) &&
+      driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView, m_isInCarFreeDriving,
+                                       m_autoStartFollowAndRotate, m_hasLocationSpeed, m_locationSpeedMps) &&
       m_mode == location::NotFollow)
   {
     double const timeout = !m_isInRouting && !m_isDrivingView ? driving_policy::kFreeDrivingAutoReturnSeconds
-                                                               : kMaxNotFollowRoutingTimeSec;
+                                                              : kMaxNotFollowRoutingTimeSec;
     CHECK_ON_TIMEOUT(m_routingNotFollowNotifyId, timeout, CheckNotFollowRouting);
     if (m_routingNotFollowTimer.ElapsedSeconds() >= timeout)
     {
@@ -1048,7 +1047,8 @@ void MyPositionController::CheckUpdateLocation()
       m_autoScale2d = m_autoScale3d = kUnknownAutoZoom;
       m_hasLocationSpeed = false;
       m_locationSpeedMps = -1.0;
-      ResetRoutingNotFollowTimer();
+      if (!m_isInRouting && !m_isDrivingView)
+        ResetRoutingNotFollowTimer();
     }
   }
 }
