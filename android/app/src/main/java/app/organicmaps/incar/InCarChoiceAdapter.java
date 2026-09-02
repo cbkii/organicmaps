@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
+import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import app.organicmaps.R;
@@ -23,7 +24,18 @@ public final class InCarChoiceAdapter extends ArrayAdapter<String>
 
   public InCarChoiceAdapter(@NonNull Context context, @NonNull List<String> items)
   {
-    super(context, android.R.layout.simple_list_item_1, new ArrayList<>(items));
+    this(context, android.R.layout.simple_list_item_1, items);
+  }
+
+  @NonNull
+  public static InCarChoiceAdapter singleChoice(@NonNull Context context, @NonNull List<String> items)
+  {
+    return new InCarChoiceAdapter(context, android.R.layout.simple_list_item_single_choice, items);
+  }
+
+  private InCarChoiceAdapter(@NonNull Context context, @LayoutRes int layoutRes, @NonNull List<String> items)
+  {
+    super(context, layoutRes, new ArrayList<>(items));
   }
 
   @NonNull
