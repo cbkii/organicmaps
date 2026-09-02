@@ -55,8 +55,8 @@ public:
 
     bool IsDirectionValid() const { return !m_direction.IsAlmostZero(); }
 
-    /// \brief According to current implementation vectors |edge| and |m_direction| are almost collinear and
-    /// co-directional if the angle between them is less than 14 degrees.
+    /// \brief According to current implementation vectors |edge| and |m_direction|
+    /// are almost collinear and co-directional if the angle between them is less than 14 degrees.
     bool IsAlmostCodirectional(Edge const & edge) const;
 
     /// \returns the square of shortest distance from |m_point| to |edge| in mercator.
@@ -122,7 +122,7 @@ private:
                                                 std::shared_ptr<AStarProgress> const & progress,
                                                 std::vector<Segment> & subroute);
   RouterResultCode CalculateSubrouteLeapsOnlyMode(Checkpoints const & checkpoints, size_t subrouteIdx,
-                                                  RouterDelegate const & delegate,
+                                                  IndexGraphStarter & starter, RouterDelegate const & delegate,
                                                   std::shared_ptr<AStarProgress> const & progress,
                                                   std::vector<Segment> & subroute);
 
@@ -232,12 +232,9 @@ private:
 
   // Input route may contains 'leaps': shortcut edges from mwm border enter to exit.
   // ProcessLeaps replaces each leap with calculated route through mwm.
-  RouterResultCode ProcessLeapsJointsMode(std::vector<Segment> const & input, IndexGraphStarter & starter,
-                                          std::shared_ptr<AStarProgress> const & progress, RoutesCalculator & calculator,
-                                          RoutingResultT & routingResult);
   RouterResultCode ProcessLeapsJoints(std::vector<Segment> const & input, IndexGraphStarter & starter,
                                       std::shared_ptr<AStarProgress> const & progress, RoutesCalculator & calculator,
-                                      RoutingResultT & routingResult);
+                                      RoutingResultT & result);
 
   RouterResultCode RedressRoute(std::vector<Segment> const & segments, base::Cancellable const & cancellable,
                                 IndexGraphStarter & starter, Route & route);
@@ -246,7 +243,7 @@ private:
   bool AreMwmsNear(IndexGraphStarter const & starter) const;
   bool DoesTransitSectionExist(NumMwmId numMwmId);
 
-  RouterResultCode ConvertTransitResult(std::set<NumMwmId> const & mwmIds, RouterResultCode resultCode) const;
+  RouterResultCode ConvertTransitResult(std::set<NumMwmId> const & mwmIds, RouterResultCode resultCode);
 
   /// \brief Fills |speedcamProhibitedMwms| with mwms which are crossed by |segments|
   /// where speed cameras are prohibited.
