@@ -108,7 +108,10 @@ public final class InCarDrivingViewModePolicy
   {
     final boolean enabled = mode != DrivingViewMode.OFF;
     final boolean automatic = mode == DrivingViewMode.AUTOMATIC;
-    prefs.edit().putBoolean(LEGACY_KEY_SHOW_BUTTON, enabled).putBoolean(LEGACY_KEY_AUTO_DRIVING_VIEW, automatic).apply();
+    prefs.edit()
+        .putBoolean(LEGACY_KEY_SHOW_BUTTON, enabled)
+        .putBoolean(LEGACY_KEY_AUTO_DRIVING_VIEW, automatic)
+        .apply();
   }
 
   @NonNull
