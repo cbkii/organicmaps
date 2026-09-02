@@ -1,5 +1,6 @@
 #include "Framework.hpp"
 #include "map/gps_tracker.hpp"
+#include "routing/free_driving_road_snap_policy.hpp"
 
 #include "app/organicmaps/sdk/core/jni_helper.hpp"
 
@@ -92,5 +93,46 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingV
   auto const drapeEngine = g_framework->NativeFramework()->GetDrapeEngine();
   if (drapeEngine != nullptr)
     drapeEngine->SetDrivingView(enabled, autoReturn, recenter);
+}
+
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetFreeDrivingTracking(JNIEnv * env, jclass clazz,
+                                                                                            jboolean enabled,
+                                                                                            jint snapMode,
+                                                                                            jboolean offRoadOverride)
+{
+  if (!g_framework)
+    return;
+
+  auto * framework = g_framework->NativeFramework();
+  if (framework == nullptr)
+    return;
+
+  routing::free_driving_snap::SnapMode mode = routing::free_driving_snap::SnapMode::Auto;
+  switch (snapMode)
+  {
+  case static_cast<jint>(routing::free_driving_snap::SnapMode::Off):
+    mode = routing::free_driving_snap::SnapMode::Off;
+    break;
+  case static_cast<jint>(routing::free_driving_snap::SnapMode::Strong):
+    mode = routing::free_driving_snap::SnapMode::Strong;
+    break;
+  case static_cast<jint>(routing::free_driving_snap::SnapMode::Auto):
+  default: mode = routing::free_driving_snap::SnapMode::Auto; break;
+  }
+
+  framework->GetRoutingManager().SetFreeDrivingTracking(enabled, mode, offRoadOverride);
+}
+
+JNIEXPORT jint Java_app_organicmaps_sdk_location_LocationState_nativeGetFreeDrivingMatchState(JNIEnv * env,
+                                                                                              jclass clazz)
+{
+  if (!g_framework)
+    return static_cast<jint>(routing::free_driving_snap::MatchState::Disabled);
+
+  auto * framework = g_framework->NativeFramework();
+  if (framework == nullptr)
+    return static_cast<jint>(routing::free_driving_snap::MatchState::Disabled);
+
+  return static_cast<jint>(framework->GetRoutingManager().GetFreeDrivingMatchState());
 }
 }  // extern "C"
