@@ -7,6 +7,19 @@
   android:layout_height="wrap_content"
   android:orientation="vertical">
   <com.google.android.material.floatingactionbutton.FloatingActionButton
+    android:id="@+id/in_car_driving_view_button"
+    style="@style/MwmWidget.MapButton.Zoom"
+    android:layout_marginBottom="@dimen/in_car_map_zoom_gap"
+    android:contentDescription="@string/in_car_driving_view_button"
+    android:visibility="gone"
+    app:backgroundTint="@color/in_car_map_button_background"
+    app:borderWidth="0dp"
+    app:elevation="6dp"
+    app:fabCustomSize="@dimen/in_car_map_primary_button_size"
+    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
+    app:srcCompat="@drawable/ic_in_car_driving_view"
+    app:tint="@color/icon_tint" />
+  <com.google.android.material.floatingactionbutton.FloatingActionButton
     android:id="@+id/nav_zoom_in"
     style="@style/MwmWidget.MapButton.Zoom"
     android:layout_marginBottom="@dimen/in_car_map_zoom_gap"
