@@ -197,8 +197,7 @@ public final class InCarStartupCameraStore
 
   private void persist(@NonNull Anchor anchor, long nowElapsedRealtime)
   {
-    mPrefs
-        .edit()
+    mPrefs.edit()
         .putInt(KEY_ANCHOR_VERSION, CACHE_VERSION)
         .putLong(KEY_ANCHOR_LAT_BITS, Double.doubleToRawLongBits(anchor.latitude))
         .putLong(KEY_ANCHOR_LON_BITS, Double.doubleToRawLongBits(anchor.longitude))
