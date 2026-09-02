@@ -194,6 +194,8 @@ public final class InCarDrivingUi
     if (drivingView == null || zoomIn == null)
       return;
 
+    final Fragment resolvedOwner =
+        owner != null ? owner : findMapButtonsOwner(activity.getSupportFragmentManager(), drivingView);
     if (binding.drivingView != drivingView || binding.zoomIn != zoomIn)
     {
       clearDrivingViewButton(binding);
@@ -204,11 +206,30 @@ public final class InCarDrivingUi
           (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> syncDrivingViewButtonSize(binding);
       zoomIn.addOnLayoutChangeListener(binding.zoomSizeListener);
     }
-    if (owner != null)
-      binding.mapButtonsFragment = owner;
+    binding.mapButtonsFragment = resolvedOwner;
 
     syncDrivingViewButtonSize(binding);
     render(activity, binding, binding.controller.getSnapshot().getValue());
+  }
+
+  @Nullable
+  private static Fragment findMapButtonsOwner(@NonNull FragmentManager fragmentManager, @NonNull View drivingView)
+  {
+    for (Fragment fragment : fragmentManager.getFragments())
+    {
+      final View fragmentView = fragment.getView();
+      if (fragment instanceof MapButtonsController && fragmentView != null
+          && fragmentView.findViewById(R.id.in_car_driving_view_button) == drivingView)
+        return fragment;
+
+      if (fragment.isAdded())
+      {
+        final Fragment childOwner = findMapButtonsOwner(fragment.getChildFragmentManager(), drivingView);
+        if (childOwner != null)
+          return childOwner;
+      }
+    }
+    return null;
   }
 
   private static void clearDrivingViewButton(@NonNull Binding binding)
