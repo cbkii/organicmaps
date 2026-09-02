@@ -325,10 +325,9 @@ public final class InCarDrivingViewController implements LocationListener
     }
 
     final RoutingController routing = RoutingController.get();
-    final boolean routingAuthority =
-        InCarStartupCameraPolicy.hasRoutingCameraAuthority(routing.isPlanning(), routing.isBuilding(),
-                                                          routing.isNavigating(), routing.hasSavedRoute(),
-                                                          Framework.nativeIsRoutingActive());
+    final boolean routingAuthority = InCarStartupCameraPolicy.hasRoutingCameraAuthority(
+        routing.isPlanning(), routing.isBuilding(), routing.isNavigating(), routing.hasSavedRoute(),
+        Framework.nativeIsRoutingActive());
     if (!InCarStartupCameraPolicy.shouldRequestFollowAndRotate(autoFollow, routingAuthority))
     {
       Logger.i(TAG, "InCar startup camera: routing retains camera authority");
@@ -361,10 +360,9 @@ public final class InCarDrivingViewController implements LocationListener
     }
 
     final boolean keepDrivingViewEnabled = mPolicy.isEnabled();
-    InCarStartupCameraNative.requestFollowAndRotate(startupMapView == StartupMapView.DRIVING_AREA,
-                                                    keepDrivingViewEnabled,
-                                                    keepDrivingViewEnabled
-                                                        && InCarSettingsStore.autoReturnDrivingViewEnabled(mContext));
+    InCarStartupCameraNative.requestFollowAndRotate(
+        startupMapView == StartupMapView.DRIVING_AREA, keepDrivingViewEnabled,
+        keepDrivingViewEnabled && InCarSettingsStore.autoReturnDrivingViewEnabled(mContext));
   }
 
   private void reconcileModeWithSession()
