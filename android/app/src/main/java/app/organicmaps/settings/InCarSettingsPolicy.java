@@ -36,6 +36,7 @@ final class InCarSettingsPolicy
     bindRootEntry(fragment);
     bindAutoFollowOnLaunch(fragment);
     bindStartupMapView(fragment);
+    bindFreeDrivingAutoZoom(fragment);
     bindOptimisedVisuals(fragment);
     bindDrivingViewSettings(fragment);
     bindBudgetRendering(fragment);
@@ -68,11 +69,11 @@ final class InCarSettingsPolicy
     final TwoStatePreference switchPreference = (TwoStatePreference) preference;
     final boolean enabled = Config.isAutoStartLocationFollowAndRotateEnabled();
     switchPreference.setChecked(enabled);
-    updateStartupMapViewEnabled(fragment, enabled);
+    updateAutoFollowDependents(fragment, enabled);
     switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
       final boolean autoFollow = (boolean) newValue;
       Config.setAutoStartLocationFollowAndRotateEnabled(autoFollow);
-      updateStartupMapViewEnabled(fragment, autoFollow);
+      updateAutoFollowDependents(fragment, autoFollow);
       return true;
     });
   }
@@ -102,12 +103,40 @@ final class InCarSettingsPolicy
     });
   }
 
-  private static void updateStartupMapViewEnabled(@NonNull PreferenceFragmentCompat fragment, boolean enabled)
+  private static void bindFreeDrivingAutoZoom(@NonNull PreferenceFragmentCompat fragment)
   {
     @Nullable
-    final Preference preference = fragment.findPreference(fragment.getString(R.string.pref_in_car_startup_map_view));
-    if (preference != null)
-      preference.setEnabled(enabled);
+    final Preference preference =
+        fragment.findPreference(fragment.getString(R.string.pref_in_car_free_driving_auto_zoom));
+    if (preference == null)
+      return;
+
+    final boolean show = showDedicatedPreference(fragment);
+    preference.setVisible(show);
+    if (!show)
+      return;
+
+    final TwoStatePreference switchPreference = (TwoStatePreference) preference;
+    switchPreference.setChecked(Config.isInCarFreeDrivingAutoZoomEnabled());
+    switchPreference.setEnabled(Config.isAutoStartLocationFollowAndRotateEnabled());
+    switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
+      Config.setInCarFreeDrivingAutoZoomEnabled((boolean) newValue);
+      return true;
+    });
+  }
+
+  private static void updateAutoFollowDependents(@NonNull PreferenceFragmentCompat fragment, boolean enabled)
+  {
+    @Nullable
+    final Preference startupMapView = fragment.findPreference(fragment.getString(R.string.pref_in_car_startup_map_view));
+    if (startupMapView != null)
+      startupMapView.setEnabled(enabled);
+
+    @Nullable
+    final Preference freeDrivingAutoZoom =
+        fragment.findPreference(fragment.getString(R.string.pref_in_car_free_driving_auto_zoom));
+    if (freeDrivingAutoZoom != null)
+      freeDrivingAutoZoom.setEnabled(enabled);
   }
 
   private static void bindOptimisedVisuals(@NonNull PreferenceFragmentCompat fragment)
