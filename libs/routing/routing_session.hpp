@@ -2,6 +2,7 @@
 
 #include "routing/async_router.hpp"
 #include "routing/following_info.hpp"
+#include "routing/free_driving_road_snap_policy.hpp"
 #include "routing/position_accumulator.hpp"
 #include "routing/route.hpp"
 #include "routing/router.hpp"
@@ -21,6 +22,7 @@
 
 #include "base/thread_checker.hpp"
 
+#include <deque>
 #include <memory>
 #include <string>
 
@@ -112,11 +114,13 @@ public:
   bool MatchLocationToRoute(location::GpsInfo & location, location::RouteMatchingInfo & routeMatchingInfo);
   void MatchLocationToRoadGraph(location::GpsInfo & location);
 
-  /// Display-only free-driving projection. |rawLocation| is never mutated; |displayLocation| starts as a copy
-  /// and is changed only after conservative, repeated road-match evidence. Returns true if display coordinates
-  /// were projected to a road. This is intentionally separate from normal route matching.
-  bool MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const & rawLocation, location::GpsInfo & displayLocation);
+  /// Display-only InCar free-driving matcher. Raw measurements are stored only when |isMeasurement| is true;
+  /// extrapolated display samples can use the current road hypothesis but can never become measurement evidence.
+  bool MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const & rawLocation, location::GpsInfo & displayLocation,
+                                           free_driving_snap::SnapMode mode, bool leftHandTraffic,
+                                           bool isMeasurement);
   void ResetFreeDrivingRoadGraphMatch();
+  free_driving_snap::MatchState GetFreeDrivingMatchState() const { return m_freeDrivingMatchState; }
 
   // Get traffic speed for the current route position.
   // Returns SpeedGroup::Unknown if any trouble happens: position doesn't match with route or something else.
@@ -173,7 +177,7 @@ public:
   void OnTrafficInfoRemoved(MwmSet::MwmId const & mwmId) override;
 
   // TrafficCache overrides:
-  /// \note. This method may be called from any thread because it touches only data
+  /// \note. This method may be called from any thread because it touches only class data
   /// protected by mutex in TrafficCache class.
   void CopyTraffic(traffic::AllMwmTrafficInfo & trafficColoring) const override;
 
@@ -201,6 +205,14 @@ private:
     DoReadyCallback(RoutingSession & rs, ReadyCallback const & cb) : m_rs(rs), m_callback(cb) {}
 
     void operator()(std::shared_ptr<RoutesResult> const & result, RouterResultCode e);
+  };
+
+  struct FreeDrivingSample
+  {
+    m2::PointD m_point;
+    double m_timestamp = 0.0;
+    double m_speedMps = -1.0;
+    double m_bearingDeg = -1.0;
   };
 
   void AssignRoute(std::shared_ptr<RoutesResult> const & result, RouterResultCode e);
@@ -237,14 +249,16 @@ private:
   SpeedCameraManager m_speedCameraManager;
   RoutingSettings m_routingSettings;
 
-  // Existing routing history is kept untouched. Free-driving display projection owns a separate raw-position
-  // accumulator so snapped Drape positions can never feed back into route-start direction or rerouting state.
+  // Existing routed-navigation history is kept untouched. Free-driving owns a compact recent-measurement ring and
+  // road hypothesis; snapped/predicted display positions never feed this history.
   PositionAccumulator m_positionAccumulator;
-  PositionAccumulator m_freeDrivingPositionAccumulator;
-  EdgeProj m_freeDrivingProjection;
-  bool m_freeDrivingProjectionSeeded = false;
+  std::deque<FreeDrivingSample> m_freeDrivingSamples;
+  FreeDrivingRoadCandidate m_freeDrivingCandidate;
+  bool m_freeDrivingCandidateSeeded = false;
   bool m_freeDrivingConfident = false;
-  double m_freeDrivingLastConfidentMovingTimestamp = 0.0;
+  double m_freeDrivingLastConfidentTimestamp = 0.0;
+  double m_freeDrivingUnmatchedMovingSince = 0.0;
+  free_driving_snap::MatchState m_freeDrivingMatchState = free_driving_snap::MatchState::Disabled;
 
   ReadyCallback m_buildReadyCallback;
   ReadyCallback m_rebuildReadyCallback;
