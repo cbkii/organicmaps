@@ -31,6 +31,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Checkout Kothic style compiler
+        shell: bash
+        run: git submodule update --init --depth 1 tools/kothic
 
       - name: Generate drawing rules
         shell: bash
