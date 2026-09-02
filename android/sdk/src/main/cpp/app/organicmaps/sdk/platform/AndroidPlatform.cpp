@@ -151,6 +151,10 @@ void Platform::Initialize(JNIEnv * env, jobject context, jstring apkPath, jstrin
     if (!settings::Get("AutoStartLocationFollowAndRotate", autoStartLocationFollowAndRotate))
       settings::Set("AutoStartLocationFollowAndRotate", true);
 
+    bool inCarFreeDrivingAutoZoom;
+    if (!settings::Get("InCarFreeDrivingAutoZoom", inCarFreeDrivingAutoZoom))
+      settings::Set("InCarFreeDrivingAutoZoom", true);
+
     bool inCarOptimisedVisuals;
     if (!settings::Get("InCarOptimisedVisuals", inCarOptimisedVisuals))
       settings::Set("InCarOptimisedVisuals", true);
