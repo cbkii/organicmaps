@@ -1,0 +1,52 @@
+name: InCar Generated Style Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/in-car-style-generated.yaml'
+      - 'data/styles/in_car/**'
+      - 'data/drules_in_car.bin'
+      - 'data/drules_in_car.txt'
+      - 'tools/unix/generate_drules.sh'
+      - 'tools/kothic/**'
+  pull_request:
+    paths:
+      - '.github/workflows/in-car-style-generated.yaml'
+      - 'data/styles/in_car/**'
+      - 'data/drules_in_car.bin'
+      - 'data/drules_in_car.txt'
+      - 'tools/unix/generate_drules.sh'
+      - 'tools/kothic/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify generated InCar drawing rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Generate drawing rules
+        shell: bash
+        run: tools/unix/generate_drules.sh
+
+      - name: Upload generated InCar rules
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-in-car-drules
+          path: |
+            data/drules_in_car.bin
+            data/drules_in_car.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Verify checked-in InCar rules are current
+        shell: bash
+        run: git diff --exit-code -- data/drules_in_car.bin data/drules_in_car.txt
