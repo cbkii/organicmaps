@@ -156,7 +156,7 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeShowLoc
 }
 
 JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequestFollowAndRotate(
-    JNIEnv * env, jclass clazz, jboolean forceDrivingArea, jboolean keepDrivingViewEnabled)
+    JNIEnv * env, jclass clazz, jboolean forceDrivingArea, jboolean keepDrivingViewEnabled, jboolean autoReturn)
 {
   auto const drapeEngine = GetDrapeEngine();
   if (drapeEngine == nullptr || g_framework->NativeFramework()->GetRoutingManager().IsRoutingActive())
@@ -174,7 +174,7 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequest
   // Reuse the established native camera transition only as a bounded launch bridge. When ordinary Driving View is
   // not enabled, it is disabled again after the first queued GPS update (or immediately when a position already
   // exists), leaving FollowAndRotate as the location mode without creating a second persistent camera authority.
-  drapeEngine->SetDrivingView(true /* enabled */, false /* autoReturn */, true /* recenter */);
+  drapeEngine->SetDrivingView(true /* enabled */, keepDrivingViewEnabled ? autoReturn : false, true /* recenter */);
 
   if (waitingForLocation)
   {
