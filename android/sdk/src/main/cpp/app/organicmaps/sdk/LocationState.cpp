@@ -9,13 +9,18 @@
 
 #include "geometry/mercator.hpp"
 
+#include <chrono>
+
 namespace
 {
+auto constexpr kStartupCameraBridgeLifetime = std::chrono::seconds(10);
+
 struct StartupCameraBridgeState
 {
   df::DrapeEngine * m_engine = nullptr;
   bool m_forceDrivingArea = false;
   bool m_disableDrivingViewAfterLocation = false;
+  std::chrono::steady_clock::time_point m_armedAt;
 };
 
 StartupCameraBridgeState g_startupCameraBridge;
@@ -30,6 +35,24 @@ auto GetDrapeEngine()
 void ResetStartupCameraBridge()
 {
   g_startupCameraBridge = {};
+}
+
+void CancelStartupCameraBridge()
+{
+  auto const drapeEngine = GetDrapeEngine();
+  if (drapeEngine != nullptr && g_startupCameraBridge.m_engine == drapeEngine.get() &&
+      g_startupCameraBridge.m_disableDrivingViewAfterLocation)
+  {
+    drapeEngine->SetDrivingView(false /* enabled */, false /* autoReturn */, false /* recenter */);
+  }
+  ResetStartupCameraBridge();
+}
+
+bool HasCurrentStartupCameraBridge(df::DrapeEngine * engine)
+{
+  if (engine == nullptr || g_startupCameraBridge.m_engine != engine)
+    return false;
+  return std::chrono::steady_clock::now() - g_startupCameraBridge.m_armedAt <= kStartupCameraBridgeLifetime;
 }
 
 void ShowLocalArea(double lat, double lon, double radiusMeters)
@@ -120,7 +143,13 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
     info.m_speed = speed;
 
   auto const drapeEngine = GetDrapeEngine();
-  bool const hasPendingStartupCamera = drapeEngine != nullptr && g_startupCameraBridge.m_engine == drapeEngine.get();
+  bool hasPendingStartupCamera =
+      drapeEngine != nullptr && HasCurrentStartupCameraBridge(drapeEngine.get());
+  if (!hasPendingStartupCamera && g_startupCameraBridge.m_engine != nullptr)
+  {
+    CancelStartupCameraBridge();
+    hasPendingStartupCamera = false;
+  }
 
   // If launch happened before a live fix, frame the requested driving area immediately before the GPS message.
   // Both operations use the render thread's normal-priority queue, so follow-and-rotate inherits this sane scale.
@@ -160,11 +189,11 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequest
   auto const drapeEngine = GetDrapeEngine();
   if (drapeEngine == nullptr || g_framework->NativeFramework()->GetRoutingManager().IsRoutingActive())
   {
-    ResetStartupCameraBridge();
+    CancelStartupCameraBridge();
     return;
   }
 
-  ResetStartupCameraBridge();
+  CancelStartupCameraBridge();
 
   auto const mode = drapeEngine->GetMyPositionMode();
   bool const waitingForLocation = mode == location::PendingPosition || mode == location::NotFollowNoPosition;
@@ -179,10 +208,16 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequest
     g_startupCameraBridge.m_engine = drapeEngine.get();
     g_startupCameraBridge.m_forceDrivingArea = forceDrivingArea;
     g_startupCameraBridge.m_disableDrivingViewAfterLocation = !keepDrivingViewEnabled;
+    g_startupCameraBridge.m_armedAt = std::chrono::steady_clock::now();
     return;
   }
 
   if (!keepDrivingViewEnabled)
     drapeEngine->SetDrivingView(false /* enabled */, false /* autoReturn */, false /* recenter */);
+}
+
+JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeCancelPending(JNIEnv * env, jclass clazz)
+{
+  CancelStartupCameraBridge();
 }
 }  // extern "C"
