@@ -405,8 +405,7 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
   m_locationSpeedMps = m_hasLocationSpeed ? info.m_speed : -1.0;
   bool const isFreeDrivingMotion = driving_policy::IsInCarFreeDrivingMotion(
       m_isInCarFreeDriving, m_autoStartFollowAndRotate, m_hasLocationSpeed, m_locationSpeedMps);
-  bool const canArmFreeDrivingReturn =
-      m_mode == location::NotFollow || m_mode == location::NotFollowNoPosition;
+  bool const canArmFreeDrivingReturn = m_mode == location::NotFollow || m_mode == location::NotFollowNoPosition;
   if (!m_isInRouting && !m_isDrivingView && canArmFreeDrivingReturn && wasFreeDrivingMotion != isFreeDrivingMotion)
     ResetRoutingNotFollowTimer();
 
