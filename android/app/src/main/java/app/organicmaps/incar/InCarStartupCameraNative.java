@@ -21,5 +21,5 @@ final class InCarStartupCameraNative
 
   private static native void nativeShowLocalArea(double latitude, double longitude, double radiusMeters);
   private static native void nativeRequestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled,
-                                                           boolean autoReturn);
+                                                          boolean autoReturn);
 }
