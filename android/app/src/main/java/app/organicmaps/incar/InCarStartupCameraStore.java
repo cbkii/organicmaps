@@ -47,7 +47,6 @@ public final class InCarStartupCameraStore
   }
 
   public static final double DRIVING_AREA_RADIUS_METERS = 5_000.0;
-  public static final int PATHOLOGICAL_DRAW_SCALE_THRESHOLD = 10;
 
   @VisibleForTesting
   static final long WRITE_INTERVAL_MS = 30_000L;
