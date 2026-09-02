@@ -24,6 +24,8 @@ public class InCarStartupCameraStoreTest
   {
     final long now = 2_000_000_000_000L;
     assertTrue(InCarStartupCameraStore.isValidAnchor(-35.28, 149.13, now - 1_000L, 8.0f, now));
+    assertTrue(InCarStartupCameraStore.isValidAnchor(-35.28, 149.13, now - 1_000L, 500.0f, now));
+    assertFalse(InCarStartupCameraStore.isValidAnchor(-35.28, 149.13, now - 1_000L, 500.1f, now));
     assertFalse(InCarStartupCameraStore.isValidAnchor(91.0, 149.13, now - 1_000L, 8.0f, now));
     assertFalse(InCarStartupCameraStore.isValidAnchor(-35.28, 181.0, now - 1_000L, 8.0f, now));
     assertFalse(InCarStartupCameraStore.isValidAnchor(-35.28, 149.13, now - 1_000L, 0.0f, now));
