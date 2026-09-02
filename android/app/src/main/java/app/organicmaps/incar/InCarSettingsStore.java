@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import androidx.annotation.NonNull;
 import app.organicmaps.MwmApplication;
+import app.organicmaps.sdk.location.LocationState;
 
 /** Application-layer storage for preferences that only exist in the direct-display InCar flavour. */
 public final class InCarSettingsStore
@@ -19,6 +20,47 @@ public final class InCarSettingsStore
   private static final String KEY_BUDGET_SAVED_3D_BUILDINGS = "InCarBudgetSaved3dBuildings";
   private static final String KEY_BUDGET_HAS_SAVED_3D_BUILDINGS = "InCarBudgetHasSaved3dBuildings";
   private static final String KEY_WALKING_SESSION_ACTIVE = "InCarWalkingSessionActive";
+  private static final String KEY_FREE_DRIVING_SNAP_MODE = "InCarFreeDrivingSnapMode";
+  private static final String KEY_FREE_DRIVING_OFFROAD_OVERRIDE = "InCarFreeDrivingOffRoadOverride";
+
+  public enum FreeDrivingSnapMode
+  {
+    OFF("off", LocationState.FREE_DRIVING_SNAP_OFF),
+    AUTO("auto", LocationState.FREE_DRIVING_SNAP_AUTO),
+    STRONG("strong", LocationState.FREE_DRIVING_SNAP_STRONG);
+
+    @NonNull
+    private final String mPreferenceValue;
+    private final int mNativeValue;
+
+    FreeDrivingSnapMode(@NonNull String preferenceValue, int nativeValue)
+    {
+      mPreferenceValue = preferenceValue;
+      mNativeValue = nativeValue;
+    }
+
+    @NonNull
+    public String preferenceValue()
+    {
+      return mPreferenceValue;
+    }
+
+    public int nativeValue()
+    {
+      return mNativeValue;
+    }
+
+    @NonNull
+    public static FreeDrivingSnapMode fromPreferenceValue(@NonNull String value)
+    {
+      for (FreeDrivingSnapMode mode : values())
+      {
+        if (mode.mPreferenceValue.equals(value))
+          return mode;
+      }
+      return AUTO;
+    }
+  }
 
   private InCarSettingsStore() {}
 
@@ -60,6 +102,30 @@ public final class InCarSettingsStore
   public static void setAutoReturnDrivingViewEnabled(@NonNull Context context, boolean enabled)
   {
     prefs(context).edit().putBoolean(KEY_AUTO_RETURN_DRIVING_VIEW, enabled).apply();
+  }
+
+  @NonNull
+  public static FreeDrivingSnapMode freeDrivingSnapMode(@NonNull Context context)
+  {
+    final String value = prefs(context).getString(KEY_FREE_DRIVING_SNAP_MODE, FreeDrivingSnapMode.AUTO.preferenceValue());
+    return FreeDrivingSnapMode.fromPreferenceValue(value == null ? FreeDrivingSnapMode.AUTO.preferenceValue() : value);
+  }
+
+  public static void setFreeDrivingSnapMode(@NonNull Context context, @NonNull FreeDrivingSnapMode mode)
+  {
+    prefs(context).edit().putString(KEY_FREE_DRIVING_SNAP_MODE, mode.preferenceValue()).apply();
+    if (mode == FreeDrivingSnapMode.OFF)
+      setFreeDrivingOffRoadOverride(context, false);
+  }
+
+  public static boolean freeDrivingOffRoadOverride(@NonNull Context context)
+  {
+    return prefs(context).getBoolean(KEY_FREE_DRIVING_OFFROAD_OVERRIDE, false);
+  }
+
+  public static void setFreeDrivingOffRoadOverride(@NonNull Context context, boolean enabled)
+  {
+    prefs(context).edit().putBoolean(KEY_FREE_DRIVING_OFFROAD_OVERRIDE, enabled).apply();
   }
 
   public static boolean budgetRenderingEnabled(@NonNull Context context)
