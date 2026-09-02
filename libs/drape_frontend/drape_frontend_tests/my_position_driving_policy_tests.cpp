@@ -35,6 +35,7 @@ UNIT_TEST(MyPositionDrivingPolicy_AutoZoom)
 UNIT_TEST(MyPositionDrivingPolicy_InCarFreeDrivingMotion)
 {
   double const below = kFreeDrivingMinSpeedMps - 0.01;
+  TEST_EQUAL(kFreeDrivingAutoReturnSeconds, 10.0, ());
   TEST(IsInCarFreeDrivingMotion(true, true, true, kFreeDrivingMinSpeedMps), ());
   TEST(!IsInCarFreeDrivingMotion(true, true, true, below), ());
   TEST(!IsInCarFreeDrivingMotion(true, true, false, -1.0), ());
