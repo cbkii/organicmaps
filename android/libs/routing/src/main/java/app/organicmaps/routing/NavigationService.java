@@ -132,24 +132,33 @@ public class NavigationService extends Service implements LocationListener
     context.stopService(new Intent(context, NavigationService.class));
   }
 
-  /** Creates notification channel for navigation. */
+  /**
+   * Creates notification channel for navigation.
+   *
+   * @param context Context to create channel from.
+   */
   public static void createNotificationChannel(@NonNull Context context)
   {
     Logger.i(TAG);
 
     final NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
     final NotificationChannelCompat channel =
-        new NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
+        new NotificationChannelCompat.Builder(CHANNEL_ID,
+                                              NotificationManagerCompat.IMPORTANCE_LOW)
             .setName(context.getString(R.string.navigation_channel_name))
-            .setLightsEnabled(false)
-            .setVibrationEnabled(false)
+            .setLightsEnabled(false) // less annoying
+            .setVibrationEnabled(false) // less annoying
             .build();
     notificationManager.createNotificationChannel(channel);
   }
 
-  /** See {@link android.app.Notification.Builder#setColorized(boolean) }. */
+  /**
+   * See {@link android.app.Notification.Builder#setColorized(boolean) }
+   */
   private static boolean isColorizedSupported()
   {
+    // Nice colorized notifications should be supported on API=26 and later.
+    // Nonetheless, even on API=32, Xiaomi uses their own legacy implementation that displays white-on-white instead.
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !XIAOMI.equalsIgnoreCase(Build.MANUFACTURER);
   }
 
@@ -192,6 +201,7 @@ public class NavigationService extends Service implements LocationListener
   {
     Logger.i(TAG);
     Assert.always(sOrganicMaps != null, "OrganicMaps instance must be set before starting NavigationService");
+
     mPlayer = new MediaPlayerWrapper(getApplicationContext());
   }
 
@@ -207,6 +217,9 @@ public class NavigationService extends Service implements LocationListener
     mLastNotificationStreet = null;
     sOrganicMaps.getLocationHelper().removeListener(this);
     TtsPlayer.INSTANCE.stop();
+
+    // The notification is cancelled automatically by the system.
+
     mPlayer.release();
   }
 
@@ -229,16 +242,24 @@ public class NavigationService extends Service implements LocationListener
 
     if (!sOrganicMaps.arePlatformAndCoreInitialized())
     {
+      // The system restarts the service if the app's process has crashed or been stopped. It would be nice to
+      // automatically restore the last route and resume navigation. Unfortunately, the current implementation of
+      // the routing state machine (RoutingController and underlying NDK part) requires a complete re-planning of
+      // the route. Such operation can fail for some reason. We have no UI (i.e. RoutePlanFragment) started to
+      // handle any route planning errors. Starting any new Activities from Services is not allowed also.
+      // https://github.com/organicmaps/organicmaps/issues/6233
       Logger.w(TAG, "Application is not initialized");
       stopSelf();
-      return START_NOT_STICKY;
+      return START_NOT_STICKY; // The service will be stopped by stopSelf().
     }
 
     if (!LocationUtils.checkFineLocationPermission(this))
     {
+      // In a hypothetical scenario, the user could revoke location permissions after the app's process crashed,
+      // but before the service with START_STICKY was restarted by the system.
       Logger.w(TAG, "Permission ACCESS_FINE_LOCATION is not granted, skipping NavigationService");
       stopSelf();
-      return START_NOT_STICKY;
+      return START_NOT_STICKY; // The service will be stopped by stopSelf().
     }
 
     Logger.i(TAG, "Starting Navigation Foreground service");
@@ -251,14 +272,21 @@ public class NavigationService extends Service implements LocationListener
     }
     catch (SecurityException e)
     {
+      // It is unknown why, but on Android 14+ devices starting services fails despite permission checks above.
       Logger.e(TAG, "Failed to start foreground service, stopping the service", e);
       stopSelf();
       return START_NOT_STICKY;
     }
 
     final LocationHelper locationHelper = sOrganicMaps.getLocationHelper();
+
+    // Subscribe to location updates. This call is idempotent.
     locationHelper.addListener(this);
+
+    // Restart the location with more frequent refresh interval for navigation.
     locationHelper.restartWithNewMode();
+
+    // Please make this service START_STICKY after fixing the issues at the beginning of the function.
     return START_NOT_STICKY;
   }
 
@@ -302,7 +330,7 @@ public class NavigationService extends Service implements LocationListener
 
     if (mode == OfflineNavigationVoicePack.Mode.VOICE)
     {
-      // Keep the established road-camera sound distinct from generic fallback events.
+      // Keep the established speed-camera warning sound distinct from generic fallback events.
       if (cameraWarning)
         return mPlayer.playback(R.raw.speed_cams_beep);
 
@@ -314,19 +342,23 @@ public class NavigationService extends Service implements LocationListener
         clips.addAll(OfflineNavigationVoicePack.resolveCurrentCues(this, routingInfo,
                                                                    OfflineNavigationVoicePack.Cue.GPS_RESTORED));
 
-      if (notification != null
-          && OfflineNavigationVoicePack.shouldPlayVoiceCue(notification.getEvent(), notification.getStage()))
+      if (notification != null)
       {
-        final OfflineNavigationVoicePack.Cue cue =
-            notification.getEvent() == NavigationNotification.Event.ROUTE_RECALCULATION
-                ? OfflineNavigationVoicePack.Cue.ROUTE_UPDATED
-                : OfflineNavigationVoicePack.Cue.MANEUVER;
-        clips.addAll(OfflineNavigationVoicePack.resolveCurrentCues(this, routingInfo, cue));
+        if (OfflineNavigationVoicePack.shouldPlayVoiceCue(notification.getEvent(), notification.getStage()))
+        {
+          final OfflineNavigationVoicePack.Cue cue =
+              notification.getEvent() == NavigationNotification.Event.ROUTE_RECALCULATION
+                  ? OfflineNavigationVoicePack.Cue.ROUTE_UPDATED
+                  : OfflineNavigationVoicePack.Cue.MANEUVER;
+          clips.addAll(OfflineNavigationVoicePack.resolveCurrentCues(this, routingInfo, cue));
+        }
       }
 
       if (!clips.isEmpty() && mPlayer.playback(clips))
         return true;
 
+      // Voice mode deliberately falls back to the one-tone alert for an unmapped
+      // event or a pack-integrity/extraction failure.
       if ((hasRoutingEvent || hasGpsEvent) && sTtsFallbackSoundResId != 0)
         return mPlayer.playback(sTtsFallbackSoundResId);
       return false;
@@ -338,7 +370,9 @@ public class NavigationService extends Service implements LocationListener
     if (cameraWarning)
       return mPlayer.playback(R.raw.speed_cams_beep);
 
-    return sTtsFallbackSoundResId != 0 && mPlayer.playback(sTtsFallbackSoundResId);
+    if (sTtsFallbackSoundResId == 0)
+      return false;
+    return mPlayer.playback(sTtsFallbackSoundResId);
   }
 
   private void onLocationUnavailable()
@@ -375,6 +409,7 @@ public class NavigationService extends Service implements LocationListener
   @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
   public void onLocationUpdated(@NonNull Location location)
   {
+    // Ignore any pending notifications when service is being stopping.
     final RoutingController routingController = RoutingController.get();
     if (!routingController.isNavigating())
       return;
@@ -401,6 +436,11 @@ public class NavigationService extends Service implements LocationListener
       }
     }
 
+    // TODO: consider to create callback mechanism to transfer 'ROUTE_IS_FINISHED' event from
+    // the core to the platform code (https://github.com/organicmaps/organicmaps/issues/3589),
+    // because calling the native method 'nativeIsRouteFinished'
+    // too often can result in poor UI performance.
+    // This check should be done after playTurnNotifications() to play the last turn notification.
     if (Framework.nativeIsRouteFinished())
     {
       routingController.cancel();
@@ -415,6 +455,7 @@ public class NavigationService extends Service implements LocationListener
     if (!playedTtsFallback && routingInfo.shouldPlayWarningSignal())
       mPlayer.playback(R.raw.speed_cams_beep);
 
+    // Don't spend time on updating RemoteView if notifications are not allowed.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
         && ActivityCompat.checkSelfPermission(this, POST_NOTIFICATIONS) != PERMISSION_GRANTED)
       return;
@@ -446,6 +487,7 @@ public class NavigationService extends Service implements LocationListener
     if (sCarNotificationExtender != null)
       notificationBuilder.extend(sCarNotificationExtender);
 
+    // The notification object must be re-created for every published update.
     NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notificationBuilder.build());
     recordPublishedNavigationUpdate(turnResId, routingInfo.nextStreet, nowMs);
   }
