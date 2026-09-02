@@ -19,13 +19,12 @@ public final class InCarStartupCameraPolicy
    */
   public static boolean isPlainLauncherIntent(@Nullable Intent intent)
   {
-    return isPlainLauncherIntent(intent != null && Intent.ACTION_MAIN.equals(intent.getAction()),
-                                 intent != null && intent.hasCategory(Intent.CATEGORY_LAUNCHER),
-                                 intent != null
-                                     && (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
-                                 intent != null && intent.getData() != null,
-                                 intent != null && intent.getClipData() != null,
-                                 intent != null && hasExplicitMapTarget(intent));
+    return isPlainLauncherIntent(
+        intent != null && Intent.ACTION_MAIN.equals(intent.getAction()),
+        intent != null && intent.hasCategory(Intent.CATEGORY_LAUNCHER),
+        intent != null && (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
+        intent != null && intent.getData() != null, intent != null && intent.getClipData() != null,
+        intent != null && hasExplicitMapTarget(intent));
   }
 
   @VisibleForTesting
