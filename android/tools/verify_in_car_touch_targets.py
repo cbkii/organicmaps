@@ -45,13 +45,21 @@ def require_value(values: dict[str, str], name: str, expected: str, source: Path
         raise VerificationError(f"{source}: {name} must be {expected}, found {actual!r}")
 
 
-def require_text(path: Path, pattern: str, description: str) -> None:
+def read_text(path: Path) -> str:
     try:
-        text = path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise VerificationError(f"unable to read {path}: {exc}") from exc
-    if re.search(pattern, text, re.MULTILINE) is None:
+
+
+def require_text(path: Path, pattern: str, description: str) -> None:
+    if re.search(pattern, read_text(path), re.MULTILINE) is None:
         raise VerificationError(f"{path}: missing {description}")
+
+
+def reject_text(path: Path, pattern: str, description: str) -> None:
+    if re.search(pattern, read_text(path), re.MULTILINE) is not None:
+        raise VerificationError(f"{path}: contains forbidden {description}")
 
 
 def require_layout_attr(path: Path, view_id: str, namespace: str, attr: str, expected: str) -> None:
@@ -80,10 +88,12 @@ def verify_resources(root: Path) -> None:
     runtime_path = root / "android/app/src/main/res/values/in_car_runtime_ui.xml"
     visuals_path = root / "android/app/src/main/res/values/in_car_visuals.xml"
     override_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
+    runtime_extra_path = root / "android/app/src/inCar/res/values/in_car_runtime_layout_extra.xml"
 
     runtime = resource_values(runtime_path)
     visuals = resource_values(visuals_path)
     overrides = resource_values(override_path)
+    runtime_extra = resource_values(runtime_extra_path)
 
     require_value(runtime, "in_car_touch_target_preferred", f"{PREFERRED_DP}dp", runtime_path)
     require_value(runtime, "in_car_touch_target_min", f"{MINIMUM_DP}dp", runtime_path)
@@ -93,6 +103,8 @@ def verify_resources(root: Path) -> None:
     require_value(runtime, "in_car_place_page_save_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_place_page_other_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_quick_marker_touch_radius", "38dp", runtime_path)
+    require_value(runtime_extra, "in_car_action_menu_width", "300dp", runtime_extra_path)
+    require_value(runtime_extra, "in_car_search_result_meta_width", "112dp", runtime_extra_path)
 
     preferred_visuals = (
         "in_car_map_button_size",
@@ -149,6 +161,41 @@ def verify_search_toolbar(root: Path) -> None:
     require_layout_attr(path, "query", ANDROID_NS, "minHeight", preferred)
 
 
+def verify_action_menus(root: Path) -> None:
+    action_menu = root / "android/app/src/main/java/app/organicmaps/incar/InCarActionMenu.java"
+    nav_menu = root / "android/app/src/main/java/app/organicmaps/widget/menu/NavMenu.java"
+    route_plan = root / "android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java"
+
+    require_text(action_menu, r"ListPopupWindow", "anchored automotive action list")
+    require_text(
+        action_menu,
+        r"R\.dimen\.in_car_runtime_row_min_height",
+        "preferred automotive action-row minimum",
+    )
+    require_text(action_menu, r"R\.dimen\.in_car_action_menu_width", "bounded automotive action-menu width")
+
+    for path in (nav_menu, route_plan):
+        reject_text(path, r"\bPopupMenu\b", "platform-sized PopupMenu on a driver-facing InCar surface")
+        require_text(path, r"InCarActionMenu\.show\(", "automotive-sized InCarActionMenu use")
+
+
+def verify_start_end_controls(root: Path) -> None:
+    start = root / "android/app/src/inCar/res/layout/routing_start_button.xml"
+    nav = root / "android/app/src/inCar/res/layout/layout_nav_bottom.xml"
+    strings = root / "android/app/src/inCar/res/values/strings_runtime_overrides.xml"
+
+    require_layout_attr(start, "start", ANDROID_NS, "layout_width", "0dp")
+    require_layout_attr(start, "start", ANDROID_NS, "layout_weight", "1")
+    require_layout_attr(start, "start", ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_preferred")
+    require_text(start, r"<Space\b[\s\S]*?android:layout_weight=\"1\"", "equal spacer for half-width START")
+
+    require_layout_attr(nav, "stop", ANDROID_NS, "layout_height", "@dimen/nav_button_height")
+    require_layout_attr(nav, "stop", ANDROID_NS, "minWidth", "@dimen/in_car_nav_stop_min_width")
+    require_layout_attr(nav, "stop", ANDROID_NS, "padding", "@dimen/margin_base")
+    require_layout_attr(nav, "stop", ANDROID_NS, "text", "@string/in_car_end_navigation")
+    require_text(strings, r"<string\s+name=\"in_car_end_navigation\">END</string>", "compact END label")
+
+
 def verify_code(root: Path) -> None:
     quick_policy = root / "android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsLayoutPolicy.java"
     choice_adapter = root / "android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java"
@@ -201,10 +248,7 @@ def verify_code(root: Path) -> None:
     )
 
     for layout in routing_layouts:
-        try:
-            text = layout.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise VerificationError(f"unable to read {layout}: {exc}") from exc
+        text = read_text(layout)
         if 'app:fabCustomSize="40dp"' in text:
             raise VerificationError(f"{layout}: route actions still hard-code a 40dp touch target")
         if text.count('app:fabCustomSize="@dimen/routing_action_button_size"') != 4:
@@ -217,14 +261,14 @@ def main() -> int:
         verify_ratio()
         verify_resources(root)
         verify_search_toolbar(root)
+        verify_action_menus(root)
+        verify_start_end_controls(root)
         verify_code(root)
     except VerificationError as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1
 
-    print(
-        f"SUCCESS: InCar touch targets prefer {PREFERRED_DP}dp and compact no lower than {MINIMUM_DP}dp."
-    )
+    print(f"SUCCESS: InCar touch targets prefer {PREFERRED_DP}dp and compact no lower than {MINIMUM_DP}dp.")
     return 0
 
 
