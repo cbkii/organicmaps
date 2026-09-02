@@ -15,8 +15,9 @@
   <dimen name="in_car_map_primary_button_size">@dimen/in_car_runtime_button_size</dimen>
   <dimen name="in_car_map_primary_icon_size">@dimen/in_car_runtime_button_icon_size</dimen>
   <dimen name="in_car_map_zoom_icon_size">36dp</dimen>
-  <dimen name="in_car_map_zoom_gap">@dimen/in_car_runtime_button_gap</dimen>
-  <!-- Track recording button gap — noticeably larger than the +/- internal gap to visually separate the cluster. -->
+  <!-- Driving View and +/- form one physical-right camera-control rail with modestly increased separation. -->
+  <dimen name="in_car_map_zoom_gap">10dp</dimen>
+  <!-- Track recording button gap — noticeably larger than the camera-control rail's internal gap. -->
   <dimen name="in_car_track_record_gap">24dp</dimen>
   <dimen name="automotive_preference_row_min_height">@dimen/in_car_runtime_row_min_height</dimen>
 </resources>
