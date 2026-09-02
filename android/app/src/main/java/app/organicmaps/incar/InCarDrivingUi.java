@@ -149,15 +149,12 @@ public final class InCarDrivingUi
 
       bindDrivingViewButton(activity, observed, activity.findViewById(android.R.id.content), null);
       controller.getSnapshot().observe(activity, snapshot -> render(activity, observed, snapshot));
-      new ViewModelProvider(activity)
-          .get(MapButtonsViewModel.class)
-          .getLayoutMode()
-          .observe(activity, layoutMode -> {
-            controller.onRoutingPresentationChanged();
-            final View content = activity.findViewById(android.R.id.content);
-            if (content != null)
-              content.post(() -> bindDrivingViewButton(activity, observed, content, null));
-          });
+      new ViewModelProvider(activity).get(MapButtonsViewModel.class).getLayoutMode().observe(activity, layoutMode -> {
+        controller.onRoutingPresentationChanged();
+        final View content = activity.findViewById(android.R.id.content);
+        if (content != null)
+          content.post(() -> bindDrivingViewButton(activity, observed, content, null));
+      });
     }
 
     bindDrivingViewButton(activity, binding, activity.findViewById(android.R.id.content), null);
@@ -203,8 +200,8 @@ public final class InCarDrivingUi
       binding.drivingView = drivingView;
       binding.zoomIn = zoomIn;
       drivingView.setOnClickListener(v -> binding.controller.onDrivingViewButtonPressed());
-      binding.zoomSizeListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom)
-          -> syncDrivingViewButtonSize(binding);
+      binding.zoomSizeListener =
+          (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> syncDrivingViewButtonSize(binding);
       zoomIn.addOnLayoutChangeListener(binding.zoomSizeListener);
     }
     if (owner != null)
