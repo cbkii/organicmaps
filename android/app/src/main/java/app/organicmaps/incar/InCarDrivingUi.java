@@ -51,6 +51,8 @@ public final class InCarDrivingUi
     @Nullable
     View.OnLayoutChangeListener zoomSizeListener;
     @Nullable
+    Fragment mapButtonsFragment;
+    @Nullable
     FragmentManager.FragmentLifecycleCallbacks mapButtonsCallbacks;
     @Nullable
     final View help;
@@ -133,19 +135,19 @@ public final class InCarDrivingUi
                                           @Nullable Bundle savedInstanceState)
         {
           if (fragment instanceof MapButtonsController)
-            bindDrivingViewButton(activity, observed, view);
+            bindDrivingViewButton(activity, observed, view, fragment);
         }
 
         @Override
         public void onFragmentViewDestroyed(@NonNull FragmentManager fm, @NonNull Fragment fragment)
         {
-          if (fragment instanceof MapButtonsController)
-            clearDrivingViewButton(observed, fragment.getView());
+          if (fragment instanceof MapButtonsController && observed.mapButtonsFragment == fragment)
+            clearDrivingViewButton(observed);
         }
       };
       fragmentManager.registerFragmentLifecycleCallbacks(observed.mapButtonsCallbacks, true);
 
-      bindDrivingViewButton(activity, observed, activity.findViewById(android.R.id.content));
+      bindDrivingViewButton(activity, observed, activity.findViewById(android.R.id.content), null);
       controller.getSnapshot().observe(activity, snapshot -> render(activity, observed, snapshot));
       new ViewModelProvider(activity)
           .get(MapButtonsViewModel.class)
@@ -154,11 +156,11 @@ public final class InCarDrivingUi
             controller.onRoutingPresentationChanged();
             final View content = activity.findViewById(android.R.id.content);
             if (content != null)
-              content.post(() -> bindDrivingViewButton(activity, observed, content));
+              content.post(() -> bindDrivingViewButton(activity, observed, content, null));
           });
     }
 
-    bindDrivingViewButton(activity, binding, activity.findViewById(android.R.id.content));
+    bindDrivingViewButton(activity, binding, activity.findViewById(android.R.id.content), null);
     render(activity, binding, controller.getSnapshot().getValue());
     maybeShowMapAgeNotice(activity);
   }
@@ -179,13 +181,13 @@ public final class InCarDrivingUi
     {
       if (binding.mapButtonsCallbacks != null)
         activity.getSupportFragmentManager().unregisterFragmentLifecycleCallbacks(binding.mapButtonsCallbacks);
-      clearDrivingViewButton(binding, null);
+      clearDrivingViewButton(binding);
     }
     BINDINGS.remove(activity);
   }
 
   private static void bindDrivingViewButton(@NonNull MwmActivity activity, @NonNull Binding binding,
-                                            @Nullable View scope)
+                                            @Nullable View scope, @Nullable Fragment owner)
   {
     if (scope == null)
       return;
@@ -197,7 +199,7 @@ public final class InCarDrivingUi
 
     if (binding.drivingView != drivingView || binding.zoomIn != zoomIn)
     {
-      clearDrivingViewButton(binding, null);
+      clearDrivingViewButton(binding);
       binding.drivingView = drivingView;
       binding.zoomIn = zoomIn;
       drivingView.setOnClickListener(v -> binding.controller.onDrivingViewButtonPressed());
@@ -205,17 +207,15 @@ public final class InCarDrivingUi
           -> syncDrivingViewButtonSize(binding);
       zoomIn.addOnLayoutChangeListener(binding.zoomSizeListener);
     }
+    if (owner != null)
+      binding.mapButtonsFragment = owner;
 
     syncDrivingViewButtonSize(binding);
     render(activity, binding, binding.controller.getSnapshot().getValue());
   }
 
-  private static void clearDrivingViewButton(@NonNull Binding binding, @Nullable View scope)
+  private static void clearDrivingViewButton(@NonNull Binding binding)
   {
-    if (scope != null && binding.drivingView != null
-        && scope.findViewById(R.id.in_car_driving_view_button) != binding.drivingView)
-      return;
-
     if (binding.zoomIn != null && binding.zoomSizeListener != null)
       binding.zoomIn.removeOnLayoutChangeListener(binding.zoomSizeListener);
     if (binding.drivingView != null)
@@ -223,6 +223,7 @@ public final class InCarDrivingUi
     binding.drivingView = null;
     binding.zoomIn = null;
     binding.zoomSizeListener = null;
+    binding.mapButtonsFragment = null;
   }
 
   private static void syncDrivingViewButtonSize(@NonNull Binding binding)
