@@ -53,11 +53,28 @@ public:
   double m_bearing = -1.0;              //!< positive degrees from the true North
   double m_speed = -1.0;                //!< metres per second
 
+  // Optional renderer-only display transformations (for example InCar road matching/prediction) can keep the raw
+  // measurement here. MyPositionController reports this raw point back to Framework state while drawing the transformed
+  // latitude/longitude above. This prevents display smoothing from contaminating routing starts, search or bookmarks.
+  bool m_hasRawPositionForFramework = false;
+  double m_rawLatitudeForFramework = 0.0;
+  double m_rawLongitudeForFramework = 0.0;
+
   bool IsValid() const { return m_source != EUndefined; }
   bool HasBearing() const { return m_bearing >= 0.0; }
   bool HasSpeed() const { return m_speed >= 0.0; }
   bool HasAltitude() const { return m_verticalAccuracy >= 0.0; }
   ms::LatLon GetLatLon() const { return {m_latitude, m_longitude}; }
+
+  void SetRawPositionForFramework(double latitude, double longitude)
+  {
+    m_hasRawPositionForFramework = true;
+    m_rawLatitudeForFramework = latitude;
+    m_rawLongitudeForFramework = longitude;
+  }
+
+  bool HasRawPositionForFramework() const { return m_hasRawPositionForFramework; }
+  ms::LatLon GetRawPositionForFramework() const { return {m_rawLatitudeForFramework, m_rawLongitudeForFramework}; }
 };
 
 class CompassInfo
