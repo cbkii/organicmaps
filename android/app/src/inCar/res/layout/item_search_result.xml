@@ -50,7 +50,6 @@
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintEnd_toStartOf="@id/distance"
     app:layout_constraintTop_toBottomOf="@id/title"
-    app:layout_constraintBottom_toBottomOf="parent"
     tools:text="Hotel • ★★★★★" />
 
   <TextView
@@ -64,7 +63,6 @@
     android:textColor="?colorAccent"
     app:layout_constraintEnd_toEndOf="parent"
     app:layout_constraintTop_toTopOf="@id/description"
-    app:layout_constraintBottom_toBottomOf="parent"
     tools:text="500 km" />
 
   <TextView
@@ -74,10 +72,13 @@
     android:visibility="gone" />
 
   <View
+    android:id="@+id/result_divider"
     android:layout_width="0dp"
     android:layout_height="1dp"
+    android:layout_marginTop="@dimen/margin_quarter"
     android:background="@color/in_car_search_result_band"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/description"
     app:layout_constraintBottom_toBottomOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
