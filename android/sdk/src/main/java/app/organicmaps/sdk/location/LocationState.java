@@ -31,6 +31,17 @@ public final class LocationState
   public static final int FOLLOW = 3;
   public static final int FOLLOW_AND_ROTATE = 4;
 
+  // Must correspond to routing::free_driving_snap::SnapMode.
+  public static final int FREE_DRIVING_SNAP_OFF = 0;
+  public static final int FREE_DRIVING_SNAP_AUTO = 1;
+  public static final int FREE_DRIVING_SNAP_STRONG = 2;
+
+  // Must correspond to routing::free_driving_snap::MatchState.
+  public static final int FREE_DRIVING_MATCH_DISABLED = 0;
+  public static final int FREE_DRIVING_MATCH_RAW = 1;
+  public static final int FREE_DRIVING_MATCH_MATCHED = 2;
+  public static final int FREE_DRIVING_MATCH_OFF_ROAD_SUSPECTED = 3;
+
   // These constants should correspond to values defined in platform/location.hpp
   // Leave 0-value as no any error.
   // private static final int ERROR_UNKNOWN = 0;
@@ -52,6 +63,8 @@ public final class LocationState
                                            float accuracyV, float speed, float bearing);
 
   private static native void nativeSetDrivingViewEnabled(boolean enabled, boolean autoReturn, boolean recenter);
+  private static native void nativeSetFreeDrivingTracking(boolean enabled, int snapMode, boolean offRoadOverride);
+  private static native int nativeGetFreeDrivingMatchState();
 
   private LocationState() {}
 
@@ -60,6 +73,20 @@ public final class LocationState
     if (!Map.isEngineCreated())
       return;
     nativeSetDrivingViewEnabled(enabled, autoReturn, recenter);
+  }
+
+  public static void setFreeDrivingTracking(boolean enabled, int snapMode, boolean offRoadOverride)
+  {
+    if (!Map.isEngineCreated())
+      return;
+    nativeSetFreeDrivingTracking(enabled, snapMode, offRoadOverride);
+  }
+
+  public static int getFreeDrivingMatchState()
+  {
+    if (!Map.isEngineCreated())
+      return FREE_DRIVING_MATCH_DISABLED;
+    return nativeGetFreeDrivingMatchState();
   }
 
   @Value
