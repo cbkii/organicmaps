@@ -2,7 +2,7 @@
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto"
-  android:id="@+id/zoom_buttons_container"
+  android:id="@+id/in_car_camera_controls_rail"
   android:layout_width="wrap_content"
   android:layout_height="wrap_content"
   android:orientation="vertical">
@@ -19,25 +19,32 @@
     app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
     app:srcCompat="@drawable/ic_in_car_driving_view"
     app:tint="@color/icon_tint" />
-  <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/nav_zoom_in"
-    style="@style/MwmWidget.MapButton.Zoom"
-    android:layout_marginBottom="@dimen/in_car_map_zoom_gap"
-    android:contentDescription="@string/zoom_in"
-    app:backgroundTint="@color/in_car_map_button_background"
-    app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-    app:srcCompat="@drawable/ic_plus" />
-  <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/nav_zoom_out"
-    style="@style/MwmWidget.MapButton.Zoom"
-    android:contentDescription="@string/zoom_out"
-    app:backgroundTint="@color/in_car_map_button_background"
-    app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-    app:srcCompat="@drawable/ic_minus" />
-  <!-- Track Recording button: separated from zoom cluster by extra margin. Physical-right placement
-       is inherited from the parent container. Wired by MapButtonsController.mTrackRecordingStatusButton. -->
+  <!-- Keep the established zoom-container id around +/- only so Config.showZoomButtons() does not
+       accidentally become the visibility authority for the independent Driving View control. -->
+  <LinearLayout
+    android:id="@+id/zoom_buttons_container"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+      android:id="@+id/nav_zoom_in"
+      style="@style/MwmWidget.MapButton.Zoom"
+      android:layout_marginBottom="@dimen/in_car_map_zoom_gap"
+      android:contentDescription="@string/zoom_in"
+      app:backgroundTint="@color/in_car_map_button_background"
+      app:fabCustomSize="@dimen/in_car_map_primary_button_size"
+      app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
+      app:srcCompat="@drawable/ic_plus" />
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+      android:id="@+id/nav_zoom_out"
+      style="@style/MwmWidget.MapButton.Zoom"
+      android:contentDescription="@string/zoom_out"
+      app:backgroundTint="@color/in_car_map_button_background"
+      app:fabCustomSize="@dimen/in_car_map_primary_button_size"
+      app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
+      app:srcCompat="@drawable/ic_minus" />
+  </LinearLayout>
+  <!-- Track Recording remains a separate action below the camera-control rail. -->
   <com.google.android.material.floatingactionbutton.FloatingActionButton
     android:id="@+id/track_recording_status"
     style="@style/MwmWidget.MapButton.Zoom"
