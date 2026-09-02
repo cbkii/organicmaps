@@ -86,11 +86,13 @@ def verify_ratio() -> None:
 
 def verify_resources(root: Path) -> None:
     runtime_path = root / "android/app/src/main/res/values/in_car_runtime_ui.xml"
+    automotive_path = root / "android/app/src/main/res/values/in_car_automotive_ui.xml"
     visuals_path = root / "android/app/src/main/res/values/in_car_visuals.xml"
     override_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
     runtime_extra_path = root / "android/app/src/inCar/res/values/in_car_runtime_layout_extra.xml"
 
     runtime = resource_values(runtime_path)
+    automotive = resource_values(automotive_path)
     visuals = resource_values(visuals_path)
     overrides = resource_values(override_path)
     runtime_extra = resource_values(runtime_extra_path)
@@ -103,7 +105,7 @@ def verify_resources(root: Path) -> None:
     require_value(runtime, "in_car_place_page_save_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_place_page_other_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_quick_marker_touch_radius", "38dp", runtime_path)
-    require_value(runtime_extra, "in_car_action_menu_width", "300dp", runtime_extra_path)
+    require_value(automotive, "in_car_action_menu_width", "300dp", automotive_path)
     require_value(runtime_extra, "in_car_search_result_meta_width", "112dp", runtime_extra_path)
 
     preferred_visuals = (
@@ -166,11 +168,12 @@ def verify_action_menus(root: Path) -> None:
     nav_menu = root / "android/app/src/main/java/app/organicmaps/widget/menu/NavMenu.java"
     route_plan = root / "android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java"
 
-    require_text(action_menu, r"ListPopupWindow", "anchored automotive action list")
+    require_text(action_menu, r"ListPopupWindow", "automotive action list")
+    require_text(action_menu, r"popup\.setAnchorView\(anchor\)", "anchored automotive action list")
     require_text(
         action_menu,
-        r"R\.dimen\.in_car_runtime_row_min_height",
-        "preferred automotive action-row minimum",
+        r"R\.dimen\.in_car_runtime_row_min_height[\s\S]*?view\.setMinimumHeight\(minHeight\)",
+        "preferred automotive action-row minimum enforcement",
     )
     require_text(action_menu, r"R\.dimen\.in_car_action_menu_width", "bounded automotive action-menu width")
 
@@ -187,7 +190,11 @@ def verify_start_end_controls(root: Path) -> None:
     require_layout_attr(start, "start", ANDROID_NS, "layout_width", "0dp")
     require_layout_attr(start, "start", ANDROID_NS, "layout_weight", "1")
     require_layout_attr(start, "start", ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_preferred")
-    require_text(start, r"<Space\b[\s\S]*?android:layout_weight=\"1\"", "equal spacer for half-width START")
+    require_text(
+        start,
+        r"<Space\b(?=[^>]*android:layout_width=\"0dp\")(?=[^>]*android:layout_weight=\"1\")[^>]*>",
+        "equal spacer for half-width START",
+    )
 
     require_layout_attr(nav, "stop", ANDROID_NS, "layout_height", "@dimen/nav_button_height")
     require_layout_attr(nav, "stop", ANDROID_NS, "minWidth", "@dimen/in_car_nav_stop_min_width")
