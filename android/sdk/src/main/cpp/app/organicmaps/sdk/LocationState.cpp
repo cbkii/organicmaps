@@ -170,6 +170,11 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingV
                                                                                            jboolean autoReturn,
                                                                                            jboolean recenter)
 {
+  // A recentering app-side Driving View action explicitly takes camera ownership from the bounded launcher bridge.
+  // Cancel first so a stale bridge timeout/fix cannot later disable the newly selected manual/persistent state.
+  if (recenter)
+    CancelStartupCameraBridge();
+
   auto const drapeEngine = GetDrapeEngine();
   if (drapeEngine != nullptr)
     drapeEngine->SetDrivingView(enabled, autoReturn, recenter);
