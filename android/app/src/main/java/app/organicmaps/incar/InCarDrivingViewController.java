@@ -360,8 +360,11 @@ public final class InCarDrivingViewController implements LocationListener
       Logger.i(TAG, "InCar startup camera: wait for live follow without pre-fix framing");
     }
 
+    final boolean keepDrivingViewEnabled = mPolicy.isEnabled();
     InCarStartupCameraNative.requestFollowAndRotate(startupMapView == StartupMapView.DRIVING_AREA,
-                                                    mPolicy.isEnabled());
+                                                    keepDrivingViewEnabled,
+                                                    keepDrivingViewEnabled
+                                                        && InCarSettingsStore.autoReturnDrivingViewEnabled(mContext));
   }
 
   private void reconcileModeWithSession()
