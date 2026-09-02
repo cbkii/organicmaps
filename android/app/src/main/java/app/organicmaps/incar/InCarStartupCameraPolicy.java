@@ -55,8 +55,8 @@ public final class InCarStartupCameraPolicy
 
   private static boolean hasExplicitMapTarget(@NonNull Intent intent)
   {
-    final boolean countryOrCategory = intent.hasExtra(MwmActivity.EXTRA_COUNTRY_ID)
-                                   || intent.hasExtra(MwmActivity.EXTRA_CATEGORY_ID);
+    final boolean countryOrCategory =
+        intent.hasExtra(MwmActivity.EXTRA_COUNTRY_ID) || intent.hasExtra(MwmActivity.EXTRA_CATEGORY_ID);
     final boolean bookmarkOrTrack =
         intent.hasExtra(MwmActivity.EXTRA_BOOKMARK_ID) || intent.hasExtra(MwmActivity.EXTRA_TRACK_ID);
     return countryOrCategory || bookmarkOrTrack;
