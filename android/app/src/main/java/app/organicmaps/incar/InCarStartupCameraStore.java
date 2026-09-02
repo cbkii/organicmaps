@@ -53,7 +53,7 @@ public final class InCarStartupCameraStore
   @VisibleForTesting
   static final long MAX_ANCHOR_AGE_MS = 30L * 24L * 60L * 60L * 1_000L;
   private static final long MAX_FUTURE_SKEW_MS = 5L * 60L * 1_000L;
-  private static final float MAX_CACHE_ACCURACY_METERS = 10_000.0f;
+  private static final float MAX_CACHE_ACCURACY_METERS = 500.0f;
   private static final int CACHE_VERSION = 1;
 
   private static final String KEY_STARTUP_MAP_VIEW = "InCarStartupMapView";
