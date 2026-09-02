@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="pref_in_car_free_driving_snap_mode" translatable="false">InCarFreeDrivingSnapMode</string>
+  <string name="pref_in_car_fast_location_polling" translatable="false">InCarFastLocationPolling</string>
+
+  <string name="in_car_snap_to_road_title">Snap to road</string>
+  <string name="in_car_snap_to_road_summary">Match Driving View to plausible driveable roads using recent motion, road direction and road-network continuity.</string>
+  <string-array name="in_car_snap_to_road_entries">
+    <item>Off</item>
+    <item>Auto</item>
+    <item>Strong</item>
+  </string-array>
+  <string-array name="in_car_snap_to_road_values" translatable="false">
+    <item>off</item>
+    <item>auto</item>
+    <item>strong</item>
+  </string-array>
+
+  <string name="in_car_fast_location_polling_title">Faster location polling</string>
+  <string name="in_car_fast_location_polling_summary">Request high-rate InCar location updates every 100 ms instead of the default 200 ms. Actual GNSS update rate still depends on the head unit.</string>
+
+  <string name="in_car_offroad_button">4WD off-road mode</string>
+  <string name="in_car_offroad_button_disable">Return to automatic road matching</string>
+</resources>
