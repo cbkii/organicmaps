@@ -7,6 +7,7 @@
 
 #include "kml/type_utils.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <string>
@@ -26,6 +27,15 @@ struct EdgeProj
 {
   Edge m_edge;
   m2::PointD m_point;
+};
+
+// Compact metadata used by the route-independent automotive display matcher. It deliberately exposes only
+// information that the routing graph already knows and does not create another route/session authority.
+struct FreeDrivingRoadCandidate
+{
+  EdgeProj m_projection;
+  uint8_t m_roadRank = 0;
+  bool m_oneWay = false;
 };
 
 /// Routing engine type.
@@ -61,8 +71,8 @@ public:
   /// It will be called in separate thread and only one function will processed in same time.
   /// @warning please support Cancellable interface calls. You must stop processing when it is true.
   ///
-  /// @param checkpoints start, finish and intermediate points
-  /// @param startDirection start direction for routers with high cost of the turnarounds
+  /// @param checkpoints start, finish and intermadiate points
+  /// @param direction start direction for routers with high cost of the turnarounds
   /// @param adjust adjust route to the previous one if possible
   /// @param delegate callback functions and cancellation flag
   /// @param result populated with one or more alternative routes (as RouteBase) when successful;
@@ -74,6 +84,19 @@ public:
 
   virtual bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                            EdgeProj & proj) = 0;
+
+  /// Returns a bounded set of nearby road candidates for display-only free-driving matching. Routers which do not
+  /// expose richer candidate metadata safely fall back to their established single-projection implementation.
+  virtual bool FindFreeDrivingRoadCandidates(m2::PointD const & point, m2::PointD const & direction, double radius,
+                                             uint32_t count, std::vector<FreeDrivingRoadCandidate> & candidates)
+  {
+    candidates.clear();
+    EdgeProj projection;
+    if (!FindClosestProjectionToRoad(point, direction, radius, projection))
+      return false;
+    candidates.push_back({projection, 0, false});
+    return true;
+  }
 
   /// Swap the saved last-route state with the alternative's saved state. Called when the user
   /// picks an alternative variant so a subsequent AdjustRoute (off-route rebuild) adjusts to
