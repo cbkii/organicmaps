@@ -32,38 +32,6 @@ UNIT_TEST(MyPositionDrivingPolicy_AutoZoom)
   TEST(!ShouldUseAutoZoom(location::Follow, false, true, false, false), ());
 }
 
-UNIT_TEST(MyPositionDrivingPolicy_InCarFreeDrivingMotion)
-{
-  double const below = kFreeDrivingMinSpeedMps - 0.01;
-  TEST_EQUAL(kFreeDrivingAutoReturnSeconds, 10.0, ());
-  TEST(IsInCarFreeDrivingMotion(true, true, true, kFreeDrivingMinSpeedMps), ());
-  TEST(!IsInCarFreeDrivingMotion(true, true, true, below), ());
-  TEST(!IsInCarFreeDrivingMotion(true, true, false, -1.0), ());
-  TEST(!IsInCarFreeDrivingMotion(true, false, true, kFreeDrivingMinSpeedMps), ());
-  TEST(!IsInCarFreeDrivingMotion(false, true, true, kFreeDrivingMinSpeedMps), ());
-
-  TEST(ShouldAutoReturn(false, false, false, true, true, true, kFreeDrivingMinSpeedMps), ());
-  TEST(!ShouldAutoReturn(false, false, false, true, true, true, below), ());
-}
-
-UNIT_TEST(MyPositionDrivingPolicy_InCarFreeDrivingAutoZoom)
-{
-  double const below = kFreeDrivingMinSpeedMps - 0.01;
-  TEST(ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true, kFreeDrivingMinSpeedMps,
-                         false),
-       ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true, below, false), ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, false, true, true, kFreeDrivingMinSpeedMps,
-                          false),
-       ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, false, true, kFreeDrivingMinSpeedMps,
-                          false),
-       ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true, kFreeDrivingMinSpeedMps,
-                          true),
-       ());
-}
-
 UNIT_TEST(MyPositionDrivingPolicy_StationaryHoldOnlyInFreeDriving)
 {
   double const below = kStationarySpeedMps - 0.01;

@@ -7,7 +7,6 @@
   <string name="pref_in_car_automatic_driving_view" translatable="false">pref_in_car_automatic_driving_view</string>
   <string name="pref_in_car_auto_return_driving_view" translatable="false">pref_in_car_auto_return_driving_view</string>
   <string name="pref_in_car_startup_map_view" translatable="false">InCarStartupMapView</string>
-  <string name="pref_in_car_free_driving_auto_zoom" translatable="false">InCarFreeDrivingAutoZoom</string>
   <string name="pref_in_car_budget_rendering" translatable="false">pref_in_car_budget_rendering</string>
   <string name="pref_in_car_navigation_fallback_mode" translatable="false">pref_in_car_navigation_fallback_mode</string>
   <string name="pref_in_car_offline_navigation_voice_pack" translatable="false">pref_in_car_offline_navigation_voice_pack</string>

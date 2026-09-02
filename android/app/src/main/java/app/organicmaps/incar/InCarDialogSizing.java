@@ -3,9 +3,11 @@ package app.organicmaps.incar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.Resources;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.EditText;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
@@ -24,6 +26,7 @@ public final class InCarDialogSizing
     applyWidth(activity, dialog, resources.getFraction(R.fraction.in_car_compact_dialog_width_fraction, 1, 1),
                resources.getDimensionPixelSize(R.dimen.in_car_compact_dialog_min_width),
                resources.getDimensionPixelSize(R.dimen.in_car_compact_dialog_max_width));
+    enforceTouchTargets(activity, dialog);
   }
 
   public static void applyPickerSize(@NonNull Activity activity, @NonNull AlertDialog dialog)
@@ -43,6 +46,7 @@ public final class InCarDialogSizing
                       resources.getFraction(R.fraction.in_car_picker_dialog_height_fraction, 1, 1));
     window.setLayout(width, height);
     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+    enforceTouchTargets(activity, dialog);
   }
 
   private static void applyWidth(@NonNull Activity activity, @NonNull AlertDialog dialog, float fraction,
@@ -53,6 +57,33 @@ public final class InCarDialogSizing
       return;
     final int width = boundedSizePx(usableWindowSize(activity)[0], minWidthPx, maxWidthPx, fraction);
     window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+  }
+
+  /**
+   * Dialog chrome otherwise falls back to phone defaults (commonly 48dp). Apply the InCar preferred
+   * interaction height after the dialog is shown, while leaving layout width/height free to wrap or scroll.
+   */
+  private static void enforceTouchTargets(@NonNull Activity activity, @NonNull AlertDialog dialog)
+  {
+    final Window window = dialog.getWindow();
+    if (window == null)
+      return;
+    final int target = activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred);
+    enforceTouchTargets(window.getDecorView(), target);
+  }
+
+  private static void enforceTouchTargets(@NonNull View view, int target)
+  {
+    if (view.isClickable() || view.isLongClickable() || view instanceof EditText)
+    {
+      view.setMinimumWidth(Math.max(view.getMinimumWidth(), target));
+      view.setMinimumHeight(Math.max(view.getMinimumHeight(), target));
+    }
+
+    if (!(view instanceof ViewGroup group))
+      return;
+    for (int index = 0; index < group.getChildCount(); ++index)
+      enforceTouchTargets(group.getChildAt(index), target);
   }
 
   @VisibleForTesting

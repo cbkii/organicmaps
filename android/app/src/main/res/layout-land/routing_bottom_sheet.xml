@@ -71,8 +71,8 @@
               android:layout_marginEnd="@dimen/margin_base"
               android:layout_weight="1"
               android:contentDescription="@string/search"
-              app:fabCustomSize="40dp"
-              app:maxImageSize="28dp"
+              app:fabCustomSize="@dimen/routing_action_button_size"
+              app:maxImageSize="@dimen/routing_action_button_icon_size"
               app:srcCompat="@drawable/ic_search"
               app:shapeAppearanceOverlay="@style/MwmWidget.MapButton.Square.bottom" />
 
@@ -82,8 +82,8 @@
               android:layout_marginEnd="@dimen/margin_base"
               android:layout_weight="1"
               android:contentDescription="@string/bookmarks"
-              app:fabCustomSize="40dp"
-              app:maxImageSize="28dp"
+              app:fabCustomSize="@dimen/routing_action_button_size"
+              app:maxImageSize="@dimen/routing_action_button_icon_size"
               app:shapeAppearanceOverlay="@style/MwmWidget.MapButton.Square"
               app:srcCompat="@drawable/ic_bookmarks_and_tracks" />
 
@@ -93,8 +93,8 @@
               android:layout_marginEnd="@dimen/margin_base"
               android:layout_weight="1"
               android:contentDescription="@string/save"
-              app:fabCustomSize="40dp"
-              app:maxImageSize="28dp"
+              app:fabCustomSize="@dimen/routing_action_button_size"
+              app:maxImageSize="@dimen/routing_action_button_icon_size"
               app:shapeAppearanceOverlay="@style/MwmWidget.MapButton.Square.bottom"
               app:srcCompat="@drawable/icon_save" />
 
@@ -104,8 +104,8 @@
               android:layout_marginEnd="@dimen/margin_base"
               android:contentDescription="@string/in_car_route_more"
               android:visibility="gone"
-              app:fabCustomSize="40dp"
-              app:maxImageSize="28dp"
+              app:fabCustomSize="@dimen/routing_action_button_size"
+              app:maxImageSize="@dimen/routing_action_button_icon_size"
               app:shapeAppearanceOverlay="@style/MwmWidget.MapButton.Square.bottom"
               app:srcCompat="@drawable/ic_more" />
           </LinearLayout>

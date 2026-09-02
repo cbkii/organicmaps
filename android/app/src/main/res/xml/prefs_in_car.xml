@@ -38,14 +38,6 @@
       android:defaultValue="DRIVING_AREA"
       android:persistent="false"
       app:singleLineTitle="false" />
-
-    <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_free_driving_auto_zoom"
-      android:title="@string/in_car_free_driving_auto_zoom_title"
-      android:summary="@string/in_car_free_driving_auto_zoom_summary"
-      android:defaultValue="true"
-      android:persistent="false"
-      app:singleLineTitle="false" />
   </androidx.preference.PreferenceCategory>
 
   <androidx.preference.PreferenceCategory

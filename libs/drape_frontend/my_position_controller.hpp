@@ -161,7 +161,6 @@ private:
   void CheckBlockAutoZoom();
   void CheckUpdateLocation();
   void RefreshLocationFreshness(location::GpsInfo const & info);
-  void RefreshFreeDrivingSettings();
 
   ref_ptr<DrapeNotifier> m_notifier;
 
@@ -176,11 +175,6 @@ private:
   bool m_isArrowGluedInRouting = false;
   bool m_isDrivingView = false;
   bool m_autoReturnDrivingView = true;
-  bool m_isInCarFreeDriving = false;
-  bool m_autoStartFollowAndRotate = false;
-  bool m_enableFreeDrivingAutoZoom = false;
-  bool m_hasLocationSpeed = false;
-  double m_locationSpeedMps = -1.0;
 
   bool m_needBlockAnimation;
   bool m_wasRotationInScaling;
