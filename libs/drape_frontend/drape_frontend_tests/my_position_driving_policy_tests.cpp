@@ -49,18 +49,18 @@ UNIT_TEST(MyPositionDrivingPolicy_InCarFreeDrivingMotion)
 UNIT_TEST(MyPositionDrivingPolicy_InCarFreeDrivingAutoZoom)
 {
   double const below = kFreeDrivingMinSpeedMps - 0.01;
-  TEST(ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true,
-                         kFreeDrivingMinSpeedMps, false),
+  TEST(ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true, kFreeDrivingMinSpeedMps,
+                         false),
        ());
   TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true, below, false), ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, false, true, true,
-                          kFreeDrivingMinSpeedMps, false),
+  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, false, true, true, kFreeDrivingMinSpeedMps,
+                          false),
        ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, false, true,
-                          kFreeDrivingMinSpeedMps, false),
+  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, false, true, kFreeDrivingMinSpeedMps,
+                          false),
        ());
-  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true,
-                          kFreeDrivingMinSpeedMps, true),
+  TEST(!ShouldUseAutoZoom(location::FollowAndRotate, false, false, false, true, true, true, kFreeDrivingMinSpeedMps,
+                          true),
        ());
 }
 
