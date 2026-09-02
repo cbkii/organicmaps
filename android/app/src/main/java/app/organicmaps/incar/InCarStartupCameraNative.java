@@ -9,7 +9,8 @@ final class InCarStartupCameraNative
 {
   private static final long PENDING_TIMEOUT_MS = 10_000L;
   private static final Handler PENDING_TIMEOUT_HANDLER = new Handler(Looper.getMainLooper());
-  private static final Runnable CANCEL_PENDING = () -> {
+  private static final Runnable CANCEL_PENDING = () ->
+  {
     if (Map.isEngineCreated())
       nativeCancelPending();
   };
