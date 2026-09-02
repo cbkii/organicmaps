@@ -79,10 +79,12 @@ def verify_ratio() -> None:
 def verify_resources(root: Path) -> None:
     runtime_path = root / "android/app/src/main/res/values/in_car_runtime_ui.xml"
     visuals_path = root / "android/app/src/main/res/values/in_car_visuals.xml"
+    automotive_path = root / "android/app/src/main/res/values/in_car_automotive_ui.xml"
     override_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
 
     runtime = resource_values(runtime_path)
     visuals = resource_values(visuals_path)
+    automotive = resource_values(automotive_path)
     overrides = resource_values(override_path)
 
     require_value(runtime, "in_car_touch_target_preferred", f"{PREFERRED_DP}dp", runtime_path)
@@ -117,6 +119,9 @@ def verify_resources(root: Path) -> None:
     for name in compact_visuals:
         require_value(visuals, name, "@dimen/in_car_touch_target_min", visuals_path)
 
+    require_value(automotive, "in_car_map_primary_button_size", "@dimen/in_car_runtime_button_size", automotive_path)
+    require_value(automotive, "in_car_map_zoom_gap", "10dp", automotive_path)
+
     preferred_overrides = (
         "map_button_size",
         "primary_button_min_height",
@@ -149,10 +154,60 @@ def verify_search_toolbar(root: Path) -> None:
     require_layout_attr(path, "query", ANDROID_NS, "minHeight", preferred)
 
 
+def verify_camera_control_rail(root: Path) -> None:
+    zoom_layout = root / "android/app/src/inCar/res/layout/map_buttons_zoom.xml"
+    overlay_layout = root / "android/app/src/main/res/layout/in_car_driving_overlay.xml"
+    zoom_root = parse_xml(zoom_layout)
+    id_attr = f"{{{ANDROID_NS}}}id"
+    child_ids = []
+    for child in zoom_root:
+        raw_id = child.attrib.get(id_attr, "")
+        if raw_id.startswith("@+id/"):
+            child_ids.append(raw_id.removeprefix("@+id/"))
+        elif raw_id.startswith("@id/"):
+            child_ids.append(raw_id.removeprefix("@id/"))
+
+    expected_prefix = ["in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out"]
+    if child_ids[:3] != expected_prefix:
+        raise VerificationError(
+            f"{zoom_layout}: camera-control rail must begin Driving View, zoom in, zoom out; found {child_ids[:3]}"
+        )
+
+    for view_id in expected_prefix:
+        require_layout_attr(
+            zoom_layout,
+            view_id,
+            APP_NS,
+            "fabCustomSize",
+            "@dimen/in_car_map_primary_button_size",
+        )
+    for view_id in ("in_car_driving_view_button", "nav_zoom_in"):
+        require_layout_attr(
+            zoom_layout,
+            view_id,
+            ANDROID_NS,
+            "layout_marginBottom",
+            "@dimen/in_car_map_zoom_gap",
+        )
+    require_layout_attr(
+        zoom_layout,
+        "in_car_driving_view_button",
+        APP_NS,
+        "srcCompat",
+        "@drawable/ic_in_car_driving_view",
+    )
+
+    overlay = parse_xml(overlay_layout)
+    for element in overlay.iter():
+        if element.attrib.get(id_attr) in ("@+id/in_car_driving_view_button", "@id/in_car_driving_view_button"):
+            raise VerificationError(f"{overlay_layout}: Driving View button must live in the zoom rail, not the overlay")
+
+
 def verify_code(root: Path) -> None:
     quick_policy = root / "android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsLayoutPolicy.java"
     choice_adapter = root / "android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java"
     dialog_sizing = root / "android/app/src/main/java/app/organicmaps/incar/InCarDialogSizing.java"
+    driving_ui = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
     settings_fragment = root / "android/app/src/main/java/app/organicmaps/settings/InCarSettingsFragment.java"
     routing_layouts = (
         root / "android/app/src/main/res/layout/routing_bottom_sheet.xml",
@@ -190,6 +245,21 @@ def verify_code(root: Path) -> None:
         "interactive dialog-control traversal",
     )
     require_text(
+        driving_ui,
+        r"FragmentManager\.FragmentLifecycleCallbacks",
+        "map-button fragment lifecycle rebinding for Driving View",
+    )
+    require_text(
+        driving_ui,
+        r"R\.id\.nav_zoom_in",
+        "zoom-in size authority for the Driving View rail control",
+    )
+    require_text(
+        driving_ui,
+        r"onDrivingViewButtonPressed\(\)",
+        "unchanged Driving View button action",
+    )
+    require_text(
         settings_fragment,
         r"void\s+onDisplayPreferenceDialog\(",
         "InCar list-preference dialog override",
@@ -217,6 +287,7 @@ def main() -> int:
         verify_ratio()
         verify_resources(root)
         verify_search_toolbar(root)
+        verify_camera_control_rail(root)
         verify_code(root)
     except VerificationError as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
