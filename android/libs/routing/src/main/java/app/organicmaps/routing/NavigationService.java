@@ -330,8 +330,8 @@ public class NavigationService extends Service implements LocationListener
 
     if (mode == OfflineNavigationVoicePack.Mode.VOICE)
     {
-      // Keep the established speed-camera warning sound distinct from generic fallback events.
-      if (cameraWarning)
+      // The fallback resource is the product-level enable sentinel; keep this path InCar-only.
+      if (cameraWarning && sTtsFallbackSoundResId != 0)
         return mPlayer.playback(R.raw.speed_cams_beep);
 
       final List<File> clips = new ArrayList<>();
@@ -364,14 +364,13 @@ public class NavigationService extends Service implements LocationListener
       return false;
     }
 
-    if (!OfflineNavigationVoicePack.shouldPlayTone(mode, hasRoutingEvent || hasGpsEvent, criticalEvent))
+    if (sTtsFallbackSoundResId == 0
+        || !OfflineNavigationVoicePack.shouldPlayTone(mode, hasRoutingEvent || hasGpsEvent, criticalEvent))
       return false;
 
     if (cameraWarning)
       return mPlayer.playback(R.raw.speed_cams_beep);
 
-    if (sTtsFallbackSoundResId == 0)
-      return false;
     return mPlayer.playback(sTtsFallbackSoundResId);
   }
 
