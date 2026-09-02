@@ -7,6 +7,7 @@
 #include "map/transit/transit_reader.hpp"
 
 #include "routing/following_info.hpp"
+#include "routing/free_driving_road_snap_policy.hpp"
 #include "routing/route.hpp"
 #include "routing/router.hpp"
 #include "routing/routing_callbacks.hpp"
@@ -131,6 +132,33 @@ public:
   void BuildRoute(uint32_t timeoutSec = routing::RouterDelegate::kNoTimeout);
   void SetUserCurrentPosition(m2::PointD const & position);
   void ResetRoutingSession() { m_routingSession.Reset(); }
+
+  /// Configure route-independent InCar display matching. This changes only display matching/prediction ownership;
+  /// routed navigation and raw framework location remain authoritative.
+  void SetFreeDrivingTracking(bool enabled, routing::free_driving_snap::SnapMode mode, bool offRoadOverride)
+  {
+    m_freeDrivingTrackingEnabled = enabled && mode != routing::free_driving_snap::SnapMode::Off;
+    m_freeDrivingSnapMode = mode;
+    m_freeDrivingOffRoadOverride = offRoadOverride;
+
+    bool const routePrediction = m_routingSession.IsFollowing() &&
+                                 (m_currentRouterType == routing::RouterType::Vehicle ||
+                                  m_currentRouterType == routing::RouterType::Bicycle);
+    bool const freeDrivingPrediction = m_freeDrivingTrackingEnabled && !m_freeDrivingOffRoadOverride &&
+                                       !IsRoutingActive() && m_currentRouterType == routing::RouterType::Vehicle;
+    m_extrapolator.Enable(routePrediction || freeDrivingPrediction);
+
+    if (!freeDrivingPrediction)
+      m_routingSession.ResetFreeDrivingRoadGraphMatch();
+  }
+
+  routing::free_driving_snap::MatchState GetFreeDrivingMatchState() const
+  {
+    if (!m_freeDrivingTrackingEnabled || m_freeDrivingOffRoadOverride || IsRoutingActive())
+      return routing::free_driving_snap::MatchState::Disabled;
+    return m_routingSession.GetFreeDrivingMatchState();
+  }
+
   // FollowRoute has a bug where the router follows the route even if the method hads't been called.
   // This method was added because we do not want to break the behaviour that is familiar to our
   // users.
@@ -147,9 +175,9 @@ public:
     m_routeSpeedCamShowCallback = speedCamShowCallback;
   }
 
-  void SetRouteSpeedCamsClearListener(RouteSpeedCamsClearCallback const & speedCamsClearCallback)
+  void SetRouteSpeedCamsClearListener(RouteSpeedCamsClearCallback const & speedCamClearCallback)
   {
-    m_routeSpeedCamsClearCallback = speedCamsClearCallback;
+    m_routeSpeedCamsClearCallback = speedCamClearCallback;
   }
 
   /// See warning above.
@@ -363,6 +391,11 @@ private:
 
   BookmarkManager * m_bmManager = nullptr;
   extrapolation::Extrapolator m_extrapolator;
+
+  bool m_freeDrivingTrackingEnabled = false;
+  routing::free_driving_snap::SnapMode m_freeDrivingSnapMode = routing::free_driving_snap::SnapMode::Auto;
+  bool m_freeDrivingOffRoadOverride = false;
+  std::optional<ms::LatLon> m_lastRawFreeDrivingPosition;
 
   std::vector<dp::DrapeID> m_drapeSubroutes;
   mutable std::mutex m_drapeSubroutesMutex;
