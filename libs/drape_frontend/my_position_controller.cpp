@@ -405,11 +405,10 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
   m_locationSpeedMps = m_hasLocationSpeed ? info.m_speed : -1.0;
   bool const isFreeDrivingMotion = driving_policy::IsInCarFreeDrivingMotion(
       m_isInCarFreeDriving, m_autoStartFollowAndRotate, m_hasLocationSpeed, m_locationSpeedMps);
-  if (!m_isInRouting && !m_isDrivingView && m_mode == location::NotFollow &&
-      wasFreeDrivingMotion != isFreeDrivingMotion)
-  {
+  bool const canArmFreeDrivingReturn =
+      m_mode == location::NotFollow || m_mode == location::NotFollowNoPosition;
+  if (!m_isInRouting && !m_isDrivingView && canArmFreeDrivingReturn && wasFreeDrivingMotion != isFreeDrivingMotion)
     ResetRoutingNotFollowTimer();
-  }
 
   m2::PointD const newPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
   double const displacementMeters = m_isPositionAssigned ? mercator::DistanceOnEarth(m_position, newPosition) : 0.0;
@@ -1007,6 +1006,7 @@ void MyPositionController::DeactivateRouting()
 
 void MyPositionController::CheckNotFollowRouting()
 {
+  RefreshFreeDrivingSettings();
   if (!m_blockRoutingNotFollowTimer &&
       driving_policy::ShouldAutoReturn(m_isInRouting, m_isDrivingView, m_autoReturnDrivingView, m_isInCarFreeDriving,
                                        m_autoStartFollowAndRotate, m_hasLocationSpeed, m_locationSpeedMps) &&
