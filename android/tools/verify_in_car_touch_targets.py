@@ -95,6 +95,11 @@ def verify_resources(root: Path) -> None:
     require_value(runtime, "in_car_place_page_save_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_place_page_other_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_quick_marker_touch_radius", "38dp", runtime_path)
+    require_text(
+        runtime_path,
+        r'<item\s+name="in_car_driving_view_button"\s+type="id"\s*/>',
+        "main-source Driving View id declaration for all app flavours",
+    )
 
     preferred_visuals = (
         "in_car_map_button_size",
