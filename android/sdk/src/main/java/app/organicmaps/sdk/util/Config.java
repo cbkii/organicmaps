@@ -249,12 +249,259 @@ public final class Config
     // See links below for details:
     // https://github.com/organicmaps/organicmaps/issues/2857
     // https://github.com/organicmaps/organicmaps/issues/3967
-    return getBool(KEY_MISC_SHOW_ON_LOCK_SCREEN, Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
+    final boolean defaultValue = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
+    return getBool(KEY_MISC_SHOW_ON_LOCK_SCREEN, defaultValue);
   }
 
   public static void setShowOnLockScreenEnabled(boolean enabled)
   {
     setBool(KEY_MISC_SHOW_ON_LOCK_SCREEN, enabled);
+  }
+
+  public static boolean useGoogleServices()
+  {
+    // F-droid users expect non-free networks to be disabled by default
+    // https://t.me/organicmaps/47334
+    // Additionally, in the µG play-services-location library which is used for
+    // F-droid builds, GMS api availability is stubbed and always returns true.
+    // https://github.com/microg/GmsCore/issues/2309
+    // For more details, see the discussion in
+    // https://github.com/organicmaps/organicmaps/pull/9575
+    return getBool(KEY_PREF_USE_GS, !isFdroid());
+  }
+
+  public static void setUseGoogleService(boolean use)
+  {
+    setBool(KEY_PREF_USE_GS, use);
+  }
+
+  public static boolean isRoutingDisclaimerAccepted()
+  {
+    return getBool(KEY_MISC_DISCLAIMER_ACCEPTED);
+  }
+
+  public static void acceptRoutingDisclaimer()
+  {
+    setBool(KEY_MISC_DISCLAIMER_ACCEPTED);
+  }
+
+  public static boolean isLocationRequested()
+  {
+    return getBool(KEY_MISC_LOCATION_REQUESTED);
+  }
+
+  public static void setLocationRequested()
+  {
+    setBool(KEY_MISC_LOCATION_REQUESTED);
+  }
+
+  public enum UiTheme
+  {
+    /**
+     * Follows the device's system-wide light/dark setting.
+     */
+    SYSTEM("auto"),
+    /**
+     * Always uses the light theme regardless of time or device settings.
+     */
+    LIGHT("default"),
+    /**
+     * Always uses the dark theme regardless of time or device settings.
+     */
+    DARK("night"),
+    /**
+     * Automatically switches between dark and light based on sunrise/sunset at the current location.
+     */
+    SCHEDULED("scheduled");
+
+    UiTheme(@NonNull String value)
+    {
+      this.value = value;
+    }
+
+    @NonNull
+    public final String value;
+
+    private static final String KEY_UI_THEME_PREFERENCE = "UiThemeSettings";
+    private static final String KEY_AUTO_DARK_NAVIGATION_PREFERENCE = "AutoDarkNavigation";
+
+    private static final String LEGACY_NAV_AUTO_THEME = "nav_auto";
+
+    @NonNull
+    public String getValue()
+    {
+      return value;
+    }
+
+    public static UiTheme ofValue(@Nullable String value)
+    {
+      for (UiTheme uiTheme : UiTheme.values())
+      {
+        if (uiTheme.value.equalsIgnoreCase(value))
+          return uiTheme;
+      }
+      return UiTheme.SYSTEM;
+    }
+
+    @NonNull
+    public static UiTheme getUiThemePreference()
+    {
+      final String value = getString(KEY_UI_THEME_PREFERENCE);
+      final boolean isLegacyNavAuto = LEGACY_NAV_AUTO_THEME.equalsIgnoreCase(value);
+      if (isLegacyNavAuto && !nativeHasConfigValue(KEY_AUTO_DARK_NAVIGATION_PREFERENCE))
+      {
+        setAutoDarkNavigationEnabled(true);
+      }
+
+      final var isSystemThemeAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+      final var defaultTheme = isSystemThemeAvailable ? UiTheme.SYSTEM : UiTheme.SCHEDULED;
+      final var savedTheme = value.isEmpty() ? defaultTheme : UiTheme.ofValue(value);
+      final var shouldReplaceSystemTheme = savedTheme == UiTheme.SYSTEM && !isSystemThemeAvailable;
+      return shouldReplaceSystemTheme ? UiTheme.SCHEDULED : savedTheme;
+    }
+
+    public static boolean setUiThemePreference(@NonNull UiTheme theme)
+    {
+      if (getUiThemePreference().equals(theme))
+        return false;
+
+      setString(KEY_UI_THEME_PREFERENCE, theme.value);
+      return true;
+    }
+
+    public static boolean isAutoDarkNavigationEnabled()
+    {
+      return getBool(KEY_AUTO_DARK_NAVIGATION_PREFERENCE);
+    }
+
+    public static boolean setAutoDarkNavigationEnabled(boolean enabled)
+    {
+      final var prev = isAutoDarkNavigationEnabled();
+      if (prev == enabled)
+        return false;
+
+      setBool(KEY_AUTO_DARK_NAVIGATION_PREFERENCE, enabled);
+      return true;
+    }
+  }
+
+  public static boolean isLargeFontsSize()
+  {
+    return nativeGetLargeFontsSize();
+  }
+
+  public static void setLargeFontsSize(boolean value)
+  {
+    nativeSetLargeFontsSize(value);
+  }
+
+  @NonNull
+  public static NetworkPolicy.Type getUseMobileDataSettings()
+  {
+    int value = getInt(KEY_MISC_USE_MOBILE_DATA, NetworkPolicy.NONE);
+
+    if (value < 0 || value >= NetworkPolicy.Type.values().length)
+      return NetworkPolicy.Type.ASK;
+
+    return NetworkPolicy.Type.values()[value];
+  }
+
+  public static void setUseMobileDataSettings(@NonNull NetworkPolicy.Type value)
+  {
+    setInt(KEY_MISC_USE_MOBILE_DATA, value.ordinal());
+    setBool(KEY_MISC_USE_MOBILE_DATA_ROAMING, ConnectionState.INSTANCE.isInRoaming());
+  }
+
+  public static void setMobileDataTimeStamp(long timestamp)
+  {
+    setLong(KEY_MISC_USE_MOBILE_DATA_TIMESTAMP, timestamp);
+  }
+
+  static long getMobileDataTimeStamp()
+  {
+    return getLong(KEY_MISC_USE_MOBILE_DATA_TIMESTAMP, 0L);
+  }
+
+  static boolean getMobileDataRoaming()
+  {
+    return getBool(KEY_MISC_USE_MOBILE_DATA_ROAMING, false);
+  }
+
+  public static void setAgpsTimestamp(long timestamp)
+  {
+    setLong(KEY_MISC_AGPS_TIMESTAMP, timestamp);
+  }
+
+  public static long getAgpsTimestamp()
+  {
+    return getLong(KEY_MISC_AGPS_TIMESTAMP, 0L);
+  }
+
+  public static boolean isTransliteration()
+  {
+    return nativeGetTransliteration();
+  }
+
+  public static void setTransliteration(boolean value)
+  {
+    nativeSetTransliteration(value);
+  }
+
+  public static boolean isNY()
+  {
+    return getBool("NY");
+  }
+
+  @NonNull
+  public static String getDonateUrl()
+  {
+    return getString(KEY_DONATE_URL);
+  }
+
+  public static void init(@NonNull SharedPreferences prefs, @NonNull String flavor, @NonNull String applicationId,
+                          int versionCode, @NonNull String versionName)
+  {
+    mPrefs = prefs;
+    mFlavor = flavor;
+    mApplicationId = applicationId;
+    mVersionCode = versionCode;
+    mVersionName = versionName;
+    final SharedPreferences.Editor editor = mPrefs.edit();
+
+    // Update counters.
+    final int launchNumber = mPrefs.getInt(KEY_APP_LAUNCH_NUMBER, 0);
+    editor.putInt(KEY_APP_LAUNCH_NUMBER, launchNumber + 1);
+    editor.putLong(KEY_APP_LAST_SESSION_TIMESTAMP, System.currentTimeMillis());
+    editor.putInt(KEY_APP_LAST_INSTALL_VERSION_CODE, mVersionCode);
+    if (launchNumber == 0 || mPrefs.getInt(KEY_APP_FIRST_INSTALL_VERSION_CODE, 0) == 0)
+      editor.putInt(KEY_APP_FIRST_INSTALL_VERSION_CODE, mVersionCode);
+
+    // Clean up legacy counters.
+    editor.remove("FirstInstallFlavor");
+    editor.remove("SessionNumber");
+    editor.remove("WhatsNewShownVersion");
+    editor.remove("LastRatedSession");
+    editor.remove("RatedDialog");
+
+    // Migrate ENABLE_SCREEN_SLEEP to KEEP_SCREEN_ON.
+    final String KEY_MISC_ENABLE_SCREEN_SLEEP = "EnableScreenSleep";
+    if (nativeHasConfigValue(KEY_MISC_ENABLE_SCREEN_SLEEP))
+    {
+      nativeSetBoolean(KEY_MISC_KEEP_SCREEN_ON, !getBool(KEY_MISC_ENABLE_SCREEN_SLEEP, false));
+      nativeDeleteConfigValue(KEY_MISC_ENABLE_SCREEN_SLEEP);
+    }
+
+    editor.apply();
+  }
+
+  public static boolean isFirstLaunch(@NonNull Context context)
+  {
+    return !mPrefs.getBoolean(KEY_MISC_FIRST_START_DIALOG_SEEN, false);
+  }
+
+  public static void setFirstStartDialogSeen(@NonNull Context context)
+  {
+    mPrefs.edit().putBoolean(KEY_MISC_FIRST_START_DIALOG_SEEN, true).apply();
   }
 
   public static boolean isSearchHistoryEnabled()
@@ -267,194 +514,83 @@ public final class Config
     setBool(KEY_PREF_SEARCH_HISTORY, enabled);
   }
 
-  public static void setUseMobileDataSettings(@NonNull final Context context, @NonNull final MobileDataSettings settings)
+  public static class TTS
   {
-    final boolean value = switch (settings)
+    interface Keys
     {
-      case ALWAYS -> true;
-      case NEVER -> false;
-      case TODAY -> true;
-    };
-    setBool(KEY_MISC_USE_MOBILE_DATA, value);
-    mPrefs.edit().putInt(KEY_MISC_USE_MOBILE_DATA, settings.ordinal()).apply();
-    if (settings == MobileDataSettings.TODAY)
-      setLong(KEY_MISC_USE_MOBILE_DATA_TIMESTAMP, System.currentTimeMillis());
-  }
-
-  public static MobileDataSettings getUseMobileDataSettings(@NonNull final Context context)
-  {
-    final int ordinal = mPrefs.getInt(KEY_MISC_USE_MOBILE_DATA, MobileDataSettings.NEVER.ordinal());
-    final MobileDataSettings settings = MobileDataSettings.values()[ordinal];
-    if (settings == MobileDataSettings.TODAY)
-    {
-      final long timestamp = getLong(KEY_MISC_USE_MOBILE_DATA_TIMESTAMP, 0L);
-      final long diff = System.currentTimeMillis() - timestamp;
-      if (diff > 24 * 60 * 60 * 1000)
-        return MobileDataSettings.NEVER;
+      String ENABLED = "TtsEnabled";
+      String LANGUAGE = "TtsLanguage";
+      String VOLUME = "TtsVolume";
+      String STREETS = "TtsStreetNames";
     }
-    return settings;
+
+    public interface Defaults
+    {
+      boolean ENABLED = true;
+
+      float VOLUME_MIN = 0.0f;
+      float VOLUME_MAX = 1.0f;
+      float VOLUME = VOLUME_MAX;
+
+      boolean STREETS = false; // TTS may mangle some languages, do not announce streets by default
+    }
+
+    public static boolean isEnabled()
+    {
+      return getBool(Keys.ENABLED, Defaults.ENABLED);
+    }
+
+    public static void setEnabled(final boolean enabled)
+    {
+      setBool(Keys.ENABLED, enabled);
+    }
+
+    @NonNull
+    public static String getLanguage()
+    {
+      return getString(Keys.LANGUAGE);
+    }
+
+    public static void setLanguage(@NonNull final String language)
+    {
+      setString(Keys.LANGUAGE, language);
+    }
+
+    public static float getVolume()
+    {
+      return getFloat(Keys.VOLUME, Defaults.VOLUME);
+    }
+
+    public static void setVolume(final float volume)
+    {
+      setFloat(Keys.VOLUME, volume);
+    }
+
+    public static boolean getAnnounceStreets()
+    {
+      return getBool(Keys.STREETS, Defaults.STREETS);
+    }
+
+    public static void setAnnounceStreets(boolean enabled)
+    {
+      setBool(Keys.STREETS, enabled);
+    }
   }
 
-  public static boolean getUseMobileData()
-  {
-    return getBool(KEY_MISC_USE_MOBILE_DATA);
-  }
-
-  public static boolean getUseMobileDataRoaming()
-  {
-    return getBool(KEY_MISC_USE_MOBILE_DATA_ROAMING);
-  }
-
-  public static void setUseMobileDataRoaming(boolean value)
-  {
-    setBool(KEY_MISC_USE_MOBILE_DATA_ROAMING, value);
-  }
-
-  public static boolean isDisclaimerApproved()
-  {
-    return getBool(KEY_MISC_DISCLAIMER_ACCEPTED, false);
-  }
-
-  public static void setDisclaimerApproved(boolean approved)
-  {
-    setBool(KEY_MISC_DISCLAIMER_ACCEPTED, approved);
-  }
-
-  public static boolean isLocationRequested()
-  {
-    return getBool(KEY_MISC_LOCATION_REQUESTED, false);
-  }
-
-  public static void setLocationRequested()
-  {
-    setBool(KEY_MISC_LOCATION_REQUESTED);
-  }
-
-  public static long getAgpsTimestamp()
-  {
-    return getLong(KEY_MISC_AGPS_TIMESTAMP, 0L);
-  }
-
-  public static void setAgpsTimestamp(long timestamp)
-  {
-    setLong(KEY_MISC_AGPS_TIMESTAMP, timestamp);
-  }
-
-  @NonNull
-  public static String getDonateUrl()
-  {
-    return getString(KEY_DONATE_URL);
-  }
-
-  public static void setDonateUrl(@NonNull String url)
-  {
-    setString(KEY_DONATE_URL, url);
-  }
-
-  public static boolean isFirstStartDialogSeen()
-  {
-    return getBool(KEY_MISC_FIRST_START_DIALOG_SEEN, false);
-  }
-
-  public static void setFirstStartDialogSeen()
-  {
-    setBool(KEY_MISC_FIRST_START_DIALOG_SEEN);
-  }
-
-  public static int getLaunchNumber()
-  {
-    return getInt(KEY_APP_LAUNCH_NUMBER, 0);
-  }
-
-  public static void setLaunchNumber(int number)
-  {
-    setInt(KEY_APP_LAUNCH_NUMBER, number);
-  }
-
-  public static long getLastSessionTimestamp()
-  {
-    return getLong(KEY_APP_LAST_SESSION_TIMESTAMP, 0L);
-  }
-
-  public static void setLastSessionTimestamp(long timestamp)
-  {
-    setLong(KEY_APP_LAST_SESSION_TIMESTAMP, timestamp);
-  }
-
-  public static int getFirstInstallVersionCode()
-  {
-    return getInt(KEY_APP_FIRST_INSTALL_VERSION_CODE, 0);
-  }
-
-  public static void setFirstInstallVersionCode(int versionCode)
-  {
-    setInt(KEY_APP_FIRST_INSTALL_VERSION_CODE, versionCode);
-  }
-
-  public static int getLastInstallVersionCode()
-  {
-    return getInt(KEY_APP_LAST_INSTALL_VERSION_CODE, 0);
-  }
-
-  public static void setLastInstallVersionCode(int versionCode)
-  {
-    setInt(KEY_APP_LAST_INSTALL_VERSION_CODE, versionCode);
-  }
-
-  public static boolean useGoogleServices()
-  {
-    return getBool(KEY_PREF_USE_GS, true);
-  }
-
-  public static void setUseGoogleServices(boolean enabled)
-  {
-    setBool(KEY_PREF_USE_GS, enabled);
-  }
-
-  public static int getStatisticsConfig()
-  {
-    return nativeGetInt(KEY_PREF_STATISTICS, 0);
-  }
-
-  public static void setStatisticsConfig(int value)
-  {
-    nativeSetInt(KEY_PREF_STATISTICS, value);
-  }
-
-  @NonNull
-  public static String getFlavor()
-  {
-    return mFlavor;
-  }
-
-  public static void init(@NonNull SharedPreferences prefs, @NonNull String flavor, @NonNull String applicationId,
-                          int versionCode, @NonNull String versionName)
-  {
-    mPrefs = prefs;
-    mFlavor = flavor;
-    mApplicationId = applicationId;
-    mVersionCode = versionCode;
-    mVersionName = versionName;
-  }
-
-  @NonNull
-  public static native String nativeGetString(@NonNull String name, @NonNull String def);
-
-  public static native void nativeSetString(@NonNull String name, @NonNull String value);
-
-  public static native int nativeGetInt(@NonNull String name, int def);
-
-  public static native void nativeSetInt(@NonNull String name, int value);
-
-  public static native long nativeGetLong(@NonNull String name, long def);
-
-  public static native void nativeSetLong(@NonNull String name, long value);
-
-  public static native double nativeGetDouble(@NonNull String name, double def);
-
-  public static native void nativeSetDouble(@NonNull String name, double value);
-
-  public static native boolean nativeGetBoolean(@NonNull String name, boolean def);
-
-  public static native void nativeSetBoolean(@NonNull String name, boolean value);
+  private static native boolean nativeHasConfigValue(String name);
+  private static native boolean nativeDeleteConfigValue(String name);
+  private static native boolean nativeGetBoolean(String name, boolean defaultValue);
+  private static native void nativeSetBoolean(String name, boolean value);
+  private static native int nativeGetInt(String name, int defaultValue);
+  private static native void nativeSetInt(String name, int value);
+  private static native long nativeGetLong(String name, long defaultValue);
+  private static native void nativeSetLong(String name, long value);
+  private static native double nativeGetDouble(String name, double defaultValue);
+  private static native void nativeSetDouble(String name, double value);
+  private static native String nativeGetString(String name, String defaultValue);
+  private static native void nativeSetString(String name, String value);
+  private static native boolean nativeGetLargeFontsSize();
+  private static native void nativeSetLargeFontsSize(boolean value);
+  private static native boolean nativeGetTransliteration();
+  private static native void nativeSetTransliteration(boolean value);
 }
