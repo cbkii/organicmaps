@@ -14,6 +14,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace routing
 {
@@ -22,12 +23,10 @@ namespace routing
 class AsyncRouter final
 {
 public:
-  /// AsyncRouter is a wrapper class to run routing routines in the different thread
-  AsyncRouter(PointCheckCallback const & pointCheckCallback);
-  ~AsyncRouter();
-
   /// Sets a synchronous router, current route calculation will be cancelled
   /// @param router pointer to a router implementation
+  AsyncRouter(PointCheckCallback const & pointCheckCallback);
+  ~AsyncRouter();
   void SetRouter(std::unique_ptr<IRouter> && router, std::unique_ptr<AbsentRegionsFinder> && finder);
 
   /// Main method to calculate new route from startPt to finalPt with start direction
@@ -62,6 +61,18 @@ public:
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                    EdgeProj & proj);
+
+  bool FindFreeDrivingRoadCandidates(m2::PointD const & point, m2::PointD const & direction, double radius,
+                                     uint32_t count, std::vector<FreeDrivingRoadCandidate> & candidates)
+  {
+    std::lock_guard lock(m_guard);
+    if (!m_router)
+    {
+      candidates.clear();
+      return false;
+    }
+    return m_router->FindFreeDrivingRoadCandidates(point, direction, radius, count, candidates);
+  }
 
 private:
   /// Worker thread function
@@ -108,9 +119,9 @@ private:
   std::condition_variable m_threadCondVar;
   bool m_threadExit;
   bool m_hasRequest;
+  bool m_clearState = false;
 
   /// Current request parameters
-  bool m_clearState = false;
   Checkpoints m_checkpoints;
   GuidesTracks m_guides;
 
