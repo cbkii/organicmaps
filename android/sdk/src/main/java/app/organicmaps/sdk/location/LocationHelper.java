@@ -34,10 +34,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
   // Probably https://github.com/organicmaps/organicmaps/issues/10133
   // Probably https://github.com/organicmaps/organicmaps/issues/9018
   private static final long INTERVAL_FOLLOW_MS = 100;
-  private static final long INTERVAL_IN_CAR_FOLLOW_MS = 200;
+  private static final long INTERVAL_IN_CAR_DEFAULT_MS = 200;
+  private static final long INTERVAL_IN_CAR_FAST_MS = 100;
   private static final long INTERVAL_NOT_FOLLOW_MS = 3000;
   private static final long INTERVAL_NAVIGATION_MS = 100;
-  private static final long INTERVAL_IN_CAR_NAVIGATION_MS = 200;
   private static final long INTERVAL_TRACK_RECORDING = 100;
 
   private static final long AGPS_EXPIRATION_TIME_MS = 16 * 60 * 60 * 1000; // 16 hours
@@ -339,10 +339,15 @@ public class LocationHelper implements BaseLocationProvider.Listener
     mListeners.removeObserver(listener);
   }
 
+  private long getInCarHighRateInterval()
+  {
+    return Config.isInCarFastLocationPollingEnabled() ? INTERVAL_IN_CAR_FAST_MS : INTERVAL_IN_CAR_DEFAULT_MS;
+  }
+
   private long calcLocationUpdatesInterval()
   {
     if (RoutingController.get().isNavigating())
-      return mInCar ? INTERVAL_IN_CAR_NAVIGATION_MS : INTERVAL_NAVIGATION_MS;
+      return mInCar ? getInCarHighRateInterval() : INTERVAL_NAVIGATION_MS;
 
     if (TrackRecorder.nativeIsTrackRecordingEnabled())
       return INTERVAL_TRACK_RECORDING;
@@ -351,7 +356,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     return switch (mode)
     {
       case LocationState.PENDING_POSITION, LocationState.FOLLOW, LocationState.FOLLOW_AND_ROTATE ->
-        mInCar ? INTERVAL_IN_CAR_FOLLOW_MS : INTERVAL_FOLLOW_MS;
+        mInCar ? getInCarHighRateInterval() : INTERVAL_FOLLOW_MS;
       case LocationState.NOT_FOLLOW, LocationState.NOT_FOLLOW_NO_POSITION -> INTERVAL_NOT_FOLLOW_MS;
       default -> throw new IllegalArgumentException("Unsupported location mode: " + mode);
     };
