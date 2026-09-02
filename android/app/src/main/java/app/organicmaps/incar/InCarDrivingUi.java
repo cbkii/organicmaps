@@ -1,6 +1,7 @@
 package app.organicmaps.incar;
 
 import android.content.res.ColorStateList;
+import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -11,10 +12,13 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
+import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.log.Logger;
@@ -40,22 +44,26 @@ public final class InCarDrivingUi
     final TextView speed;
     @Nullable
     final TextView navigationSpeed;
-    @NonNull
-    final FloatingActionButton drivingView;
+    @Nullable
+    FloatingActionButton drivingView;
+    @Nullable
+    FloatingActionButton zoomIn;
+    @Nullable
+    View.OnLayoutChangeListener zoomSizeListener;
+    @Nullable
+    FragmentManager.FragmentLifecycleCallbacks mapButtonsCallbacks;
     @Nullable
     final View help;
     @NonNull
     final InCarDrivingViewController controller;
     String lastSpeedText;
 
-    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed,
-            @NonNull FloatingActionButton drivingView, @Nullable View help,
+    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed, @Nullable View help,
             @NonNull InCarDrivingViewController controller)
     {
       this.overlay = overlay;
       this.speed = speed;
       this.navigationSpeed = navigationSpeed;
-      this.drivingView = drivingView;
       this.help = help;
       this.controller = controller;
     }
@@ -93,10 +101,9 @@ public final class InCarDrivingUi
       }
 
       final TextView speed = overlay.findViewById(R.id.in_car_speed);
-      final FloatingActionButton drivingView = overlay.findViewById(R.id.in_car_driving_view_button);
-      if (speed == null || drivingView == null)
+      if (speed == null)
       {
-        Logger.w(TAG, "Driving overlay controls are unavailable");
+        Logger.w(TAG, "Driving overlay speed control is unavailable");
         return;
       }
 
@@ -113,20 +120,45 @@ public final class InCarDrivingUi
       }
 
       final View help = activity.findViewById(R.id.help_button);
-      binding = new Binding(overlay, speed, navigationSpeed, drivingView, help, controller);
+      binding = new Binding(overlay, speed, navigationSpeed, help, controller);
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
-      drivingView.setOnClickListener(v -> controller.onDrivingViewButtonPressed());
       applyInsets(activity, binding);
 
       final Binding observed = binding;
+      final FragmentManager fragmentManager = activity.getSupportFragmentManager();
+      observed.mapButtonsCallbacks = new FragmentManager.FragmentLifecycleCallbacks() {
+        @Override
+        public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment, @NonNull View view,
+                                          @Nullable Bundle savedInstanceState)
+        {
+          if (fragment instanceof MapButtonsController)
+            bindDrivingViewButton(activity, observed, view);
+        }
+
+        @Override
+        public void onFragmentViewDestroyed(@NonNull FragmentManager fm, @NonNull Fragment fragment)
+        {
+          if (fragment instanceof MapButtonsController)
+            clearDrivingViewButton(observed, fragment.getView());
+        }
+      };
+      fragmentManager.registerFragmentLifecycleCallbacks(observed.mapButtonsCallbacks, true);
+
+      bindDrivingViewButton(activity, observed, activity.findViewById(android.R.id.content));
       controller.getSnapshot().observe(activity, snapshot -> render(activity, observed, snapshot));
       new ViewModelProvider(activity)
           .get(MapButtonsViewModel.class)
           .getLayoutMode()
-          .observe(activity, layoutMode -> controller.onRoutingPresentationChanged());
+          .observe(activity, layoutMode -> {
+            controller.onRoutingPresentationChanged();
+            final View content = activity.findViewById(android.R.id.content);
+            if (content != null)
+              content.post(() -> bindDrivingViewButton(activity, observed, content));
+          });
     }
 
+    bindDrivingViewButton(activity, binding, activity.findViewById(android.R.id.content));
     render(activity, binding, controller.getSnapshot().getValue());
     maybeShowMapAgeNotice(activity);
   }
@@ -142,7 +174,70 @@ public final class InCarDrivingUi
 
   public static void release(@NonNull MwmActivity activity)
   {
+    final Binding binding = getBinding(activity);
+    if (binding != null)
+    {
+      if (binding.mapButtonsCallbacks != null)
+        activity.getSupportFragmentManager().unregisterFragmentLifecycleCallbacks(binding.mapButtonsCallbacks);
+      clearDrivingViewButton(binding, null);
+    }
     BINDINGS.remove(activity);
+  }
+
+  private static void bindDrivingViewButton(@NonNull MwmActivity activity, @NonNull Binding binding,
+                                            @Nullable View scope)
+  {
+    if (scope == null)
+      return;
+
+    final FloatingActionButton drivingView = scope.findViewById(R.id.in_car_driving_view_button);
+    final FloatingActionButton zoomIn = scope.findViewById(R.id.nav_zoom_in);
+    if (drivingView == null || zoomIn == null)
+      return;
+
+    if (binding.drivingView != drivingView || binding.zoomIn != zoomIn)
+    {
+      clearDrivingViewButton(binding, null);
+      binding.drivingView = drivingView;
+      binding.zoomIn = zoomIn;
+      drivingView.setOnClickListener(v -> binding.controller.onDrivingViewButtonPressed());
+      binding.zoomSizeListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom)
+          -> syncDrivingViewButtonSize(binding);
+      zoomIn.addOnLayoutChangeListener(binding.zoomSizeListener);
+    }
+
+    syncDrivingViewButtonSize(binding);
+    render(activity, binding, binding.controller.getSnapshot().getValue());
+  }
+
+  private static void clearDrivingViewButton(@NonNull Binding binding, @Nullable View scope)
+  {
+    if (scope != null && binding.drivingView != null
+        && scope.findViewById(R.id.in_car_driving_view_button) != binding.drivingView)
+      return;
+
+    if (binding.zoomIn != null && binding.zoomSizeListener != null)
+      binding.zoomIn.removeOnLayoutChangeListener(binding.zoomSizeListener);
+    if (binding.drivingView != null)
+      binding.drivingView.setOnClickListener(null);
+    binding.drivingView = null;
+    binding.zoomIn = null;
+    binding.zoomSizeListener = null;
+  }
+
+  private static void syncDrivingViewButtonSize(@NonNull Binding binding)
+  {
+    if (binding.drivingView == null || binding.zoomIn == null)
+      return;
+
+    final int width = binding.zoomIn.getWidth();
+    final int height = binding.zoomIn.getHeight();
+    final int size = Math.min(width, height);
+    if (size > 0 && (binding.drivingView.getWidth() != size || binding.drivingView.getHeight() != size))
+      binding.drivingView.setCustomSize(size);
+
+    binding.drivingView.setMinimumWidth(binding.zoomIn.getMinimumWidth());
+    binding.drivingView.setMinimumHeight(binding.zoomIn.getMinimumHeight());
   }
 
   private static void render(@NonNull MwmActivity activity, @NonNull Binding binding,
@@ -170,20 +265,24 @@ public final class InCarDrivingUi
     if (binding.navigationSpeed != null)
       applyLocationHealth(activity, binding.navigationSpeed, snapshot.locationHealth, speedText);
 
-    final boolean showButton = InCarSettingsStore.showDrivingViewButton(activity) && !snapshot.navigating;
-    binding.drivingView.setVisibility(showButton ? View.VISIBLE : View.GONE);
-    binding.drivingView.setSelected(snapshot.enabled);
-    binding.drivingView.setAlpha(snapshot.enabled && !snapshot.following ? 0.78f : 1.0f);
-    binding.drivingView.setContentDescription(activity.getString(snapshot.enabled && !snapshot.following
-                                                                     ? R.string.in_car_driving_view_recenter
-                                                                     : R.string.in_car_driving_view_button));
+    final FloatingActionButton drivingView = binding.drivingView;
+    if (drivingView != null)
+    {
+      final boolean showButton = InCarSettingsStore.showDrivingViewButton(activity) && !snapshot.navigating;
+      drivingView.setVisibility(showButton ? View.VISIBLE : View.GONE);
+      drivingView.setSelected(snapshot.enabled);
+      drivingView.setAlpha(snapshot.enabled && !snapshot.following ? 0.78f : 1.0f);
+      drivingView.setContentDescription(activity.getString(snapshot.enabled && !snapshot.following
+                                                               ? R.string.in_car_driving_view_recenter
+                                                               : R.string.in_car_driving_view_button));
 
-    final int buttonBackground =
-        ContextCompat.getColor(activity, snapshot.enabled ? R.color.base_accent : R.color.bg_cards);
-    final int buttonForeground =
-        ContextCompat.getColor(activity, snapshot.enabled ? R.color.routing_button_activated_tint : R.color.icon_tint);
-    binding.drivingView.setBackgroundTintList(ColorStateList.valueOf(buttonBackground));
-    binding.drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
+      final int buttonBackground =
+          ContextCompat.getColor(activity, snapshot.enabled ? R.color.base_accent : R.color.bg_cards);
+      final int buttonForeground = ContextCompat.getColor(
+          activity, snapshot.enabled ? R.color.routing_button_activated_tint : R.color.icon_tint);
+      drivingView.setBackgroundTintList(ColorStateList.valueOf(buttonBackground));
+      drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
+    }
 
     // Promotional/help content remains available through menus/settings but is not primary driving-map chrome.
     if (binding.help != null)
