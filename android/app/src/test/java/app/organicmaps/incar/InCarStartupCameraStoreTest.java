@@ -28,8 +28,7 @@ public class InCarStartupCameraStoreTest
     assertFalse(InCarStartupCameraStore.isValidAnchor(-35.28, 181.0, now - 1_000L, 8.0f, now));
     assertFalse(InCarStartupCameraStore.isValidAnchor(-35.28, 149.13, now - 1_000L, 0.0f, now));
     assertFalse(InCarStartupCameraStore.isValidAnchor(-35.28, 149.13,
-                                                      now - InCarStartupCameraStore.MAX_ANCHOR_AGE_MS - 1L, 8.0f,
-                                                      now));
+                                                      now - InCarStartupCameraStore.MAX_ANCHOR_AGE_MS - 1L, 8.0f, now));
     assertFalse(InCarStartupCameraStore.isValidAnchor(Double.NaN, 149.13, now - 1_000L, 8.0f, now));
   }
 
@@ -37,10 +36,9 @@ public class InCarStartupCameraStoreTest
   public void persistenceIsImmediateThenThrottled()
   {
     assertTrue(InCarStartupCameraStore.shouldPersist(false, 0L, 100L));
-    assertFalse(InCarStartupCameraStore.shouldPersist(true, 1_000L,
-                                                      1_000L + InCarStartupCameraStore.WRITE_INTERVAL_MS - 1L));
-    assertTrue(InCarStartupCameraStore.shouldPersist(true, 1_000L,
-                                                     1_000L + InCarStartupCameraStore.WRITE_INTERVAL_MS));
+    assertFalse(
+        InCarStartupCameraStore.shouldPersist(true, 1_000L, 1_000L + InCarStartupCameraStore.WRITE_INTERVAL_MS - 1L));
+    assertTrue(InCarStartupCameraStore.shouldPersist(true, 1_000L, 1_000L + InCarStartupCameraStore.WRITE_INTERVAL_MS));
     assertFalse(InCarStartupCameraStore.shouldPersist(true, 2_000L, 1_999L));
   }
 }
