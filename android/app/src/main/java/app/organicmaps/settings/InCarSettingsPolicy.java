@@ -128,7 +128,8 @@ final class InCarSettingsPolicy
   private static void updateAutoFollowDependents(@NonNull PreferenceFragmentCompat fragment, boolean enabled)
   {
     @Nullable
-    final Preference startupMapView = fragment.findPreference(fragment.getString(R.string.pref_in_car_startup_map_view));
+    final Preference startupMapView =
+        fragment.findPreference(fragment.getString(R.string.pref_in_car_startup_map_view));
     if (startupMapView != null)
       startupMapView.setEnabled(enabled);
 
