@@ -13,12 +13,13 @@ final class InCarStartupCameraNative
       nativeShowLocalArea(latitude, longitude, radiusMeters);
   }
 
-  static void requestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled)
+  static void requestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled, boolean autoReturn)
   {
     if (Map.isEngineCreated())
-      nativeRequestFollowAndRotate(forceDrivingArea, keepDrivingViewEnabled);
+      nativeRequestFollowAndRotate(forceDrivingArea, keepDrivingViewEnabled, autoReturn);
   }
 
   private static native void nativeShowLocalArea(double latitude, double longitude, double radiusMeters);
-  private static native void nativeRequestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled);
+  private static native void nativeRequestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled,
+                                                           boolean autoReturn);
 }
