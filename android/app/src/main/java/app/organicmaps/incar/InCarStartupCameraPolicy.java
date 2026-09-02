@@ -44,8 +44,8 @@ public final class InCarStartupCameraPolicy
                                               @NonNull InCarStartupCameraStore.StartupMapView startupMapView,
                                               boolean hasCameraAnchor, boolean routingCameraAuthority)
   {
-    return autoFollowOnLaunch && startupMapView == InCarStartupCameraStore.StartupMapView.DRIVING_AREA
-     && hasCameraAnchor && !routingCameraAuthority;
+    final boolean drivingArea = startupMapView == InCarStartupCameraStore.StartupMapView.DRIVING_AREA;
+    return autoFollowOnLaunch && drivingArea && hasCameraAnchor && !routingCameraAuthority;
   }
 
   public static boolean shouldRequestFollowAndRotate(boolean autoFollowOnLaunch, boolean routingCameraAuthority)
@@ -55,7 +55,10 @@ public final class InCarStartupCameraPolicy
 
   private static boolean hasExplicitMapTarget(@NonNull Intent intent)
   {
-    return intent.hasExtra(MwmActivity.EXTRA_COUNTRY_ID) || intent.hasExtra(MwmActivity.EXTRA_CATEGORY_ID)
-     || intent.hasExtra(MwmActivity.EXTRA_BOOKMARK_ID) || intent.hasExtra(MwmActivity.EXTRA_TRACK_ID);
+    final boolean countryOrCategory = intent.hasExtra(MwmActivity.EXTRA_COUNTRY_ID)
+                                   || intent.hasExtra(MwmActivity.EXTRA_CATEGORY_ID);
+    final boolean bookmarkOrTrack =
+        intent.hasExtra(MwmActivity.EXTRA_BOOKMARK_ID) || intent.hasExtra(MwmActivity.EXTRA_TRACK_ID);
+    return countryOrCategory || bookmarkOrTrack;
   }
 }
