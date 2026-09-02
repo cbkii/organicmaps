@@ -108,7 +108,6 @@ public:
   void EnablePerspectiveInRouting(bool enablePerspective);
   void EnableAutoZoomInRouting(bool enableAutoZoom);
   void SetDrivingView(bool enabled, bool autoReturn, bool recenter);
-  void RequestFollowAndRotate(ScreenBase const & screen, bool forceDrivingArea);
 
   void StopLocationFollow();
   void NextMode(ScreenBase const & screen);
@@ -149,7 +148,6 @@ private:
 
   void UpdateViewport(int zoomLevel);
   bool UpdateViewportWithAutoZoom();
-  int GetStartupDrivingAreaZoomLevel(ScreenBase const & screen) const;
   m2::PointD GetRotationPixelCenter() const;
   m2::PointD GetRoutingRotationPixelCenter() const;
 
@@ -177,7 +175,6 @@ private:
   bool m_isArrowGluedInRouting = false;
   bool m_isDrivingView = false;
   bool m_autoReturnDrivingView = true;
-  bool m_useDrivingAreaOnNextLocation = false;
 
   bool m_needBlockAnimation;
   bool m_wasRotationInScaling;

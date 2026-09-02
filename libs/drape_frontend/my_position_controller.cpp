@@ -37,7 +37,6 @@ double const kMaxTimeInBackgroundSec = 60.0 * 60 * 30;  // 30 hours before start
 double const kMaxNotFollowRoutingTimeSec = 20.0;
 double const kMaxUpdateLocationInvervalSec = 30.0;
 double const kMaxBlockAutoZoomTimeSec = 10.0;
-double constexpr kStartupDrivingAreaRadiusMeters = 5000.0;
 
 std::string_view constexpr kAutoStartLocationFollowAndRotate = "AutoStartLocationFollowAndRotate";
 
@@ -391,33 +390,6 @@ void MyPositionController::NextMode(ScreenBase const & screen)
   }
 }
 
-void MyPositionController::RequestFollowAndRotate(ScreenBase const & screen, bool forceDrivingArea)
-{
-  // Active routing is the stronger camera authority; an ordinary launcher entry must not disturb it.
-  if (m_isInRouting)
-    return;
-
-  m_desiredInitMode = location::FollowAndRotate;
-  m_useDrivingAreaOnNextLocation =
-      ShouldUseStartupDrivingAreaZoom(forceDrivingArea, GetZoomLevel(screen), kZoomThreshold);
-
-  if (!m_isPositionAssigned)
-  {
-    if (m_mode == location::NotFollowNoPosition)
-      ChangeMode(location::PendingPosition);
-    return;
-  }
-
-  int const preferredZoomLevel =
-      m_useDrivingAreaOnNextLocation ? GetStartupDrivingAreaZoomLevel(screen) : kDoNotChangeZoom;
-  ChangeMode(location::FollowAndRotate);
-  ChangeModelView(m_position, m_isDirectionAssigned ? m_drawDirection : 0.0,
-                  IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
-                  preferredZoomLevel);
-  m_useDrivingAreaOnNextLocation = false;
-  ResetRoutingNotFollowTimer();
-}
-
 void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool isNavigable, ScreenBase const & screen)
 {
   m2::PointD const newPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
@@ -479,20 +451,17 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
 
     if (!m_hints.m_isFirstLaunch || !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane))
     {
-      int const preferredZoomLevel =
-          m_useDrivingAreaOnNextLocation ? GetStartupDrivingAreaZoomLevel(screen) : kDoNotChangeZoom;
       if (m_mode == location::Follow)
       {
-        ChangeModelView(m_position, preferredZoomLevel);
+        ChangeModelView(m_position, kDoNotChangeZoom);
       }
       else if (m_mode == location::FollowAndRotate)
       {
         ChangeModelView(m_position, m_drawDirection,
                         IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
-                        preferredZoomLevel);
+                        kDoNotChangeZoom);
       }
     }
-    m_useDrivingAreaOnNextLocation = false;
   }
   else if (m_mode == location::PendingPosition)
   {
@@ -779,13 +748,6 @@ void MyPositionController::UpdateViewport(int zoomLevel)
   }
 }
 
-int MyPositionController::GetStartupDrivingAreaZoomLevel(ScreenBase const & screen) const
-{
-  m2::RectD const rect = mercator::MetersToXY(mercator::XToLon(m_position.x), mercator::YToLat(m_position.y),
-                                               kStartupDrivingAreaRadiusMeters);
-  return std::min(GetZoomLevel(screen, m_position, rect.SizeX() * 0.5), kMaxScaleZoomLevel);
-}
-
 m2::PointD MyPositionController::GetRotationPixelCenter() const
 {
   if (m_mode == location::Follow)
@@ -859,7 +821,7 @@ void MyPositionController::CreateAnim(m2::PointD const & oldPos, double oldAzimu
         return anim;
       };
       m_oldPosition = oldPos;
-      m_oldDrawDirection = m_drawDirection;
+      m_oldDrawDirection = oldAzimut;
       m_isPendingAnimation = true;
     }
     else

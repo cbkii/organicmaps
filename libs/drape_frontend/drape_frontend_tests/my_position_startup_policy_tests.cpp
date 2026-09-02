@@ -60,16 +60,4 @@ UNIT_TEST(AutoFollowRoutingStartupUsesFollowAndRotate)
   TestModes(df::ResolveMyPositionStartupModes(false, false, false, false, true, location::FollowAndRotate),
             location::PendingPosition, location::FollowAndRotate);
 }
-
-UNIT_TEST(StartupDrivingAreaZoomIsForcedForDrivingAreaMode)
-{
-  TEST(df::ShouldUseStartupDrivingAreaZoom(true, 16, 10), ());
-}
-
-UNIT_TEST(StartupDrivingAreaZoomRepairsPathologicalLastView)
-{
-  TEST(df::ShouldUseStartupDrivingAreaZoom(false, 3, 10), ());
-  TEST(!df::ShouldUseStartupDrivingAreaZoom(false, 10, 10), ());
-  TEST(!df::ShouldUseStartupDrivingAreaZoom(false, 16, 10), ());
-}
 }  // namespace my_position_startup_policy_tests
