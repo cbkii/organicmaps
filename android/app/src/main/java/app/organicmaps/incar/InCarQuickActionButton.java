@@ -10,16 +10,14 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.AppCompatImageButton;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.widget.ImageViewCompat;
 import app.organicmaps.R;
-import com.google.android.material.color.MaterialColors;
 
 /** Centred icon-only button used by the InCar Quick Destinations strip. */
 final class InCarQuickActionButton extends AppCompatImageButton
 {
-  private static final int SURFACE_ALPHA = 199; // 78%, aligned with the primary InCar map controls.
-
   InCarQuickActionButton(@NonNull Context context)
   {
     super(context);
@@ -35,9 +33,8 @@ final class InCarQuickActionButton extends AppCompatImageButton
     ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(iconColor));
     setPadding(iconPaddingPx, iconPaddingPx, iconPaddingPx, iconPaddingPx);
 
-    final int neutralSurface =
-        ColorUtils.setAlphaComponent(MaterialColors.getColor(this, R.attr.menuBackground), SURFACE_ALPHA);
-    setBackground(createBackground(neutralSurface, feedbackColor, cornerRadiusPx));
+    final int actionSurface = ContextCompat.getColor(getContext(), R.color.in_car_quick_surface);
+    setBackground(createBackground(actionSurface, feedbackColor, cornerRadiusPx));
   }
 
   @NonNull
