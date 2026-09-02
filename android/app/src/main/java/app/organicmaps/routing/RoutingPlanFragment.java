@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.PopupMenu;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
@@ -25,6 +24,7 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarActionMenu;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.Router;
@@ -36,14 +36,13 @@ import app.organicmaps.settings.DrivingOptionsActivity;
 import app.organicmaps.util.UiUtils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import java.util.Arrays;
 
 public class RoutingPlanFragment extends Fragment implements View.OnLayoutChangeListener, RoutingBottomMenuListener
 {
   public static final String TAG = RoutingPlanFragment.class.getSimpleName();
 
   private static final Router[] ROUTERS = Router.values();
-  private static final int IN_CAR_MORE_EDIT_ROUTE = 1;
-  private static final int IN_CAR_MORE_DRIVING_OPTIONS = 2;
 
   private RoutingPlanViewModel mViewModel;
   private View mChartPanel;
@@ -78,7 +77,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
         }
       });
 
-  // Single source of truth for the sheet's visibility: planning wants it AND no place page is covering it.
   private final MediatorLiveData<Boolean> mSheetVisible = new MediatorLiveData<>();
   private final Observer<Integer> mMenuUpdateObserver = trigger -> updateMenuInternal();
   private final Observer<int[]> mBuildProgressObserver = progress ->
@@ -191,8 +189,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     final ViewGroup.LayoutParams raw = mRoutingBottomContainer.getLayoutParams();
     if (!(raw instanceof ConstraintLayout.LayoutParams params))
       return;
-    // This is deliberately absolute physical-right placement for the RHD InCar product. Clear all
-    // locale-relative horizontal constraints first so RTL locales cannot mirror the control surface.
     params.startToStart = ConstraintSet.UNSET;
     params.startToEnd = ConstraintSet.UNSET;
     params.endToStart = ConstraintSet.UNSET;
@@ -206,26 +202,20 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void showInCarRouteMoreMenu(@NonNull View anchor)
   {
-    final PopupMenu menu = new PopupMenu(requireContext(), anchor);
     final boolean editing = mRoutingBottomMenuController.isManageRouteEditing();
-    menu.getMenu().add(0, IN_CAR_MORE_EDIT_ROUTE, 0,
-                       editing ? R.string.in_car_done_editing : R.string.in_car_edit_route);
-    menu.getMenu().add(0, IN_CAR_MORE_DRIVING_OPTIONS, 1, R.string.in_car_driving_options);
-    menu.setOnMenuItemClickListener(item -> {
-      if (item.getItemId() == IN_CAR_MORE_EDIT_ROUTE)
-      {
-        mRoutingBottomMenuController.setManageRouteEditing(!editing);
-        updateSheetLayout();
-        return true;
-      }
-      if (item.getItemId() == IN_CAR_MORE_DRIVING_OPTIONS)
-      {
-        DrivingOptionsActivity.start(requireActivity(), startDrivingOptionsForResult);
-        return true;
-      }
-      return false;
-    });
-    menu.show();
+    InCarActionMenu.show(
+        anchor,
+        Arrays.asList(getString(editing ? R.string.in_car_done_editing : R.string.in_car_edit_route),
+                      getString(R.string.in_car_driving_options)),
+        position -> {
+          if (position == 0)
+          {
+            mRoutingBottomMenuController.setManageRouteEditing(!editing);
+            updateSheetLayout();
+          }
+          else if (position == 1)
+            DrivingOptionsActivity.start(requireActivity(), startDrivingOptionsForResult);
+        });
   }
 
   private void setInsets()
@@ -281,14 +271,12 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   private void updateMenuInternal()
   {
     final RoutingController controller = RoutingController.get();
-
     if (controller.isPlanning())
     {
       setRoutingContentActive(false);
       mRoutingBottomMenuController.refreshManageRoute();
       mViewModel.setShowRoutingBottomSheet(true);
     }
-
     if (controller.isBuilt())
       setRoutingContentActive(true);
   }
@@ -307,8 +295,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     {
       UiUtils.show(mButtonsLayout, mFrame);
       mFrame.post(() -> {
-        // The view may be destroyed, or visibility may have flipped back to hidden (e.g. a place page
-        // opened), before this runs; bail out instead of reopening the sheet over whatever is on top.
         if (getView() == null || !Boolean.TRUE.equals(mSheetVisible.getValue()))
           return;
         mSheetBehavior.setHideable(false);
@@ -361,8 +347,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
     if (BuildConfig.IS_IN_CAR && mRoutingBottomMenuController.isManageRouteEditing())
     {
-      // Editing is an explicit secondary surface. Reuse the existing route editor at its natural
-      // height and make that entire surface the fixed peek rather than enabling drag/expand states.
       final int frameHeight = mFrame.getHeight();
       final int editingHeight =
           frameHeight > 0 && parentHeight > 0 ? Math.min(frameHeight, parentHeight) : parentHeight;
@@ -371,8 +355,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       return;
     }
 
-    // Peek excludes the scrollable steps/list: it ends at the steps' top (or the full header when there are
-    // none), while setMaxHeight caps a long list to scroll inside the sheet instead of covering the map.
     final boolean stepsVisible = mTransitStepsView.getVisibility() == View.VISIBLE;
     final int chartHeader = stepsVisible ? mTransitStepsView.getTop() : mChartPanel.getHeight();
     final int peekHeight =
@@ -416,8 +398,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       return;
     }
 
-    // Unsupported modes can still exist in retained generic/native state, but InCar never presents
-    // their specialised Transit/Ruler surfaces. New InCar routes are clamped by the app routing policy.
     if (!BuildConfig.IS_IN_CAR && controller.isTransitType())
     {
       TransitRouteInfo info = controller.getCachedTransitInfo();
@@ -451,9 +431,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       mDrivingOptionsBadge.setText(String.valueOf(count));
     }
     else
-    {
       UiUtils.hide(mDrivingOptionsBadge);
-    }
   }
 
   private void updateBuildProgress(int progress, @NonNull Router router)
@@ -470,7 +448,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       mRoutingBottomMenuController.setBuildProgress(progress);
     }
     else if (!controller.isBuilt())
-      // ERROR / NONE / cancelled: clear the progress fill that BUILDING left behind.
       mRoutingBottomMenuController.setStartState(RoutingBottomMenuController.StartState.DISABLED);
   }
 
@@ -480,7 +457,6 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       mRoutingBottomMenuController.resetBuildProgress();
   }
 
-  /** Close the explicit InCar route-edit surface without cancelling route planning. */
   public boolean closeInCarRouteEditor()
   {
     if (!BuildConfig.IS_IN_CAR || mRoutingBottomMenuController == null
