@@ -7,7 +7,7 @@
   android:layout_height="wrap_content"
   android:orientation="vertical">
   <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/in_car_driving_view_button"
+    android:id="@id/in_car_driving_view_button"
     style="@style/MwmWidget.MapButton.Zoom"
     android:layout_marginBottom="@dimen/in_car_map_zoom_gap"
     android:contentDescription="@string/in_car_driving_view_button"
