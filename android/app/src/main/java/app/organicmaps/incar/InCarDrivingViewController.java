@@ -336,20 +336,32 @@ public final class InCarDrivingViewController implements LocationListener
     }
 
     final StartupMapView startupMapView = mStartupCameraStore.getStartupMapView();
-    final boolean hasLiveLocation = mLocationHelper.getSavedLocation() != null;
-    final Anchor anchor = hasLiveLocation ? null : mStartupCameraStore.readAnchor();
-    if (InCarStartupCameraPolicy.shouldShowCachedAnchor(autoFollow, startupMapView, anchor != null, routingAuthority))
+    final Location liveLocation = mLocationHelper.getSavedLocation();
+    final Anchor cachedAnchor = liveLocation == null ? mStartupCameraStore.readAnchor() : null;
+    final boolean hasCameraAnchor = liveLocation != null || cachedAnchor != null;
+
+    if (InCarStartupCameraPolicy.shouldShowDrivingArea(autoFollow, startupMapView, hasCameraAnchor, routingAuthority))
     {
-      InCarStartupCameraNative.showLocalArea(anchor.latitude, anchor.longitude,
-                                             InCarStartupCameraStore.DRIVING_AREA_RADIUS_METERS);
-      Logger.i(TAG, "InCar startup camera: cached driving area");
+      if (liveLocation != null)
+      {
+        InCarStartupCameraNative.showLocalArea(liveLocation.getLatitude(), liveLocation.getLongitude(),
+                                               InCarStartupCameraStore.DRIVING_AREA_RADIUS_METERS);
+        Logger.i(TAG, "InCar startup camera: live driving area");
+      }
+      else
+      {
+        InCarStartupCameraNative.showLocalArea(cachedAnchor.latitude, cachedAnchor.longitude,
+                                               InCarStartupCameraStore.DRIVING_AREA_RADIUS_METERS);
+        Logger.i(TAG, "InCar startup camera: cached driving area");
+      }
     }
     else
     {
-      Logger.i(TAG, "InCar startup camera: no cached pre-fix framing applied");
+      Logger.i(TAG, "InCar startup camera: wait for live follow without pre-fix framing");
     }
 
-    InCarStartupCameraNative.requestFollowAndRotate(startupMapView == StartupMapView.DRIVING_AREA);
+    InCarStartupCameraNative.requestFollowAndRotate(startupMapView == StartupMapView.DRIVING_AREA,
+                                                    mPolicy.isEnabled());
   }
 
   private void reconcileModeWithSession()
