@@ -175,6 +175,11 @@ def verify_code(root: Path) -> None:
         "resource-backed InCar choice-row minimum",
     )
     require_text(
+        choice_adapter,
+        r"simple_list_item_single_choice",
+        "selected-state layout for single-choice InCar rows",
+    )
+    require_text(
         dialog_sizing,
         r"R\.dimen\.in_car_touch_target_preferred",
         "preferred touch-target enforcement for InCar dialog controls",
@@ -191,8 +196,8 @@ def verify_code(root: Path) -> None:
     )
     require_text(
         settings_fragment,
-        r"new\s+InCarChoiceAdapter\(",
-        "automotive-sized InCar list-preference rows",
+        r"InCarChoiceAdapter\.singleChoice\(",
+        "automotive-sized single-choice InCar preference rows",
     )
 
     for layout in routing_layouts:
