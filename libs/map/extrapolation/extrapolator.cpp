@@ -59,6 +59,8 @@ location::GpsInfo LinearExtrapolation(location::GpsInfo const & gpsInfo1, locati
   result.m_longitude = math::Clamp(e.Extrapolate(gpsInfo1.m_longitude, gpsInfo2.m_longitude), -180.0, 180.0);
   result.m_latitude = math::Clamp(e.Extrapolate(gpsInfo1.m_latitude, gpsInfo2.m_latitude), -90.0, 90.0);
   result.m_altitude = e.Extrapolate(gpsInfo1.m_altitude, gpsInfo2.m_altitude);
+  if (timeAfterPoint2Ms > 0)
+    result.m_source = location::EPredictor;
 
   // @TODO(bykoianko) Now |result.m_bearing| == |gpsInfo2.m_bearing|.
   // In case of |gpsInfo1.HasBearing() && gpsInfo2.HasBearing() == true|
