@@ -20,12 +20,16 @@
   </string-array>
   <string name="in_car_show_driving_view_button_title">Show Driving View button</string>
   <string name="in_car_show_driving_view_button_summary">Show a dedicated map button for the route-independent driving camera.</string>
-  <string name="in_car_start_driving_view_title">Start Driving View on launch</string>
-  <string name="in_car_start_driving_view_summary">Begin with the forward-looking driving camera without requiring a route.</string>
   <string name="in_car_automatic_driving_view_title">Automatically enable while driving</string>
   <string name="in_car_automatic_driving_view_summary">Enter after reliable GPS speed exceeds 30 km/h; an automatically started session exits after 5 minutes continuously below 5 km/h.</string>
   <string name="in_car_auto_return_driving_view_title">Return after looking around</string>
   <string name="in_car_auto_return_driving_view_summary">After manual map exploration, return to the Driving View camera using the existing navigation-style timeout.</string>
+  <string name="in_car_startup_map_view_title">Startup map view</string>
+  <string name="in_car_startup_map_view_summary">Choose the map framing used when automatic location follow starts from the launcher.</string>
+  <string-array name="in_car_startup_map_view_entries">
+    <item>Driving area (~10 km)</item>
+    <item>Remember last map view</item>
+  </string-array>
   <string name="in_car_driving_view_button">Driving View</string>
   <string name="in_car_driving_view_recenter">Return to Driving View</string>
 

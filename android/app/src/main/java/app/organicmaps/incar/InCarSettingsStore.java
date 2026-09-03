@@ -9,7 +9,6 @@ import app.organicmaps.MwmApplication;
 public final class InCarSettingsStore
 {
   private static final String KEY_SHOW_DRIVING_VIEW_BUTTON = "InCarShowDrivingViewButton";
-  private static final String KEY_START_DRIVING_VIEW_ON_LAUNCH = "InCarStartDrivingViewOnLaunch";
   private static final String KEY_AUTO_DRIVING_VIEW = "InCarAutomaticDrivingView";
   private static final String KEY_AUTO_RETURN_DRIVING_VIEW = "InCarAutoReturnDrivingView";
   private static final String KEY_BUDGET_RENDERING = "InCarBudgetRendering";
@@ -30,16 +29,6 @@ public final class InCarSettingsStore
   public static void setShowDrivingViewButton(@NonNull Context context, boolean enabled)
   {
     prefs(context).edit().putBoolean(KEY_SHOW_DRIVING_VIEW_BUTTON, enabled).apply();
-  }
-
-  public static boolean startDrivingViewOnLaunch(@NonNull Context context)
-  {
-    return prefs(context).getBoolean(KEY_START_DRIVING_VIEW_ON_LAUNCH, false);
-  }
-
-  public static void setStartDrivingViewOnLaunch(@NonNull Context context, boolean enabled)
-  {
-    prefs(context).edit().putBoolean(KEY_START_DRIVING_VIEW_ON_LAUNCH, enabled).apply();
   }
 
   public static boolean automaticDrivingViewEnabled(@NonNull Context context)

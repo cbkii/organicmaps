@@ -206,6 +206,9 @@ public class MwmApplication extends Application implements Application.ActivityL
     Logger.d(TAG, "activity = " + activity);
     Utils.showOnLockScreen(Config.isShowOnLockScreenEnabled(), activity);
     getSensorHelper().setRotation(activity.getWindowManager().getDefaultDisplay().getRotation());
+
+    // The resumed Activity is authoritative before any InCar callback reads getTopActivity().
+    mTopActivity = new WeakReference<>(activity);
     if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
     {
       InCarVisuals.applyAndObserve(mapActivity);
@@ -217,7 +220,6 @@ public class MwmApplication extends Application implements Application.ActivityL
           InCarBudgetRendering.applyCurrent(mapActivity);
       });
     }
-    mTopActivity = new WeakReference<>(activity);
   }
 
   @Override
