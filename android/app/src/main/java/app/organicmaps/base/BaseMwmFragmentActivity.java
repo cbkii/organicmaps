@@ -274,7 +274,7 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   /**
    * Override to automatically attach fragment in onCreate. Tag applied to fragment in back stack is set to fragment
    * name, too. WARNING : if custom layout for activity is set, getFragmentContentResId() must be implemented, too.
-   * @return class of fragment class, eg FragmentClass.getClass()
+   * @return class of the fragment, eg FragmentClass.getClass()
    */
   protected Class<? extends Fragment> getFragmentClass()
   {
@@ -282,8 +282,8 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   }
 
   /**
-   * Get resource id for the fragment. That must be implemented to return correct resourceId, if custom layout is set.
-   * @return resourceId for the fragment.
+   * Get resource id for the fragment. That must be implemented to return correct resource id, if custom layout is set.
+   * @return resourceId for the fragment
    */
   protected int getFragmentContentResId()
   {
