@@ -96,18 +96,16 @@ class TestStages(unittest.TestCase):
                 self.force_download_files = False
 
         class FakeStatus:
-            instances = []
+            finished_paths = set()
 
             def __init__(self, path):
                 self.path = path
-                self.finished = False
-                self.__class__.instances.append(self)
 
             def is_finished(self):
-                return False
+                return self.path in self.__class__.finished_paths
 
             def finish(self):
-                self.finished = True
+                self.__class__.finished_paths.add(self.path)
 
         dependency = stages_module.InternalDependency(
             "https://example.invalid/artifact.dat", Paths.artifact
@@ -128,13 +126,14 @@ class TestStages(unittest.TestCase):
              ) as normalize, \
              mock.patch.object(stages_module, "download_files") as download:
             env = Env(root)
-            DecoratedStage()(env)
+            stage = DecoratedStage()
+            stage(env)
+            stage(env)
 
         expected = {"https://example.invalid/artifact.dat": env.paths.artifact}
         normalize.assert_called_once_with(expected)
         download.assert_called_once_with(expected, False)
-        self.assertEqual(events, ["body"])
-        self.assertTrue(FakeStatus.instances[-1].finished)
+        self.assertEqual(events, ["body", "body"])
 
 
 if __name__ == "__main__":
