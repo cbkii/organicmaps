@@ -22,6 +22,13 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise VerificationError(f"unable to read {path}: {exc}") from exc
+
+
 def parse_xml(path: Path) -> ET.Element:
     try:
         return ET.parse(path).getroot()
@@ -46,12 +53,44 @@ def require_value(values: dict[str, str], name: str, expected: str, source: Path
 
 
 def require_text(path: Path, pattern: str, description: str) -> None:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise VerificationError(f"unable to read {path}: {exc}") from exc
-    if re.search(pattern, text, re.MULTILINE) is None:
+    text = read_text(path)
+    if re.search(pattern, text, re.MULTILINE | re.DOTALL) is None:
         raise VerificationError(f"{path}: missing {description}")
+
+
+def java_method_body(path: Path, marker: str) -> str:
+    text = read_text(path)
+    marker_index = text.find(marker)
+    if marker_index < 0:
+        raise VerificationError(f"{path}: missing Java method marker {marker!r}")
+    body_start = text.find("{", marker_index + len(marker))
+    if body_start < 0:
+        raise VerificationError(f"{path}: missing body for Java method marker {marker!r}")
+
+    depth = 0
+    for index in range(body_start, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[body_start + 1 : index]
+    raise VerificationError(f"{path}: unterminated body for Java method marker {marker!r}")
+
+
+def require_method_text(path: Path, marker: str, pattern: str, description: str) -> None:
+    body = java_method_body(path, marker)
+    if re.search(pattern, body, re.MULTILINE | re.DOTALL) is None:
+        raise VerificationError(f"{path}: {marker} missing {description}")
+
+
+def resource_id(element: ET.Element, id_attr: str) -> str:
+    raw_id = element.attrib.get(id_attr, "")
+    for prefix in ("@+id/", "@id/"):
+        if raw_id.startswith(prefix):
+            return raw_id.removeprefix(prefix)
+    return "<no-id>"
 
 
 def require_layout_attr(path: Path, view_id: str, namespace: str, attr: str, expected: str) -> None:
@@ -79,10 +118,12 @@ def verify_ratio() -> None:
 def verify_resources(root: Path) -> None:
     runtime_path = root / "android/app/src/main/res/values/in_car_runtime_ui.xml"
     visuals_path = root / "android/app/src/main/res/values/in_car_visuals.xml"
+    automotive_path = root / "android/app/src/main/res/values/in_car_automotive_ui.xml"
     override_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
 
     runtime = resource_values(runtime_path)
     visuals = resource_values(visuals_path)
+    automotive = resource_values(automotive_path)
     overrides = resource_values(override_path)
 
     require_value(runtime, "in_car_touch_target_preferred", f"{PREFERRED_DP}dp", runtime_path)
@@ -93,6 +134,11 @@ def verify_resources(root: Path) -> None:
     require_value(runtime, "in_car_place_page_save_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_place_page_other_width", "@dimen/in_car_touch_target_preferred", runtime_path)
     require_value(runtime, "in_car_quick_marker_touch_radius", "38dp", runtime_path)
+    require_text(
+        runtime_path,
+        r'<item\s+name="in_car_driving_view_button"\s+type="id"\s*/>',
+        "main-source Driving View id declaration for all app flavours",
+    )
 
     preferred_visuals = (
         "in_car_map_button_size",
@@ -116,6 +162,9 @@ def verify_resources(root: Path) -> None:
     )
     for name in compact_visuals:
         require_value(visuals, name, "@dimen/in_car_touch_target_min", visuals_path)
+
+    require_value(automotive, "in_car_map_primary_button_size", "@dimen/in_car_runtime_button_size", automotive_path)
+    require_value(automotive, "in_car_map_zoom_gap", "10dp", automotive_path)
 
     preferred_overrides = (
         "map_button_size",
@@ -147,6 +196,150 @@ def verify_search_toolbar(root: Path) -> None:
     require_layout_attr(path, "query_input_layout", ANDROID_NS, "minHeight", preferred)
     require_layout_attr(path, "query_input_layout", APP_NS, "endIconMinSize", minimum)
     require_layout_attr(path, "query", ANDROID_NS, "minHeight", preferred)
+
+
+def verify_camera_control_rail(root: Path) -> None:
+    zoom_layout = root / "android/app/src/inCar/res/layout/map_buttons_zoom.xml"
+    overlay_layout = root / "android/app/src/main/res/layout/in_car_driving_overlay.xml"
+    zoom_root = parse_xml(zoom_layout)
+    id_attr = f"{{{ANDROID_NS}}}id"
+
+    if zoom_root.attrib.get(id_attr) != "@+id/in_car_camera_controls_rail":
+        raise VerificationError(f"{zoom_layout}: camera controls must have a dedicated stable rail root")
+
+    direct_ids = [resource_id(child, id_attr) for child in zoom_root]
+    expected_direct_ids = ["in_car_driving_view_button", "zoom_buttons_container", "track_recording_status"]
+    if direct_ids != expected_direct_ids:
+        raise VerificationError(
+            f"{zoom_layout}: camera rail direct children must be {expected_direct_ids}; found {direct_ids}"
+        )
+
+    zoom_container = None
+    for element in zoom_root.iter():
+        if element.attrib.get(id_attr) in ("@+id/zoom_buttons_container", "@id/zoom_buttons_container"):
+            zoom_container = element
+            break
+    if zoom_container is None:
+        raise VerificationError(f"{zoom_layout}: missing independent zoom_buttons_container")
+
+    nested_zoom_ids = [resource_id(child, id_attr) for child in zoom_container]
+    if nested_zoom_ids != ["nav_zoom_in", "nav_zoom_out"]:
+        raise VerificationError(
+            f"{zoom_layout}: +/- visibility container must contain only zoom in/out; found {nested_zoom_ids}"
+        )
+
+    for view_id in ("in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out"):
+        require_layout_attr(
+            zoom_layout,
+            view_id,
+            APP_NS,
+            "fabCustomSize",
+            "@dimen/in_car_map_primary_button_size",
+        )
+    for view_id in ("in_car_driving_view_button", "nav_zoom_in"):
+        require_layout_attr(
+            zoom_layout,
+            view_id,
+            ANDROID_NS,
+            "layout_marginBottom",
+            "@dimen/in_car_map_zoom_gap",
+        )
+    require_layout_attr(
+        zoom_layout,
+        "in_car_driving_view_button",
+        APP_NS,
+        "srcCompat",
+        "@drawable/ic_in_car_driving_view",
+    )
+
+    overlay = parse_xml(overlay_layout)
+    for element in overlay.iter():
+        if element.attrib.get(id_attr) in ("@+id/in_car_driving_view_button", "@id/in_car_driving_view_button"):
+            raise VerificationError(f"{overlay_layout}: Driving View button must live in the zoom rail, not the overlay")
+
+
+def verify_driving_view_lifecycle(root: Path) -> None:
+    driving_ui = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
+
+    require_method_text(
+        driving_ui,
+        "public static void attach(",
+        r"registerFragmentLifecycleCallbacks\(observed\.mapButtonsCallbacks,\s*true\)",
+        "recursive MapButtons fragment lifecycle registration",
+    )
+    require_method_text(
+        driving_ui,
+        "public static void attach(",
+        r"onFragmentViewCreated.*?fragment instanceof MapButtonsController.*?"
+        r"bindDrivingViewButton\(activity,\s*observed,\s*view,\s*fragment\)",
+        "MapButtons view-created rebinding",
+    )
+    require_method_text(
+        driving_ui,
+        "public static void attach(",
+        r"onFragmentViewDestroyed.*?fragment instanceof MapButtonsController\s*&&\s*"
+        r"observed\.mapButtonsFragment\s*==\s*fragment.*?clearDrivingViewButton\(observed\)",
+        "owner-matched MapButtons view-destroy cleanup",
+    )
+    require_method_text(
+        driving_ui,
+        "private static void bindDrivingViewButton(",
+        r"R\.id\.in_car_driving_view_button.*?R\.id\.nav_zoom_in.*?"
+        r"findMapButtonsOwner\(activity\.getSupportFragmentManager\(\),\s*drivingView\).*?"
+        r"binding\.mapButtonsFragment\s*=\s*resolvedOwner",
+        "fallback binding ownership resolution",
+    )
+    require_method_text(
+        driving_ui,
+        "private static void bindDrivingViewButton(",
+        r"drivingView\.setOnClickListener\(v\s*->\s*binding\.controller\.onDrivingViewButtonPressed\(\)\).*?"
+        r"zoomIn\.addOnLayoutChangeListener\(binding\.zoomSizeListener\)",
+        "Driving View action and zoom-size listener wiring",
+    )
+    require_method_text(
+        driving_ui,
+        "private static void syncDrivingViewButtonSize(",
+        r"binding\.zoomIn\.getWidth\(\).*?binding\.zoomIn\.getHeight\(\).*?"
+        r"binding\.drivingView\.setCustomSize\(size\).*?"
+        r"binding\.drivingView\.setMinimumWidth\(binding\.zoomIn\.getMinimumWidth\(\)\).*?"
+        r"binding\.drivingView\.setMinimumHeight\(binding\.zoomIn\.getMinimumHeight\(\)\)",
+        "zoom-in size authority propagation",
+    )
+    require_method_text(
+        driving_ui,
+        "public static void release(",
+        r"unregisterFragmentLifecycleCallbacks\(binding\.mapButtonsCallbacks\).*?clearDrivingViewButton\(binding\)",
+        "lifecycle callback unregistration and view cleanup",
+    )
+
+
+def verify_camera_rail_movement(root: Path) -> None:
+    controller = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java"
+
+    require_method_text(
+        controller,
+        "public View onCreateView(",
+        r"final View zoomFrame\s*=\s*mFrame\.findViewById\(R\.id\.zoom_buttons_container\).*?"
+        r"mZoomMovementFrame\s*=\s*zoomFrame.*?BuildConfig\.IS_IN_CAR\s*&&\s*"
+        r"zoomFrame\.getParent\(\) instanceof View parent.*?mZoomMovementFrame\s*=\s*parent.*?"
+        r"mButtonsMap\.put\(MapButtons\.zoom,\s*zoomFrame\)",
+        "separate InCar movement rail and +/- visibility authority",
+    )
+    require_method_text(
+        controller,
+        "private void updateButtonsVisibility(",
+        r"mZoomMovementFrame\s*!=\s*null\s*&&\s*mZoomMovementFrame\s*!=\s*"
+        r"mButtonsMap\.get\(MapButtons\.zoom\).*?mZoomMovementFrame\.getParent\(\)\s*==\s*parent.*?"
+        r"UiUtils\.showIf\(getViewTopOffset\(translation,\s*mZoomMovementFrame\)\s*>=\s*-140,\s*"
+        r"mZoomMovementFrame\)",
+        "rail-level movement clipping",
+    )
+    require_method_text(
+        controller,
+        "public void showButton(",
+        r"case zoom:\s*UiUtils\.showIf\(show\s*&&\s*Config\.showZoomButtons\(\),\s*buttonView\)",
+        "independent +/- visibility setting authority",
+    )
 
 
 def verify_code(root: Path) -> None:
@@ -201,10 +394,7 @@ def verify_code(root: Path) -> None:
     )
 
     for layout in routing_layouts:
-        try:
-            text = layout.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise VerificationError(f"unable to read {layout}: {exc}") from exc
+        text = read_text(layout)
         if 'app:fabCustomSize="40dp"' in text:
             raise VerificationError(f"{layout}: route actions still hard-code a 40dp touch target")
         if text.count('app:fabCustomSize="@dimen/routing_action_button_size"') != 4:
@@ -217,6 +407,9 @@ def main() -> int:
         verify_ratio()
         verify_resources(root)
         verify_search_toolbar(root)
+        verify_camera_control_rail(root)
+        verify_driving_view_lifecycle(root)
+        verify_camera_rail_movement(root)
         verify_code(root)
     except VerificationError as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
