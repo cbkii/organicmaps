@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - fix/incar-v111-runtime-hardening
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
       - '.gitmodules'
@@ -30,7 +29,7 @@ on:
       - 'tools/kothic/**'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -40,6 +39,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Checkout Kothic style compiler
         shell: bash
@@ -48,19 +49,6 @@ jobs:
       - name: Generate drawing rules
         shell: bash
         run: tools/unix/generate_drules.sh
-
-      - name: Commit generated InCar rules on the hardening branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/incar-v111-runtime-hardening'
-        shell: bash
-        run: |
-          if git diff --quiet -- data/drules_in_car.bin data/drules_in_car.txt; then
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/drules_in_car.bin data/drules_in_car.txt
-          git commit -m 'Regenerate InCar drawing rules'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Upload generated InCar rules
         if: always()
