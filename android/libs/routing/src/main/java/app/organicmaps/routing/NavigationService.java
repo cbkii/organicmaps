@@ -325,15 +325,14 @@ public class NavigationService extends Service implements LocationListener
     final boolean engineWarning = OfflineNavigationVoicePack.isCriticalEvent(routingInfo);
     final boolean speedCameraEvent =
         notification != null && notification.getEvent() == NavigationNotification.Event.SPEED_CAMERA;
-    final boolean criticalEvent =
-        engineWarning || speedCameraEvent || gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST;
+    final boolean cameraWarning = engineWarning || speedCameraEvent;
+    final boolean criticalEvent = cameraWarning || gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST;
 
     if (mode == OfflineNavigationVoicePack.Mode.VOICE)
     {
-      // A typed engine warning outranks a simultaneous manoeuvre cue. Otherwise the
-      // normal clip could consume the cycle and suppress the safety tone below.
-      if ((engineWarning || speedCameraEvent) && sTtsFallbackSoundResId != 0)
-        return mPlayer.playback(sTtsFallbackSoundResId);
+      // The fallback resource is the product-level enable sentinel; keep this path InCar-only.
+      if (cameraWarning && sTtsFallbackSoundResId != 0)
+        return mPlayer.playback(R.raw.speed_cams_beep);
 
       final List<File> clips = new ArrayList<>();
       if (gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST)
@@ -368,6 +367,9 @@ public class NavigationService extends Service implements LocationListener
     if (sTtsFallbackSoundResId == 0
         || !OfflineNavigationVoicePack.shouldPlayTone(mode, hasRoutingEvent || hasGpsEvent, criticalEvent))
       return false;
+
+    if (cameraWarning)
+      return mPlayer.playback(R.raw.speed_cams_beep);
 
     return mPlayer.playback(sTtsFallbackSoundResId);
   }

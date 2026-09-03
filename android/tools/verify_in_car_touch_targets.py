@@ -58,6 +58,11 @@ def require_text(path: Path, pattern: str, description: str) -> None:
         raise VerificationError(f"{path}: missing {description}")
 
 
+def reject_text(path: Path, pattern: str, description: str) -> None:
+    if re.search(pattern, read_text(path), re.MULTILINE | re.DOTALL) is not None:
+        raise VerificationError(f"{path}: contains forbidden {description}")
+
+
 def java_method_body(path: Path, marker: str) -> str:
     text = read_text(path)
     marker_index = text.find(marker)
@@ -120,11 +125,13 @@ def verify_resources(root: Path) -> None:
     visuals_path = root / "android/app/src/main/res/values/in_car_visuals.xml"
     automotive_path = root / "android/app/src/main/res/values/in_car_automotive_ui.xml"
     override_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
+    runtime_extra_path = root / "android/app/src/inCar/res/values/in_car_runtime_layout_extra.xml"
 
     runtime = resource_values(runtime_path)
     visuals = resource_values(visuals_path)
     automotive = resource_values(automotive_path)
     overrides = resource_values(override_path)
+    runtime_extra = resource_values(runtime_extra_path)
 
     require_value(runtime, "in_car_touch_target_preferred", f"{PREFERRED_DP}dp", runtime_path)
     require_value(runtime, "in_car_touch_target_min", f"{MINIMUM_DP}dp", runtime_path)
@@ -139,6 +146,8 @@ def verify_resources(root: Path) -> None:
         r'<item\s+name="in_car_driving_view_button"\s+type="id"\s*/>',
         "main-source Driving View id declaration for all app flavours",
     )
+    require_value(automotive, "in_car_action_menu_width", "300dp", automotive_path)
+    require_value(runtime_extra, "in_car_search_result_meta_width", "112dp", runtime_extra_path)
 
     preferred_visuals = (
         "in_car_map_button_size",
@@ -196,6 +205,46 @@ def verify_search_toolbar(root: Path) -> None:
     require_layout_attr(path, "query_input_layout", ANDROID_NS, "minHeight", preferred)
     require_layout_attr(path, "query_input_layout", APP_NS, "endIconMinSize", minimum)
     require_layout_attr(path, "query", ANDROID_NS, "minHeight", preferred)
+
+
+def verify_action_menus(root: Path) -> None:
+    action_menu = root / "android/app/src/main/java/app/organicmaps/incar/InCarActionMenu.java"
+    nav_menu = root / "android/app/src/main/java/app/organicmaps/widget/menu/NavMenu.java"
+    route_plan = root / "android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java"
+
+    require_text(action_menu, r"ListPopupWindow", "automotive action list")
+    require_text(action_menu, r"popup\.setAnchorView\(anchor\)", "anchored automotive action list")
+    require_text(
+        action_menu,
+        r"R\.dimen\.in_car_runtime_row_min_height[\s\S]*?view\.setMinimumHeight\(minHeight\)",
+        "preferred automotive action-row minimum enforcement",
+    )
+    require_text(action_menu, r"R\.dimen\.in_car_action_menu_width", "bounded automotive action-menu width")
+
+    for path in (nav_menu, route_plan):
+        reject_text(path, r"\bPopupMenu\b", "platform-sized PopupMenu on a driver-facing InCar surface")
+        require_text(path, r"InCarActionMenu\.show\(", "automotive-sized InCarActionMenu use")
+
+
+def verify_start_end_controls(root: Path) -> None:
+    start = root / "android/app/src/inCar/res/layout/routing_start_button.xml"
+    nav = root / "android/app/src/inCar/res/layout/layout_nav_bottom.xml"
+    strings = root / "android/app/src/inCar/res/values/strings_runtime_overrides.xml"
+
+    require_layout_attr(start, "start", ANDROID_NS, "layout_width", "0dp")
+    require_layout_attr(start, "start", ANDROID_NS, "layout_weight", "1")
+    require_layout_attr(start, "start", ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_preferred")
+    require_text(
+        start,
+        r'<Space\b(?=[^>]*android:layout_width="0dp")(?=[^>]*android:layout_weight="1")[^>]*>',
+        "equal spacer for half-width START",
+    )
+
+    require_layout_attr(nav, "stop", ANDROID_NS, "layout_height", "@dimen/nav_button_height")
+    require_layout_attr(nav, "stop", ANDROID_NS, "minWidth", "@dimen/in_car_nav_stop_min_width")
+    require_layout_attr(nav, "stop", ANDROID_NS, "padding", "@dimen/margin_base")
+    require_layout_attr(nav, "stop", ANDROID_NS, "text", "@string/in_car_end_navigation")
+    require_text(strings, r'<string\s+name="in_car_end_navigation">END</string>', "compact END label")
 
 
 def verify_camera_control_rail(root: Path) -> None:
@@ -407,6 +456,8 @@ def main() -> int:
         verify_ratio()
         verify_resources(root)
         verify_search_toolbar(root)
+        verify_action_menus(root)
+        verify_start_end_controls(root)
         verify_camera_control_rail(root)
         verify_driving_view_lifecycle(root)
         verify_camera_rail_movement(root)
