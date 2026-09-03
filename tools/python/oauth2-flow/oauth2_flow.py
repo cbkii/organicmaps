@@ -1,5 +1,6 @@
 import http.client
 import logging
+import os
 import re
 import urllib.parse
 from http.cookies import SimpleCookie
@@ -24,8 +25,15 @@ OAuthClientSecret = "xQE7suO-jmzmels19k-m8FQ8gHnkdWuLLVqfW6FIj44"
 OAuthRedirectUri = "om://oauth2/osm/callback"
 OAuthResponseType = "code"
 OAuthScope = "read_prefs write_api write_notes"
-test_login = "OrganicMapsTestUser"
-test_password = "12345678"
+
+
+def GetTestCredentials():
+    username = os.environ.get("OSM_TEST_USERNAME")
+    password = os.environ.get("OSM_TEST_PASSWORD")
+    if not username or not password:
+        raise RuntimeError("Set OSM_TEST_USERNAME and OSM_TEST_PASSWORD before running the OAuth2 flow test")
+    return username, password
+
 
 def FetchSessionId():
     logging.info("Getting initial cookie to login ...")
@@ -42,10 +50,11 @@ def FetchSessionId():
     if authToken is None:
         raise Exception("Can't find 'authenticity_token'")
 
-    logging.info(f"Parsed authToken = {authToken}")
-    logging.info("Got cookies: %s",res.headers['Set-Cookie'])
+    logging.info("Parsed login authenticity token")
+    logging.info("Got login session cookie")
 
     return cookies, authToken
+
 
 def LoginUserPassword(username, password, cookies, authToken):
     logging.info("Logging in with username and password ...")
@@ -69,10 +78,7 @@ def LoginUserPassword(username, password, cookies, authToken):
     res = conn2.getresponse()
 
     if res.status >= 400:
-        print(res.status)
-        print(res.headers)
-        print(res.read().decode('utf-8'))
-        raise Exception("Invalid login or password")
+        raise Exception(f"Login failed with HTTP status {res.status}")
 
     logging.info("Logged in successfully")
 
@@ -99,32 +105,26 @@ def FetchRequestToken(cookies):
     res = conn.getresponse()
 
     if res.status >= 400:
-        print(res.status)
-        print(res.headers)
-        print(res.read().decode('utf-8'))
-        raise Exception("Can't load OAuth2 page")
+        raise Exception(f"Can't load OAuth2 page: HTTP status {res.status}")
 
     elif res.status == 302:
-        logging.info("User already accepted OAuth2 request!")
+        logging.info("User already accepted OAuth2 request")
         redirectUri = res.headers['Location']
-        logging.info(f"Accepted OAuth2: {redirectUri}")
         oauthCode = FindOauthCode(redirectUri)
 
         if not oauthCode:
-            raise Exception(f"Can't find 'code' in redirect URI: {redirectUri}")
+            raise Exception("Can't find 'code' in OAuth2 redirect URI")
 
         return oauthCode
     else:
         respBody = res.read().decode("utf-8")
         authToken = FindAuthenticityToken("/oauth2/authorize", respBody)
         if not authToken:
-            print(res.status)
-            print(res.headers)
-            print(respBody)
-            raise Exception("Invalid authToken '{authToken}'")
-        logging.info(f"Parsed authToken = {authToken}")
+            raise Exception(f"Invalid OAuth2 authorization page: HTTP status {res.status}")
+        logging.info("Parsed OAuth2 authenticity token")
 
         return SendAuthRequest(authToken, cookies)
+
 
 def SendAuthRequest(authToken, cookies):
     logging.info("Accepting OAuth2 ...")
@@ -148,19 +148,16 @@ def SendAuthRequest(authToken, cookies):
 
     res = conn2.getresponse()
     if res.status != 302:
-        print(res.status)
-        print(res.headers)
-        print(res.read().decode('utf-8'))
-        raise Exception("Invalid response. Expected redirect")
+        raise Exception(f"Invalid OAuth2 response. Expected redirect, got HTTP status {res.status}")
 
     redirectUri = res.headers['Location']
-    logging.info(f"Accepted OAuth2: {redirectUri}")
     oauthCode = FindOauthCode(redirectUri)
 
     if not oauthCode:
-        raise Exception(f"Can't find 'code' in redirect URI: {redirectUri}")
+        raise Exception("Can't find 'code' in OAuth2 redirect URI")
 
     return oauthCode
+
 
 def FinishAuthorization(code):
     payload = urllib.parse.urlencode({
@@ -172,17 +169,14 @@ def FinishAuthorization(code):
         "client_secret": OAuthClientSecret
     })
 
-    headers = { 'content-type': "application/x-www-form-urlencoded" }
+    headers = {'content-type': "application/x-www-form-urlencoded"}
 
     conn = http.client.HTTPSConnection(osmHost)
     conn.request("POST", "/oauth2/token", payload, headers)
 
     res = conn.getresponse()
     if res.status >= 400:
-        print(res.status)
-        print(res.headers)
-        print(res.read().decode('utf-8'))
-        raise Exception("Error getting OAuth2 token")
+        raise Exception(f"Error getting OAuth2 token: HTTP status {res.status}")
 
     return res.read().decode("utf-8")
 
@@ -199,7 +193,7 @@ def FindAuthenticityToken(formAction, htmlCode):
 
 def FindOauthCode(redirectUri):
     query = urllib.parse.urlparse(redirectUri).query
-    params = {k:v for (k,v) in urllib.parse.parse_qsl(query)}
+    params = {k: v for (k, v) in urllib.parse.parse_qsl(query)}
 
     return params.get('code', None)
 
@@ -220,8 +214,9 @@ if __name__ == '__main__':
     Use this script for flow testing.
     """
 
+    test_login, test_password = GetTestCredentials()
     cookies, token = FetchSessionId()
     LoginUserPassword(test_login, test_password, cookies, token)
     code = FetchRequestToken(cookies)
-    oauthToken = FinishAuthorization(code)
-    logging.info(f"Completed OAuth2 flow. Got OAuth2 Token: '{oauthToken}'")
+    FinishAuthorization(code)
+    logging.info("Completed OAuth2 flow successfully")
