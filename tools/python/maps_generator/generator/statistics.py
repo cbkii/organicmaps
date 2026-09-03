@@ -120,6 +120,8 @@ def parse_time(time_str):
     time_params = {}
     for name, param in parts.items():
         if param:
+            if name == "microseconds":
+                param = param.ljust(6, "0")
             time_params[name] = int(param)
     return datetime.timedelta(**time_params)
 

@@ -1,0 +1,53 @@
+name: Retained Python Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - "tools/python/**"
+      - ".github/workflows/retained-python-tests.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  retained-python-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/python/maps_generator/requirements.txt
+
+      - name: Install retained Python dependencies
+        run: python -m pip install -r tools/python/maps_generator/requirements.txt
+
+      - name: Test top-level Python helpers
+        env:
+          PYTHONPATH: tools/python
+        run: python -m unittest discover -s tools/python/tests -p 'test_*.py' -v
+
+      - name: Prepare maps-generator default repository path
+        run: |
+          ln -s "$GITHUB_WORKSPACE" "$HOME/omim"
+          mkdir -p "$GITHUB_WORKSPACE/data/borders"
+
+      - name: Test maps-generator statistics helpers
+        env:
+          PYTHONPATH: tools/python
+        run: python -m unittest discover -s tools/python/maps_generator/tests -p 'test_statistics.py' -v
+
+      - name: Test maps-generator stage helpers
+        env:
+          PYTHONPATH: tools/python
+        run: python -m unittest discover -s tools/python/maps_generator/tests -p 'test_stages.py' -v
