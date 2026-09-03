@@ -14,15 +14,13 @@ import java.util.List;
 public final class InCarActionMenu
 {
   @FunctionalInterface
-  public interface OnItemClickListener
-  {
+  public interface OnItemClickListener {
     void onItemClick(int position);
   }
 
   private InCarActionMenu() {}
 
-  public static void show(@NonNull View anchor, @NonNull List<String> labels,
-                          @NonNull OnItemClickListener listener)
+  public static void show(@NonNull View anchor, @NonNull List<String> labels, @NonNull OnItemClickListener listener)
   {
     final Context context = anchor.getContext();
     final int minHeight = context.getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height);
