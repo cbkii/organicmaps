@@ -237,10 +237,10 @@ public final class InCarWindowGeometryCoordinator
       return;
 
     final View mapContainer = activity.findViewById(R.id.map_container);
-    final int expectedWidth = mapContainer != null && mapContainer.getWidth() > 0 ? mapContainer.getWidth()
-                                                                                  : content.getWidth();
-    final int expectedHeight = mapContainer != null && mapContainer.getHeight() > 0 ? mapContainer.getHeight()
-                                                                                    : content.getHeight();
+    final int expectedWidth =
+        mapContainer != null && mapContainer.getWidth() > 0 ? mapContainer.getWidth() : content.getWidth();
+    final int expectedHeight =
+        mapContainer != null && mapContainer.getHeight() > 0 ? mapContainer.getHeight() : content.getHeight();
     if (!hasValidBounds(expectedWidth, expectedHeight))
     {
       scheduleInvalidBoundsRetry(activity, observation, reason, generation, retriesRemaining);
@@ -303,11 +303,10 @@ public final class InCarWindowGeometryCoordinator
       if (mapView == null)
         return;
 
-      final GeometryStatus status = evaluateGeometry(observation.expectedWidth, observation.expectedHeight,
-                                                     mapView.getWidth(), mapView.getHeight(),
-                                                     mapView.getSurfaceFrameWidth(), mapView.getSurfaceFrameHeight(),
-                                                     mapView.getLastAppliedSurfaceWidth(),
-                                                     mapView.getLastAppliedSurfaceHeight());
+      final GeometryStatus status =
+          evaluateGeometry(observation.expectedWidth, observation.expectedHeight, mapView.getWidth(),
+                           mapView.getHeight(), mapView.getSurfaceFrameWidth(), mapView.getSurfaceFrameHeight(),
+                           mapView.getLastAppliedSurfaceWidth(), mapView.getLastAppliedSurfaceHeight());
       if (status.isConverged())
       {
         Logger.d(TAG, "Window geometry converged: epoch=" + observation.geometryEpoch + " generation=" + generation
@@ -316,10 +315,9 @@ public final class InCarWindowGeometryCoordinator
       }
 
       final boolean canReattach = canReattachSurface(activity, mapView);
-      final RecoveryAction action = chooseRecoveryAction(status, observation.layoutAttempted,
-                                                         observation.surfaceSizeAttempted,
-                                                         observation.nativeReapplyAttempted,
-                                                         observation.surfaceReattachAttempted, canReattach);
+      final RecoveryAction action =
+          chooseRecoveryAction(status, observation.layoutAttempted, observation.surfaceSizeAttempted,
+                               observation.nativeReapplyAttempted, observation.surfaceReattachAttempted, canReattach);
       performRecovery(action, mapView, content, observation);
 
       if (checksRemaining > 1)
@@ -328,14 +326,14 @@ public final class InCarWindowGeometryCoordinator
         return;
       }
 
-      Logger.w(TAG, "Window geometry failed to converge: epoch=" + observation.geometryEpoch + " generation="
-                        + generation + " expected=" + observation.expectedWidth + "x" + observation.expectedHeight
-                        + " map=" + mapView.getWidth() + "x" + mapView.getHeight() + " surface="
-                        + mapView.getSurfaceFrameWidth() + "x" + mapView.getSurfaceFrameHeight() + " native="
-                        + mapView.getLastAppliedSurfaceWidth() + "x" + mapView.getLastAppliedSurfaceHeight()
-                        + " action=" + action + " attempts={layout=" + observation.layoutAttempted + ",surface="
-                        + observation.surfaceSizeAttempted + ",native=" + observation.nativeReapplyAttempted
-                        + ",reattach=" + observation.surfaceReattachAttempted + "}");
+      Logger.w(TAG,
+               "Window geometry failed to converge: epoch=" + observation.geometryEpoch + " generation=" + generation
+                   + " expected=" + observation.expectedWidth + "x" + observation.expectedHeight + " map="
+                   + mapView.getWidth() + "x" + mapView.getHeight() + " surface=" + mapView.getSurfaceFrameWidth() + "x"
+                   + mapView.getSurfaceFrameHeight() + " native=" + mapView.getLastAppliedSurfaceWidth() + "x"
+                   + mapView.getLastAppliedSurfaceHeight() + " action=" + action + " attempts={layout="
+                   + observation.layoutAttempted + ",surface=" + observation.surfaceSizeAttempted + ",native="
+                   + observation.nativeReapplyAttempted + ",reattach=" + observation.surfaceReattachAttempted + "}");
     };
     observation.pendingGeometryWork = verification;
     content.postOnAnimation(verification);
@@ -363,8 +361,7 @@ public final class InCarWindowGeometryCoordinator
       observation.surfaceReattachAttempted = true;
       mapView.recoverSurfaceAttachment();
       break;
-    case NONE:
-      break;
+    case NONE: break;
     }
   }
 
@@ -373,8 +370,8 @@ public final class InCarWindowGeometryCoordinator
     if (!activity.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED) || !mapView.isAttachedToWindow())
       return false;
     final android.view.Surface surface = mapView.getHolder().getSurface();
-    return surface != null && surface.isValid() && hasValidBounds(mapView.getSurfaceFrameWidth(),
-                                                                  mapView.getSurfaceFrameHeight());
+    return surface != null && surface.isValid()
+        && hasValidBounds(mapView.getSurfaceFrameWidth(), mapView.getSurfaceFrameHeight());
   }
 
   private static void resetRecoveryState(@NonNull Observation observation)
@@ -418,11 +415,14 @@ public final class InCarWindowGeometryCoordinator
                                          int surfaceWidth, int surfaceHeight, int nativeWidth, int nativeHeight)
   {
     final boolean expectedValid = hasValidBounds(expectedWidth, expectedHeight);
-    final boolean mapMismatch = expectedValid && (!hasValidBounds(mapWidth, mapHeight) || mapWidth != expectedWidth
-                                                   || mapHeight != expectedHeight);
-    final boolean surfaceMismatch = hasValidBounds(mapWidth, mapHeight)
+    final boolean mapMismatch =
+        expectedValid
+        && (!hasValidBounds(mapWidth, mapHeight) || mapWidth != expectedWidth || mapHeight != expectedHeight);
+    final boolean surfaceMismatch =
+        hasValidBounds(mapWidth, mapHeight)
         && (!hasValidBounds(surfaceWidth, surfaceHeight) || surfaceWidth != mapWidth || surfaceHeight != mapHeight);
-    final boolean nativeMismatch = hasValidBounds(surfaceWidth, surfaceHeight)
+    final boolean nativeMismatch =
+        hasValidBounds(surfaceWidth, surfaceHeight)
         && (!hasValidBounds(nativeWidth, nativeHeight) || nativeWidth != surfaceWidth || nativeHeight != surfaceHeight);
     return new GeometryStatus(expectedValid, mapMismatch, surfaceMismatch, nativeMismatch);
   }
@@ -456,35 +456,36 @@ public final class InCarWindowGeometryCoordinator
   {
     final MapView mapView = observation.mapView;
     final Configuration config = activity.getResources().getConfiguration();
-    final WindowInsetsCompat windowInsets = observation.content == null ? null
-                                                                        : ViewCompat.getRootWindowInsets(
-                                                                              observation.content);
-    final Insets systemBars = windowInsets == null ? Insets.NONE
-                                                    : windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+    final WindowInsetsCompat windowInsets =
+        observation.content == null ? null : ViewCompat.getRootWindowInsets(observation.content);
+    final Insets systemBars =
+        windowInsets == null ? Insets.NONE : windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
     final boolean statusVisible = windowInsets != null && windowInsets.isVisible(WindowInsetsCompat.Type.statusBars());
     final boolean navVisible = windowInsets != null && windowInsets.isVisible(WindowInsetsCompat.Type.navigationBars());
     final Intent intent = activity.getIntent();
     final Set<String> categories = intent == null ? null : intent.getCategories();
-    final boolean multi = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N
-        && activity.isInMultiWindowMode();
-    final boolean pip = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N
-        && activity.isInPictureInPictureMode();
+    final boolean multi =
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && activity.isInMultiWindowMode();
+    final boolean pip =
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && activity.isInPictureInPictureMode();
 
-    Logger.i(TAG, "reason=" + reason + " transitionGen=" + observation.transitionGeneration + " epoch="
-                      + observation.geometryEpoch + " task=" + activity.getTaskId() + " activity="
-                      + System.identityHashCode(activity) + " lifecycle=" + activity.getLifecycle().getCurrentState()
-                      + " multi=" + multi + " pip=" + pip + " config=" + config.screenWidthDp + "x"
-                      + config.screenHeightDp + "/" + config.orientation + " expected=" + observation.expectedWidth
-                      + "x" + observation.expectedHeight + " map=" + (mapView == null ? "0x0" : mapView.getWidth()
-                      + "x" + mapView.getHeight()) + " surface="
-                      + (mapView == null ? "0x0" : mapView.getSurfaceFrameWidth() + "x"
-                      + mapView.getSurfaceFrameHeight()) + " native="
-                      + (mapView == null ? "0x0" : mapView.getLastAppliedSurfaceWidth() + "x"
-                      + mapView.getLastAppliedSurfaceHeight()) + " bars={status=" + statusVisible + ",nav=" + navVisible
-                      + ",insets=" + systemBars.left + "," + systemBars.top + "," + systemBars.right + ","
-                      + systemBars.bottom + "} intent={action=" + (intent == null ? null : intent.getAction())
-                      + ",component=" + (intent == null ? null : intent.getComponent()) + ",categories="
-                      + (categories == null ? "[]" : categories) + ",flags=0x"
-                      + (intent == null ? "0" : Integer.toHexString(intent.getFlags())) + "}");
+    Logger.i(
+        TAG,
+        "reason=" + reason + " transitionGen=" + observation.transitionGeneration
+            + " epoch=" + observation.geometryEpoch + " task=" + activity.getTaskId() + " activity="
+            + System.identityHashCode(activity) + " lifecycle=" + activity.getLifecycle().getCurrentState()
+            + " multi=" + multi + " pip=" + pip + " config=" + config.screenWidthDp + "x" + config.screenHeightDp
+            + "/" + config.orientation + " expected=" + observation.expectedWidth + "x" + observation.expectedHeight
+            + " map=" + (mapView == null ? "0x0" : mapView.getWidth() + "x" + mapView.getHeight()) + " surface="
+            + (mapView == null ? "0x0" : mapView.getSurfaceFrameWidth() + "x" + mapView.getSurfaceFrameHeight())
+            + " native="
+            + (mapView == null ? "0x0"
+                               : mapView.getLastAppliedSurfaceWidth() + "x" + mapView.getLastAppliedSurfaceHeight())
+            + " bars={status=" + statusVisible + ",nav=" + navVisible + ",insets=" + systemBars.left + ","
+            + systemBars.top + "," + systemBars.right + "," + systemBars.bottom
+            + "} intent={action=" + (intent == null ? null : intent.getAction())
+            + ",component=" + (intent == null ? null : intent.getComponent())
+            + ",categories=" + (categories == null ? "[]" : categories) + ",flags=0x"
+            + (intent == null ? "0" : Integer.toHexString(intent.getFlags())) + "}");
   }
 }
