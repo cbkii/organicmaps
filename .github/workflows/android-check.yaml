@@ -340,10 +340,14 @@ jobs:
             "${RUNNER_TEMP}/in-car-ci-keytool.txt"
 
   in-car-release-smoke:
-    name: Smoke InCar startup on x86_64
+    name: Smoke InCar on API ${{ matrix.api-level }} x86_64
     needs: android-check
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [29, 30]
 
     steps:
       - name: Checkout smoke script
@@ -379,16 +383,16 @@ jobs:
       - name: Smoke InCar cold launch and relaunch
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: default
-          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke"
+          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}"
 
       - name: Upload InCar launch smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: android-InCarDebug-x86_64-launch-smoke
-          path: ${{ runner.temp }}/in-car-debug-ci-launch-smoke
+          name: android-InCarDebug-x86_64-launch-smoke-api-${{ matrix.api-level }}
+          path: ${{ runner.temp }}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}
           if-no-files-found: warn
           retention-days: 90
