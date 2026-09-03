@@ -37,7 +37,9 @@ jobs:
         run: python -m unittest discover -s tools/python/tests -p 'test_*.py' -v
 
       - name: Prepare maps-generator default repository path
-        run: ln -s "$GITHUB_WORKSPACE" "$HOME/omim"
+        run: |
+          ln -s "$GITHUB_WORKSPACE" "$HOME/omim"
+          mkdir -p "$GITHUB_WORKSPACE/data/borders"
 
       - name: Test maps-generator statistics helpers
         env:
