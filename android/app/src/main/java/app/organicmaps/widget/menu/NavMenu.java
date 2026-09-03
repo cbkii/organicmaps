@@ -145,7 +145,8 @@ public class NavMenu implements DefaultLifecycleObserver
   private void showInCarMoreMenu(@NonNull View anchor)
   {
     InCarActionMenu.show(
-        anchor, Arrays.asList(mActivity.getString(R.string.in_car_navigation_voice), mActivity.getString(R.string.settings)),
+        anchor,
+        Arrays.asList(mActivity.getString(R.string.in_car_navigation_voice), mActivity.getString(R.string.settings)),
         position -> {
           if (position == 0)
             onTtsClicked();
