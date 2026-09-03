@@ -380,13 +380,15 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Smoke InCar cold launch and relaunch
+      - name: Smoke InCar cold launch, relaunch and window resize
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: default
-          script: bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}"
+          script: |
+            bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}"
+            bash android/tools/smoke_test_in_car_window_resize.sh --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}/window-resize"
 
       - name: Upload InCar launch smoke evidence
         if: always()
