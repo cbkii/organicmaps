@@ -116,11 +116,10 @@ run_optional() {
   printf 'host_utc=%s\n' "${timestamp}"
   printf 'label=%s\n' "${label}"
   printf 'package=%s\n' "${package_name}"
-  printf 'adb_serial=%s\n' "${ANDROID_SERIAL:-default}"
 } > "${capture_dir}/manifest.txt" || fail "Unable to create capture manifest"
 
 run_required device-identity adb shell sh -c 'printf "utc="; date -u "+%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date; id; printf "selinux="; getenforce 2>/dev/null || printf "unknown\n"; printf "boot_id="; cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf "unknown\n"; printf "uptime="; cat /proc/uptime'
-run_required build adb shell getprop
+run_required build adb shell sh -c 'for key in ro.build.display.id ro.build.version.release ro.build.version.sdk ro.product.manufacturer ro.product.model ro.product.device; do printf "%s=" "$key"; getprop "$key"; done'
 run_required wm-size adb shell wm size
 run_required wm-density adb shell wm density
 run_required activity adb shell dumpsys activity activities
@@ -132,8 +131,14 @@ run_optional process adb shell sh -c "pidof -s '${package_name}'; ps -A -o USER,
 
 logcat_raw="${capture_dir}/logcat-tail.txt"
 if adb logcat -d -v threadtime -t "${log_lines}" > "${logcat_raw}" 2>&1; then
+  filtered_log="${capture_dir}/logcat-window-filtered.txt"
   grep -E 'InCarWindowGeometryCoordinator|InCarVisuals|MapView|ActivityTaskManager|WindowManager|SurfaceFlinger|app\.organicmaps' \
-    "${logcat_raw}" > "${capture_dir}/logcat-window-filtered.txt" || :
+    "${logcat_raw}" > "${filtered_log}"
+  grep_rc=$?
+  if [[ "${grep_rc}" -gt 1 ]]; then
+    warn "Optional logcat filtering failed with rc=${grep_rc}"
+    printf 'optional_capture=logcat-filter rc=%d\n' "${grep_rc}" >> "${capture_dir}/warnings.txt"
+  fi
 else
   warn "Optional logcat capture failed"
   printf 'optional_capture=logcat rc=1\n' >> "${capture_dir}/warnings.txt"
