@@ -4,9 +4,9 @@
   <string name="pref_in_car_optimised_visuals" translatable="false">pref_in_car_optimised_visuals</string>
   <string name="pref_in_car_driving_view_mode" translatable="false">InCarDrivingViewMode</string>
   <string name="pref_in_car_show_driving_view_button" translatable="false">pref_in_car_show_driving_view_button</string>
-  <string name="pref_in_car_start_driving_view" translatable="false">pref_in_car_start_driving_view</string>
   <string name="pref_in_car_automatic_driving_view" translatable="false">pref_in_car_automatic_driving_view</string>
   <string name="pref_in_car_auto_return_driving_view" translatable="false">pref_in_car_auto_return_driving_view</string>
+  <string name="pref_in_car_startup_map_view" translatable="false">InCarStartupMapView</string>
   <string name="pref_in_car_budget_rendering" translatable="false">pref_in_car_budget_rendering</string>
   <string name="pref_in_car_navigation_fallback_mode" translatable="false">pref_in_car_navigation_fallback_mode</string>
   <string name="pref_in_car_offline_navigation_voice_pack" translatable="false">pref_in_car_offline_navigation_voice_pack</string>
@@ -14,6 +14,10 @@
     <item>OFF</item>
     <item>MANUAL</item>
     <item>AUTOMATIC</item>
+  </string-array>
+  <string-array name="in_car_startup_map_view_values" translatable="false">
+    <item>DRIVING_AREA</item>
+    <item>LAST_MAP_VIEW</item>
   </string-array>
   <string-array name="in_car_navigation_fallback_mode_values" translatable="false">
     <item>off</item>

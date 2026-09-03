@@ -28,6 +28,16 @@
       android:summary="@string/auto_follow_location_on_launch_summary"
       android:persistent="false"
       app:singleLineTitle="false" />
+
+    <ListPreference
+      android:key="@string/pref_in_car_startup_map_view"
+      android:title="@string/in_car_startup_map_view_title"
+      android:summary="@string/in_car_startup_map_view_summary"
+      android:entries="@array/in_car_startup_map_view_entries"
+      android:entryValues="@array/in_car_startup_map_view_values"
+      android:defaultValue="DRIVING_AREA"
+      android:persistent="false"
+      app:singleLineTitle="false" />
   </androidx.preference.PreferenceCategory>
 
   <androidx.preference.PreferenceCategory

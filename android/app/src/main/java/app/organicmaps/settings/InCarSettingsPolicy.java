@@ -20,6 +20,8 @@ import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.incar.InCarDrivingViewModePolicy;
 import app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode;
 import app.organicmaps.incar.InCarSettingsStore;
+import app.organicmaps.incar.InCarStartupCameraStore;
+import app.organicmaps.incar.InCarStartupCameraStore.StartupMapView;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.PowerManagment;
@@ -33,6 +35,7 @@ final class InCarSettingsPolicy
   {
     bindRootEntry(fragment);
     bindAutoFollowOnLaunch(fragment);
+    bindStartupMapView(fragment);
     bindOptimisedVisuals(fragment);
     bindDrivingViewSettings(fragment);
     bindBudgetRendering(fragment);
@@ -63,11 +66,49 @@ final class InCarSettingsPolicy
       return;
 
     final TwoStatePreference switchPreference = (TwoStatePreference) preference;
-    switchPreference.setChecked(Config.isAutoStartLocationFollowAndRotateEnabled());
+    final boolean enabled = Config.isAutoStartLocationFollowAndRotateEnabled();
+    switchPreference.setChecked(enabled);
+    updateAutoFollowDependents(fragment, enabled);
     switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
-      Config.setAutoStartLocationFollowAndRotateEnabled((boolean) newValue);
+      final boolean autoFollow = (boolean) newValue;
+      Config.setAutoStartLocationFollowAndRotateEnabled(autoFollow);
+      updateAutoFollowDependents(fragment, autoFollow);
       return true;
     });
+  }
+
+  private static void bindStartupMapView(@NonNull PreferenceFragmentCompat fragment)
+  {
+    @Nullable
+    final Preference preference = fragment.findPreference(fragment.getString(R.string.pref_in_car_startup_map_view));
+    if (!(preference instanceof ListPreference listPreference))
+      return;
+
+    final boolean show = showDedicatedPreference(fragment);
+    listPreference.setVisible(show);
+    if (!show)
+      return;
+
+    final InCarStartupCameraStore store = new InCarStartupCameraStore(fragment.requireContext());
+    listPreference.setValue(store.getStartupMapView().preferenceValue());
+    listPreference.setEnabled(Config.isAutoStartLocationFollowAndRotateEnabled());
+    listPreference.setOnPreferenceChangeListener((pref, newValue) -> {
+      if (!(newValue instanceof String value))
+        return false;
+      final StartupMapView selected = StartupMapView.fromPreferenceValue(value);
+      store.setStartupMapView(selected);
+      listPreference.setValue(selected.preferenceValue());
+      return true;
+    });
+  }
+
+  private static void updateAutoFollowDependents(@NonNull PreferenceFragmentCompat fragment, boolean enabled)
+  {
+    @Nullable
+    final Preference startupMapView =
+        fragment.findPreference(fragment.getString(R.string.pref_in_car_startup_map_view));
+    if (startupMapView != null)
+      startupMapView.setEnabled(enabled);
   }
 
   private static void bindOptimisedVisuals(@NonNull PreferenceFragmentCompat fragment)
