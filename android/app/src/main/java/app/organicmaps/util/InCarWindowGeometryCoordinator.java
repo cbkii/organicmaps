@@ -262,6 +262,8 @@ public final class InCarWindowGeometryCoordinator
     }
 
     logSnapshot(activity, observation, reason);
+    if ("SURFACE_DESTROYED".equals(reason))
+      return;
     scheduleConvergenceCheck(activity, observation, generation, MAX_CONVERGENCE_CHECKS);
   }
 
@@ -302,6 +304,11 @@ public final class InCarWindowGeometryCoordinator
       final MapView mapView = observation.mapView;
       if (mapView == null)
         return;
+      if (!isRecoveryHostReady(activity, mapView))
+      {
+        Logger.d(TAG, "Window geometry recovery deferred until resumed host: generation=" + generation);
+        return;
+      }
 
       final GeometryStatus status =
           evaluateGeometry(observation.expectedWidth, observation.expectedHeight, mapView.getWidth(),
@@ -365,9 +372,14 @@ public final class InCarWindowGeometryCoordinator
     }
   }
 
+  private static boolean isRecoveryHostReady(@NonNull FragmentActivity activity, @NonNull MapView mapView)
+  {
+    return activity.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED) && mapView.isAttachedToWindow();
+  }
+
   private static boolean canReattachSurface(@NonNull FragmentActivity activity, @NonNull MapView mapView)
   {
-    if (!activity.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED) || !mapView.isAttachedToWindow())
+    if (!isRecoveryHostReady(activity, mapView))
       return false;
     final android.view.Surface surface = mapView.getHolder().getSurface();
     return surface != null && surface.isValid()
