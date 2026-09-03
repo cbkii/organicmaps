@@ -9,6 +9,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.NonNull;
@@ -150,6 +151,64 @@ public class MapView extends SurfaceView
     return mMap.getLastAppliedSurfaceHeight();
   }
 
+  /**
+   * Requests the SurfaceHolder buffer to follow this SurfaceView's current layout dimensions again.
+   *
+   * <p>This uses the public layout-derived SurfaceHolder path rather than imposing a fixed pixel buffer size, so the
+   * system/launcher remains the authority for the containing window.</p>
+   */
+  public boolean requestSurfaceSizeFromLayout()
+  {
+    if (getWidth() <= 0 || getHeight() <= 0)
+      return false;
+
+    getHolder().setSizeFromLayout();
+    requestLayout();
+    return true;
+  }
+
+  /** Re-applies the current valid SurfaceHolder frame to the existing native renderer. */
+  public boolean reapplyCurrentSurfaceSize()
+  {
+    final SurfaceHolder holder = getHolder();
+    final Surface surface = holder.getSurface();
+    final Rect frame = holder.getSurfaceFrame();
+    if (surface == null || !surface.isValid() || frame == null || frame.width() <= 0 || frame.height() <= 0)
+      return false;
+
+    mMap.onSurfaceChanged(getContext(), surface, frame, false /* isSurfaceCreating */);
+    return mMap.getLastAppliedSurfaceWidth() == frame.width() && mMap.getLastAppliedSurfaceHeight() == frame.height();
+  }
+
+  /**
+   * Performs one configuration-change-style detach/reattach against the same valid Surface as a last-resort bounded
+   * recovery. The caller is responsible for ensuring that this is attempted at most once for a stable geometry
+   * generation and only while the host is resumed.
+   */
+  public boolean recoverSurfaceAttachment()
+  {
+    final SurfaceHolder holder = getHolder();
+    final Surface surface = holder.getSurface();
+    final Rect frame = holder.getSurfaceFrame();
+    if (surface == null || !surface.isValid() || frame == null || frame.width() <= 0 || frame.height() <= 0)
+      return false;
+
+    try
+    {
+      // |true| deliberately preserves native rendering state as for an Activity configuration change; it does not
+      // request task/window changes and does not destroy the native Framework.
+      mMap.onSurfaceDestroyed(true /* activityIsChangingConfigurations */);
+      mMap.onSurfaceCreated(getContext(), surface, frame, ConfigurationHelper.getDensityDpi(getResources()));
+      mMap.onSurfaceChanged(getContext(), surface, frame, false /* isSurfaceCreating */);
+      return mMap.getLastAppliedSurfaceWidth() == frame.width() && mMap.getLastAppliedSurfaceHeight() == frame.height();
+    }
+    catch (RuntimeException error)
+    {
+      Logger.w(TAG, "Surface reattach recovery failed open: " + error.getClass().getSimpleName());
+      return false;
+    }
+  }
+
   @NonNull
   Map getMap()
   {
@@ -180,7 +239,7 @@ public class MapView extends SurfaceView
       if (i < w)
         canvas.drawLine(i, 0, i, h, paint);
       if (i < h)
-        canvas.drawLine(0, i, w, i, paint);
+        canvas.drawLine(0, i, w, i, h);
     }
   }
 
