@@ -58,6 +58,8 @@ public class MapButtonsController extends Fragment
   @Nullable
   private View mBottomButtonsFrame;
   @Nullable
+  private View mZoomMovementFrame;
+  @Nullable
   private LayersButton mToggleMapLayerButton;
   @Nullable
   FloatingActionButton mTrackRecordingStatusButton;
@@ -117,6 +119,9 @@ public class MapButtonsController extends Fragment
 
     final FloatingActionButton helpButton = mFrame.findViewById(R.id.help_button);
     final View zoomFrame = mFrame.findViewById(R.id.zoom_buttons_container);
+    mZoomMovementFrame = zoomFrame;
+    if (BuildConfig.IS_IN_CAR && zoomFrame.getParent() instanceof View parent)
+      mZoomMovementFrame = parent;
     mFrame.findViewById(R.id.nav_zoom_in)
         .setOnClickListener(v -> mMapButtonClickListener.onMapButtonClick(MapButtons.zoomIn));
     mFrame.findViewById(R.id.nav_zoom_out)
@@ -410,6 +415,9 @@ public class MapButtonsController extends Fragment
   {
     if (parent == null)
       return;
+    if (mZoomMovementFrame != null && mZoomMovementFrame != mButtonsMap.get(MapButtons.zoom)
+        && mZoomMovementFrame.getParent() == parent)
+      UiUtils.showIf(getViewTopOffset(translation, mZoomMovementFrame) >= -140, mZoomMovementFrame);
     for (Map.Entry<MapButtons, View> entry : mButtonsMap.entrySet())
     {
       final View button = entry.getValue();

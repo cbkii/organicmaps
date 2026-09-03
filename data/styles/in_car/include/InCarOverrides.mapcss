@@ -99,9 +99,10 @@ line|z2-[boundary=administrative]
 line[highway]
 {text-halo-opacity: 1; text-halo-radius: 2;}
 
+/* Keep road names in the vehicle palette, but make place/locality names distinctly yellow. */
 node[place],
 area[place]
-{text-halo-opacity: 1; text-halo-radius: 2;}
+{text-color: @in_car_place_label; text-halo-color: @label_halo_medium; text-halo-opacity: 1; text-halo-radius: 2;}
 
 /* Delay non-driving POIs inside their existing visibility windows. */
 node|z0-16[tourism],

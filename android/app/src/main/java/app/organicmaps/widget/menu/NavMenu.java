@@ -9,13 +9,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarActionMenu;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.StringUtils;
@@ -26,13 +26,11 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 public class NavMenu implements DefaultLifecycleObserver
 {
-  private static final int IN_CAR_MORE_VOICE = 1;
-  private static final int IN_CAR_MORE_SETTINGS = 2;
-
   private final BottomSheetBehavior<View> mNavBottomSheetBehavior;
   private final View mBottomSheetBackground;
   private final View mHeaderFrame;
@@ -146,23 +144,15 @@ public class NavMenu implements DefaultLifecycleObserver
 
   private void showInCarMoreMenu(@NonNull View anchor)
   {
-    final PopupMenu menu = new PopupMenu(mActivity, anchor);
-    menu.getMenu().add(0, IN_CAR_MORE_VOICE, 0, R.string.in_car_navigation_voice);
-    menu.getMenu().add(0, IN_CAR_MORE_SETTINGS, 1, R.string.settings);
-    menu.setOnMenuItemClickListener(item -> {
-      if (item.getItemId() == IN_CAR_MORE_VOICE)
-      {
-        onTtsClicked();
-        return true;
-      }
-      if (item.getItemId() == IN_CAR_MORE_SETTINGS)
-      {
-        onSettingsClicked();
-        return true;
-      }
-      return false;
-    });
-    menu.show();
+    InCarActionMenu.show(
+        anchor,
+        Arrays.asList(mActivity.getString(R.string.in_car_navigation_voice), mActivity.getString(R.string.settings)),
+        position -> {
+          if (position == 0)
+            onTtsClicked();
+          else if (position == 1)
+            onSettingsClicked();
+        });
   }
 
   private void onStopClicked()

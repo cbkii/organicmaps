@@ -1,7 +1,11 @@
 import configparser
+from datetime import datetime
+import json
 import multiprocessing
 import os
-import json
+import shlex
+import shutil
+import subprocess
 
 from git import Repo
 
@@ -20,7 +24,12 @@ def load_run_config_ini(*, config_ini, path):
 
 def get_cmake_cmd():
     for cmd in CommonConfig.CMAKE_BINS:
-        if not os.system(f'{cmd} --version > /dev/null 2>&1'):
+        try:
+            result = subprocess.run([cmd, '--version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    check=False)
+        except OSError:
+            continue
+        if result.returncode == 0:
             return cmd
     raise Exception(f'Cannot find cmake cmd, try: {CommonConfig.CMAKE_BINS}')
 
@@ -77,6 +86,7 @@ class ConfigINI():
 
         return self._read_config_ini_value(config_ini=config_ini[item], path=path)
 
+
 def cpu_count():
     return multiprocessing.cpu_count()
 
@@ -104,28 +114,26 @@ class Omim():
     def _pretty_time_string(*, dt):
         return dt.strftime('%Y_%m_%d__%H_%M_%S')
 
-    def _run_system_unsafe(self, *, cmd, env=None, output_file=None, log_cmd=False):
-        env_params = ""
-        if env is None:
-            env = dict()
-        else:
-            env_params = "env "
-
-        for key, value in env.items():
-            env_params += f'{key}={value} '
-
-        if output_file is None:
-            output = ""
-        else:
-            output = f'> {output_file} 2>&1'
-
-        full_cmd = env_params + cmd + output
+    def _run_process(self, *, cmd, env=None, output_file=None, log_cmd=False):
+        command = [str(part) for part in cmd]
+        full_cmd = shlex.join(command)
         if log_cmd:
             LOG.info(f'Run: {full_cmd}')
-        return {os.system(full_cmd), full_cmd}
+
+        process_env = os.environ.copy()
+        if env:
+            process_env.update({str(key): str(value) for key, value in env.items()})
+
+        if output_file is None:
+            result = subprocess.run(command, env=process_env, check=False)
+        else:
+            with open(output_file, 'wb') as output:
+                result = subprocess.run(command, env=process_env, stdout=output, stderr=subprocess.STDOUT, check=False)
+
+        return result.returncode, full_cmd
 
     def _run_system(self, *, cmd, env=None, output_file=None, log_cmd=False):
-        result, full_cmd = self._run_system_unsafe(cmd=cmd, env=env, output_file=output_file, log_cmd=log_cmd)
+        result, full_cmd = self._run_process(cmd=cmd, env=env, output_file=output_file, log_cmd=log_cmd)
         if result:
             raise Exception(f'Error during executing {full_cmd}')
 
@@ -169,27 +177,28 @@ class Omim():
         branch_hash = get_branch_hash_name(branch=self.branch, hash=self.hash)
         output_prefix = os.path.join(self.build_dir, branch_hash + '_')
 
-        cmake_cmd = f'{self.cmake_cmd} {self.omim_path} {cmake_options}'
+        cmake_cmd = [self.cmake_cmd, self.omim_path]
+        if cmake_options:
+            cmake_cmd.extend(shlex.split(cmake_options))
         self._run_system(cmd=cmake_cmd, output_file=output_prefix + 'cmake_run.log', log_cmd=True)
-        make_cmd = f'make -j{self.cpu_count} {aim}'
+        make_cmd = ['make', f'-j{self.cpu_count}', aim]
         self._run_system(cmd=make_cmd, output_file=output_prefix + 'make_run.log', log_cmd=True)
         LOG.info(f'Build {aim} done')
-        self._run_system(cmd=f'cp {aim} {binary_path}')
+        shutil.copy2(aim, binary_path)
 
     def run(self, *, binary, binary_cache_suffix=None, args, env=None, output_file=None, log_error_code=True):
         binary_path = self._get_cached_binary_name(binary=binary, binary_cache_suffix=binary_cache_suffix)
         if not os.path.exists(binary_path):
             raise Exception(f'Cannot find {binary_path}, did you call build()?')
 
-        args_string = ""
+        cmd = [binary_path]
         for arg, value in args.items():
             if value:
-                args_string += f' --{arg}={value}'
+                cmd.append(f'--{arg}={value}')
             else:
-                args_string += f' --{arg}'
+                cmd.append(f'--{arg}')
 
-        cmd = binary_path + args_string
-        code, _ = self._run_system_unsafe(cmd=cmd, env=env, output_file=output_file)
+        code, _ = self._run_process(cmd=cmd, env=env, output_file=output_file)
         if log_error_code:
             LOG.info(f'Finish with exit code: {code}')
 

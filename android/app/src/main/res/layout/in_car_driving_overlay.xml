@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:app="http://schemas.android.com/apk/res-auto"
   android:id="@+id/in_car_driving_overlay"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
@@ -27,20 +26,4 @@
     android:textColor="?iconTint"
     android:textSize="24sp"
     android:textStyle="bold" />
-
-  <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/in_car_driving_view_button"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_gravity="right|center_vertical"
-    android:layout_margin="16dp"
-    android:contentDescription="@string/in_car_driving_view_button"
-    android:visibility="gone"
-    app:backgroundTint="@color/bg_cards"
-    app:borderWidth="0dp"
-    app:elevation="6dp"
-    app:fabCustomSize="@dimen/in_car_map_button_size"
-    app:maxImageSize="@dimen/in_car_map_button_icon_size"
-    app:srcCompat="@drawable/ic_in_car_driving_view"
-    app:tint="@color/icon_tint" />
 </FrameLayout>

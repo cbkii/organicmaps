@@ -28,8 +28,6 @@
       app:trackThickness="@dimen/nav_progress"
       app:trackColor="@color/bg_routing_progress" />
 
-    <!-- Keep the driver controls in a fixed physical order. The row itself is anchored with
-         Gravity.RIGHT, and forcing LTR here prevents an RTL locale from swapping More and End. -->
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -59,14 +57,13 @@
         android:layout_marginStart="@dimen/nav_bottom_gap"
         android:background="?redButtonBackground"
         android:fontFamily="@string/robotoMedium"
-        android:minWidth="@dimen/start_button_width"
+        android:minWidth="@dimen/in_car_nav_stop_min_width"
+        android:padding="@dimen/margin_base"
         android:text="@string/in_car_end_navigation"
         android:textAppearance="@style/MwmTextAppearance.Button.Red" />
     </LinearLayout>
   </LinearLayout>
 
-  <!-- Existing controls are retained as the functional backing for the More menu. They stay in
-       the hierarchy for established state/listener code but are not separately exposed in InCar. -->
   <LinearLayout
     android:id="@+id/content_frame"
     android:layout_width="match_parent"
