@@ -67,6 +67,13 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   }
 
   @Override
+  protected void onResume()
+  {
+    super.onResume();
+    reconcileInCarMap(InCarVisuals.TransitionReason.RESUME);
+  }
+
+  @Override
   public void onWindowFocusChanged(boolean hasFocus)
   {
     super.onWindowFocusChanged(hasFocus);
