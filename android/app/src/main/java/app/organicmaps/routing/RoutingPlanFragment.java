@@ -496,7 +496,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   @Override
   public void onRoutingStart()
   {
-    if (!mRoutingPlanController.showStartPointNotice())n    {
+    if (!mRoutingPlanController.showStartPointNotice())
+    {
       mRoutingPlanController.setFullscreen(false);
       return;
     }
