@@ -47,7 +47,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   private boolean mInCarQuickDestinationsSearch;
   private boolean mQuickOutsideTapPending;
   private boolean mQuickPreviousButtonsHidden;
-  private final Runnable mFinishQuickOutsideTap = () -> {
+  private final Runnable mFinishQuickOutsideTap = () ->
+  {
     Logger.w(TAG, "Quick destination marker selection timed out");
     endInCarQuickDestinationsSearch();
   };
