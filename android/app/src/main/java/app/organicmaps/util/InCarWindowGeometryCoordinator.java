@@ -371,7 +371,7 @@ public final class InCarWindowGeometryCoordinator
       return false;
     final android.view.Surface surface = mapView.getHolder().getSurface();
     return surface != null && surface.isValid()
-        && hasValidBounds(mapView.getSurfaceFrameWidth(), mapView.getSurfaceFrameHeight());
+ && hasValidBounds(mapView.getSurfaceFrameWidth(), mapView.getSurfaceFrameHeight());
   }
 
   private static void resetRecoveryState(@NonNull Observation observation)
@@ -406,7 +406,7 @@ public final class InCarWindowGeometryCoordinator
                                              int newWidth, int newHeight, int newTaskId, int newActivityInstanceId)
   {
     return oldWidth != newWidth || oldHeight != newHeight || oldTaskId != newTaskId
-        || oldActivityInstanceId != newActivityInstanceId;
+ || oldActivityInstanceId != newActivityInstanceId;
   }
 
   @NonNull
