@@ -9,6 +9,9 @@
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
   <dimen name="in_car_runtime_button_gap">6dp</dimen>
 
+  <!-- InCarDrivingUi is compiled for every app flavour; declare the InCar-only view id in main resources. -->
+  <item name="in_car_driving_view_button" type="id" />
+
   <!-- Quick controls use one neutral translucent surface plus restrained semantic state feedback. -->
   <integer name="in_car_quick_surface_alpha">199</integer>
   <integer name="in_car_quick_pressed_feedback_alpha">82</integer>

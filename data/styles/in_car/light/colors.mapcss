@@ -105,6 +105,7 @@
 @label_light: #373D42;
 @label_halo_medium: #F1F3F4;
 @label_halo_light: #FFFFFF;
+@in_car_place_label: #6B5000;
 
 @city_label: #202124;
 @country_label: #373D42;
