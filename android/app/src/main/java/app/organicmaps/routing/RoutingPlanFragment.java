@@ -203,19 +203,18 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   private void showInCarRouteMoreMenu(@NonNull View anchor)
   {
     final boolean editing = mRoutingBottomMenuController.isManageRouteEditing();
-    InCarActionMenu.show(
-        anchor,
-        Arrays.asList(getString(editing ? R.string.in_car_done_editing : R.string.in_car_edit_route),
-                      getString(R.string.in_car_driving_options)),
-        position -> {
-          if (position == 0)
-          {
-            mRoutingBottomMenuController.setManageRouteEditing(!editing);
-            updateSheetLayout();
-          }
-          else if (position == 1)
-            DrivingOptionsActivity.start(requireActivity(), startDrivingOptionsForResult);
-        });
+    InCarActionMenu.show(anchor,
+                         Arrays.asList(getString(editing ? R.string.in_car_done_editing : R.string.in_car_edit_route),
+                                       getString(R.string.in_car_driving_options)),
+                         position -> {
+                           if (position == 0)
+                           {
+                             mRoutingBottomMenuController.setManageRouteEditing(!editing);
+                             updateSheetLayout();
+                           }
+                           else if (position == 1)
+                             DrivingOptionsActivity.start(requireActivity(), startDrivingOptionsForResult);
+                         });
   }
 
   private void setInsets()
@@ -497,8 +496,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   @Override
   public void onRoutingStart()
   {
-    if (!mRoutingPlanController.showStartPointNotice())
-    {
+    if (!mRoutingPlanController.showStartPointNotice())n    {
       mRoutingPlanController.setFullscreen(false);
       return;
     }
