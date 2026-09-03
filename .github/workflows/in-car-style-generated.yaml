@@ -6,18 +6,26 @@ on:
       - master
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
+      - '.gitmodules'
       - 'data/styles/in_car/**'
+      - 'data/styles/vehicle/**'
+      - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'tools/unix/generate_drules.sh'
+      - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
+      - '.gitmodules'
       - 'data/styles/in_car/**'
+      - 'data/styles/vehicle/**'
+      - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'tools/unix/generate_drules.sh'
+      - 'tools/kothic'
       - 'tools/kothic/**'
 
 permissions:
