@@ -239,7 +239,7 @@ public class MapView extends SurfaceView
       if (i < w)
         canvas.drawLine(i, 0, i, h, paint);
       if (i < h)
-        canvas.drawLine(0, i, w, i, h);
+        canvas.drawLine(0, i, w, i, paint);
     }
   }
 
