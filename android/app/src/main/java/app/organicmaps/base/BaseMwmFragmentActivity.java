@@ -24,6 +24,7 @@ import app.organicmaps.R;
 import app.organicmaps.SplashActivity;
 import app.organicmaps.sdk.util.log.Logger;
 import app.organicmaps.util.InCarVisuals;
+import app.organicmaps.util.InCarWindowGeometryCoordinator;
 import java.util.Objects;
 
 public abstract class BaseMwmFragmentActivity extends AppCompatActivity
@@ -97,7 +98,7 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   private void reconcileInCarMap(@NonNull InCarVisuals.TransitionReason reason)
   {
     if (BuildConfig.IS_IN_CAR && this instanceof MwmActivity)
-      InCarVisuals.reconcile(this, reason);
+      InCarWindowGeometryCoordinator.reconcile(this, reason);
   }
 
   /**
@@ -143,7 +144,7 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   protected final void onDestroy()
   {
     if (BuildConfig.IS_IN_CAR && this instanceof MwmActivity)
-      InCarVisuals.release(this);
+      InCarWindowGeometryCoordinator.release(this);
 
     super.onDestroy();
 
@@ -273,7 +274,7 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   /**
    * Override to automatically attach fragment in onCreate. Tag applied to fragment in back stack is set to fragment
    * name, too. WARNING : if custom layout for activity is set, getFragmentContentResId() must be implemented, too.
-   * @return class of the fragment, eg FragmentClass.getClass()
+   * @return class of fragment class, eg FragmentClass.getClass()
    */
   protected Class<? extends Fragment> getFragmentClass()
   {
@@ -281,8 +282,8 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   }
 
   /**
-   * Get resource id for the fragment. That must be implemented to return correct resource id, if custom layout is set.
-   * @return resourceId for the fragment
+   * Get resource id for the fragment. That must be implemented to return correct resourceId, if custom layout is set.
+   * @return resourceId for the fragment.
    */
   protected int getFragmentContentResId()
   {
