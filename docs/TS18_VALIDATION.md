@@ -27,6 +27,16 @@ The Topway/DoFun desktop navigation window must not be assumed to be Android's s
 
 Do not hard-code dimensions recovered from one DoFun theme or panel. Equivalent Topway Window-* units are only covered when their observed task/surface behaviour matches the tested path.
 
+### Static UI artefact boundary
+
+The scope decision for the current TS18 window work is also informed by static analysis of the user's extracted UI APKs:
+
+- `Launcher2.apk` (`com.dofun.variety`) contains DoFun desktop-window surfaces including `DesktopWindowService`, `DesktopWindowAppSetting` and `FloatingAppService`, plus desktop fullscreen/PiP-related configuration.
+- `SystemUI.apk` contains standard Android multi-window/PiP surfaces alongside Topway-specific `TWSystemUI`/`EasyTouchView` overlay code.
+- `theme_spf_ts10.apk` contains theme-specific desktop-window dimensions. Those values are static theme references only: they are not runtime task bounds and the artefact name is not evidence that another TS10/TS10M unit is equivalent to this TS18.
+
+`Launcher2.apk` is Jiagu-packed, so these static artefacts do not establish the exact runtime dispatch/windowing mechanism. A physical ActivityTaskManager/WindowManager/SurfaceFlinger capture remains the controlling evidence before changing launch/task/fullscreen semantics.
+
 ## Window trace capture
 
 For a windowing regression, use the bounded read-only host-side capture after each user-performed transition:
@@ -38,7 +48,7 @@ bash android/tools/capture_in_car_window_trace.sh \
   --out ./ts18-window-trace
 ```
 
-The capture correlates current Activity/task/window dumps with Organic Maps' structured app-side geometry logs. Run a separate labelled capture for each transition rather than leaving broad logging active.
+The capture validates the requested package in the inspected Android user scope and records bounded command status alongside Activity/task/window, SurfaceFlinger and Organic Maps geometry evidence. Required captures fail closed; optional SurfaceFlinger/process/logcat failures produce `COMPLETED WITH WARNINGS` rather than a false success. Run a separate labelled capture for each transition rather than leaving broad logging active.
 
 The exact DoFun outer-window implementation remains unverified until a physical capture establishes whether the firmware is using standard Android freeform/split/PiP, a vendor task-windowing path, a virtual display/container, or another Topway mechanism. Do not change `MwmActivity` task/launch semantics merely to guess around that uncertainty.
 
