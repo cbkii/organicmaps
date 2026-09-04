@@ -110,6 +110,8 @@ public final class InCarWindowGeometryCoordinator
 
     final Observation observation = ensureObservation(activity);
     cancelPendingGeometryWork(observation);
+    if (shouldResetRecoveryState(reason))
+      resetRecoveryState(observation);
     final long generation = ++observation.transitionGeneration;
     reconcileGeometryNow(activity, observation, reason.name(), generation, MAX_INVALID_BOUNDS_RETRIES);
   }
@@ -379,7 +381,7 @@ public final class InCarWindowGeometryCoordinator
 
   private static boolean canReattachSurface(@NonNull FragmentActivity activity, @NonNull MapView mapView)
   {
-    if (!isRecoveryHostReady(activity, mapView))
+    if (!isRecoveryHostReady(activity, mapView) || !mapView.isSurfaceAttachmentRecoveryAllowed())
       return false;
     final android.view.Surface surface = mapView.getHolder().getSurface();
     return surface != null && surface.isValid()
@@ -411,6 +413,12 @@ public final class InCarWindowGeometryCoordinator
   static boolean isGenerationCurrent(long scheduledGeneration, long currentGeneration)
   {
     return scheduledGeneration == currentGeneration;
+  }
+
+  @VisibleForTesting
+  static boolean shouldResetRecoveryState(@NonNull InCarVisuals.TransitionReason reason)
+  {
+    return reason == InCarVisuals.TransitionReason.RESUME;
   }
 
   @VisibleForTesting
@@ -449,11 +457,11 @@ public final class InCarWindowGeometryCoordinator
       return RecoveryAction.NONE;
     if (status.mapMismatch)
       return layoutAttempted ? RecoveryAction.NONE : RecoveryAction.REQUEST_LAYOUT;
-    if (status.surfaceMismatch && !surfaceSizeAttempted)
-      return RecoveryAction.SURFACE_SIZE_FROM_LAYOUT;
+    if (status.surfaceMismatch)
+      return surfaceSizeAttempted ? RecoveryAction.NONE : RecoveryAction.SURFACE_SIZE_FROM_LAYOUT;
     if (status.nativeMismatch && !nativeReapplyAttempted)
       return RecoveryAction.NATIVE_REAPPLY;
-    if (!surfaceReattachAttempted && canReattach)
+    if (status.nativeMismatch && !surfaceReattachAttempted && canReattach)
       return RecoveryAction.SURFACE_REATTACH;
     return RecoveryAction.NONE;
   }

@@ -151,6 +151,12 @@ public class MapView extends SurfaceView
     return mMap.getLastAppliedSurfaceHeight();
   }
 
+  /** Returns whether the bounded detach/reattach recovery is safe in the current map lifecycle state. */
+  public boolean isSurfaceAttachmentRecoveryAllowed()
+  {
+    return !mMap.isThemeChangingProcess();
+  }
+
   /**
    * Requests the SurfaceHolder buffer to follow this SurfaceView's current layout dimensions again.
    *
@@ -187,6 +193,12 @@ public class MapView extends SurfaceView
    */
   public boolean recoverSurfaceAttachment()
   {
+    if (!isSurfaceAttachmentRecoveryAllowed())
+    {
+      Logger.d(TAG, "Surface reattach recovery deferred during theme change");
+      return false;
+    }
+
     final SurfaceHolder holder = getHolder();
     final Surface surface = holder.getSurface();
     final Rect frame = holder.getSurfaceFrame();

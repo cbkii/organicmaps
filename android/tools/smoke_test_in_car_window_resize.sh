@@ -33,6 +33,18 @@ require_value() {
   [[ -n "${value}" ]] || fail "${option} requires a value"
 }
 
+decimal_le() {
+  local value="$1"
+  local limit="$2"
+  if [[ "${#value}" -lt "${#limit}" ]]; then
+    return 0
+  fi
+  if [[ "${#value}" -gt "${#limit}" ]]; then
+    return 1
+  fi
+  [[ "${value}" == "${limit}" || "${value}" < "${limit}" ]]
+}
+
 package_name=""
 proof_dir=""
 cycles="3"
@@ -49,6 +61,8 @@ run_bounded() {
 
 restore_window_size() {
   local rc
+  local verify_rc
+  local restored_override
   if [[ "${window_size_captured}" != "true" || -z "${timeout_cmd}" ]]; then
     return
   fi
@@ -62,9 +76,21 @@ restore_window_size() {
   fi
   if [[ "${rc}" -ne 0 ]]; then
     warn "Unable to restore the emulator display-size override (rc=${rc})"
-  else
-    window_size_captured="false"
+    return
   fi
+
+  run_bounded adb shell wm size > "${proof_dir}/wm-size-restore.txt" 2>&1
+  verify_rc=$?
+  if [[ "${verify_rc}" -ne 0 ]]; then
+    warn "Unable to verify the restored emulator display size (rc=${verify_rc})"
+    return
+  fi
+  restored_override="$(sed -n 's/^Override size:[[:space:]]*//p' "${proof_dir}/wm-size-restore.txt" | tail -n1 | tr -d '\r[:space:]')"
+  if [[ "${restored_override}" != "${original_override}" ]]; then
+    warn "Emulator display-size restore did not take effect (expected override '${original_override:-none}', got '${restored_override:-none}')"
+    return
+  fi
+  window_size_captured="false"
 }
 
 handle_interrupt() {
@@ -111,9 +137,9 @@ done
 [[ "${package_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$ ]] ||
   fail "--package is not a valid Android package name: ${package_name}"
 [[ "${cycles}" =~ ^[1-9][0-9]*$ ]] || fail "--cycles must be a positive integer"
-(( cycles <= max_cycles )) || fail "--cycles must be <= ${max_cycles}"
+decimal_le "${cycles}" "${max_cycles}" || fail "--cycles must be <= ${max_cycles}"
 [[ "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]] || fail "--timeout-seconds must be a positive integer"
-(( timeout_seconds <= max_timeout_seconds )) || fail "--timeout-seconds must be <= ${max_timeout_seconds}"
+decimal_le "${timeout_seconds}" "${max_timeout_seconds}" || fail "--timeout-seconds must be <= ${max_timeout_seconds}"
 command -v adb >/dev/null 2>&1 || fail "adb was not found"
 
 if command -v timeout >/dev/null 2>&1; then
@@ -168,9 +194,11 @@ run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1 || fail "U
 run_bounded adb logcat -c || fail "Unable to clear logcat"
 run_bounded adb shell am start -W -n "${component}" > "${proof_dir}/launch.txt" 2>&1
 launch_rc=$?
-if [[ "${launch_rc}" -ne 0 ]]; then
+if [[ "${launch_rc}" -ne 0 ]] ||
+   grep -Eq '^(Error:|Error type [0-9]+|Exception|Security exception:)' "${proof_dir}/launch.txt" ||
+   ! tr -d '\r' < "${proof_dir}/launch.txt" | grep -Eq '^Status:[[:space:]]+ok[[:space:]]*$'; then
   sed -n '1,160p' "${proof_dir}/launch.txt" >&2
-  fail "Unable to launch ${package_name} (rc=${launch_rc})"
+  fail "Unable to launch ${package_name} successfully (rc=${launch_rc})"
 fi
 sleep 3
 
@@ -183,7 +211,7 @@ initial_pid="${pid}"
 
 has_crash_evidence() {
   local file="$1"
-  grep -E 'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:|tombstoned.*received crash request' \
+  grep -E 'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:' \
     "${file}" >/dev/null
 }
 
@@ -209,7 +237,15 @@ while [[ "${cycle}" -le "${cycles}" ]]; do
     fi
     sleep 2
 
-    run_bounded adb shell wm size >> "${evidence}" 2>&1 || fail "Unable to read size after ${target}"
+    size_after="${proof_dir}/wm-size-cycle-${cycle}-${target}.txt"
+    run_bounded adb shell wm size > "${size_after}" 2>&1 || fail "Unable to read size after ${target}"
+    cat "${size_after}" >> "${evidence}" || fail "Unable to record size after ${target}"
+    applied_override="$(sed -n 's/^Override size:[[:space:]]*//p' "${size_after}" | tail -n1 | tr -d '\r[:space:]')"
+    if [[ "${applied_override}" != "${target}" ]]; then
+      sed -n '1,160p' "${size_after}" >&2
+      fail "Emulator size ${target} was not applied (override=${applied_override:-none})"
+    fi
+
     run_bounded adb shell dumpsys window displays >> "${evidence}" 2>&1 || fail "Unable to read window display state"
     run_bounded adb shell dumpsys activity activities >> "${evidence}" 2>&1 || fail "Unable to read Activity state"
 
@@ -235,9 +271,24 @@ grep_rc=$?
 if [[ "${grep_rc}" -gt 1 ]]; then
   fail "Unable to filter resize logcat"
 fi
-if has_crash_evidence "${proof_dir}/logcat-system.txt"; then
-  tail -n 300 "${proof_dir}/logcat-system.txt" >&2
-  fail "Crash evidence was found during window-resize smoke"
+
+run_bounded adb logcat -d -v threadtime --pid="${initial_pid}" > "${proof_dir}/logcat-app.txt" 2>&1 ||
+  fail "Unable to capture app-scoped resize logcat"
+if has_crash_evidence "${proof_dir}/logcat-app.txt"; then
+  tail -n 300 "${proof_dir}/logcat-app.txt" >&2
+  fail "Crash evidence for ${package_name} was found during window-resize smoke"
+fi
+
+tombstone_file="${proof_dir}/tombstone-correlated.txt"
+grep -E "tombstoned.*received crash request.*pid[ =:]${initial_pid}([^0-9]|$)" \
+  "${proof_dir}/logcat-system.txt" > "${tombstone_file}"
+tombstone_grep_rc=$?
+if [[ "${tombstone_grep_rc}" -gt 1 ]]; then
+  fail "Unable to correlate tombstone evidence"
+fi
+if [[ "${tombstone_grep_rc}" -eq 0 ]]; then
+  cat "${tombstone_file}" >&2
+  fail "Tombstone evidence for ${package_name} pid ${initial_pid} was found during window-resize smoke"
 fi
 
 if grep -E 'InCarWindowGeometryCoordinator.*Window geometry converged' "${proof_dir}/logcat-window-filtered.txt" >/dev/null; then
@@ -249,6 +300,9 @@ fi
 
 run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1 || fail "Unable to force-stop ${package_name} after resize smoke"
 restore_window_size
+if [[ "${window_size_captured}" == "true" ]]; then
+  fail "Unable to restore the emulator display size; EXIT cleanup will retry"
+fi
 trap - EXIT
 if [[ "${warning_count}" -gt 0 ]]; then
   printf 'COMPLETED WITH WARNINGS: %s resize round trips completed with pid %s (%d warning(s)).\n' \

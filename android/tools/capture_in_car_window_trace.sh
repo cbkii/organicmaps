@@ -34,6 +34,18 @@ require_value() {
   [[ -n "${value}" ]] || fail "${option} requires a value"
 }
 
+decimal_le() {
+  local value="$1"
+  local limit="$2"
+  if [[ "${#value}" -lt "${#limit}" ]]; then
+    return 0
+  fi
+  if [[ "${#value}" -gt "${#limit}" ]]; then
+    return 1
+  fi
+  [[ "${value}" == "${limit}" || "${value}" < "${limit}" ]]
+}
+
 package_name="app.organicmaps.incar"
 output_root="./ts18-window-trace"
 label=""
@@ -83,9 +95,9 @@ done
 [[ "${package_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$ ]] ||
   fail "--package is not a valid Android package name: ${package_name}"
 [[ "${log_lines}" =~ ^[1-9][0-9]*$ ]] || fail "--log-lines must be a positive integer"
-(( log_lines <= max_log_lines )) || fail "--log-lines must be <= ${max_log_lines}"
+decimal_le "${log_lines}" "${max_log_lines}" || fail "--log-lines must be <= ${max_log_lines}"
 [[ "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]] || fail "--timeout-seconds must be a positive integer"
-(( timeout_seconds <= max_timeout_seconds )) || fail "--timeout-seconds must be <= ${max_timeout_seconds}"
+decimal_le "${timeout_seconds}" "${max_timeout_seconds}" || fail "--timeout-seconds must be <= ${max_timeout_seconds}"
 command -v adb >/dev/null 2>&1 || fail "adb was not found"
 
 if command -v timeout >/dev/null 2>&1; then
@@ -110,8 +122,9 @@ safe_label="$(printf '%s' "${label}" | tr -c 'A-Za-z0-9._-' '_')"
 [[ -n "${safe_label}" ]] || fail "--label did not contain a usable filename character"
 
 timestamp="$(date -u '+%Y%m%dT%H%M%SZ')" || fail "Unable to read host UTC time"
-capture_dir="${output_root%/}/${timestamp}-${safe_label}"
-mkdir -p -- "${capture_dir}" || fail "Unable to create ${capture_dir}"
+mkdir -p -- "${output_root}" || fail "Unable to create output root ${output_root}"
+capture_dir="$(mktemp -d "${output_root%/}/${timestamp}-${safe_label}.XXXXXX")" ||
+  fail "Unable to create a unique capture directory under ${output_root}"
 status_file="${capture_dir}/capture-status.tsv"
 printf 'class\tname\ttimeout_seconds\trc\tcommand\n' > "${status_file}" || fail "Unable to create capture status"
 

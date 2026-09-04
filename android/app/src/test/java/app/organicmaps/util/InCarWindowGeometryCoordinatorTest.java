@@ -51,6 +51,17 @@ public class InCarWindowGeometryCoordinatorTest
   }
 
   @Test
+  public void staleSurfaceWaitsForLayoutDerivedResizeBeforeNativeRecovery()
+  {
+    final InCarWindowGeometryCoordinator.GeometryStatus status =
+        InCarWindowGeometryCoordinator.evaluateGeometry(735, 387, 735, 387, 1280, 720, 735, 387);
+    assertTrue(status.surfaceMismatch);
+    assertTrue(status.nativeMismatch);
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
+                 InCarWindowGeometryCoordinator.chooseRecoveryAction(status, true, true, false, false, true));
+  }
+
+  @Test
   public void staleNativeViewportIsReappliedBeforeReattach()
   {
     final InCarWindowGeometryCoordinator.GeometryStatus status =
@@ -71,6 +82,14 @@ public class InCarWindowGeometryCoordinatorTest
                  InCarWindowGeometryCoordinator.chooseRecoveryAction(status, true, true, true, false, false));
     assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
                  InCarWindowGeometryCoordinator.chooseRecoveryAction(status, true, true, true, true, true));
+  }
+
+  @Test
+  public void resumedLifecycleRearmsBoundedRecovery()
+  {
+    assertTrue(InCarWindowGeometryCoordinator.shouldResetRecoveryState(InCarVisuals.TransitionReason.RESUME));
+    assertFalse(InCarWindowGeometryCoordinator.shouldResetRecoveryState(InCarVisuals.TransitionReason.WINDOW_FOCUS));
+    assertFalse(InCarWindowGeometryCoordinator.shouldResetRecoveryState(InCarVisuals.TransitionReason.CONFIGURATION));
   }
 
   @Test
