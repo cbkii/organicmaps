@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code TtsPlayer} class manages available TTS voice languages.
  * Single TTS language is described by {@link LanguageData} item.
  * <p>
- * We support a set of languages listed in {@code strings-tts.xml} file.
+ * We support a set of languages listed in {@code libs/platform/languages.hpp} and passed to Java by
+ * {@link #nativeGetSupportedLanguages()}.
  * During loading each item in this list is marked as {@code downloaded} or {@code not downloaded},
  * unsupported voices are excluded.
  * <p>
@@ -207,62 +208,144 @@ public enum TtsPlayer
     if (mTts != null || mInitializing || mUnavailable)
       return;
 
+    ensureEngineObserver(context);
     mInitializing = true;
     final int generation = ++mInitGeneration;
-    // TextToSpeech.OnInitListener() can be called from a non-main thread
-    // on LineageOS '20.0-20231127-RELEASE-thyme' 'Xiaomi/thyme/thyme'.
-    // https://github.com/organicmaps/organicmaps/issues/6903
-    mTts = new TextToSpeech(context, status -> UiThread.run(() -> {
-      // Stale callback from a TextToSpeech we've already shut down via onChange();
-      // mTts now points to the new engine, so running this body would clobber its
-      // in-flight initialization.
-      if (generation != mInitGeneration)
-        return;
-      if (status == TextToSpeech.ERROR)
+
+    try
+    {
+      // Some engines can call OnInitListener before the TextToSpeech constructor returns. Always post
+      // the callback so mTts is published before any successful-init code can dereference it. UiThread.run()
+      // is not sufficient because it executes synchronously when the callback already arrives on the main thread.
+      mTts = new TextToSpeech(context, status ->
+          postInitializationCallback(() -> handleInitializationResult(context, generation, status)));
+    }
+    catch (RuntimeException e)
+    {
+      // A vendor engine can fail while binding/constructing. Invalidate any callback it may already have posted
+      // and fail closed for TTS without taking down the map process.
+      ++mInitGeneration;
+      Logger.e(TAG, "Failed to create TextToSpeech", e);
+      mInitializing = false;
+      lockDown();
+      notifyStateChanged();
+    }
+  }
+
+  // Package-private for the instrumentation regression test. This must remain an unconditional queue operation.
+  static void postInitializationCallback(@NonNull Runnable callback)
+  {
+    UiThread.runLater(callback);
+  }
+
+  private void handleInitializationResult(@NonNull Context context, int generation, int status)
+  {
+    // Stale callback from a TextToSpeech we've already shut down via onChange().
+    if (generation != mInitGeneration)
+      return;
+
+    final TextToSpeech tts = mTts;
+    if (tts == null)
+    {
+      // Defensive fallback: the queued-callback contract above should make this unreachable, but a broken
+      // implementation must never turn TTS availability into an application-startup crash.
+      Logger.e(TAG, "TextToSpeech init callback has no current engine");
+      ++mInitGeneration;
+      mInitializing = false;
+      lockDown();
+      notifyStateChanged();
+      return;
+    }
+
+    if (status != TextToSpeech.SUCCESS)
+    {
+      Logger.e(TAG, "Failed to initialize TextToSpeech, status=" + status);
+      ++mInitGeneration;
+      shutdownTts();
+      mInitializing = false;
+      lockDown();
+      notifyStateChanged();
+      return;
+    }
+
+    try
+    {
+      refreshLanguages();
+
+      // refreshLanguages() can lock TTS down when the engine is unusable. Do not continue configuring a
+      // vendor engine that has already failed language discovery.
+      if (generation != mInitGeneration || tts != mTts || mUnavailable)
       {
-        Logger.e(TAG, "Failed to initialize TextToSpeech");
-        lockDown();
         mInitializing = false;
         notifyStateChanged();
         return;
       }
-      refreshLanguages();
-      mTts.setSpeechRate(SPEECH_RATE);
-      mTts.setAudioAttributes(AudioFocusManager.AUDIO_ATTRIBUTES);
-      mTts.setOnUtteranceProgressListener(mUtteranceProgressListener);
+
+      tts.setSpeechRate(SPEECH_RATE);
+      tts.setAudioAttributes(AudioFocusManager.AUDIO_ATTRIBUTES);
+      tts.setOnUtteranceProgressListener(mUtteranceProgressListener);
       mAudioFocusManager = new AudioFocusManager(context, this::stop);
       mParams.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, Config.TTS.getVolume());
-      mInitializing = false;
-      if (mReloadTriggered && sOnReloadCallback != null)
-      {
-        sOnReloadCallback.run();
-        mReloadTriggered = false;
-      }
-      notifyStateChanged();
-    }));
-
-    if (mTtsEngineObserver == null)
+    }
+    catch (RuntimeException e)
     {
-      mTtsEngineObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
-        @Override
-        public void onChange(boolean selfChange)
-        {
-          Logger.d(TAG, "System TTS engine changed – reloading TTS engine");
-          mReloadTriggered = true;
-          if (mTts != null)
-          {
-            mTts.shutdown();
-            mTts = null;
-          }
-          // Clear lockdown for the new engine; clear mInitializing because a pending
-          // old-engine callback will detect its stale generation and bail without resetting it.
-          mUnavailable = false;
-          mInitializing = false;
-          initialize(context);
-        }
-      };
-      context.getContentResolver().registerContentObserver(Settings.Secure.getUriFor("tts_default_synth"), false,
-                                                           mTtsEngineObserver);
+      // TTS is an external system/vendor service. A malformed or incompatible engine must fail closed for
+      // navigation speech rather than crash Organic Maps during startup.
+      Logger.e(TAG, "Failed to configure TextToSpeech", e);
+      ++mInitGeneration;
+      shutdownTts();
+      mInitializing = false;
+      lockDown();
+      notifyStateChanged();
+      return;
+    }
+
+    mInitializing = false;
+    if (mReloadTriggered && sOnReloadCallback != null)
+    {
+      sOnReloadCallback.run();
+      mReloadTriggered = false;
+    }
+    notifyStateChanged();
+  }
+
+  private void ensureEngineObserver(@NonNull Context context)
+  {
+    if (mTtsEngineObserver != null)
+      return;
+
+    mTtsEngineObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+      @Override
+      public void onChange(boolean selfChange)
+      {
+        Logger.d(TAG, "System TTS engine changed – reloading TTS engine");
+        mReloadTriggered = true;
+        // Invalidate a queued callback before replacing its engine.
+        ++mInitGeneration;
+        shutdownTts();
+        mUnavailable = false;
+        mInitializing = false;
+        initialize(context);
+      }
+    };
+    context.getContentResolver().registerContentObserver(Settings.Secure.getUriFor("tts_default_synth"), false,
+                                                         mTtsEngineObserver);
+  }
+
+  private void shutdownTts()
+  {
+    final TextToSpeech tts = mTts;
+    mTts = null;
+    if (tts == null)
+      return;
+
+    try
+    {
+      tts.shutdown();
+    }
+    catch (RuntimeException e)
+    {
+      Logger.w(TAG, "Failed to shutdown TextToSpeech", e);
     }
   }
 
