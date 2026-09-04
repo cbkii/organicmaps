@@ -17,11 +17,13 @@ USAGE
 }
 
 fail() {
-  printf '::error::%s\n' "$*" >&2
+  printf '::error::FAILED: %s\n' "$*" >&2
   exit 1
 }
 
+warning_count=0
 warn() {
+  warning_count=$((warning_count + 1))
   printf '::warning::%s\n' "$*" >&2
 }
 
@@ -60,10 +62,18 @@ restore_window_size() {
   fi
   if [[ "${rc}" -ne 0 ]]; then
     warn "Unable to restore the emulator display-size override (rc=${rc})"
+  else
+    window_size_captured="false"
   fi
 }
 
+handle_interrupt() {
+  printf '::error::INTERRUPTED: window-resize smoke aborted; restoring display size on exit\n' >&2
+  exit 130
+}
+
 trap restore_window_size EXIT
+trap handle_interrupt INT TERM HUP
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -238,4 +248,11 @@ else
 fi
 
 run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1 || fail "Unable to force-stop ${package_name} after resize smoke"
-printf 'SUCCESS: %s resize round trips completed with pid %s.\n' "${cycles}" "${initial_pid}"
+restore_window_size
+trap - EXIT
+if [[ "${warning_count}" -gt 0 ]]; then
+  printf 'COMPLETED WITH WARNINGS: %s resize round trips completed with pid %s (%d warning(s)).\n' \
+    "${cycles}" "${initial_pid}" "${warning_count}"
+else
+  printf 'SUCCESS: %s resize round trips completed with pid %s.\n' "${cycles}" "${initial_pid}"
+fi
