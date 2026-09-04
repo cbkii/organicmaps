@@ -217,8 +217,8 @@ public enum TtsPlayer
       // Some engines can call OnInitListener before the TextToSpeech constructor returns. Always post
       // the callback so mTts is published before any successful-init code can dereference it. UiThread.run()
       // is not sufficient because it executes synchronously when the callback already arrives on the main thread.
-      mTts = new TextToSpeech(context, status ->
-          postInitializationCallback(() -> handleInitializationResult(context, generation, status)));
+      mTts = new TextToSpeech(
+          context, status -> postInitializationCallback(() -> handleInitializationResult(context, generation, status)));
     }
     catch (RuntimeException e)
     {
