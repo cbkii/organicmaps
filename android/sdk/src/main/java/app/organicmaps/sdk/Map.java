@@ -465,7 +465,7 @@ public final class Map
 
   private static native void nativeOnScroll(double distanceX, double distanceY);
 
-  private static native void nativeOnScale(double factor, double focusX, float focusY, boolean isAnim);
+  private static native void nativeOnScale(double factor, double focusX, double focusY, boolean isAnim);
 
   private static native void nativeOnTouch(int actionType, int id1, float x1, float y1, int id2, float x2, float y2,
                                            int maskedPointer);
