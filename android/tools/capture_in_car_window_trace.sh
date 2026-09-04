@@ -172,7 +172,6 @@ run_optional() {
   printf 'log_lines=%s\n' "${log_lines}"
 } > "${capture_dir}/manifest.txt" || fail "Unable to create capture manifest"
 
-run_required adb-serial adb get-serialno
 run_required package-path adb shell pm path "${package_name}"
 if ! grep -q '^package:' "${capture_dir}/package-path.txt"; then
   fail "Package ${package_name} is not installed in the inspected Android user scope"
