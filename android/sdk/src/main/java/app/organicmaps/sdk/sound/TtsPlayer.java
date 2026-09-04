@@ -92,7 +92,7 @@ public enum TtsPlayer
     {
       Logger.d(TAG, "TTS Utterance stopped: " + utteranceId);
       if (mTtsQueueSize.decrementAndGet() <= 0)
-        mAudioFocusManager.releaseAudioFocus();
+        releaseAudioFocusSafely();
       if (mTtsQueueSize.get() < 0)
         mTtsQueueSize.set(0);
     }
@@ -159,11 +159,29 @@ public enum TtsPlayer
 
   private boolean setLanguageInternal(@NonNull LanguageData lang)
   {
-    mTts.setLanguage(lang.locale);
-    nativeSetTurnNotificationsLocale(lang.internalCode);
-    Config.TTS.setLanguage(lang.internalCode);
+    final TextToSpeech tts = mTts;
+    if (tts == null)
+      return false;
 
-    return true;
+    final int generation = mInitGeneration;
+    try
+    {
+      final int status = tts.setLanguage(lang.locale);
+      if (status < TextToSpeech.LANG_AVAILABLE)
+      {
+        Logger.w(TAG, "Failed to set TTS language " + lang.locale + ", status=" + status);
+        return false;
+      }
+
+      nativeSetTurnNotificationsLocale(lang.internalCode);
+      Config.TTS.setLanguage(lang.internalCode);
+      return true;
+    }
+    catch (RuntimeException e)
+    {
+      failClosedForEngine(generation, "setting language", e);
+      return false;
+    }
   }
 
   public boolean setLanguage(LanguageData lang)
@@ -272,18 +290,19 @@ public enum TtsPlayer
     {
       refreshLanguages();
 
-      // refreshLanguages() can lock TTS down when the engine is unusable. Do not continue configuring a
-      // vendor engine that has already failed language discovery.
-      if (generation != mInitGeneration || tts != mTts || mUnavailable)
+      // refreshLanguages() can lock TTS down or reject its selected language. Do not continue configuring an
+      // engine which is already unusable for Organic Maps navigation speech.
+      if (generation != mInitGeneration || tts != mTts || mUnavailable || !mHasUsableLanguage)
       {
         mInitializing = false;
         notifyStateChanged();
         return;
       }
 
-      tts.setSpeechRate(SPEECH_RATE);
-      tts.setAudioAttributes(AudioFocusManager.AUDIO_ATTRIBUTES);
-      tts.setOnUtteranceProgressListener(mUtteranceProgressListener);
+      requireTtsSuccess("setSpeechRate", tts.setSpeechRate(SPEECH_RATE));
+      requireTtsSuccess("setAudioAttributes", tts.setAudioAttributes(AudioFocusManager.AUDIO_ATTRIBUTES));
+      requireTtsSuccess("setOnUtteranceProgressListener",
+                        tts.setOnUtteranceProgressListener(mUtteranceProgressListener));
       mAudioFocusManager = new AudioFocusManager(context, this::stop);
       mParams.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, Config.TTS.getVolume());
     }
@@ -309,12 +328,18 @@ public enum TtsPlayer
     notifyStateChanged();
   }
 
+  private static void requireTtsSuccess(@NonNull String operation, int status)
+  {
+    if (status != TextToSpeech.SUCCESS)
+      throw new IllegalStateException(operation + " failed, status=" + status);
+  }
+
   private void ensureEngineObserver(@NonNull Context context)
   {
     if (mTtsEngineObserver != null)
       return;
 
-    mTtsEngineObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+    final ContentObserver observer = new ContentObserver(new Handler(Looper.getMainLooper())) {
       @Override
       public void onChange(boolean selfChange)
       {
@@ -328,14 +353,43 @@ public enum TtsPlayer
         initialize(context);
       }
     };
-    context.getContentResolver().registerContentObserver(Settings.Secure.getUriFor("tts_default_synth"), false,
-                                                         mTtsEngineObserver);
+
+    try
+    {
+      context.getContentResolver().registerContentObserver(Settings.Secure.getUriFor("tts_default_synth"), false,
+                                                           observer);
+      mTtsEngineObserver = observer;
+    }
+    catch (RuntimeException e)
+    {
+      // Observer support is recovery-only. A vendor ROM which rejects it must not make app/TTS startup fatal;
+      // changing the system TTS engine will simply require a process restart on that device.
+      Logger.w(TAG, "Failed to observe system TTS engine changes", e);
+    }
+  }
+
+  private void failClosedForEngine(int generation, @NonNull String operation, @NonNull RuntimeException e)
+  {
+    Logger.e(TAG, "TextToSpeech failed while " + operation, e);
+    // Vendor callbacks are not guaranteed to run on the main thread. Keep the native turn-notification update made
+    // by lockDown()/setEnabled() on the normal UI-thread path, and never let an old engine failure disable a new one.
+    UiThread.run(() -> {
+      if (generation != mInitGeneration)
+        return;
+      ++mInitGeneration;
+      releaseAudioFocusSafely();
+      shutdownTts();
+      mInitializing = false;
+      lockDown();
+      notifyStateChanged();
+    });
   }
 
   private void shutdownTts()
   {
     final TextToSpeech tts = mTts;
     mTts = null;
+    mTtsQueueSize.set(0);
     if (tts == null)
       return;
 
@@ -346,6 +400,22 @@ public enum TtsPlayer
     catch (RuntimeException e)
     {
       Logger.w(TAG, "Failed to shutdown TextToSpeech", e);
+    }
+  }
+
+  private void releaseAudioFocusSafely()
+  {
+    final AudioFocusManager audioFocusManager = mAudioFocusManager;
+    if (audioFocusManager == null)
+      return;
+
+    try
+    {
+      audioFocusManager.releaseAudioFocus();
+    }
+    catch (RuntimeException e)
+    {
+      Logger.w(TAG, "Failed to release TTS audio focus", e);
     }
   }
 
@@ -419,41 +489,88 @@ public enum TtsPlayer
   {
     if (!Config.TTS.isEnabled())
       return false;
-    if (!mAudioFocusManager.requestAudioFocus())
+
+    final TextToSpeech tts = mTts;
+    final AudioFocusManager audioFocusManager = mAudioFocusManager;
+    if (tts == null || audioFocusManager == null)
       return false;
 
-    mTtsQueueSize.set(0);
-
-    final boolean isMusicActive = mAudioFocusManager.isMusicActive();
-    boolean result = true;
-    if (isMusicActive)
-      result = mTts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH, TTS_SILENT_UTTERANCE_ID)
-            == TextToSpeech.SUCCESS;
-    if (result)
-      mTtsQueueSize.incrementAndGet();
-    else
+    try
     {
-      Logger.d(TAG, "Failed to play silent utterance for music active delay");
+      if (!audioFocusManager.requestAudioFocus())
+        return false;
+    }
+    catch (RuntimeException e)
+    {
+      Logger.w(TAG, "Failed to request TTS audio focus", e);
       return false;
     }
 
-    result = mTts.speak(text, isMusicActive ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, mParams, text)
-          == TextToSpeech.SUCCESS;
-    if (result)
-      mTtsQueueSize.incrementAndGet();
-    else
-      Logger.d(TAG, "Failed to speak text: " + text);
-    return result;
+    mTtsQueueSize.set(0);
+
+    final boolean isMusicActive;
+    try
+    {
+      isMusicActive = audioFocusManager.isMusicActive();
+    }
+    catch (RuntimeException e)
+    {
+      Logger.w(TAG, "Failed to query music state for TTS", e);
+      releaseAudioFocusSafely();
+      return false;
+    }
+
+    final int generation = mInitGeneration;
+    try
+    {
+      boolean result = true;
+      if (isMusicActive)
+        result = tts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH, TTS_SILENT_UTTERANCE_ID)
+              == TextToSpeech.SUCCESS;
+      if (result && isMusicActive)
+        mTtsQueueSize.incrementAndGet();
+      else if (!result)
+      {
+        Logger.d(TAG, "Failed to play silent utterance for music active delay");
+        return false;
+      }
+
+      result = tts.speak(text, isMusicActive ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, mParams, text)
+            == TextToSpeech.SUCCESS;
+      if (result)
+        mTtsQueueSize.incrementAndGet();
+      else
+        Logger.d(TAG, "Failed to speak text: " + text);
+      return result;
+    }
+    catch (RuntimeException e)
+    {
+      failClosedForEngine(generation, "queueing speech", e);
+      return false;
+    }
   }
 
   private boolean addToQueue(@NonNull String text)
   {
-    final boolean result = mTts.speak(text, TextToSpeech.QUEUE_ADD, mParams, text) == TextToSpeech.SUCCESS;
-    if (result)
-      mTtsQueueSize.incrementAndGet();
-    else
-      Logger.d(TAG, "Failed to add text to TTS queue: " + text);
-    return result;
+    final TextToSpeech tts = mTts;
+    if (tts == null)
+      return false;
+
+    final int generation = mInitGeneration;
+    try
+    {
+      final boolean result = tts.speak(text, TextToSpeech.QUEUE_ADD, mParams, text) == TextToSpeech.SUCCESS;
+      if (result)
+        mTtsQueueSize.incrementAndGet();
+      else
+        Logger.d(TAG, "Failed to add text to TTS queue: " + text);
+      return result;
+    }
+    catch (RuntimeException e)
+    {
+      failClosedForEngine(generation, "adding speech to the queue", e);
+      return false;
+    }
   }
 
   public void stop()
@@ -461,8 +578,19 @@ public enum TtsPlayer
     if (!isReady())
       return;
 
-    mAudioFocusManager.releaseAudioFocus();
-    mTts.stop();
+    releaseAudioFocusSafely();
+    final TextToSpeech tts = mTts;
+    if (tts != null)
+    {
+      try
+      {
+        tts.stop();
+      }
+      catch (RuntimeException e)
+      {
+        Logger.w(TAG, "Failed to stop TextToSpeech", e);
+      }
+    }
     mTtsQueueSize.set(0);
   }
 
@@ -508,7 +636,7 @@ public enum TtsPlayer
       {
         Logger.w(TAG, "Failed to get usable languages " + ex.getMessage());
       }
-      catch (IllegalArgumentException e)
+      catch (RuntimeException e)
       {
         Logger.e(TAG, "Failed to get usable languages", e);
         lockDown();
@@ -552,9 +680,8 @@ public enum TtsPlayer
     if (mUnavailable || mTts == null)
       return res;
 
-    LanguageData lang = refreshLanguagesInternal(res);
-    mHasUsableLanguage = lang != null;
-    setLanguage(lang);
+    final LanguageData lang = refreshLanguagesInternal(res);
+    mHasUsableLanguage = lang != null && setLanguage(lang);
 
     setEnabled(Config.TTS.isEnabled());
     notifyStateChanged();
@@ -565,9 +692,7 @@ public enum TtsPlayer
   private List<Pair<String, String>> getSupportedLanguages()
   {
     if (sSupportedLanguages == null)
-    {
       sSupportedLanguages = nativeGetSupportedLanguages();
-    }
     return sSupportedLanguages;
   }
 
