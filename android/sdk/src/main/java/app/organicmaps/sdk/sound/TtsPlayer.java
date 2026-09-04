@@ -290,9 +290,9 @@ public enum TtsPlayer
     {
       refreshLanguages();
 
-      // refreshLanguages() can lock TTS down or reject its selected language. Do not continue configuring an
-      // engine which is already unusable for Organic Maps navigation speech.
-      if (generation != mInitGeneration || tts != mTts || mUnavailable || !mHasUsableLanguage)
+      // refreshLanguages() can lock TTS down when the engine is unusable. A missing selected/downloaded language is
+      // not itself an engine failure; keep the configured engine available so settings can recover it later.
+      if (generation != mInitGeneration || tts != mTts || mUnavailable)
       {
         mInitializing = false;
         notifyStateChanged();
