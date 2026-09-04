@@ -100,6 +100,12 @@ run_bounded() {
   "${timeout_cmd}" --signal=TERM --kill-after=5s "${timeout_seconds}s" "$@"
 }
 
+handle_interrupt() {
+  printf 'INTERRUPTED: capture aborted; partial evidence retained at %s\n' "${capture_dir:-not-created}" >&2
+  exit 130
+}
+trap handle_interrupt INT TERM HUP
+
 safe_label="$(printf '%s' "${label}" | tr -c 'A-Za-z0-9._-' '_')"
 [[ -n "${safe_label}" ]] || fail "--label did not contain a usable filename character"
 
