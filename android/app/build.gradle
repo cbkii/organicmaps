@@ -222,6 +222,7 @@ android {
         }
         firebaseAppDistribution {
           // A new beta release is created for each commit.
+          // Use the last commit message for the release notes.
           releaseNotes = getCommitMessage()
           groups = 'qa' // Notify only selected people.
           serviceCredentialsFile = "$projectDir/firebase-app-distribution.json"
