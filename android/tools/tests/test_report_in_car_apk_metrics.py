@@ -78,7 +78,7 @@ class CaptureInCarRuntimeBaselineTest(unittest.TestCase):
         self.assertIn("4321", failure)
 
     def test_tombstone_pid_match_is_delimited(self) -> None:
-        system_log = "09-05 12:00:00.000  1000  1000 I tombstoned: received crash request for pid 91234\n"
+        system_log = "09-05 12:00:00.000  1000  1000 I tombstoned: received crash request for pid 12345\n"
 
         failure = BASELINE.has_failure_evidence(PACKAGE, "1234", "", system_log)
 
