@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Report deterministic size metrics for an Organic Maps InCar APK.
 
-Python 3.9+; standard library only. The APK is inspected from ZIP metadata and
-is never extracted, so metrics collection is bounded by the archive directory.
+Python 3.9+; standard library only. The APK is inspected from ZIP central-directory
+metadata and is never extracted, so metrics collection is bounded by archive metadata.
+APK/package integrity is verified separately by the repository's release gates.
 """
 
 from __future__ import annotations
@@ -74,13 +75,11 @@ def collect_metrics(apk: Path) -> dict[str, object]:
 
     try:
         with zipfile.ZipFile(apk, "r") as archive:
-            bad_entry = archive.testzip()
-            if bad_entry is not None:
-                raise MetricsError(f"APK ZIP integrity check failed at entry: {bad_entry}")
+            # These metrics need only the central directory. Do not call testzip():
+            # it reads/decompresses every APK entry and turns a metadata report into
+            # O(payload-size) work. The release/package verifier owns integrity checks.
             entries = [info for info in archive.infolist() if not info.is_dir()]
     except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
-        if isinstance(exc, MetricsError):
-            raise
         raise MetricsError(f"Unable to inspect APK ZIP: {apk}") from exc
 
     dex_entries = [info for info in entries if DEX_RE.fullmatch(info.filename)]
