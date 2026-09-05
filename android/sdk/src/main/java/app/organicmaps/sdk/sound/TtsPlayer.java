@@ -560,7 +560,7 @@ public enum TtsPlayer
 
       result = tts.speak(text, isMusicActive ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, mParams,
                          makeUtteranceId(utteranceGeneration, text))
-          == TextToSpeech.SUCCESS;
+            == TextToSpeech.SUCCESS;
       if (result)
         mTtsQueueSize.incrementAndGet();
       else
@@ -584,8 +584,8 @@ public enum TtsPlayer
     final int utteranceGeneration = mUtteranceGeneration.get();
     try
     {
-      final boolean result = tts.speak(text, TextToSpeech.QUEUE_ADD, mParams,
-                                       makeUtteranceId(utteranceGeneration, text))
+      final boolean result =
+          tts.speak(text, TextToSpeech.QUEUE_ADD, mParams, makeUtteranceId(utteranceGeneration, text))
           == TextToSpeech.SUCCESS;
       if (result)
         mTtsQueueSize.incrementAndGet();
