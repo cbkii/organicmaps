@@ -221,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
         "host_utc": timestamp,
         "cold_samples": [],
     }
-    failure: BaselineError | OSError | ValueError | None = None
+    failure: BaselineError | OSError | ValueError | KeyboardInterrupt | None = None
     lifecycle_touched = False
 
     try:
@@ -321,19 +321,22 @@ def main(argv: list[str] | None = None) -> int:
                     output=root / "activity.txt")
         capture.run("process", ["shell", "ps", "-A", "-o", "USER,PID,PPID,NAME"], required=True,
                     output=root / "process.txt")
-    except (BaselineError, OSError, ValueError) as exc:
+    except (BaselineError, OSError, ValueError, KeyboardInterrupt) as exc:
         failure = exc
-
-    if lifecycle_touched:
-        try:
-            capture.run("final-force-stop", ["shell", "am", "force-stop", args.package], required=True)
-        except BaselineError as exc:
-            if failure is None:
-                failure = exc
-            else:
-                print(f"WARNING: final cleanup also failed: {exc}", file=sys.stderr)
+    finally:
+        if lifecycle_touched:
+            try:
+                capture.run("final-force-stop", ["shell", "am", "force-stop", args.package], required=True)
+            except (BaselineError, KeyboardInterrupt) as exc:
+                if failure is None:
+                    failure = exc
+                else:
+                    print(f"WARNING: final cleanup also failed: {exc}", file=sys.stderr)
 
     if failure is not None:
+        if isinstance(failure, KeyboardInterrupt):
+            print(f"INTERRUPTED: cleanup attempted; partial evidence retained at {root}", file=sys.stderr)
+            return 130
         print(f"FAILED: {failure}; partial evidence retained at {root}", file=sys.stderr)
         return 1
 
