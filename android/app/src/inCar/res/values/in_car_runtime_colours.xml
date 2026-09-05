@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <!-- Driver-facing InCar controls use stable semantic colours across day/night map themes. -->
-  <color name="in_car_search_surface">#FF249CF2</color>
-  <color name="in_car_search_surface_pressed">#FF1C85D6</color>
-  <color name="in_car_search_foreground">#FF202124</color>
+  <!-- Search-result metadata keeps a restrained translucent band; map-button chrome is shared elsewhere. -->
   <color name="in_car_search_result_band">#3380868B</color>
 </resources>
