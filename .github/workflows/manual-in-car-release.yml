@@ -402,7 +402,6 @@ jobs:
             "${RUNNER_TEMP}/in-car-keytool.txt"
 
       - name: Stage GitHub release with verified assets
-        id: stage
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -577,8 +576,6 @@ jobs:
             printf -- '- Keep as draft: `%s`\n' "${KEEP_DRAFT}"
             printf -- '- Prerelease: `%s`\n' "${IS_PRERELEASE}"
           } >> "${GITHUB_STEP_SUMMARY}"
-
-          echo "release_url=${release_url}" >> "${GITHUB_OUTPUT}"
 
   publish:
     name: Publish staged release
