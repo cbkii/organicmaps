@@ -56,10 +56,15 @@ public enum TtsPlayer
   private ContentObserver mTtsEngineObserver;
   private TextToSpeech mTts;
   private final AtomicInteger mTtsQueueSize = new AtomicInteger(0);
+  // Invalidates callbacks belonging to an old queue or a replaced/shut-down engine. Android TTS callbacks can arrive
+  // after stop()/shutdown(), so queue size and audio-focus state must never be shared with a later playback epoch.
+  private final AtomicInteger mUtteranceGeneration = new AtomicInteger(0);
   private final UtteranceProgressListener mUtteranceProgressListener = new UtteranceProgressListener() {
     @Override
     public void onStart(@NonNull String utteranceId)
     {
+      if (!isUtteranceForGeneration(utteranceId, mUtteranceGeneration.get()))
+        return;
       Logger.d(TAG, "TTS Utterance started: " + utteranceId);
     }
 
@@ -84,12 +89,16 @@ public enum TtsPlayer
 
     private void handleError(@NonNull String utteranceId, int errorCode)
     {
+      if (!isUtteranceForGeneration(utteranceId, mUtteranceGeneration.get()))
+        return;
       Logger.w(TAG, "TTS Utterance error: " + utteranceId + ", code: " + errorCode);
       handleStop(utteranceId);
     }
 
     private void handleStop(@NonNull String utteranceId)
     {
+      if (!isUtteranceForGeneration(utteranceId, mUtteranceGeneration.get()))
+        return;
       Logger.d(TAG, "TTS Utterance stopped: " + utteranceId);
       if (mTtsQueueSize.decrementAndGet() <= 0)
         releaseAudioFocusSafely();
@@ -132,6 +141,17 @@ public enum TtsPlayer
   }
 
   TtsPlayer() {}
+
+  @NonNull
+  static String makeUtteranceId(int generation, @NonNull String id)
+  {
+    return generation + ":" + id;
+  }
+
+  static boolean isUtteranceForGeneration(@NonNull String utteranceId, int generation)
+  {
+    return utteranceId.startsWith(generation + ":");
+  }
 
   private static @Nullable LanguageData findSupportedLanguage(String internalCode, List<LanguageData> langs)
   {
@@ -389,6 +409,7 @@ public enum TtsPlayer
   {
     final TextToSpeech tts = mTts;
     mTts = null;
+    mUtteranceGeneration.incrementAndGet();
     mTtsQueueSize.set(0);
     if (tts == null)
       return;
@@ -421,7 +442,7 @@ public enum TtsPlayer
 
   private static boolean isReady()
   {
-    return INSTANCE.mTts != null && !INSTANCE.mUnavailable && !INSTANCE.mInitializing;
+    return INSTANCE.mTts != null && !INSTANCE.mUnavailable && !INSTANCE.mInitializing && INSTANCE.mHasUsableLanguage;
   }
 
   /**
@@ -506,6 +527,7 @@ public enum TtsPlayer
       return false;
     }
 
+    final int utteranceGeneration = mUtteranceGeneration.incrementAndGet();
     mTtsQueueSize.set(0);
 
     final boolean isMusicActive;
@@ -525,7 +547,8 @@ public enum TtsPlayer
     {
       boolean result = true;
       if (isMusicActive)
-        result = tts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH, TTS_SILENT_UTTERANCE_ID)
+        result = tts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH,
+                                         makeUtteranceId(utteranceGeneration, TTS_SILENT_UTTERANCE_ID))
               == TextToSpeech.SUCCESS;
       if (result && isMusicActive)
         mTtsQueueSize.incrementAndGet();
@@ -535,8 +558,9 @@ public enum TtsPlayer
         return false;
       }
 
-      result = tts.speak(text, isMusicActive ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, mParams, text)
-            == TextToSpeech.SUCCESS;
+      result = tts.speak(text, isMusicActive ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, mParams,
+                         makeUtteranceId(utteranceGeneration, text))
+          == TextToSpeech.SUCCESS;
       if (result)
         mTtsQueueSize.incrementAndGet();
       else
@@ -557,9 +581,12 @@ public enum TtsPlayer
       return false;
 
     final int generation = mInitGeneration;
+    final int utteranceGeneration = mUtteranceGeneration.get();
     try
     {
-      final boolean result = tts.speak(text, TextToSpeech.QUEUE_ADD, mParams, text) == TextToSpeech.SUCCESS;
+      final boolean result = tts.speak(text, TextToSpeech.QUEUE_ADD, mParams,
+                                       makeUtteranceId(utteranceGeneration, text))
+          == TextToSpeech.SUCCESS;
       if (result)
         mTtsQueueSize.incrementAndGet();
       else
@@ -578,6 +605,7 @@ public enum TtsPlayer
     if (!isReady())
       return;
 
+    mUtteranceGeneration.incrementAndGet();
     releaseAudioFocusSafely();
     final TextToSpeech tts = mTts;
     if (tts != null)
