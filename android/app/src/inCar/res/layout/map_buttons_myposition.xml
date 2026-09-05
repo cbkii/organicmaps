@@ -5,6 +5,7 @@
   android:id="@+id/my_position"
   style="@style/MwmWidget.MapButton"
   android:contentDescription="@string/core_my_position"
+  android:foreground="@drawable/in_car_map_control_outline_round"
   app:backgroundTint="@color/in_car_map_button_background"
   app:fabCustomSize="@dimen/in_car_map_primary_button_size"
   app:maxImageSize="@dimen/in_car_map_primary_icon_size" />

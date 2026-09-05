@@ -2,9 +2,8 @@
 <resources>
   <!--
     Direct-display automotive chrome. Keep these roles separate from the map palette:
-    action surfaces need reliable foreground contrast, while selection accents remain
-    free to be a little brighter. All app-chrome surfaces are intentionally opaque so
-    moving map content cannot reduce control readability through them.
+    primary app surfaces stay opaque, while map-overlay controls deliberately use bounded
+    translucency plus an explicit locator outline so the map remains visible underneath.
   -->
   <color name="in_car_surface_base">#FFF1F3F4</color>
   <color name="in_car_surface_raised">#FFFFFFFF</color>
@@ -17,6 +16,7 @@
   <color name="in_car_icon_primary">#FF3C4043</color>
   <color name="in_car_icon_secondary">#FF5F6368</color>
   <color name="in_car_divider">#FF80868B</color>
+  <color name="in_car_map_control_outline">#FF007C91</color>
 
   <color name="in_car_selection_accent">#FF0072B1</color>
   <color name="in_car_selection_foreground">#FFFFFFFF</color>

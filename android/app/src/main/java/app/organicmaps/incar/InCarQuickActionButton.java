@@ -34,14 +34,19 @@ final class InCarQuickActionButton extends AppCompatImageButton
     setPadding(iconPaddingPx, iconPaddingPx, iconPaddingPx, iconPaddingPx);
 
     final int actionSurface = ContextCompat.getColor(getContext(), R.color.in_car_quick_surface);
-    setBackground(createBackground(actionSurface, feedbackColor, cornerRadiusPx));
+    final int surfaceAlpha = getResources().getInteger(R.integer.in_car_quick_surface_alpha);
+    final int outlineColor = ContextCompat.getColor(getContext(), R.color.in_car_map_control_outline);
+    final int outlineWidth = getResources().getDimensionPixelSize(R.dimen.in_car_map_control_outline_width);
+    setBackground(createBackground(ColorUtils.setAlphaComponent(actionSurface, surfaceAlpha), feedbackColor, outlineColor,
+                                   outlineWidth, cornerRadiusPx));
   }
 
   @NonNull
   private static RippleDrawable createBackground(@ColorInt int surfaceColor, @ColorInt int feedbackColor,
-                                                 int cornerRadiusPx)
+                                                 @ColorInt int outlineColor, int outlineWidthPx, int cornerRadiusPx)
   {
     final GradientDrawable surface = roundedDrawable(surfaceColor, cornerRadiusPx);
+    surface.setStroke(outlineWidthPx, outlineColor);
     final GradientDrawable mask = roundedDrawable(Color.WHITE, cornerRadiusPx);
     final ColorStateList feedback = new ColorStateList(
         new int[][] {

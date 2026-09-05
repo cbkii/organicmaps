@@ -9,6 +9,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -290,16 +291,20 @@ public final class InCarDrivingUi
       final boolean showButton = InCarSettingsStore.showDrivingViewButton(activity) && !snapshot.navigating;
       drivingView.setVisibility(showButton ? View.VISIBLE : View.GONE);
       drivingView.setSelected(snapshot.enabled);
-      drivingView.setAlpha(snapshot.enabled && !snapshot.following ? 0.78f : 1.0f);
+      // Keep the existing recenter-state cue without making selected chrome less legible than neutral controls.
+      drivingView.setAlpha(snapshot.enabled && !snapshot.following ? 0.88f : 1.0f);
       drivingView.setContentDescription(activity.getString(snapshot.enabled && !snapshot.following
                                                                ? R.string.in_car_driving_view_recenter
                                                                : R.string.in_car_driving_view_button));
 
       final int buttonBackground =
           ContextCompat.getColor(activity, snapshot.enabled ? R.color.base_accent : R.color.bg_cards);
+      final int backgroundAlpha = activity.getResources().getInteger(
+          snapshot.enabled ? R.integer.in_car_map_button_selected_alpha : R.integer.in_car_map_button_surface_alpha);
       final int buttonForeground = ContextCompat.getColor(
           activity, snapshot.enabled ? R.color.routing_button_activated_tint : R.color.icon_tint);
-      drivingView.setBackgroundTintList(ColorStateList.valueOf(buttonBackground));
+      drivingView.setBackgroundTintList(
+          ColorStateList.valueOf(ColorUtils.setAlphaComponent(buttonBackground, backgroundAlpha)));
       drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
     }
 

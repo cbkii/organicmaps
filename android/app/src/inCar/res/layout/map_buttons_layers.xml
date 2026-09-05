@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<app.organicmaps.maplayer.LayersButton
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:id="@+id/layers_button"
+  style="@style/MwmWidget.MapButton"
+  android:contentDescription="@string/layers_title"
+  android:foreground="@drawable/in_car_map_control_outline_round"
+  android:tint="?accentColorSelector"
+  app:backgroundTint="@color/in_car_map_button_background"
+  app:fabCustomSize="@dimen/in_car_runtime_button_size"
+  app:maxImageSize="@dimen/in_car_runtime_button_icon_size"
+  app:srcCompat="@drawable/ic_layers" />
