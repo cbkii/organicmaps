@@ -177,6 +177,29 @@ grep -q '^package:' "${package_path_file}" || fail "${package_name} is not insta
 size_before="${proof_dir}/wm-size-before.txt"
 run_bounded adb shell wm size > "${size_before}" 2>&1 || fail "Unable to read emulator display size"
 original_override="$(sed -n 's/^Override size:[[:space:]]*//p' "${size_before}" | tail -n1 | tr -d '\r[:space:]')"
+physical_size="$(sed -n 's/^Physical size:[[:space:]]*//p' "${size_before}" | tail -n1 | tr -d '\r[:space:]')"
+[[ "${physical_size}" =~ ^([1-9][0-9]*)x([1-9][0-9]*)$ ]] ||
+  fail "Unable to parse emulator physical size: ${physical_size:-not found}"
+physical_width="${BASH_REMATCH[1]}"
+physical_height="${BASH_REMATCH[2]}"
+if (( physical_width >= physical_height )); then
+  landscape_width="${physical_width}"
+  landscape_height="${physical_height}"
+else
+  landscape_width="${physical_height}"
+  landscape_height="${physical_width}"
+fi
+compact_width=$((landscape_width * 3 / 4))
+compact_height=$((landscape_height * 3 / 4))
+(( compact_width > 0 && compact_height > 0 )) || fail "Unable to derive a compact emulator resize target"
+compact_target="${compact_width}x${compact_height}"
+full_target="${landscape_width}x${landscape_height}"
+[[ "${compact_target}" != "${full_target}" ]] || fail "Compact and full emulator resize targets are identical"
+{
+  printf 'physical_size=%s\n' "${physical_size}"
+  printf 'compact_target=%s\n' "${compact_target}"
+  printf 'full_target=%s\n' "${full_target}"
+} >> "${proof_dir}/manifest.txt" || fail "Unable to record resize targets"
 window_size_captured="true"
 
 resolve_file="${proof_dir}/resolved-activity.txt"
@@ -225,7 +248,7 @@ capture_failure_logcat() {
 
 cycle=1
 while [[ "${cycle}" -le "${cycles}" ]]; do
-  for target in 960x540 1280x720; do
+  for target in "${compact_target}" "${full_target}"; do
     evidence="${proof_dir}/cycle-${cycle}-${target}.txt"
     printf 'cycle=%s target=%s\n' "${cycle}" "${target}" > "${evidence}" || fail "Unable to write resize evidence"
 
