@@ -10,7 +10,8 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "report_in_car_apk_metrics.py"
 SPEC = importlib.util.spec_from_file_location("report_in_car_apk_metrics", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
+if SPEC is None or SPEC.loader is None:
+    raise RuntimeError(f"Unable to load metrics module from {SCRIPT}")
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
