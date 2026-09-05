@@ -24,6 +24,7 @@ import app.organicmaps.R;
 import app.organicmaps.SplashActivity;
 import app.organicmaps.sdk.util.log.Logger;
 import app.organicmaps.util.InCarVisuals;
+import app.organicmaps.util.InCarWindowGeometryCoordinator;
 import java.util.Objects;
 
 public abstract class BaseMwmFragmentActivity extends AppCompatActivity
@@ -66,6 +67,13 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   }
 
   @Override
+  protected void onResume()
+  {
+    super.onResume();
+    reconcileInCarMap(InCarVisuals.TransitionReason.RESUME);
+  }
+
+  @Override
   public void onWindowFocusChanged(boolean hasFocus)
   {
     super.onWindowFocusChanged(hasFocus);
@@ -97,7 +105,7 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   private void reconcileInCarMap(@NonNull InCarVisuals.TransitionReason reason)
   {
     if (BuildConfig.IS_IN_CAR && this instanceof MwmActivity)
-      InCarVisuals.reconcile(this, reason);
+      InCarWindowGeometryCoordinator.reconcile(this, reason);
   }
 
   /**
@@ -143,7 +151,7 @@ public abstract class BaseMwmFragmentActivity extends AppCompatActivity
   protected final void onDestroy()
   {
     if (BuildConfig.IS_IN_CAR && this instanceof MwmActivity)
-      InCarVisuals.release(this);
+      InCarWindowGeometryCoordinator.release(this);
 
     super.onDestroy();
 

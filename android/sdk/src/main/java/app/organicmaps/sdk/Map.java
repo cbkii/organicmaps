@@ -411,7 +411,7 @@ public final class Map
       nativeApplyWidgets();
   }
 
-  private boolean isThemeChangingProcess()
+  boolean isThemeChangingProcess()
   {
     return mNightModeFlagOnPause != Configuration.UI_MODE_NIGHT_UNDEFINED
  && mNightModeFlagOnPause != getNightModeFlag();
