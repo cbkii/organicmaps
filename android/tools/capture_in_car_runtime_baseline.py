@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Capture a bounded host-side ADB runtime baseline for the InCar APK.
 
-The tool is read-only with respect to application/system data except for launching
-and force-stopping the target package and clearing logcat between measured launch
-windows. It does not request root or reset global batterystats/gfx state.
+The tool does not request root or reset global batterystats. It deliberately
+force-stops/launches the target package, clears logcat between measured launch
+windows, and resets package-local gfxinfo before measurement. Required evidence
+fails closed; optional identity/context probes are retained as warnings.
 """
 
 from __future__ import annotations
@@ -28,6 +29,10 @@ INT_RE = re.compile(r"^[1-9][0-9]*$")
 STATUS_OK_RE = re.compile(r"^Status:\s+ok\s*$", re.MULTILINE)
 LAUNCH_ERROR_RE = re.compile(r"^(?:Error:|Error type [0-9]+|Exception|Security exception:)", re.MULTILINE)
 TIMING_RE = re.compile(r"^(TotalTime|WaitTime):\s*([0-9]+)\s*$", re.MULTILINE)
+FATAL_RE = re.compile(r"FATAL EXCEPTION|Fatal signal [0-9]+ \((?:SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:")
+THREADTIME_PID_RE = re.compile(
+    r"^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+(\d+)\s+\d+\s+[VDIWEF]\s+"
+)
 
 
 class BaselineError(RuntimeError):
@@ -117,7 +122,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def parse_timings(text: str) -> dict[str, int]:
-    return {name: int(value) for name, value in TIMING_RE.findall(text)}
+    timings = {name: int(value) for name, value in TIMING_RE.findall(text)}
+    missing = {"TotalTime", "WaitTime"} - timings.keys()
+    if missing:
+        raise BaselineError("Launch timing output is incomplete: missing " + ", ".join(sorted(missing)))
+    return timings
 
 
 def check_launch_output(text: str, label: str) -> None:
@@ -125,12 +134,36 @@ def check_launch_output(text: str, label: str) -> None:
         raise BaselineError(f"{label} did not report Status: ok")
 
 
+def observed_process_pids(package: str, current_pid: str, system_log: str) -> set[str]:
+    escaped_package = re.escape(package)
+    pids = {current_pid}
+    pids.update(re.findall(rf"\bStart proc (\d+):{escaped_package}(?:[/:\s]|$)", system_log))
+    pids.update(re.findall(rf"\bProcess:\s*{escaped_package},\s*PID:\s*(\d+)\b", system_log))
+    return {pid for pid in pids if pid.isdigit()}
+
+
+def line_process_pid(line: str) -> str | None:
+    match = THREADTIME_PID_RE.match(line)
+    return match.group(1) if match is not None else None
+
+
 def has_failure_evidence(package: str, pid: str, app_log: str, system_log: str) -> str | None:
-    if re.search(r"FATAL EXCEPTION|Fatal signal [0-9]+ \((?:SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:", app_log):
-        return "fatal Java/native crash evidence"
+    if FATAL_RE.search(app_log):
+        return "fatal Java/native crash evidence in current-PID log"
+
+    observed_pids = observed_process_pids(package, pid, system_log)
     for line in system_log.splitlines():
-        if "tombstoned" in line and "received crash request" in line and (pid in line or package in line):
-            return "PID/package-correlated tombstone evidence"
+        line_pid = line_process_pid(line)
+        if line_pid in observed_pids and FATAL_RE.search(line):
+            return f"fatal Java/native crash evidence for observed pid {line_pid}"
+
+        if "tombstoned" in line and "received crash request" in line:
+            if package in line:
+                return "package-correlated tombstone evidence"
+            for observed_pid in observed_pids:
+                if re.search(rf"\bpid[ =:]\s*{re.escape(observed_pid)}(?:[^0-9]|$)", line):
+                    return f"tombstone evidence for observed pid {observed_pid}"
+
         if package in line and ("ANR in " in line or "am_anr" in line or "Input dispatching timed out" in line):
             return "package-correlated ANR evidence"
     return None
@@ -188,6 +221,8 @@ def main(argv: list[str] | None = None) -> int:
         "host_utc": timestamp,
         "cold_samples": [],
     }
+    failure: BaselineError | OSError | ValueError | None = None
+    lifecycle_touched = False
 
     try:
         state = capture.run("adb-state", ["get-state"], required=True, output=root / "adb-state.txt")
@@ -223,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             raise BaselineError(f"Unable to resolve launcher component: {component or 'not found'}")
         summary["launcher"] = component
 
+        lifecycle_touched = True
         capture.run("gfxinfo-reset", ["shell", "dumpsys", "gfxinfo", args.package, "reset"], required=False,
                     output=root / "gfxinfo-reset.txt")
 
@@ -239,19 +275,20 @@ def main(argv: list[str] | None = None) -> int:
                 output=root / f"{prefix}-launch.txt",
             )
             check_launch_output(launched.stdout + launched.stderr, prefix)
+            timings = parse_timings(launched.stdout + launched.stderr)
             time.sleep(args.settle_seconds)
             pid_result = capture.run(prefix + "-pid", ["shell", "pidof", "-s", args.package], required=True,
                                      output=root / f"{prefix}-pid.txt")
             current_pid = pid_result.stdout.strip()
             if not current_pid.isdigit():
                 raise BaselineError(f"{prefix}: target process is not alive")
-            capture.run(prefix + "-meminfo", ["shell", "dumpsys", "meminfo", args.package], required=False,
+            capture.run(prefix + "-meminfo", ["shell", "dumpsys", "meminfo", args.package], required=True,
                         output=root / f"{prefix}-meminfo.txt")
             capture_logs(capture, args.package, current_pid, prefix, args.log_lines)
             cast_samples = summary["cold_samples"]
             if not isinstance(cast_samples, list):
                 raise BaselineError("Internal summary state is invalid")
-            cast_samples.append({"sample": index, "pid": int(current_pid), **parse_timings(launched.stdout)})
+            cast_samples.append({"sample": index, "pid": int(current_pid), **timings})
 
         if not current_pid:
             raise BaselineError("No cold-launch PID was captured")
@@ -264,30 +301,47 @@ def main(argv: list[str] | None = None) -> int:
             output=root / "warm-launch.txt",
         )
         check_launch_output(warm.stdout + warm.stderr, "warm-launch")
+        warm_timings = parse_timings(warm.stdout + warm.stderr)
         time.sleep(args.settle_seconds)
         warm_pid_result = capture.run("warm-pid", ["shell", "pidof", "-s", args.package], required=True,
                                       output=root / "warm-pid.txt")
         warm_pid = warm_pid_result.stdout.strip()
         if warm_pid != current_pid:
             raise BaselineError(f"Warm launcher re-entry replaced the process ({current_pid} -> {warm_pid or 'none'})")
-        capture.run("warm-meminfo", ["shell", "dumpsys", "meminfo", args.package], required=False,
+        capture.run("warm-meminfo", ["shell", "dumpsys", "meminfo", args.package], required=True,
                     output=root / "warm-meminfo.txt")
         capture_logs(capture, args.package, warm_pid, "warm", args.log_lines)
-        summary["warm_reentry"] = {"pid": int(warm_pid), "same_pid": True, **parse_timings(warm.stdout)}
+        summary["warm_reentry"] = {"pid": int(warm_pid), "same_pid": True, **warm_timings}
 
-        capture.run("gfxinfo-framestats", ["shell", "dumpsys", "gfxinfo", args.package, "framestats"], required=False,
+        capture.run("gfxinfo-framestats", ["shell", "dumpsys", "gfxinfo", args.package, "framestats"], required=True,
                     output=root / "gfxinfo-framestats.txt")
-        capture.run("batterystats", ["shell", "dumpsys", "batterystats", args.package], required=False,
+        capture.run("batterystats", ["shell", "dumpsys", "batterystats", args.package], required=True,
                     output=root / "batterystats.txt")
-        capture.run("activity", ["shell", "dumpsys", "activity", "activities"], required=False,
+        capture.run("activity", ["shell", "dumpsys", "activity", "activities"], required=True,
                     output=root / "activity.txt")
-        capture.run("process", ["shell", "ps", "-A", "-o", "USER,PID,PPID,NAME"], required=False,
+        capture.run("process", ["shell", "ps", "-A", "-o", "USER,PID,PPID,NAME"], required=True,
                     output=root / "process.txt")
-
-        summary["warnings"] = capture.warnings
-        atomic_json(root / "summary.json", summary)
     except (BaselineError, OSError, ValueError) as exc:
-        print(f"FAILED: {exc}; partial evidence retained at {root}", file=sys.stderr)
+        failure = exc
+
+    if lifecycle_touched:
+        try:
+            capture.run("final-force-stop", ["shell", "am", "force-stop", args.package], required=True)
+        except BaselineError as exc:
+            if failure is None:
+                failure = exc
+            else:
+                print(f"WARNING: final cleanup also failed: {exc}", file=sys.stderr)
+
+    if failure is not None:
+        print(f"FAILED: {failure}; partial evidence retained at {root}", file=sys.stderr)
+        return 1
+
+    summary["warnings"] = capture.warnings
+    try:
+        atomic_json(root / "summary.json", summary)
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"FAILED: unable to write validated summary: {exc}; evidence retained at {root}", file=sys.stderr)
         return 1
 
     if capture.warnings:
