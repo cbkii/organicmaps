@@ -23,11 +23,10 @@
 # For Guava used by Android Auto
 -dontwarn java.lang.reflect.AnnotatedType
 
-# Disable obfuscation since it is open-source app.
+# Disable obfuscation since it is open-source app. InCar intentionally keeps
+# names while allowing R8 optimisation; non-InCar flavours add the historical
+# -dontoptimize compatibility rule from proguard-rules-no-optimize.pro.
 -dontobfuscate
-# R8 crypts the source line numbers in all log messages.
-# https://github.com/organicmaps/organicmaps/issues/6559#issuecomment-1812039926
--dontoptimize
 
 # Room: keep no-arg constructors for generated _Impl classes (room-runtime:2.6.1 rule is insufficient for R8 full mode)
 # Used only when Firebase is enabled.
