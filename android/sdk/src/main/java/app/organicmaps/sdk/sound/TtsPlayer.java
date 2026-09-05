@@ -511,30 +511,22 @@ public enum TtsPlayer
     if (!isReady())
       return;
 
-    if (!speakFirstString(textToSpeak))
+    if (!speakSequence(new String[] {textToSpeak}))
       stop();
   }
 
   public void playTurnNotifications(@NonNull String[] turnNotifications)
   {
-    if (!isReady())
+    if (!isReady() || turnNotifications.length == 0)
       return;
 
-    for (int i = 0; i < turnNotifications.length; i++)
-    {
-      final String text = turnNotifications[i];
-      final boolean result = i == 0 ? speakFirstString(text) : addToQueue(text);
-      if (!result)
-      {
-        stop();
-        return;
-      }
-    }
+    if (!speakSequence(turnNotifications))
+      stop();
   }
 
-  private boolean speakFirstString(@NonNull String text)
+  private boolean speakSequence(@NonNull String[] texts)
   {
-    if (!Config.TTS.isEnabled())
+    if (!Config.TTS.isEnabled() || texts.length == 0)
       return false;
 
     final TextToSpeech tts = mTts;
@@ -574,60 +566,44 @@ public enum TtsPlayer
       return false;
     }
 
+    synchronized (mPlaybackLock)
+    {
+      if (utteranceGeneration != mUtteranceGeneration.get())
+        return false;
+
+      // Reserve every callback in this sequence before crossing into vendor code. A broken TTS implementation may
+      // invoke onDone/onError before speak()/playSilentUtterance() returns; pre-accounting prevents such a callback
+      // from observing zero, releasing focus, and then having the caller resurrect the queue count afterwards.
+      mTtsQueueSize.set(texts.length + (isMusicActive ? 1 : 0));
+    }
+
     final int generation = mInitGeneration;
     try
     {
-      boolean result = true;
-      if (isMusicActive)
-        result = tts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH,
-                                         makeUtteranceId(utteranceGeneration, TTS_SILENT_UTTERANCE_ID))
-              == TextToSpeech.SUCCESS;
-      if (result && isMusicActive)
-        mTtsQueueSize.incrementAndGet();
-      else if (!result)
+      if (isMusicActive
+          && tts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH,
+                                     makeUtteranceId(utteranceGeneration, TTS_SILENT_UTTERANCE_ID))
+              != TextToSpeech.SUCCESS)
       {
         Logger.d(TAG, "Failed to play silent utterance for music active delay");
         return false;
       }
 
-      result = tts.speak(text, isMusicActive ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, mParams,
-                         makeUtteranceId(utteranceGeneration, text))
-            == TextToSpeech.SUCCESS;
-      if (result)
-        mTtsQueueSize.incrementAndGet();
-      else
-        Logger.d(TAG, "Failed to speak text: " + text);
-      return result;
+      for (int i = 0; i < texts.length; ++i)
+      {
+        final int queueMode = i == 0 && !isMusicActive ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD;
+        if (tts.speak(texts[i], queueMode, mParams, makeUtteranceId(utteranceGeneration, texts[i]))
+            != TextToSpeech.SUCCESS)
+        {
+          Logger.d(TAG, "Failed to speak text: " + texts[i]);
+          return false;
+        }
+      }
+      return true;
     }
     catch (RuntimeException e)
     {
       failClosedForEngine(generation, "queueing speech", e);
-      return false;
-    }
-  }
-
-  private boolean addToQueue(@NonNull String text)
-  {
-    final TextToSpeech tts = mTts;
-    if (tts == null)
-      return false;
-
-    final int generation = mInitGeneration;
-    final int utteranceGeneration = mUtteranceGeneration.get();
-    try
-    {
-      final boolean result =
-          tts.speak(text, TextToSpeech.QUEUE_ADD, mParams, makeUtteranceId(utteranceGeneration, text))
-          == TextToSpeech.SUCCESS;
-      if (result)
-        mTtsQueueSize.incrementAndGet();
-      else
-        Logger.d(TAG, "Failed to add text to TTS queue: " + text);
-      return result;
-    }
-    catch (RuntimeException e)
-    {
-      failClosedForEngine(generation, "adding speech to the queue", e);
       return false;
     }
   }
@@ -642,17 +618,19 @@ public enum TtsPlayer
       mUtteranceGeneration.incrementAndGet();
       releaseAudioFocusSafely();
       mTtsQueueSize.set(0);
-    }
-    final TextToSpeech tts = mTts;
-    if (tts != null)
-    {
-      try
+      final TextToSpeech tts = mTts;
+      if (tts != null)
       {
-        tts.stop();
-      }
-      catch (RuntimeException e)
-      {
-        Logger.w(TAG, "Failed to stop TextToSpeech", e);
+        try
+        {
+          // Keep stop under the same playback boundary so an old stop request cannot race a replacement queue and
+          // stop the newly-started speech after that queue has acquired focus.
+          tts.stop();
+        }
+        catch (RuntimeException e)
+        {
+          Logger.w(TAG, "Failed to stop TextToSpeech", e);
+        }
       }
     }
   }
