@@ -200,7 +200,7 @@ capture_and_scan_window() {
   while IFS= read -r crash_pid; do
     [[ -n "${crash_pid}" ]] || continue
 
-    grep -E "[[:space:]]${crash_pid}[[:space:]]+[0-9]+[[:space:]]+[VDIWEF][[:space:]].*(FATAL EXCEPTION|Fatal signal [0-9]+ \\((SIGABRT|SIGSEGV|SIGBUS)\\))" \
+    grep -E "[[:space:]]${crash_pid}[[:space:]]+[0-9]+[[:space:]]+[VDIWEF][[:space:]].*(FATAL EXCEPTION|Fatal signal [0-9]+ \\((SIGABRT|SIGSEGV|SIGBUS)\\)|Abort message:)" \
       "${system_log}" >> "${crash_evidence}"
     grep -E "tombstoned.*received crash request.*pid[ =:][[:space:]]*${crash_pid}([^0-9]|$)" \
       "${system_log}" >> "${tombstone_evidence}"
