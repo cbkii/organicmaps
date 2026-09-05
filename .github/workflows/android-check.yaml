@@ -56,6 +56,18 @@ jobs:
           python3 android/tools/verify_offline_navigation_voice_pack.py \
             --asset-root android/app/src/inCar/assets
 
+      - name: Verify InCar engineering tools
+        shell: bash
+        run: |
+          python3 -m py_compile \
+            android/tools/report_in_car_apk_metrics.py \
+            android/tools/capture_in_car_runtime_baseline.py \
+            android/tools/tests/test_report_in_car_apk_metrics.py
+          python3 -m unittest discover \
+            -s android/tools/tests \
+            -p 'test_report_in_car_apk_metrics.py'
+          bash -n android/tools/smoke_test_in_car_warm_reentry.sh
+
       # Keep repository-wide lint as a shared-code quality gate. Web/F-Droid
       # build and publication lanes are intentionally not CI release gates.
       - name: Lint
@@ -295,6 +307,10 @@ jobs:
             --summary-file "${GITHUB_STEP_SUMMARY}"
           python3 android/tools/verify_offline_navigation_voice_pack.py \
             --apk "${release_apks[0]}"
+          python3 android/tools/report_in_car_apk_metrics.py \
+            --apk "${release_apks[0]}" \
+            --output-json "${RUNNER_TEMP}/in-car-release-ci-metrics.json" \
+            --summary-file "${GITHUB_STEP_SUMMARY}" > /dev/null
 
       - name: Upload release-equivalent InCarRelease APK
         uses: actions/upload-artifact@v7
@@ -313,13 +329,15 @@ jobs:
           diagnostics_dir="${RUNNER_TEMP}/in-car-release-ci-diagnostics"
           symbols="android/app/build/outputs/native-debug-symbols/inCarRelease/native-debug-symbols.zip"
           mapping="android/app/build/outputs/mapping/inCarRelease/mapping.txt"
-          if [[ ! -f "${symbols}" || ! -f "${mapping}" ]]; then
-            echo "::error::Expected InCarRelease native symbols and R8 mapping were not produced."
+          metrics="${RUNNER_TEMP}/in-car-release-ci-metrics.json"
+          if [[ ! -f "${symbols}" || ! -f "${mapping}" || ! -f "${metrics}" ]]; then
+            echo "::error::Expected InCarRelease native symbols, R8 mapping and APK metrics were not produced."
             exit 1
           fi
           mkdir -p "${diagnostics_dir}"
           cp "${symbols}" "${diagnostics_dir}/native-debug-symbols.zip"
           cp "${mapping}" "${diagnostics_dir}/mapping.txt"
+          cp "${metrics}" "${diagnostics_dir}/apk-metrics.json"
           echo "path=${diagnostics_dir}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload release diagnostics
@@ -380,7 +398,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Smoke InCar cold launch, relaunch and window resize
+      - name: Smoke InCar cold launch, warm re-entry and window resize
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -388,6 +406,7 @@ jobs:
           target: default
           script: |
             bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}"
+            bash android/tools/smoke_test_in_car_warm_reentry.sh --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}/warm-reentry"
             bash android/tools/smoke_test_in_car_window_resize.sh --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}/window-resize"
 
       - name: Upload InCar launch smoke evidence
