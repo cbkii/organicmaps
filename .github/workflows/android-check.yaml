@@ -178,24 +178,24 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Build x86_64 InCarDebug smoke APK
+      - name: Build x86_64 InCarDebug tests and InCarProfileable smoke APK
         shell: bash
         working-directory: android
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        run: ./gradlew -Px86_64 assembleInCarDebug
+        run: ./gradlew -Px86_64 assembleInCarDebug assembleInCarProfileable
 
       - name: Run InCar and SDK unit tests
         shell: bash
         working-directory: android
         run: ./gradlew -Px86_64 app:testInCarDebug sdk:testDebug
 
-      - name: Upload x86_64 InCarDebug smoke APK
+      - name: Upload x86_64 InCarProfileable smoke APK
         uses: actions/upload-artifact@v7
         with:
-          name: android-InCarDebug-x86_64-ci
-          path: android/app/build/outputs/apk/inCar/debug/OrganicMaps-*.apk
+          name: android-InCarProfileable-x86_64-ci
+          path: android/app/build/outputs/apk/inCar/profileable/OrganicMaps-*.apk
           if-no-files-found: error
           retention-days: 7
 
@@ -358,7 +358,7 @@ jobs:
             "${RUNNER_TEMP}/in-car-ci-keytool.txt"
 
   in-car-release-smoke:
-    name: Smoke InCar on API ${{ matrix.api-level }} x86_64
+    name: Smoke InCarProfileable on API ${{ matrix.api-level }} x86_64
     needs: android-check
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -368,27 +368,27 @@ jobs:
         api-level: [29, 30]
 
     steps:
-      - name: Checkout smoke script
+      - name: Checkout smoke scripts
         uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - name: Download x86_64 InCarDebug APK
+      - name: Download x86_64 InCarProfileable APK
         uses: actions/download-artifact@v7
         with:
-          name: android-InCarDebug-x86_64-ci
-          path: ${{ runner.temp }}/in-car-debug-ci
+          name: android-InCarProfileable-x86_64-ci
+          path: ${{ runner.temp }}/in-car-profileable-ci
 
-      - name: Resolve x86_64 InCarDebug APK
+      - name: Resolve x86_64 InCarProfileable APK
         id: apk
         shell: bash
         run: |
-          apk_count="$(find "${RUNNER_TEMP}/in-car-debug-ci" -type f -name '*.apk' | wc -l | tr -d ' ')"
+          apk_count="$(find "${RUNNER_TEMP}/in-car-profileable-ci" -type f -name '*.apk' | wc -l | tr -d ' ')"
           if [[ "${apk_count}" -ne 1 ]]; then
-            echo "::error::Expected exactly one x86_64 InCarDebug APK; found ${apk_count}."
+            echo "::error::Expected exactly one x86_64 InCarProfileable APK; found ${apk_count}."
             exit 1
           fi
-          apk_path="$(find "${RUNNER_TEMP}/in-car-debug-ci" -type f -name '*.apk' -print -quit)"
+          apk_path="$(find "${RUNNER_TEMP}/in-car-profileable-ci" -type f -name '*.apk' -print -quit)"
           echo "path=${apk_path}" >> "${GITHUB_OUTPUT}"
 
       - name: Enable KVM
@@ -398,22 +398,22 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Smoke InCar cold launch, warm re-entry and window resize
+      - name: Smoke optimised InCar cold launch, warm re-entry and window resize
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: default
           script: |
-            bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}"
-            bash android/tools/smoke_test_in_car_warm_reentry.sh --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}/warm-reentry"
-            bash android/tools/smoke_test_in_car_window_resize.sh --package app.organicmaps.incar.debug --proof-dir "${RUNNER_TEMP}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}/window-resize"
+            bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}"
+            bash android/tools/smoke_test_in_car_warm_reentry.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/warm-reentry"
+            bash android/tools/smoke_test_in_car_window_resize.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/window-resize"
 
-      - name: Upload InCar launch smoke evidence
+      - name: Upload optimised InCar launch smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: android-InCarDebug-x86_64-launch-smoke-api-${{ matrix.api-level }}
-          path: ${{ runner.temp }}/in-car-debug-ci-launch-smoke-api-${{ matrix.api-level }}
+          name: android-InCarProfileable-x86_64-launch-smoke-api-${{ matrix.api-level }}
+          path: ${{ runner.temp }}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}
           if-no-files-found: warn
           retention-days: 90
