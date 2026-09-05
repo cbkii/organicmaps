@@ -45,6 +45,7 @@ wait_seconds="5"
 timeout_seconds="30"
 log_lines="4000"
 timeout_cmd=""
+cleanup_active=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -106,6 +107,30 @@ run_bounded() {
   "${timeout_cmd}" --signal=TERM --kill-after=5s "${timeout_seconds}s" "$@"
 }
 
+cleanup() {
+  local original_rc=$?
+  local cleanup_rc=0
+  trap - EXIT
+
+  if [[ "${cleanup_active}" == true ]]; then
+    run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1
+    cleanup_rc=$?
+    if [[ "${cleanup_rc}" -ne 0 ]]; then
+      if [[ "${original_rc}" -eq 0 ]]; then
+        printf '::error::FAILED: Unable to force-stop %s during cleanup (rc=%d)\n' \
+          "${package_name}" "${cleanup_rc}" >&2
+        original_rc=1
+      else
+        printf '::warning::Cleanup could not force-stop %s after the earlier failure (rc=%d)\n' \
+          "${package_name}" "${cleanup_rc}" >&2
+      fi
+    fi
+  fi
+
+  exit "${original_rc}"
+}
+trap cleanup EXIT
+
 if [[ -z "${proof_dir}" ]]; then
   base_tmp="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
   proof_dir="$(mktemp -d "${base_tmp%/}/in-car-warm-reentry.XXXXXX")" || fail "Unable to create proof directory"
@@ -140,6 +165,66 @@ validate_launch() {
   fi
 }
 
+capture_and_scan_window() {
+  local prefix="$1"
+  local current_pid="$2"
+  local label="$3"
+  local app_log="${proof_dir}/${prefix}-logcat-app.txt"
+  local system_log="${proof_dir}/${prefix}-logcat-system.txt"
+  local observed_pids="${proof_dir}/${prefix}-observed-pids.txt"
+  local crash_evidence="${proof_dir}/${prefix}-crash-correlated.txt"
+  local tombstone_evidence="${proof_dir}/${prefix}-tombstone-correlated.txt"
+  local package_regex="${package_name//./\\.}"
+  local crash_pid=""
+
+  run_bounded adb logcat -d -v threadtime --pid="${current_pid}" -t "${log_lines}" > "${app_log}" 2>&1 ||
+    fail "Unable to capture PID-scoped logcat for ${label}"
+  run_bounded adb logcat -d -v threadtime -t "${log_lines}" > "${system_log}" 2>&1 ||
+    fail "Unable to capture system logcat for ${label}"
+
+  if grep -E 'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:' \
+      "${app_log}" > "${crash_evidence}"; then
+    cat "${crash_evidence}" >&2
+    fail "Crash evidence was found for ${package_name} during ${label}"
+  fi
+
+  {
+    printf '%s\n' "${current_pid}"
+    sed -n -E "s/.*Start proc ([0-9]+):${package_regex}([/:[:space:]].*)?$/\\1/p" "${system_log}"
+    sed -n -E "s/.*Process:[[:space:]]*${package_regex},[[:space:]]*PID:[[:space:]]*([0-9]+).*/\\1/p" \
+      "${system_log}"
+  } | grep -E '^[0-9]+$' | sort -u > "${observed_pids}"
+
+  : > "${crash_evidence}"
+  : > "${tombstone_evidence}"
+  while IFS= read -r crash_pid; do
+    [[ -n "${crash_pid}" ]] || continue
+
+    grep -E "[[:space:]]${crash_pid}[[:space:]]+[0-9]+[[:space:]]+[VDIWEF][[:space:]].*(FATAL EXCEPTION|Fatal signal [0-9]+ \\((SIGABRT|SIGSEGV|SIGBUS)\\))" \
+      "${system_log}" >> "${crash_evidence}"
+    grep -E "tombstoned.*received crash request.*pid[ =:][[:space:]]*${crash_pid}([^0-9]|$)" \
+      "${system_log}" >> "${tombstone_evidence}"
+  done < "${observed_pids}"
+
+  if [[ -s "${crash_evidence}" ]]; then
+    cat "${crash_evidence}" >&2
+    fail "Package/PID-correlated crash evidence was found for ${package_name} during ${label}"
+  fi
+
+  if grep -F "ANR in ${package_name}" "${system_log}" >/dev/null ||
+     grep -F 'am_anr' "${system_log}" | grep -F "${package_name}" >/dev/null ||
+     grep -F 'Input dispatching timed out' "${system_log}" | grep -F "${package_name}" >/dev/null; then
+    tail -n 300 "${system_log}" >&2
+    fail "ANR evidence was found for ${package_name} during ${label}"
+  fi
+
+  if [[ -s "${tombstone_evidence}" ]]; then
+    cat "${tombstone_evidence}" >&2
+    fail "PID-correlated tombstone evidence was found for ${package_name} during ${label}"
+  fi
+}
+
+cleanup_active=true
 run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1 || fail "Unable to force-stop ${package_name}"
 run_bounded adb logcat -c || fail "Unable to clear logcat before baseline launch"
 run_bounded adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n "${component}" \
@@ -153,6 +238,7 @@ run_bounded adb shell pidof -s "${package_name}" > "${proof_dir}/baseline-pid.tx
 pid_rc=$?
 baseline_pid="$(tr -d '\r[:space:]' < "${proof_dir}/baseline-pid.txt")"
 [[ "${pid_rc}" -eq 0 && "${baseline_pid}" =~ ^[0-9]+$ ]] || fail "Target process is not alive after baseline launch"
+capture_and_scan_window "baseline" "${baseline_pid}" "baseline launch"
 
 run_bounded adb logcat -c || fail "Unable to clear logcat before warm launcher re-entry"
 run_bounded adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n "${component}" \
@@ -167,30 +253,7 @@ pid_rc=$?
 warm_pid="$(tr -d '\r[:space:]' < "${proof_dir}/warm-pid.txt")"
 [[ "${pid_rc}" -eq 0 && "${warm_pid}" =~ ^[0-9]+$ ]] || fail "Target process died during warm launcher re-entry"
 [[ "${warm_pid}" == "${baseline_pid}" ]] || fail "Warm launcher re-entry replaced process (${baseline_pid} -> ${warm_pid})"
-
-run_bounded adb logcat -d -v threadtime --pid="${warm_pid}" -t "${log_lines}" > "${proof_dir}/logcat-app.txt" 2>&1 ||
-  fail "Unable to capture PID-scoped logcat"
-run_bounded adb logcat -d -v threadtime -t "${log_lines}" > "${proof_dir}/logcat-system.txt" 2>&1 ||
-  fail "Unable to capture system logcat"
-
-if grep -E 'FATAL EXCEPTION|Fatal signal [0-9]+ \((SIGABRT|SIGSEGV|SIGBUS)\)|Abort message:' \
-    "${proof_dir}/logcat-app.txt" >/dev/null; then
-  tail -n 240 "${proof_dir}/logcat-app.txt" >&2
-  fail "Crash evidence was found for ${package_name} during warm launcher re-entry"
-fi
-
-if grep -F "ANR in ${package_name}" "${proof_dir}/logcat-system.txt" >/dev/null ||
-   grep -F 'am_anr' "${proof_dir}/logcat-system.txt" | grep -F "${package_name}" >/dev/null ||
-   grep -F 'Input dispatching timed out' "${proof_dir}/logcat-system.txt" | grep -F "${package_name}" >/dev/null; then
-  tail -n 300 "${proof_dir}/logcat-system.txt" >&2
-  fail "ANR evidence was found for ${package_name} during warm launcher re-entry"
-fi
-
-if grep -E "tombstoned.*received crash request.*pid[ =:]${warm_pid}([^0-9]|$)" \
-    "${proof_dir}/logcat-system.txt" > "${proof_dir}/tombstone-correlated.txt"; then
-  cat "${proof_dir}/tombstone-correlated.txt" >&2
-  fail "Tombstone evidence was found for ${package_name} pid ${warm_pid}"
-fi
+capture_and_scan_window "warm" "${warm_pid}" "warm launcher re-entry"
 
 {
   printf 'package=%s\n' "${package_name}"
@@ -198,9 +261,12 @@ fi
   printf 'baseline_pid=%s\n' "${baseline_pid}"
   printf 'warm_pid=%s\n' "${warm_pid}"
   printf 'same_pid=true\n'
-  printf 'crash_scan=passed\n'
-  printf 'anr_scan=passed\n'
+  printf 'baseline_crash_anr_scan=passed\n'
+  printf 'warm_crash_anr_scan=passed\n'
 } > "${proof_dir}/result.txt" || fail "Unable to write result evidence"
 
-run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1 || fail "Unable to force-stop ${package_name} after warm smoke"
-printf 'SUCCESS: warm MAIN/LAUNCHER re-entry kept pid %s and produced no package-correlated crash/ANR evidence.\n' "${warm_pid}"
+run_bounded adb shell am force-stop "${package_name}" >/dev/null 2>&1 ||
+  fail "Unable to force-stop ${package_name} after warm smoke"
+cleanup_active=false
+printf 'SUCCESS: baseline and warm MAIN/LAUNCHER windows kept pid %s and produced no package-correlated crash/ANR evidence.\n' \
+  "${warm_pid}"
