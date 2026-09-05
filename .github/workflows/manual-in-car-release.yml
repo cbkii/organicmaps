@@ -320,7 +320,10 @@ jobs:
 
           output_dir="android/app/build/outputs/apk/inCar/release"
           proof_dir="${RUNNER_TEMP}/in-car-release-proof"
+          verification_summary="${RUNNER_TEMP}/in-car-release-verification.md"
+          signer_continuity="not-applicable"
           mkdir -p "${proof_dir}"
+          : > "${verification_summary}"
 
           mapfile -t apks < <(find "${output_dir}" -maxdepth 1 -type f -name '*.apk' -print | sort)
           if [[ "${#apks[@]}" -ne 1 ]]; then
@@ -340,7 +343,8 @@ jobs:
             --expected-version-code "${EXPECTED_VERSION_CODE}" \
             --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
             --proof-dir "${proof_dir}" \
-            --summary-file "${GITHUB_STEP_SUMMARY}"
+            --summary-file "${verification_summary}" \
+            --github-output "${GITHUB_OUTPUT}"
 
           if [[ -n "${PREVIOUS_TAG}" ]]; then
             previous_dir="${proof_dir}/previous"
@@ -363,7 +367,8 @@ jobs:
               --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
               --proof-dir "${previous_dir}/signer-proof" \
               --signature-only
-            echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified" >> "${GITHUB_STEP_SUMMARY}"
+            signer_continuity="verified"
+            echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified" >> "${verification_summary}"
           fi
 
           checksum_name="${apk_name}.sha256"
@@ -373,10 +378,19 @@ jobs:
             sha256sum "${apk_name}" > "${checksum_name}"
           )
 
+          apk_size_bytes="$(stat -c '%s' "${apk_path}")"
+          [[ "${apk_size_bytes}" =~ ^[0-9]+$ ]] || {
+            echo "::error::Unable to resolve APK byte size."
+            exit 1
+          }
+
           echo "apk_name=${apk_name}" >> "${GITHUB_OUTPUT}"
           echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
+          echo "apk_size_bytes=${apk_size_bytes}" >> "${GITHUB_OUTPUT}"
           echo "checksum_name=${checksum_name}" >> "${GITHUB_OUTPUT}"
           echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
+          echo "signer_continuity=${signer_continuity}" >> "${GITHUB_OUTPUT}"
+          echo "verification_summary=${verification_summary}" >> "${GITHUB_OUTPUT}"
 
       - name: Remove temporary signing material
         if: always()
@@ -396,7 +410,17 @@ jobs:
           PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
           APK_PATH: ${{ steps.apk.outputs.apk_path }}
           APK_NAME: ${{ steps.apk.outputs.apk_name }}
+          APK_SIZE_BYTES: ${{ steps.apk.outputs.apk_size_bytes }}
+          APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          PACKAGE_NAME: ${{ steps.apk.outputs.package_name }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
           CHECKSUM_PATH: ${{ steps.apk.outputs.checksum_path }}
+          CHECKSUM_NAME: ${{ steps.apk.outputs.checksum_name }}
+          SIGNER_CONTINUITY: ${{ steps.apk.outputs.signer_continuity }}
+          VERIFICATION_SUMMARY: ${{ steps.apk.outputs.verification_summary }}
+          INPUT_BUMP: ${{ inputs.bump }}
+          INPUT_VERSION: ${{ inputs.version }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
           KEEP_DRAFT: ${{ inputs.draft }}
         run: |
@@ -419,16 +443,139 @@ jobs:
             args+=(--prerelease)
           fi
 
-          {
-            echo "# Manual In-Car Release"
-            echo
-            printf -- '- Source: `%s`\n' "${GITHUB_SHA}"
-            printf -- '- Tag: `%s`\n' "${RELEASE_TAG}"
-            printf -- '- APK: `%s`\n' "${APK_NAME}"
-            printf -- '- Requested final visibility: `draft=%s`\n' "${KEEP_DRAFT}"
-          } >> "${GITHUB_STEP_SUMMARY}"
-
           gh release create "${args[@]}"
+
+          release_json="$(
+            gh release view "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --json url,isDraft,isPrerelease,tagName,name,assets,targetCommitish
+          )"
+
+          actual_tag="$(jq -r '.tagName // empty' <<< "${release_json}")"
+          release_url="$(jq -r '.url // empty' <<< "${release_json}")"
+          actual_draft="$(jq -r '.isDraft' <<< "${release_json}")"
+          actual_prerelease="$(jq -r '.isPrerelease' <<< "${release_json}")"
+          actual_target="$(jq -r '.targetCommitish // empty' <<< "${release_json}")"
+          apk_url="$(jq -r --arg name "${APK_NAME}" '.assets[] | select(.name == $name) | .url' <<< "${release_json}" | head -n1)"
+          checksum_url="$(jq -r --arg name "${CHECKSUM_NAME}" '.assets[] | select(.name == $name) | .url' <<< "${release_json}" | head -n1)"
+          release_apk_size="$(jq -r --arg name "${APK_NAME}" '.assets[] | select(.name == $name) | .size' <<< "${release_json}" | head -n1)"
+
+          [[ "${actual_tag}" == "${RELEASE_TAG}" ]] || {
+            echo "::error::Staged release tag mismatch: expected ${RELEASE_TAG}, found ${actual_tag:-none}."
+            exit 1
+          }
+          [[ -n "${release_url}" ]] || {
+            echo "::error::Staged release has no readable GitHub release URL."
+            exit 1
+          }
+          [[ "${actual_draft}" == "true" ]] || {
+            echo "::error::Release staging invariant failed: ${RELEASE_TAG} is not a draft."
+            exit 1
+          }
+          [[ "${actual_prerelease}" == "${IS_PRERELEASE}" ]] || {
+            echo "::error::Staged prerelease state mismatch: expected ${IS_PRERELEASE}, found ${actual_prerelease}."
+            exit 1
+          }
+          [[ "${actual_target}" == "${GITHUB_SHA}" ]] || {
+            echo "::error::Staged release target mismatch: expected ${GITHUB_SHA}, found ${actual_target:-none}."
+            exit 1
+          }
+          [[ -n "${apk_url}" && -n "${checksum_url}" ]] || {
+            echo "::error::Unable to resolve direct links for both staged release assets."
+            exit 1
+          }
+          [[ "${release_apk_size}" =~ ^[0-9]+$ && "${release_apk_size}" == "${APK_SIZE_BYTES}" ]] || {
+            echo "::error::Staged APK size mismatch: local=${APK_SIZE_BYTES}, release=${release_apk_size:-unknown}."
+            exit 1
+          }
+
+          apk_size_human="$(numfmt --to=iec-i --suffix=B "${release_apk_size}")"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          source_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          triggering_actor="${GITHUB_TRIGGERING_ACTOR:-${GITHUB_ACTOR}}"
+          requested_final_state="Publish after staging"
+          if [[ "${KEEP_DRAFT}" == "true" ]]; then
+            requested_final_state="Keep draft"
+          fi
+
+          previous_release_url=""
+          compare_url=""
+          if [[ -n "${PREVIOUS_TAG}" ]]; then
+            previous_release_url="$(
+              gh release view "${PREVIOUS_TAG}" \
+                --repo "${GITHUB_REPOSITORY}" \
+                --json url \
+                --jq '.url'
+            )"
+            compare_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${GITHUB_SHA}"
+          fi
+
+          {
+            printf '# Organic Maps In-Car v%s\n\n' "${RELEASE_VERSION}"
+            printf '[Open GitHub release](%s) · [Workflow run](%s)' "${release_url}" "${run_url}"
+            if [[ -n "${compare_url}" ]]; then
+              printf ' · [Changes since %s](%s)' "${PREVIOUS_TAG}" "${compare_url}"
+            fi
+            printf '\n\n'
+
+            echo '| Release | Details |'
+            echo '| --- | --- |'
+            printf '| Tag | `%s` |\n' "${RELEASE_TAG}"
+            echo '| State after staging | `Draft` |'
+            printf '| Requested final state | `%s` |\n' "${requested_final_state}"
+            if [[ "${actual_prerelease}" == "true" ]]; then
+              echo '| Prerelease | `Yes` |'
+            else
+              echo '| Prerelease | `No` |'
+            fi
+            printf '| Android | `versionName %s` · `versionCode %s` |\n' "${VERSION_NAME}" "${VERSION_CODE}"
+            printf '| Package | `%s` |\n' "${PACKAGE_NAME}"
+            echo '| ABI | `arm64-v8a` |'
+            printf '| Source | [`%s`](%s) on `%s` |\n' "${GITHUB_SHA:0:7}" "${source_url}" "${GITHUB_REF_NAME}"
+            printf '| Run | `#%s` · attempt `%s` · triggered by `@%s` |\n' \
+              "${GITHUB_RUN_NUMBER}" "${GITHUB_RUN_ATTEMPT}" "${triggering_actor}"
+
+            echo
+            echo '### Assets'
+            printf -- '- [%s](%s) · `%s`\n' "${APK_NAME}" "${apk_url}" "${apk_size_human}"
+            printf -- '- [%s](%s)\n' "${CHECKSUM_NAME}" "${checksum_url}"
+            printf -- '- APK SHA-256: `%s`\n' "${APK_SHA256}"
+
+            echo
+            echo '### Verification'
+            echo '- Release APK package, version, signature and runtime boundaries: verified'
+            if [[ "${SIGNER_CONTINUITY}" == "verified" ]]; then
+              printf -- '- Signer continuity with `%s`: verified\n' "${PREVIOUS_TAG}"
+            fi
+            echo '- Staged release tag, target, state and uploaded asset size: verified'
+
+            if [[ -s "${VERIFICATION_SUMMARY}" ]]; then
+              echo
+              echo '<details>'
+              echo '<summary>Detailed APK proof</summary>'
+              echo
+              cat "${VERIFICATION_SUMMARY}"
+              echo
+              echo '</details>'
+            fi
+
+            if [[ -n "${PREVIOUS_TAG}" ]]; then
+              echo
+              echo '### Release context'
+              printf -- '- Previous release: [%s](%s)\n' "${PREVIOUS_TAG}" "${previous_release_url}"
+              printf -- '- Generated notes range: `%s` → `%s`\n' "${PREVIOUS_TAG}" "${RELEASE_TAG}"
+            fi
+
+            echo
+            echo '### Run inputs'
+            if [[ -n "${INPUT_VERSION}" ]]; then
+              printf -- '- Requested version: `%s`\n' "${INPUT_VERSION}"
+            else
+              printf -- '- Version: automatic `%s` bump\n' "${INPUT_BUMP}"
+            fi
+            printf -- '- Keep as draft: `%s`\n' "${KEEP_DRAFT}"
+            printf -- '- Prerelease: `%s`\n' "${IS_PRERELEASE}"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
     name: Publish staged release
@@ -445,4 +592,43 @@ jobs:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           set -euo pipefail
+
           gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
+
+          release_json="$(
+            gh release view "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --json url,isDraft,isPrerelease,tagName,targetCommitish
+          )"
+          release_url="$(jq -r '.url // empty' <<< "${release_json}")"
+          actual_tag="$(jq -r '.tagName // empty' <<< "${release_json}")"
+          actual_draft="$(jq -r '.isDraft' <<< "${release_json}")"
+          actual_prerelease="$(jq -r '.isPrerelease' <<< "${release_json}")"
+          actual_target="$(jq -r '.targetCommitish // empty' <<< "${release_json}")"
+
+          [[ "${actual_tag}" == "${RELEASE_TAG}" && "${actual_draft}" == "false" && -n "${release_url}" ]] || {
+            echo "::error::Published release state could not be verified for ${RELEASE_TAG}."
+            exit 1
+          }
+          [[ "${actual_target}" == "${GITHUB_SHA}" ]] || {
+            echo "::error::Published release target mismatch: expected ${GITHUB_SHA}, found ${actual_target:-none}."
+            exit 1
+          }
+
+          release_version="${RELEASE_TAG#in-car-v}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          {
+            printf '# Organic Maps In-Car v%s\n\n' "${release_version}"
+            printf '[Open GitHub release](%s) · [Workflow run](%s)\n\n' "${release_url}" "${run_url}"
+            echo '### Publication'
+            printf -- '- Tag: `%s`\n' "${RELEASE_TAG}"
+            echo '- State: `Published`'
+            if [[ "${actual_prerelease}" == "true" ]]; then
+              echo '- Prerelease: `Yes`'
+            else
+              echo '- Prerelease: `No`'
+            fi
+            printf -- '- Source: [`%s`](%s)\n' \
+              "${GITHUB_SHA:0:7}" "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          } >> "${GITHUB_STEP_SUMMARY}"
