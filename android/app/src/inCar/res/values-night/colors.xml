@@ -13,6 +13,7 @@
   <color name="in_car_icon_secondary">#FFBDC1C6</color>
   <color name="in_car_divider">#FF80868B</color>
   <color name="in_car_quick_foreground">@color/in_car_icon_primary</color>
+  <color name="in_car_map_control_outline">#FF4DD0E1</color>
 
   <color name="in_car_selection_accent">#FF4BB9E6</color>
   <color name="in_car_selection_foreground">#FF202124</color>

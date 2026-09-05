@@ -8,12 +8,18 @@
   <dimen name="in_car_runtime_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
   <dimen name="in_car_runtime_button_gap">6dp</dimen>
+  <dimen name="in_car_map_control_outline_width">2dp</dimen>
 
   <!-- InCarDrivingUi is compiled for every app flavour; declare the InCar-only view id in main resources. -->
   <item name="in_car_driving_view_button" type="id" />
 
+  <!-- Persistent map chrome stays translucent while selected/pressed states retain stronger contrast. -->
+  <integer name="in_car_map_button_surface_alpha">179</integer>
+  <integer name="in_car_map_button_selected_alpha">235</integer>
+  <integer name="in_car_nav_surface_alpha">194</integer>
+
   <!-- Quick controls use one neutral translucent surface plus restrained semantic state feedback. -->
-  <integer name="in_car_quick_surface_alpha">199</integer>
+  <integer name="in_car_quick_surface_alpha">186</integer>
   <integer name="in_car_quick_pressed_feedback_alpha">82</integer>
   <integer name="in_car_quick_focused_feedback_alpha">61</integer>
 

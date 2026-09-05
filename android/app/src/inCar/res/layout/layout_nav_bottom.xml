@@ -7,37 +7,25 @@
   android:layout_height="wrap_content"
   android:orientation="vertical">
 
-  <LinearLayout
+  <FrameLayout
     android:id="@+id/line_frame"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="@dimen/in_car_touch_target_preferred"
     android:clickable="false"
-    android:focusable="false"
-    android:gravity="center_vertical"
-    android:orientation="vertical">
-
-    <include layout="@layout/layout_nav_bottom_numbers" />
-
-    <com.google.android.material.progressindicator.LinearProgressIndicator
-      android:id="@+id/navigation_progress"
-      style="@style/Widget.MaterialComponents.LinearProgressIndicator"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      app:indicatorColor="?colorAccent"
-      app:trackCornerRadius="@dimen/nav_progress_head"
-      app:trackThickness="@dimen/nav_progress"
-      app:trackColor="@color/bg_routing_progress" />
+    android:focusable="false">
 
     <LinearLayout
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
+      android:layout_height="match_parent"
       android:gravity="center_vertical|right"
       android:layoutDirection="ltr"
-      android:orientation="horizontal"
-      android:paddingStart="@dimen/nav_bottom_gap"
-      android:paddingTop="@dimen/margin_half"
-      android:paddingEnd="@dimen/nav_bottom_gap"
-      android:paddingBottom="@dimen/margin_half">
+      android:orientation="horizontal">
+
+      <include
+        layout="@layout/layout_nav_bottom_numbers"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1" />
 
       <ImageView
         android:id="@+id/nav_more"
@@ -55,6 +43,7 @@
         android:layout_width="wrap_content"
         android:layout_height="@dimen/nav_button_height"
         android:layout_marginStart="@dimen/nav_bottom_gap"
+        android:layout_marginEnd="@dimen/nav_bottom_gap"
         android:background="?redButtonBackground"
         android:fontFamily="@string/robotoMedium"
         android:minWidth="@dimen/in_car_nav_stop_min_width"
@@ -62,8 +51,21 @@
         android:text="@string/in_car_end_navigation"
         android:textAppearance="@style/MwmTextAppearance.Button.Red" />
     </LinearLayout>
-  </LinearLayout>
 
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+      android:id="@+id/navigation_progress"
+      style="@style/Widget.MaterialComponents.LinearProgressIndicator"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/nav_progress"
+      android:layout_gravity="bottom"
+      android:minHeight="0dp"
+      app:indicatorColor="?colorAccent"
+      app:trackCornerRadius="@dimen/nav_progress_head"
+      app:trackThickness="@dimen/nav_progress"
+      app:trackColor="@color/bg_routing_progress" />
+  </FrameLayout>
+
+  <!-- Keep the existing NavMenu authority IDs without exposing a second InCar row. -->
   <LinearLayout
     android:id="@+id/content_frame"
     android:layout_width="match_parent"

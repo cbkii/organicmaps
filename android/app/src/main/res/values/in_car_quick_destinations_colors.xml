@@ -3,6 +3,8 @@
   <!-- Quick Destinations are a distinct driver action surface, deliberately separate from neutral map chrome. -->
   <color name="in_car_quick_surface">#FF004A78</color>
   <color name="in_car_quick_foreground">#FFFFFFFF</color>
+  <!-- Main-source fallback keeps shared Java compilable; the inCar source set supplies day/night outline values. -->
+  <color name="in_car_map_control_outline">#FF007C91</color>
   <!-- These semantic colours are interaction accents, not persistent button backgrounds. -->
   <color name="in_car_quick_primary">#175C43</color>
   <color name="in_car_quick_fuel_charging">#A63D00</color>

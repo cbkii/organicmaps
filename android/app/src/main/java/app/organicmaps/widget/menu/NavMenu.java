@@ -100,10 +100,17 @@ public class NavMenu implements DefaultLifecycleObserver
 
     if (BuildConfig.IS_IN_CAR)
     {
-      // The InCar resource overlay puts ETA/distance/progress, More and End Navigation in the fixed
-      // header. There is no draggable/expanded presentation state.
+      // InCar has one fixed navigation row; the map remains visible through the bounded surface alpha.
       mNavBottomSheetBehavior.setDraggable(false);
       mHeaderFrame.setOnClickListener(null);
+      final View navBottomSheet = mActivity.findViewById(R.id.nav_bottom_sheet);
+      final Drawable background = navBottomSheet.getBackground();
+      if (background != null)
+      {
+        final Drawable mutableBackground = background.mutate();
+        mutableBackground.setAlpha(mActivity.getResources().getInteger(R.integer.in_car_nav_surface_alpha));
+        navBottomSheet.setBackground(mutableBackground);
+      }
       final View more = bottomFrame.findViewById(R.id.nav_more);
       if (more != null)
         more.setOnClickListener(this::showInCarMoreMenu);

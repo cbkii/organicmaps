@@ -13,6 +13,11 @@
   <dimen name="routing_action_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="routing_toolbar_cell_height">@dimen/in_car_touch_target_preferred</dimen>
 
+  <!-- Active navigation uses one 76dp footer row; progress is overlaid inside that row. -->
+  <dimen name="nav_menu_height">@dimen/in_car_touch_target_preferred</dimen>
+  <dimen name="nav_progress">2dp</dimen>
+  <dimen name="nav_progress_head">1dp</dimen>
+
   <!-- 76dp route actions plus 10dp top/bottom bar padding require a 96dp peek allowance. -->
   <dimen name="routing_bottom_buttons_max_height">96dp</dimen>
 </resources>

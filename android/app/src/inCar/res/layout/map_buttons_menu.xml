@@ -5,6 +5,7 @@
   android:id="@+id/menu_button"
   style="@style/MwmWidget.MapButton.Square"
   android:contentDescription="@string/menu"
+  android:foreground="@drawable/in_car_map_control_outline_square"
   android:tint="?iconTint"
   app:backgroundTint="@color/in_car_map_button_background"
   app:fabCustomSize="@dimen/in_car_runtime_button_size"
