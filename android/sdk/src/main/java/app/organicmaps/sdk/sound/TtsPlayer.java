@@ -583,7 +583,7 @@ public enum TtsPlayer
       if (isMusicActive
           && tts.playSilentUtterance(TTS_SPEAK_DELAY_MILLIS, TextToSpeech.QUEUE_FLUSH,
                                      makeUtteranceId(utteranceGeneration, TTS_SILENT_UTTERANCE_ID))
-              != TextToSpeech.SUCCESS)
+                 != TextToSpeech.SUCCESS)
       {
         Logger.d(TAG, "Failed to play silent utterance for music active delay");
         return false;
