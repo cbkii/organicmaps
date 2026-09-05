@@ -55,6 +55,10 @@ public enum TtsPlayer
 
   private ContentObserver mTtsEngineObserver;
   private TextToSpeech mTts;
+  // Serializes playback-epoch transitions with completion accounting and audio-focus release. Without this boundary,
+  // a late old-engine callback can pass a generation check immediately before a new queue starts and then mutate the
+  // replacement queue or abandon its newly acquired focus.
+  private final Object mPlaybackLock = new Object();
   private final AtomicInteger mTtsQueueSize = new AtomicInteger(0);
   // Invalidates callbacks belonging to an old queue or a replaced/shut-down engine. Android TTS callbacks can arrive
   // after stop()/shutdown(), so queue size and audio-focus state must never be shared with a later playback epoch.
@@ -97,13 +101,19 @@ public enum TtsPlayer
 
     private void handleStop(@NonNull String utteranceId)
     {
-      if (!isUtteranceForGeneration(utteranceId, mUtteranceGeneration.get()))
-        return;
-      Logger.d(TAG, "TTS Utterance stopped: " + utteranceId);
-      if (mTtsQueueSize.decrementAndGet() <= 0)
-        releaseAudioFocusSafely();
-      if (mTtsQueueSize.get() < 0)
-        mTtsQueueSize.set(0);
+      synchronized (mPlaybackLock)
+      {
+        if (!isUtteranceForGeneration(utteranceId, mUtteranceGeneration.get()))
+          return;
+        Logger.d(TAG, "TTS Utterance stopped: " + utteranceId);
+        if (mTtsQueueSize.decrementAndGet() <= 0)
+        {
+          mTtsQueueSize.set(0);
+          // Release while holding the same lock used to begin a replacement playback epoch. This guarantees an old
+          // completion cannot abandon audio focus after a new queue has already requested it.
+          releaseAudioFocusSafely();
+        }
+      }
     }
   };
 
@@ -397,7 +407,6 @@ public enum TtsPlayer
       if (generation != mInitGeneration)
         return;
       ++mInitGeneration;
-      releaseAudioFocusSafely();
       shutdownTts();
       mInitializing = false;
       lockDown();
@@ -409,8 +418,15 @@ public enum TtsPlayer
   {
     final TextToSpeech tts = mTts;
     mTts = null;
-    mUtteranceGeneration.incrementAndGet();
-    mTtsQueueSize.set(0);
+    synchronized (mPlaybackLock)
+    {
+      // The current queue still owns audio focus at this point. Release it before invalidating the generation so
+      // its now-stale completion callback is not the only path which could abandon that focus.
+      releaseAudioFocusSafely();
+      mUtteranceGeneration.incrementAndGet();
+      mTtsQueueSize.set(0);
+      mAudioFocusManager = null;
+    }
     if (tts == null)
       return;
 
@@ -437,6 +453,16 @@ public enum TtsPlayer
     catch (RuntimeException e)
     {
       Logger.w(TAG, "Failed to release TTS audio focus", e);
+    }
+  }
+
+  private void releaseAudioFocusIfCurrent(int utteranceGeneration)
+  {
+    synchronized (mPlaybackLock)
+    {
+      if (utteranceGeneration != mUtteranceGeneration.get())
+        return;
+      releaseAudioFocusSafely();
     }
   }
 
@@ -516,19 +542,25 @@ public enum TtsPlayer
     if (tts == null || audioFocusManager == null)
       return false;
 
+    final int utteranceGeneration;
     try
     {
-      if (!audioFocusManager.requestAudioFocus())
-        return false;
+      synchronized (mPlaybackLock)
+      {
+        // Start the new playback epoch before requesting focus. A late callback which already acquired this lock
+        // therefore finishes/relinquishes the old focus first; any later old callback observes the new generation and
+        // cannot touch the replacement queue or focus.
+        utteranceGeneration = mUtteranceGeneration.incrementAndGet();
+        mTtsQueueSize.set(0);
+        if (!audioFocusManager.requestAudioFocus())
+          return false;
+      }
     }
     catch (RuntimeException e)
     {
       Logger.w(TAG, "Failed to request TTS audio focus", e);
       return false;
     }
-
-    final int utteranceGeneration = mUtteranceGeneration.incrementAndGet();
-    mTtsQueueSize.set(0);
 
     final boolean isMusicActive;
     try
@@ -538,7 +570,7 @@ public enum TtsPlayer
     catch (RuntimeException e)
     {
       Logger.w(TAG, "Failed to query music state for TTS", e);
-      releaseAudioFocusSafely();
+      releaseAudioFocusIfCurrent(utteranceGeneration);
       return false;
     }
 
@@ -605,8 +637,12 @@ public enum TtsPlayer
     if (!isReady())
       return;
 
-    mUtteranceGeneration.incrementAndGet();
-    releaseAudioFocusSafely();
+    synchronized (mPlaybackLock)
+    {
+      mUtteranceGeneration.incrementAndGet();
+      releaseAudioFocusSafely();
+      mTtsQueueSize.set(0);
+    }
     final TextToSpeech tts = mTts;
     if (tts != null)
     {
@@ -619,7 +655,6 @@ public enum TtsPlayer
         Logger.w(TAG, "Failed to stop TextToSpeech", e);
       }
     }
-    mTtsQueueSize.set(0);
   }
 
   public static boolean isEnabled()
