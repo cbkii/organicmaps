@@ -35,4 +35,13 @@ public class TtsInitSchedulingTest
     assertTrue("Deferred TTS init callback did not run", callbackRan.await(2, TimeUnit.SECONDS));
     assertFalse("TTS init callback observed pre-assignment state", sawUnassignedEngine.get());
   }
+
+  @Test
+  public void utteranceCallbacksAreScopedToPlaybackGeneration()
+  {
+    final String utteranceId = TtsPlayer.makeUtteranceId(7, "turn-left");
+
+    assertTrue(TtsPlayer.isUtteranceForGeneration(utteranceId, 7));
+    assertFalse(TtsPlayer.isUtteranceForGeneration(utteranceId, 8));
+  }
 }
