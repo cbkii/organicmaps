@@ -111,6 +111,9 @@ public class PlacePageController
           if (PlacePageUtils.isHiddenState(newState))
           {
             mEasyDismissEnabled = false;
+            // Clear the host-visible active state before native deactivation; that call can restore
+            // a transit place page and synchronously publish a new active state.
+            mPlacePageListener.onPlacePageActiveChanged(false);
             onHiddenInternal();
           }
         }
@@ -283,8 +286,10 @@ public class PlacePageController
   private void close()
   {
     setPlacePageInteractions(false);
-    mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
-    mPlacePageListener.onPlacePageActiveChanged(false);
+    if (PlacePageUtils.isHiddenState(mPlacePageBehavior.getState()))
+      mPlacePageListener.onPlacePageActiveChanged(false);
+    else
+      mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
   }
 
   private void resetPlacePageHeightBounds()
