@@ -5,6 +5,7 @@
 #include "map/bookmarks_search_params.hpp"
 #include "map/everywhere_search_params.hpp"
 #include "map/place_page_info.hpp"
+#include "map/search_api.hpp"
 #include "map/viewport_search_params.hpp"
 
 #include "search/mode.hpp"
@@ -360,7 +361,13 @@ JNIEXPORT void Java_app_organicmaps_sdk_search_SearchEngine_nativeSelectResult(J
 JNIEXPORT void Java_app_organicmaps_sdk_search_SearchEngine_nativeUpdateViewportWithLastResults(JNIEnv * env,
                                                                                                 jclass clazz)
 {
-  g_framework->NativeFramework()->UpdateViewport(g_results);
+  auto * framework = g_framework->NativeFramework();
+  auto viewport = framework->GetVisibleViewportGlobalRect();
+  if (!search::AdjustViewportToSearchResults(g_results, viewport))
+    return;
+
+  framework->StopLocationFollow();
+  framework->ShowRect(viewport, true /* animation */, true /* useVisibleViewport */);
 }
 
 JNIEXPORT void Java_app_organicmaps_sdk_search_SearchEngine_nativeCancelInteractiveSearch(JNIEnv * env, jclass clazz)
