@@ -8,8 +8,6 @@
 #include "map/track_mark.hpp"
 #include "map/user_mark.hpp"
 
-#include "ge0/url_generator.hpp"
-
 #include "routing/route.hpp"
 #include "routing/speed_camera_prohibition.hpp"
 
@@ -124,6 +122,9 @@ std::string_view constexpr kLastAskedForRateUsTimeKey = "LastAskedForRateUsTime"
 std::string_view constexpr kDonationTapTimeKey = "DonationTapTime";
 std::string_view constexpr kDonationTapCountKey = "DonationTapCount";
 
+// The gift box is shown from 00:00 UTC of the start date until 00:00 UTC of the end date,
+// i.e. the end date is the first day without it. Update both dates to run the next campaign.
+auto const kCrowdfundingStartTime = base::YYMMDDToSecondsSinceEpoch(251220);
 auto const kCrowdfundingEndTime = base::YYMMDDToSecondsSinceEpoch(260120);
 
 auto constexpr kLargeFontsScaleFactor = 1.6;
@@ -357,7 +358,12 @@ Framework::Framework(FrameworkParams const & params, bool loadMaps)
   m_stringsBundle.SetDefaultString("core_placepage_unknown_place", "Map Point");
   m_stringsBundle.SetDefaultString("core_my_places", "My Places");
   m_stringsBundle.SetDefaultString("core_my_position", "My Position");
+  m_stringsBundle.SetDefaultString("open_in_app", "Open in Another App");
   m_stringsBundle.SetDefaultString("postal_code", "Postal Code");
+  // Placeholder-free labels used by GetShareData; platforms override with localized values.
+  m_stringsBundle.SetDefaultString("share_my_position", "I am here on Organic Maps");
+  m_stringsBundle.SetDefaultString("share_open_in_om_or_browser", "Open in Organic Maps or in a browser");
+  m_stringsBundle.SetDefaultString("share_get_om", "Get Organic Maps");
 
   m_featuresFetcher.InitClassificator();
   m_featuresFetcher.SetOnMapDeregisteredCallback(std::bind(&Framework::OnMapDeregistered, this, _1));
@@ -730,6 +736,70 @@ search::ReverseGeocoder::Address Framework::GetAddressAtPoint(m2::PointD const &
   return addr;
 }
 
+namespace
+{
+share::Strings GetShareStrings(StringsBundle const & bundle)
+{
+  return {.m_myPosition = bundle.GetString("share_my_position"),
+          .m_openInOmOrBrowser = bundle.GetString("share_open_in_om_or_browser"),
+          .m_openInMapsApp = bundle.GetString("open_in_app"),
+          .m_getApp = bundle.GetString("share_get_om")};
+}
+}  // namespace
+
+share::Result Framework::GetShareData(place_page::Info const & info) const
+{
+  share::Place place;
+  place.m_isMyPosition = info.IsMyPosition();
+  place.m_ll = info.GetLatLon();
+
+  // Share the sender's viewport zoom, or the bookmark's stored zoom when sharing a bookmark.
+  place.m_zoom = GetDrawScale();
+  if (info.IsBookmark())
+  {
+    if (auto const scale = info.GetBookmarkData().m_viewportScale; scale != 0)
+      place.m_zoom = scale;
+  }
+
+  if (!place.m_isMyPosition)
+  {
+    std::string name = info.GetTitle();
+    // An unmatched map point has no name - the place page shows a "Map Point" placeholder instead.
+    if (name == m_stringsBundle.GetString("core_placepage_unknown_place"))
+      name.clear();
+    place.m_name = std::move(name);
+    place.m_typeLabel = info.GetSubtitle();
+  }
+
+  place.m_address = info.GetAddress();
+  if (place.m_address.empty())
+    place.m_address = GetAddressAtPoint(info.GetMercator()).FormatAddress();
+
+  share::FillMetadata(place, info);
+
+  return share::Build(place, GetShareStrings(m_stringsBundle));
+}
+
+share::Result Framework::GetShareDataForMyPosition(ms::LatLon const & ll) const
+{
+  share::Place place;
+  place.m_isMyPosition = true;
+  place.m_ll = ll;
+  place.m_zoom = GetDrawScale();
+  place.m_address = GetAddressAtPoint(mercator::FromLatLon(ll)).FormatAddress();
+  return share::Build(place, GetShareStrings(m_stringsBundle));
+}
+
+share::Result Framework::GetShareDataForBookmark(kml::MarkId id) const
+{
+  auto const * bmk = m_bmManager->GetBookmark(id);
+  CHECK(bmk, ("Invalid bookmark id", id));
+
+  place_page::Info info;
+  FillBookmarkInfo(*bmk, info);
+  return GetShareData(info);
+}
+
 std::vector<Track::TrackSelectionInfo> Framework::FindRelationTracksInTapPosition(
     std::vector<std::pair<double, FeatureID>> const & lineCandidates, m2::PointD const & mercator)
 {
@@ -939,10 +1009,49 @@ void Framework::ShowTrack(kml::TrackId trackId)
 
   auto es = bm.GetEditSession();
   es.SetIsVisible(track->GetGroupId(), true /* visible */);
+  // Also unhide the individual track so imported tracks with m_visible=false
+  // become visible when navigated to from the bookmark list.
+  es.SetTrackVisibility(trackId, true /* visible */);
 
   ShowRect(rect, true /* isAnim */, true /* useVisibleViewport */);
 
   ActivateMapSelection();
+}
+
+void Framework::SetTrackVisibility(kml::TrackId trackId, bool visible)
+{
+  {
+    auto es = GetBookmarkManager().GetEditSession();
+    es.SetTrackVisibility(trackId, visible);
+  }
+
+  // Hiding the track shown in the Place Page must reset the selection so nothing
+  // stays selected on an invisible track.
+  if (!visible && m_currentPlacePageInfo && m_currentPlacePageInfo->GetTrackId() == trackId)
+    DeactivateMapSelection();
+}
+
+void Framework::DeleteTrack(kml::TrackId trackId)
+{
+  // Close the Place Page first (while the track still exists) so nothing stays selected on a
+  // deleted track; otherwise the selection would be rebuilt for a track that is already gone.
+  if (m_currentPlacePageInfo && m_currentPlacePageInfo->GetTrackId() == trackId)
+    DeactivateMapSelection();
+
+  GetBookmarkManager().GetEditSession().DeleteTrack(trackId);
+}
+
+void Framework::DeleteBookmarksAndTracks(kml::MarkIdCollection const & bookmarkIds,
+                                         kml::TrackIdCollection const & trackIds)
+{
+  // Same reason as in DeleteTrack(), extended to bookmarks: a batch deletion has no undo, so a Place Page left
+  // on one of its items could not be restored. The invalid ids a non-bookmark/non-track selection reports are
+  // never in the collections.
+  if (m_currentPlacePageInfo && (base::IsExist(bookmarkIds, m_currentPlacePageInfo->GetBookmarkId()) ||
+                                 base::IsExist(trackIds, m_currentPlacePageInfo->GetTrackId())))
+    DeactivateMapSelection();
+
+  GetBookmarkManager().GetEditSession().DeleteBookmarksAndTracks(bookmarkIds, trackIds);
 }
 
 void Framework::SelectTrackCandidate(kml::TrackId trackId, RelationID const & relationId)
@@ -1051,9 +1160,10 @@ m2::PointD Framework::GetVisiblePixelCenter() const
   return m_visibleViewport.Center();
 }
 
-m2::PointD const & Framework::GetViewportCenter() const
+m2::PointD Framework::GetViewportCenter() const
 {
-  return m_currentModelView.GetOrg();
+  ASSERT(m_visibleViewport.IsValid(), ("Set by OnSize() from CreateDrapeEngine()"));
+  return P3dtoG(GetVisiblePixelCenter());
 }
 
 void Framework::SetViewportCenter(m2::PointD const & pt, int zoomLevel /* = -1 */, bool isAnim /* = true */,
@@ -1531,37 +1641,13 @@ void Framework::HideRouteTransitIfNeeded()
 
 void Framework::UpdateViewport(search::Results const & results)
 {
-  // Setup viewport according to results.
-  m2::AnyRectD viewport = m_currentModelView.GlobalRect();
-  m2::PointD const center = viewport.Center();
-
-  double minDistance = std::numeric_limits<double>::max();
-  search::Result const * res = nullptr;
-  for (auto const & r : results)
+  // Fit into the part of the screen that is not covered by UI (e.g. the search bottom sheet).
+  auto viewport = m_currentModelView.GetTouchRect(m_visibleViewport.Center(), m_visibleViewport.SizeX() / 2,
+                                                  m_visibleViewport.SizeY() / 2);
+  if (search::AdjustViewportToSearchResults(results, viewport))
   {
-    if (r.HasPoint())
-    {
-      double const dist = center.SquaredLength(r.GetFeatureCenter());
-      if (dist < minDistance)
-      {
-        minDistance = dist;
-        res = &r;
-      }
-    }
-  }
-
-  if (res)
-  {
-    m2::PointD const pt = res->GetFeatureCenter();
-    if (!viewport.IsPointInside(pt))
-    {
-      viewport.SetSizesToIncludePoint(pt);
-      double constexpr factor = 0.05;
-      viewport.Inflate(viewport.GetLocalRect().SizeX() * factor, viewport.GetLocalRect().SizeY() * factor);
-
-      StopLocationFollow();
-      ShowRect(viewport);
-    }
+    StopLocationFollow();
+    ShowRect(viewport, true /* animation */, true /* useVisibleViewport */);
   }
 }
 
@@ -1592,7 +1678,6 @@ void Framework::FillSearchResultsMarks(SearchResultsIterT beg, SearchResultsIter
       mark->SetFoundFeature(fID);
       mark->SetFromType(r.GetFeatureType());
       mark->SetVisited(m_searchMarks.IsVisited(fID));
-      mark->SetSelected(m_searchMarks.IsSelected(fID));
     }
   }
 }
@@ -2134,8 +2219,6 @@ void Framework::ActivateMapSelection()
 
   auto const & featureId = m_currentPlacePageInfo->GetID();
 
-  m_searchMarks.SetSelected(featureId);
-
   auto const selObj = m_currentPlacePageInfo->GetSelectedObject();
   CHECK_NOT_EQUAL(selObj, df::SelectionShape::OBJECT_EMPTY, ("Empty selections are impossible."));
   if (m_drapeEngine)
@@ -2221,7 +2304,6 @@ void Framework::DeactivateHotelSearchMark()
   if (!m_currentPlacePageInfo)
     return;
 
-  m_searchMarks.SetSelected({});
   if (m_currentPlacePageInfo->IsHotel())
   {
     auto const & featureId = m_currentPlacePageInfo->GetID();
@@ -2238,29 +2320,33 @@ void Framework::DeactivateHotelSearchMark()
 
 void Framework::OnTapEvent(place_page::BuildInfo const & buildInfo)
 {
-  // Intercept taps on alternative-route ETA balloons before BuildPlacePageInfo: swap the active
-  // variant and return. Always return — even when SwapActiveAlternative declines (tap on the
-  // already-active balloon) — because FillUserMarkInfo has no ROUTE_ALT handler and would CHECK-fail.
-  if (!buildInfo.m_isLongTap && buildInfo.m_userMarkId != kml::kInvalidMarkId &&
-      UserMark::GetMarkType(buildInfo.m_userMarkId) == UserMark::Type::ROUTE_ALT)
+  if (buildInfo.m_isLongTap)
   {
-    if (auto const * mark = static_cast<RouteAltMark const *>(GetBookmarkManager().GetUserMark(buildInfo.m_userMarkId)))
-      m_routingManager.SwapActiveAlternative(mark->GetRouteIdx());
+    SwitchFullScreen();
     return;
   }
 
-  // Same swap when the tap lands on an alternative route's polyline rather than its balloon.
-  if (!buildInfo.m_isLongTap &&
-      m_routingManager.TryTapOnAlternativeRoute(buildInfo.m_mercator, m_currentModelView.GetScale()))
+  // Taps on an alternative route's ETA balloon (ROUTE_ALT mark) or on its polyline,
+  // swap the active variant instead of PP opening.
+  auto const umID = buildInfo.m_userMarkId;
+  if (umID != kml::kInvalidMarkId)
   {
-    return;
+    if (UserMark::GetMarkType(umID) == UserMark::Type::ROUTE_ALT)
+    {
+      if (auto const * mark = static_cast<RouteAltMark const *>(GetBookmarkManager().GetUserMark(umID)))
+        m_routingManager.SwapActiveAlternative(mark->GetRouteIdx());
+
+      // Always return because FillUserMarkInfo has no ROUTE_ALT handler and would CHECK-fail.
+      return;
+    }
   }
+  else if (m_routingManager.TryTapOnAlternativeRoute(buildInfo.m_mercator, m_currentModelView.GetScale()))
+    return;
 
   auto placePageInfo = BuildPlacePageInfo(buildInfo);
-  bool isRoutePoint = placePageInfo.IsRoutePoint();
 
   if (m_routingManager.IsRoutingActive() && m_routingManager.GetCurrentRouterType() == routing::RouterType::Ruler &&
-      !buildInfo.m_isLongTap && !isRoutePoint)
+      !placePageInfo.IsRoutePoint())
   {
     DeactivateMapSelection();
 
@@ -2282,47 +2368,40 @@ void Framework::OnTapEvent(place_page::BuildInfo const & buildInfo)
     else
       data.m_position = buildInfo.m_mercator;
 
-    if (!m_routingManager.ContinueRouteToPoint(std::move(data)))
-      return;
-
-    // Refresh route
-    m_routingManager.RemoveRoute(false /* deactivateFollowing */);
-    m_routingManager.BuildRoute();
+    if (m_routingManager.ContinueRouteToPoint(std::move(data)))
+    {
+      // Refresh route
+      m_routingManager.RemoveRoute(false /* deactivateFollowing */);
+      m_routingManager.BuildRoute();
+    }
 
     return;
   }
 
-  if (buildInfo.m_isLongTap)
-  {
-    SwitchFullScreen();
-  }
-  else
-  {
-    auto const prevTrackId = m_currentPlacePageInfo ? m_currentPlacePageInfo->GetTrackId() : kml::kInvalidTrackId;
-    DeactivateHotelSearchMark();
+  auto const prevTrackId = m_currentPlacePageInfo ? m_currentPlacePageInfo->GetTrackId() : kml::kInvalidTrackId;
+  DeactivateHotelSearchMark();
 
-    m_currentPlacePageInfo = placePageInfo;
+  m_currentPlacePageInfo = placePageInfo;
 
-    auto const newTrackId = m_currentPlacePageInfo->GetTrackId();
-    if (newTrackId != kml::kInvalidTrackId)
+  auto const newTrackId = m_currentPlacePageInfo->GetTrackId();
+  if (newTrackId != kml::kInvalidTrackId)
+  {
+    // For user tracks: tapping the same track at a different point just moves the selection circle.
+    // Temp relation tracks always reuse the same ID, so always update the PlacePage for them.
+    if (newTrackId == prevTrackId && newTrackId != kml::kTempRelationTrackId)
     {
-      // For user tracks: tapping the same track at a different point just moves the selection circle.
-      // Temp relation tracks always reuse the same ID, so always update the PlacePage for them.
-      if (newTrackId == prevTrackId && newTrackId != kml::kTempRelationTrackId)
+      if (m_drapeEngine)
       {
-        if (m_drapeEngine)
-        {
-          m_drapeEngine->SelectObject(df::SelectionShape::ESelectedObject::OBJECT_TRACK,
-                                      m_currentPlacePageInfo->GetMercator(), FeatureID(), false /* isAnim */,
-                                      false /* isGeometrySelectionAllowed */, true /* isSelectionShapeVisible */);
-        }
-        return;
+        m_drapeEngine->SelectObject(df::SelectionShape::ESelectedObject::OBJECT_TRACK,
+                                    m_currentPlacePageInfo->GetMercator(), FeatureID(), false /* isAnim */,
+                                    false /* isGeometrySelectionAllowed */, true /* isSelectionShapeVisible */);
       }
-      GetBookmarkManager().UpdateElevationMyPosition(newTrackId, true /* ignoreLocationCache */);
+      return;
     }
-
-    ActivateMapSelection();
+    GetBookmarkManager().UpdateElevationMyPosition(newTrackId, true /* ignoreLocationCache */);
   }
+
+  ActivateMapSelection();
 }
 
 void Framework::InvalidateRendering()
@@ -2635,20 +2714,6 @@ void Framework::PredictLocation(double & lat, double & lon, double accuracy, dou
 StringsBundle const & Framework::GetStringsBundle()
 {
   return m_stringsBundle;
-}
-
-// static
-std::string Framework::CodeGe0url(Bookmark const * bmk, bool addName)
-{
-  double lat = mercator::YToLat(bmk->GetPivot().y);
-  double lon = mercator::XToLon(bmk->GetPivot().x);
-  return ge0::GenerateShortShowMapUrl(lat, lon, bmk->GetScale(), addName ? bmk->GetPreferredName() : "");
-}
-
-// static
-std::string Framework::CodeGe0url(double lat, double lon, double zoomLevel, std::string const & name)
-{
-  return ge0::GenerateShortShowMapUrl(lat, lon, zoomLevel, name);
 }
 
 std::string Framework::GenerateApiBackUrl(ApiMarkPoint const & point) const
@@ -3480,6 +3545,10 @@ bool Framework::CanEditMapForPosition(m2::PointD const & position) const
 bool Framework::CreateMapObject(m2::PointD const & mercator, uint32_t const featureType,
                                 osm::EditableMapObject & emo) const
 {
+  // GetRegionCountryId() below wraps internally, but Editor::CreatePoint() tests the MWM's bounding
+  // box as is, so an unwrapped point would silently fail there instead of here.
+  ASSERT(mercator::ValidX(mercator.x), (mercator));
+
   emo = {};
   auto const & dataSource = m_featuresFetcher.GetDataSource();
   MwmSet::MwmId const mwmId =
@@ -3733,7 +3802,6 @@ void Framework::ShowViewportSearchResults(SearchResultsIterT begin, SearchResult
 
 void Framework::ClearViewportSearchResults()
 {
-  m_searchMarks.ClearTrackedProperties();
   GetBookmarkManager().GetEditSession().ClearGroup(UserMark::Type::SEARCH);
 }
 
@@ -3890,8 +3958,12 @@ std::optional<products::ProductsConfig> Framework::GetProductsConfiguration() co
 
 void Framework::DidCloseProductsPopup(ProductsPopupCloseReason reason) const
 {
-  settings::Set(kPlacePageProductsPopupCloseTime, base::SecondsSinceEpoch());
+  auto const now = base::SecondsSinceEpoch();
+  settings::Set(kPlacePageProductsPopupCloseTime, now);
   settings::Set(kPlacePageProductsPopupCloseReason, ToString(reason));
+  // Users who say they have already donated shouldn't see the crowdfunding promo either.
+  if (reason == ProductsPopupCloseReason::AlreadyDonated)
+    settings::Set(kDonationTapTimeKey, now);
 }
 
 void Framework::DidSelectProduct(products::ProductsConfig::Product const & product) const
@@ -4000,16 +4072,14 @@ std::string Framework::GetDonateUrl() const
 
 bool Framework::CanShowCrowdfundingPromo() const
 {
-  if (GetDonateUrl().empty())
+  auto const now = base::SecondsSinceEpoch();
+  if (now < kCrowdfundingStartTime || now > kCrowdfundingEndTime)
     return false;
 
+  // Don't nag users who have already opened the donation page during this campaign.
   uint64_t lastDonationTapTime = 0;
-  bool const donationWasTapped = settings::Get(kDonationTapTimeKey, lastDonationTapTime) && lastDonationTapTime > 0;
-  bool const crowdfundingHasEnded = base::SecondsSinceEpoch() > kCrowdfundingEndTime;
-  if (donationWasTapped && crowdfundingHasEnded)
-    return false;
-
-  return true;
+  settings::TryGet(kDonationTapTimeKey, lastDonationTapTime);
+  return lastDonationTapTime < kCrowdfundingStartTime;
 }
 
 void Framework::DidShowDonationPage() const

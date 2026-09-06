@@ -11,6 +11,7 @@ set(SRC
   editor_notes_tests.cpp
   extrapolator_tests.cpp
   feature_getters_tests.cpp
+  framework_viewport_tests.cpp
   gps_track_collection_test.cpp
   gps_track_storage_test.cpp
   gps_track_test.cpp
@@ -18,7 +19,9 @@ set(SRC
   mwm_url_tests.cpp
   power_manager_tests.cpp
   road_warning_tests.cpp
+  share_tests.cpp
   search_api_tests.cpp
+  search_viewport_tests.cpp
   transliteration_test.cpp
   relation_track_tests.cpp
   routing_manager_tests.cpp
