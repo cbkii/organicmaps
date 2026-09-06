@@ -41,9 +41,17 @@ public class FeatureCategoryActivity
     }
 
     final Intent in = getIntent();
-    final double lat = in.getDoubleExtra(EXTRA_POSITION_LAT, 0);
-    final double lon = in.getDoubleExtra(EXTRA_POSITION_LON, 0);
-    Editor.createMapObject(category, lat, lon);
+    final double lat = in.getDoubleExtra(EXTRA_POSITION_LAT, Double.NaN);
+    final double lon = in.getDoubleExtra(EXTRA_POSITION_LON, Double.NaN);
+    if (Double.isNaN(lat) || Double.isNaN(lon))
+      throw new IllegalStateException("FeatureCategoryActivity missing position extras");
+
+    if (!Editor.createMapObject(category, lat, lon))
+    {
+      InvalidFeaturePositionDialogFragment.show(getSupportFragmentManager());
+      return;
+    }
+
     final Intent intent = new Intent(this, EditorActivity.class);
     intent.putExtra(EXTRA_FEATURE_CATEGORY, category);
     intent.putExtra(EditorActivity.EXTRA_NEW_OBJECT, true);
