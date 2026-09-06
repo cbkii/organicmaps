@@ -14,7 +14,10 @@ import androidx.activity.result.ActivityResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
+import app.organicmaps.sdk.routing.RoutingController;
+import app.organicmaps.sdk.search.SearchEngine;
 import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.util.InputUtils;
 import app.organicmaps.util.UiUtils;
@@ -33,6 +36,7 @@ public class SearchToolbarController extends ToolbarController
   private final TextInputEditText mQuery;
   @Nullable
   private final TextInputLayout mQueryLayout;
+  private final boolean mAdjustInCarViewportOnSearch;
   private boolean mEndIconQueryEmpty;
   private boolean mFromCategory = false;
   // Pending listener that shows the keyboard once the window gains focus (see activate()).
@@ -66,14 +70,21 @@ public class SearchToolbarController extends ToolbarController
     mBack = mSearchContainer.findViewById(R.id.back);
     mQuery = mSearchContainer.findViewById(R.id.query);
     mQueryLayout = mSearchContainer.findViewById(R.id.query_input_layout);
+    // The InCar map-search layout owns this action. Other toolbar searches must not move the map.
+    mAdjustInCarViewportOnSearch = BuildConfig.IS_IN_CAR && root.findViewById(R.id.in_car_search_mode) != null;
     mQuery.addTextChangedListener(mTextWatcher);
     mQuery.setOnEditorActionListener((v, actionId, event) -> {
       boolean isSearchDown =
           (event != null && event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_SEARCH);
 
       boolean isSearchAction = (actionId == EditorInfo.IME_ACTION_SEARCH);
+      if (!isSearchDown && !isSearchAction)
+        return false;
 
-      return (isSearchDown || isSearchAction) && onStartSearchClick();
+      final boolean handled = onStartSearchClick();
+      if (handled && mAdjustInCarViewportOnSearch && !RoutingController.get().isNavigating())
+        SearchEngine.INSTANCE.updateViewportWithLastResults();
+      return handled;
     });
     mProgress = mSearchContainer.findViewById(R.id.progress);
     showProgress(false);

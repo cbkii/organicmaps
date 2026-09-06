@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import app.organicmaps.util.SingleLiveEvent;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import java.util.Objects;
 
 public class RoutingPlanViewModel extends ViewModel
 {
@@ -35,7 +36,8 @@ public class RoutingPlanViewModel extends ViewModel
 
   public void setIsPlacePageActive(boolean active)
   {
-    mIsPlacePageActive.setValue(active);
+    if (!Objects.equals(mIsPlacePageActive.getValue(), active))
+      mIsPlacePageActive.setValue(active);
   }
 
   public LiveData<Boolean> getIsSearchActive()

@@ -80,7 +80,7 @@ public class MapView extends SurfaceView
                   @NonNull DisplayType displayType)
   {
     super(context, attrs, defStyleAttr, defStyleRes);
-    mMap = new Map(displayType, context);
+    mMap = new Map(displayType);
     getHolder().addCallback(new SurfaceHolderCallback());
   }
 
@@ -151,10 +151,13 @@ public class MapView extends SurfaceView
     return mMap.getLastAppliedSurfaceHeight();
   }
 
-  /** Returns whether the bounded detach/reattach recovery is safe in the current map lifecycle state. */
+  /**
+   * Retained for callers that gate the bounded recovery path. Theme/configuration transitions no
+   * longer suppress legitimate Surface callbacks, so lifecycle ownership remains with the caller.
+   */
   public boolean isSurfaceAttachmentRecoveryAllowed()
   {
-    return !mMap.isThemeChangingProcess();
+    return true;
   }
 
   /**
@@ -193,12 +196,6 @@ public class MapView extends SurfaceView
    */
   public boolean recoverSurfaceAttachment()
   {
-    if (!isSurfaceAttachmentRecoveryAllowed())
-    {
-      Logger.d(TAG, "Surface reattach recovery deferred during theme change");
-      return false;
-    }
-
     final SurfaceHolder holder = getHolder();
     final Surface surface = holder.getSurface();
     final Rect frame = holder.getSurfaceFrame();

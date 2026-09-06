@@ -535,6 +535,14 @@ public:
 
   m2::PointD GetVisiblePixelCenter() const;
 
+  // Global rectangle corresponding to the currently unobscured pixel viewport. This preserves
+  // rotation and is used by InCar search fitting without changing Framework's legacy viewport API.
+  m2::AnyRectD GetVisibleViewportGlobalRect() const
+  {
+    return m_currentModelView.GetTouchRect(m_visibleViewport.Center(), m_visibleViewport.SizeX() / 2.0,
+                                           m_visibleViewport.SizeY() / 2.0);
+  }
+
   m2::PointD const & GetViewportCenter() const;
   void SetViewportCenter(m2::PointD const & pt, int zoomLevel = -1, bool isAnim = true,
                          bool trackVisibleViewport = false);
@@ -636,7 +644,7 @@ private:
   void FillSearchResultInfo(SearchMarkPoint const & smp, place_page::Info & info) const;
   void FillMyPositionInfo(place_page::Info & info, place_page::BuildInfo const & buildInfo) const;
   void FillRouteMarkInfo(RouteMarkPoint const & rmp, place_page::Info & info) const;
-  void FillSpeedCameraMarkInfo(SpeedCameraMark const & speedCameraMark, place_page::Info & info) const;
+  void FillSpeedCameraMarkInfo(SpeedCameraMark const & speedCamera, place_page::Info & info) const;
   void FillTransitMarkInfo(TransitMark const & transitMark, place_page::Info & info) const;
   void FillRoadTypeMarkInfo(RoadWarningMark const & roadTypeMark, place_page::Info & info) const;
   void FillPointInfoForBookmark(Bookmark const & bmk, place_page::Info & info) const;

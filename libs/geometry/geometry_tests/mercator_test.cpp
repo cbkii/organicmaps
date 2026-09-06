@@ -4,6 +4,9 @@
 
 #include "base/logging.hpp"
 #include "base/macros.hpp"
+#include "base/math.hpp"
+
+#include <cmath>
 
 UNIT_TEST(Mercator_Grid)
 {
@@ -90,6 +93,22 @@ UNIT_TEST(Mercator_WrapX)
   TEST_ALMOST_EQUAL_ABS(mercator::WrapX(-540.0), -180.0, 1e-10, ());
 }
 
+UNIT_TEST(Mercator_WrapRectX)
+{
+  auto const test = [](m2::RectD const & rect, m2::RectD const & expected)
+  { TEST(m2::IsEqual(mercator::WrapRectX(rect), expected, 1e-10, 1e-10), (rect, expected)); };
+
+  test({-1, -1, 1, 1}, {-1, -1, 1, 1});
+  test({359, -1, 361, 1}, {-1, -1, 1, 1});
+  test({-361, -1, -359, 1}, {-1, -1, 1, 1});
+  test({185, 10, 195, 20}, {-175, 10, -165, 20});
+  test({-195, 10, -185, 20}, {165, 10, 175, 20});
+  // Crossing rects are kept as is (or shifted to the equivalent copy).
+  test({170, -1, 190, 1}, {-190, -1, -170, 1});
+  test({-190, -1, -170, 1}, {-190, -1, -170, 1});
+  test({500, -1, 560, 1}, {140, -1, 200, 1});
+}
+
 UNIT_TEST(Mercator_NearestWrapX)
 {
   // No adjustment needed (within 180 of reference).
@@ -102,9 +121,12 @@ UNIT_TEST(Mercator_NearestWrapX)
   // Wrap eastward: point is > 180 west of reference.
   TEST_ALMOST_EQUAL_ABS(mercator::NearestWrapX(-170.0, 20.0), 190.0, 1e-10, ());
 
-  // Exactly at 180 boundary — no adjustment (strict inequality).
+  // Exact 180-degree ties: x is kept when it is within one world width, farther ties resolve to
+  // either of the two equidistant copies.
   TEST_ALMOST_EQUAL_ABS(mercator::NearestWrapX(180.0, 0.0), 180.0, 1e-10, ());
   TEST_ALMOST_EQUAL_ABS(mercator::NearestWrapX(-180.0, 0.0), -180.0, 1e-10, ());
+  TEST_ALMOST_EQUAL_ABS(std::abs(mercator::NearestWrapX(180.0, -360.0) + 360.0), 180.0, 1e-10, ());
+  TEST_ALMOST_EQUAL_ABS(std::abs(mercator::NearestWrapX(-180.0, 360.0) - 360.0), 180.0, 1e-10, ());
 
   // Extended screen origin (past antimeridian, single wrap).
   TEST_ALMOST_EQUAL_ABS(mercator::NearestWrapX(-175.0, 350.0), 185.0, 1e-10, ());
@@ -140,4 +162,25 @@ UNIT_TEST(Mercator_RectFromToLatLon)
   TEST_ALMOST_EQUAL_ABS(backToMerc.minY(), mercRect.minY(), eps, ());
   TEST_ALMOST_EQUAL_ABS(backToMerc.maxX(), mercRect.maxX(), eps, ());
   TEST_ALMOST_EQUAL_ABS(backToMerc.maxY(), mercRect.maxY(), eps, ());
+}
+
+UNIT_TEST(Mercator_NearestWrapX_NeverHangs)
+{
+  using mercator::NearestWrapX;
+
+  // Huge magnitudes stay next to refX while doubles can still resolve 360-degree steps.
+  for (double const v : {1e12, -1e12})
+  {
+    TEST_LESS_OR_EQUAL(std::abs(NearestWrapX(v, 0.0)), 180.0, (v));
+    TEST_LESS_OR_EQUAL(std::abs(NearestWrapX(0.0, v) - v), 180.0, (v));
+  }
+  for (double const v : {1e18, -1e18})
+  {
+    TEST(math::is_finite(NearestWrapX(v, 0.0)), (v));
+    TEST(math::is_finite(NearestWrapX(0.0, v)), (v));
+  }
+
+  // Many world widths away.
+  TEST_ALMOST_EQUAL_ABS(NearestWrapX(170.0, 35830.0), 35810.0, 1e-9, ());
+  TEST_ALMOST_EQUAL_ABS(NearestWrapX(-170.0, -35830.0), -35810.0, 1e-9, ());
 }

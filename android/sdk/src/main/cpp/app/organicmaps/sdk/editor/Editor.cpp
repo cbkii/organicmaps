@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <chrono>
 #include <future>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -304,19 +305,32 @@ JNIEXPORT jint Java_app_organicmaps_sdk_editor_Editor_nativeUploadChanges(JNIEnv
                                                                           jstring appVersion, jstring appId)
 {
   using osm::Editor;
-  std::promise<Editor::UploadResult> promise;
-  auto future = promise.get_future();
 
-  if (!Editor::Instance().UploadChanges(
-          jni::ToNativeString(env, token),
-          {{"created_by", "Organic Maps " OMIM_OS_NAME " " + jni::ToNativeString(env, appVersion)},
-           {"bundle_id", jni::ToNativeString(env, appId)}},
-          [&promise](Editor::UploadResult result) { promise.set_value(result); }))
-    promise.set_value(Editor::UploadResult::NothingToUpload);
+  // The wait below is bounded, so the completion callback may outlive this frame. Share the promise
+  // with the callback instead of keeping it on the stack. This non-empty callback is called exactly
+  // once when UploadChanges returns Started.
+  auto const promise = std::make_shared<std::promise<Editor::UploadResult>>();
+  auto future = promise->get_future();
 
-  auto status = future.wait_for(std::chrono::minutes(5));
-  if (status == std::future_status::timeout)
+  switch (Editor::Instance().UploadChanges(
+      jni::ToNativeString(env, token),
+      {{"created_by", "Organic Maps " OMIM_OS_NAME " " + jni::ToNativeString(env, appVersion)},
+       {"bundle_id", jni::ToNativeString(env, appId)}},
+      [promise](Editor::UploadResult result) { promise->set_value(result); }))
+  {
+  case Editor::UploadStart::Started: break;
+  // Returning NothingToUpload while a previous upload is running would make the worker finish even
+  // though its outcome is still unknown. Report an error so that the worker retries instead.
+  case Editor::UploadStart::AlreadyUploading: return static_cast<jint>(Editor::UploadResult::Error);
+  case Editor::UploadStart::NothingToUpload: return static_cast<jint>(Editor::UploadResult::NothingToUpload);
+  }
+
+  if (future.wait_for(std::chrono::minutes(5)) == std::future_status::timeout)
+  {
+    // Reported as an error so that the caller reschedules, but the upload itself keeps running.
+    LOG(LWARNING, ("Timed out waiting for the OSM upload, it continues in background."));
     return static_cast<jint>(Editor::UploadResult::Error);
+  }
   return static_cast<jint>(future.get());
 }
 
@@ -342,13 +356,12 @@ JNIEXPORT void Java_app_organicmaps_sdk_editor_Editor_nativeStartEdit(JNIEnv *, 
   CHECK(fr->GetEditableMapObject(info.GetID(), g_editableMapObject), ("Invalid feature in the place page."));
 }
 
-JNIEXPORT void Java_app_organicmaps_sdk_editor_Editor_nativeCreateMapObject(JNIEnv * env, jclass, jstring featureType,
-                                                                            jdouble lat, jdouble lon)
+JNIEXPORT jboolean Java_app_organicmaps_sdk_editor_Editor_nativeCreateMapObject(JNIEnv * env, jclass,
+                                                                                jstring featureType, jdouble lat,
+                                                                                jdouble lon)
 {
-  ::Framework * fr = frm();
   auto const type = classif().GetTypeByReadableObjectName(jni::ToNativeString(env, featureType));
-  CHECK(fr->CreateMapObject(mercator::FromLatLon(lat, lon), type, g_editableMapObject),
-        ("Couldn't create mapobject, wrong coordinates of missing mwm"));
+  return frm()->CreateMapObject(mercator::FromLatLon(lat, lon), type, g_editableMapObject);
 }
 
 // static void nativeCreateNote(String text);

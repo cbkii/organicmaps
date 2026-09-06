@@ -47,7 +47,9 @@ public final class Editor
   public static final int UPLOAD_RESULT_NOTHING_TO_UPLOAD = 2;
 
   /**
-   * Blocks the calling thread until the upload completes.
+   * Blocks the calling thread until the upload completes, but no longer than five minutes. On
+   * timeout UPLOAD_RESULT_ERROR is returned while the upload keeps running in the background. The
+   * same value is returned immediately if a map edits upload is already in progress.
    * @return one of UPLOAD_RESULT_* constants, or -1 if not authorized.
    */
   @WorkerThread
@@ -162,12 +164,17 @@ public final class Editor
    * can drift between the position check and creation.
    * {@link Framework#nativeIsDownloadedMapAtScreenCenter()} should be called before
    * to check whether new feature can be created on the map.
+   *
+   * @return false if a new feature cannot be created at the given point.
    */
-  public static void createMapObject(FeatureCategory category, double lat, double lon)
+  public static boolean createMapObject(FeatureCategory category, double lat, double lon)
   {
-    nativeCreateMapObject(category.getType(), lat, lon);
+    if (!nativeCreateMapObject(category.getType(), lat, lon))
+      return false;
+    nativeAddToRecentCategories(category.getType());
+    return true;
   }
-  public static native void nativeCreateMapObject(@NonNull String type, double lat, double lon);
+  public static native boolean nativeCreateMapObject(@NonNull String type, double lat, double lon);
   public static native void nativeCreateNote(String text);
   public static native void nativePlaceDoesNotExist(@NonNull String comment);
   public static native void nativeRollbackMapObject();
