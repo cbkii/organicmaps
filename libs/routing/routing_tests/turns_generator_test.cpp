@@ -267,6 +267,29 @@ UNIT_TEST(GetPointForTurnOnSparseGeometry)
   TEST_ALMOST_EQUAL_ABS(mercator::DistanceOnEarth(junction, ingoingPoint), kExpectedDistM, kEpsM, ());
 }
 
+UNIT_TEST(GetPointForTurnAcrossAntimeridian)
+{
+  double constexpr kExpectedDistM = 20.0 / 3.6 * 3.0;
+  double constexpr kEpsM = 0.2;
+
+  m2::PointD const junction = mercator::FromLatLon(0.0, 179.999);
+  m2::PointD const acrossAntimeridian = mercator::FromLatLon(0.0, -179.999);
+
+  TUnpackedPathSegments pathSegments(2, LoadedPathSegment());
+  pathSegments[0].m_highwayClass = ftypes::HighwayClass::LivingStreet;
+  pathSegments[0].m_path = {{mercator::FromLatLon(0.0, 179.998), 0}, {junction, 0}};
+  pathSegments[1].m_highwayClass = ftypes::HighwayClass::LivingStreet;
+  pathSegments[1].m_path = {{junction, 0}, {acrossAntimeridian, 0}};
+
+  RoutingResultTest resultTest(pathSegments);
+  RoutingSettings const vehicleSettings = GetRoutingSettings(VehicleType::Car);
+  m2::PointD const outgoingPoint =
+      GetPointForTurn(resultTest, 1 /* outgoingSegmentIndex */, NumMwmIds(), vehicleSettings.m_maxOutgoingPointsCount,
+                      vehicleSettings.m_minOutgoingDistMeters, true /* forward */);
+
+  TEST_ALMOST_EQUAL_ABS(mercator::DistanceOnEarth(junction, outgoingPoint), kExpectedDistM, kEpsM, ());
+}
+
 UNIT_TEST(GetNextRoutePointIndex)
 {
   TUnpackedPathSegments pathSegments(2, LoadedPathSegment());
