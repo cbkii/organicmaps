@@ -108,7 +108,8 @@ m2::PointD GetPointForTurn(IRoutingResult const & result, size_t outgoingSegment
         share = std::min(share, (kMaxTimeSeconds - curTimeSeconds) / timeSeconds);
       if (distanceMeters > 0.0)
         share = std::min(share, (maxDistMeters - curDistanceMeters) / distanceMeters);
-      return point + (nextPoint - point) * share;
+      m2::PointD const wrappedNextPoint(mercator::NearestWrapX(nextPoint.x, point.x), nextPoint.y);
+      return point + (wrappedNextPoint - point) * share;
     }
 
     curDistanceMeters += distanceMeters;
