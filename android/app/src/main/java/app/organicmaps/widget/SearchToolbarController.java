@@ -18,6 +18,7 @@ import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.search.SearchEngine;
+import app.organicmaps.sdk.search.SearchListener;
 import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.util.InputUtils;
 import app.organicmaps.util.UiUtils;
@@ -26,6 +27,8 @@ import com.google.android.material.textfield.TextInputLayout;
 
 public class SearchToolbarController extends ToolbarController
 {
+  private static final long IN_CAR_VIEWPORT_ADJUST_TIMEOUT_MS = 10000;
+
   @Nullable
   private final View mToolbarContainer;
   @NonNull
@@ -37,6 +40,9 @@ public class SearchToolbarController extends ToolbarController
   @Nullable
   private final TextInputLayout mQueryLayout;
   private final boolean mAdjustInCarViewportOnSearch;
+  @Nullable
+  private SearchListener mPendingInCarViewportListener;
+  private final Runnable mClearPendingInCarViewportAdjustment = this::clearPendingInCarViewportAdjustment;
   private boolean mEndIconQueryEmpty;
   private boolean mFromCategory = false;
   // Pending listener that shows the keyboard once the window gains focus (see activate()).
@@ -81,14 +87,62 @@ public class SearchToolbarController extends ToolbarController
       if (!isSearchDown && !isSearchAction)
         return false;
 
+      final long submittedAt = System.nanoTime();
+      final String submittedQuery = getQuery();
       final boolean handled = onStartSearchClick();
-      if (handled && mAdjustInCarViewportOnSearch && !RoutingController.get().isNavigating())
-        SearchEngine.INSTANCE.updateViewportWithLastResults();
+      if (handled && mAdjustInCarViewportOnSearch && !RoutingController.get().isNavigating()
+          && !TextUtils.isEmpty(submittedQuery))
+        requestInCarViewportAdjustment(submittedQuery, submittedAt);
       return handled;
     });
     mProgress = mSearchContainer.findViewById(R.id.progress);
     showProgress(false);
     updateViewsVisibility(true);
+  }
+
+  private void requestInCarViewportAdjustment(@NonNull String submittedQuery, long submittedAt)
+  {
+    clearPendingInCarViewportAdjustment();
+
+    if (submittedQuery.equals(SearchEngine.INSTANCE.getCachedSearchBarQuery())
+        && SearchEngine.INSTANCE.getCachedResults() != null)
+    {
+      SearchEngine.INSTANCE.updateViewportWithLastResults();
+      return;
+    }
+
+    mPendingInCarViewportListener = new SearchListener() {
+      @Override
+      public void onResultsEnd(long timestamp)
+      {
+        if (timestamp <= submittedAt)
+          return;
+
+        if (!submittedQuery.equals(getQuery()))
+        {
+          clearPendingInCarViewportAdjustment();
+          return;
+        }
+
+        if (!submittedQuery.equals(SearchEngine.INSTANCE.getCachedSearchBarQuery()))
+          return;
+
+        clearPendingInCarViewportAdjustment();
+        if (!RoutingController.get().isNavigating())
+          SearchEngine.INSTANCE.updateViewportWithLastResults();
+      }
+    };
+    SearchEngine.INSTANCE.addListener(mPendingInCarViewportListener);
+    mQuery.postDelayed(mClearPendingInCarViewportAdjustment, IN_CAR_VIEWPORT_ADJUST_TIMEOUT_MS);
+  }
+
+  private void clearPendingInCarViewportAdjustment()
+  {
+    mQuery.removeCallbacks(mClearPendingInCarViewportAdjustment);
+    if (mPendingInCarViewportListener == null)
+      return;
+    SearchEngine.INSTANCE.removeListener(mPendingInCarViewportListener);
+    mPendingInCarViewportListener = null;
   }
 
   private void updateViewsVisibility(boolean queryEmpty)
@@ -123,6 +177,7 @@ public class SearchToolbarController extends ToolbarController
 
   private void onQueryChanged(@Nullable CharSequence s, boolean resetCategoryFlag)
   {
+    clearPendingInCarViewportAdjustment();
     if (resetCategoryFlag)
       mFromCategory = false;
     syncForQueryChange(s);
@@ -290,6 +345,7 @@ public class SearchToolbarController extends ToolbarController
 
   public void setQuerySilently(CharSequence query, boolean fromCategory)
   {
+    clearPendingInCarViewportAdjustment();
     mFromCategory = fromCategory;
     mQuery.removeTextChangedListener(mTextWatcher);
     mQuery.setText(query);
