@@ -41,8 +41,7 @@ public class InCarVisualsTest
   public void controlTierUsesPreferredSizeForFullWindow()
   {
     assertEquals(InCarVisuals.ControlSizeTier.PREFERRED,
-                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.FULL,
-                                                     InCarVisuals.COMPACT_HEIGHT_DP));
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.FULL, InCarVisuals.COMPACT_HEIGHT_DP));
   }
 
   @Test
