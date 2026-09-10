@@ -56,8 +56,8 @@ public class InCarQuickDestinationsLayoutPolicyTest
     final int visibleDirect =
         InCarQuickDestinationsLayoutPolicy.directActionCountForCapacity(3, directActions, existingOverflowActions);
     assertEquals(2, visibleDirect);
-    assertTrue(InCarQuickDestinationsLayoutPolicy.shouldShowMore(3, directActions, visibleDirect,
-                                                                 existingOverflowActions));
+    assertTrue(
+        InCarQuickDestinationsLayoutPolicy.shouldShowMore(3, directActions, visibleDirect, existingOverflowActions));
   }
 
   @Test
