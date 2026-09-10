@@ -40,13 +40,22 @@ inline AreaContext ReadAreaContext(DataSource const & dataSource, m2::PointD con
       {{"amenity", "parking", "underground"}, {"amenity", "parking", "multi-storey"}});
   static ftypes::BaseCheckerEx const parkingEntrance({{"amenity", "parking_entrance"}});
   static ftypes::BaseCheckerEx const parkingLikeLand({{"landuse", "garages"}});
-  static ftypes::BaseCheckerEx const strongOpenArea(
-      {{"landuse", "farmland"}, {"landuse", "field"}, {"landuse", "meadow"}, {"natural", "beach"},
-       {"natural", "grassland"}, {"natural", "shingle"}});
-  static ftypes::BaseCheckerEx const weakOpenArea(
-      {{"landuse", "grass"}, {"landuse", "farmyard"}, {"landuse", "orchard"}, {"landuse", "vineyard"},
-       {"landuse", "brownfield"}, {"landuse", "construction"}, {"landuse", "quarry"}, {"natural", "heath"},
-       {"natural", "scrub"}, {"natural", "scree"}});
+  static ftypes::BaseCheckerEx const strongOpenArea({{"landuse", "farmland"},
+                                                     {"landuse", "field"},
+                                                     {"landuse", "meadow"},
+                                                     {"natural", "beach"},
+                                                     {"natural", "grassland"},
+                                                     {"natural", "shingle"}});
+  static ftypes::BaseCheckerEx const weakOpenArea({{"landuse", "grass"},
+                                                   {"landuse", "farmyard"},
+                                                   {"landuse", "orchard"},
+                                                   {"landuse", "vineyard"},
+                                                   {"landuse", "brownfield"},
+                                                   {"landuse", "construction"},
+                                                   {"landuse", "quarry"},
+                                                   {"natural", "heath"},
+                                                   {"natural", "scrub"},
+                                                   {"natural", "scree"}});
 
   // A 30 m neighbourhood is enough to see a parking entrance without turning
   // this into a general nearby-feature search.
