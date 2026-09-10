@@ -82,6 +82,7 @@ set(SRC
   index_road_graph.hpp
   index_router.cpp
   index_router.hpp
+  index_router_free_driving.cpp
   joint.cpp
   joint.hpp
   joint_index.cpp
