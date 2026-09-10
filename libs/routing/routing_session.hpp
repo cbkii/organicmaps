@@ -2,6 +2,7 @@
 
 #include "routing/async_router.hpp"
 #include "routing/following_info.hpp"
+#include "routing/free_driving_road_snap_policy.hpp"
 #include "routing/position_accumulator.hpp"
 #include "routing/route.hpp"
 #include "routing/router.hpp"
@@ -21,6 +22,8 @@
 
 #include "base/thread_checker.hpp"
 
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -62,6 +65,9 @@ class RoutingSession
   friend struct UnitClass_AsyncGuiThreadTestWithRoutingSession_TestFollowRoutePercentTest;
 
 public:
+  using FreeDrivingAreaContextProvider =
+      std::function<free_driving_snap::AreaContext(m2::PointD const &)>;
+
   RoutingSession();
 
   void Init(PointCheckCallback const & pointCheckCallback);
@@ -112,10 +118,15 @@ public:
   bool MatchLocationToRoute(location::GpsInfo & location, location::RouteMatchingInfo & routeMatchingInfo);
   void MatchLocationToRoadGraph(location::GpsInfo & location);
 
-  /// Display-only free-driving projection. |rawLocation| is never mutated; |displayLocation| starts as a copy
-  /// and is changed only after conservative, repeated road-match evidence. Returns true if display coordinates
-  /// were projected to a road. This is intentionally separate from normal route matching.
-  bool MatchFreeDrivingLocationToRoadGraph(location::GpsInfo const & rawLocation, location::GpsInfo & displayLocation);
+  // InCar free-driving matcher. Only real provider observations may call ObserveFreeDrivingLocation().
+  // Synthetic extrapolator ticks call ProjectFreeDrivingLocationToRoadGraph() and cannot change matcher confidence.
+  // Raw GNSS remains untouched and normal routed navigation retains authority while IsActive() is true.
+  void SetFreeDrivingRoadSnapEnabled(bool enabled);
+  bool IsFreeDrivingRoadSnapEnabled() const { return m_freeDrivingRoadSnapEnabled; }
+  void SetFreeDrivingAreaContextProvider(FreeDrivingAreaContextProvider provider);
+  void ObserveFreeDrivingLocation(location::GpsInfo const & rawLocation);
+  bool ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo const & displayInput,
+                                             location::GpsInfo & displayOutput) const;
   void ResetFreeDrivingRoadGraphMatch();
 
   // Get traffic speed for the current route position.
@@ -237,14 +248,29 @@ private:
   SpeedCameraManager m_speedCameraManager;
   RoutingSettings m_routingSettings;
 
-  // Existing routing history is kept untouched. Free-driving display projection owns a separate raw-position
-  // accumulator so snapped Drape positions can never feed back into route-start direction or rerouting state.
+  // Existing route-start history is untouched. Free-driving matching owns separate raw-position
+  // history and evidence so projected Drape coordinates cannot feed routing state.
   PositionAccumulator m_positionAccumulator;
   PositionAccumulator m_freeDrivingPositionAccumulator;
+  bool m_freeDrivingRoadSnapEnabled = false;
+  FreeDrivingAreaContextProvider m_freeDrivingAreaContextProvider;
+  free_driving_snap::MatchState m_freeDrivingMatchState = free_driving_snap::MatchState::Unsnapped;
   EdgeProj m_freeDrivingProjection;
   bool m_freeDrivingProjectionSeeded = false;
-  bool m_freeDrivingConfident = false;
-  double m_freeDrivingLastConfidentMovingTimestamp = 0.0;
+  EdgeProj m_freeDrivingPendingProjection;
+  bool m_freeDrivingPendingProjectionSeeded = false;
+  size_t m_freeDrivingPendingObservationCount = 0;
+  m2::PointD m_freeDrivingLastRawPoint;
+  bool m_freeDrivingHasLastRawPoint = false;
+  double m_freeDrivingLastObservationTimestamp = 0.0;
+  free_driving_snap::AreaContext m_freeDrivingAreaContext;
+  m2::PointD m_freeDrivingAreaContextPoint;
+  bool m_freeDrivingHasAreaContextPoint = false;
+  double m_freeDrivingAreaContextTimestamp = 0.0;
+  double m_freeDrivingParkingEvidenceSeconds = 0.0;
+  double m_freeDrivingOffRoadEvidenceSeconds = 0.0;
+  double m_freeDrivingOffRoadEvidenceDistanceM = 0.0;
+  size_t m_freeDrivingReacquireObservationCount = 0;
 
   ReadyCallback m_buildReadyCallback;
   ReadyCallback m_rebuildReadyCallback;
