@@ -14,7 +14,11 @@ import androidx.activity.result.ActivityResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
+import app.organicmaps.sdk.routing.RoutingController;
+import app.organicmaps.sdk.search.SearchEngine;
+import app.organicmaps.sdk.search.SearchListener;
 import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.util.InputUtils;
 import app.organicmaps.util.UiUtils;
@@ -23,6 +27,8 @@ import com.google.android.material.textfield.TextInputLayout;
 
 public class SearchToolbarController extends ToolbarController
 {
+  private static final long IN_CAR_VIEWPORT_ADJUST_TIMEOUT_MS = 10000;
+
   @Nullable
   private final View mToolbarContainer;
   @NonNull
@@ -33,6 +39,10 @@ public class SearchToolbarController extends ToolbarController
   private final TextInputEditText mQuery;
   @Nullable
   private final TextInputLayout mQueryLayout;
+  private final boolean mAdjustInCarViewportOnSearch;
+  @Nullable
+  private SearchListener mPendingInCarViewportListener;
+  private final Runnable mClearPendingInCarViewportAdjustment = this::clearPendingInCarViewportAdjustment;
   private boolean mEndIconQueryEmpty;
   private boolean mFromCategory = false;
   // Pending listener that shows the keyboard once the window gains focus (see activate()).
@@ -66,18 +76,73 @@ public class SearchToolbarController extends ToolbarController
     mBack = mSearchContainer.findViewById(R.id.back);
     mQuery = mSearchContainer.findViewById(R.id.query);
     mQueryLayout = mSearchContainer.findViewById(R.id.query_input_layout);
+    // The InCar map-search layout owns this action. Other toolbar searches must not move the map.
+    mAdjustInCarViewportOnSearch = BuildConfig.IS_IN_CAR && root.findViewById(R.id.in_car_search_mode) != null;
     mQuery.addTextChangedListener(mTextWatcher);
     mQuery.setOnEditorActionListener((v, actionId, event) -> {
       boolean isSearchDown =
           (event != null && event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_SEARCH);
 
       boolean isSearchAction = (actionId == EditorInfo.IME_ACTION_SEARCH);
+      if (!isSearchDown && !isSearchAction)
+        return false;
 
-      return (isSearchDown || isSearchAction) && onStartSearchClick();
+      final long submittedAt = System.nanoTime();
+      final String submittedQuery = getQuery();
+      final boolean handled = onStartSearchClick();
+      if (handled && mAdjustInCarViewportOnSearch && !RoutingController.get().isNavigating()
+          && !TextUtils.isEmpty(submittedQuery))
+        requestInCarViewportAdjustment(submittedQuery, submittedAt);
+      return handled;
     });
     mProgress = mSearchContainer.findViewById(R.id.progress);
     showProgress(false);
     updateViewsVisibility(true);
+  }
+
+  private void requestInCarViewportAdjustment(@NonNull String submittedQuery, long submittedAt)
+  {
+    clearPendingInCarViewportAdjustment();
+
+    if (submittedQuery.equals(SearchEngine.INSTANCE.getCachedSearchBarQuery())
+        && SearchEngine.INSTANCE.getCachedResults() != null)
+    {
+      SearchEngine.INSTANCE.updateViewportWithLastResults();
+      return;
+    }
+
+    mPendingInCarViewportListener = new SearchListener() {
+      @Override
+      public void onResultsEnd(long timestamp)
+      {
+        if (timestamp <= submittedAt)
+          return;
+
+        if (!submittedQuery.equals(getQuery()))
+        {
+          clearPendingInCarViewportAdjustment();
+          return;
+        }
+
+        if (!submittedQuery.equals(SearchEngine.INSTANCE.getCachedSearchBarQuery()))
+          return;
+
+        clearPendingInCarViewportAdjustment();
+        if (!RoutingController.get().isNavigating())
+          SearchEngine.INSTANCE.updateViewportWithLastResults();
+      }
+    };
+    SearchEngine.INSTANCE.addListener(mPendingInCarViewportListener);
+    mQuery.postDelayed(mClearPendingInCarViewportAdjustment, IN_CAR_VIEWPORT_ADJUST_TIMEOUT_MS);
+  }
+
+  private void clearPendingInCarViewportAdjustment()
+  {
+    mQuery.removeCallbacks(mClearPendingInCarViewportAdjustment);
+    if (mPendingInCarViewportListener == null)
+      return;
+    SearchEngine.INSTANCE.removeListener(mPendingInCarViewportListener);
+    mPendingInCarViewportListener = null;
   }
 
   private void updateViewsVisibility(boolean queryEmpty)
@@ -112,6 +177,7 @@ public class SearchToolbarController extends ToolbarController
 
   private void onQueryChanged(@Nullable CharSequence s, boolean resetCategoryFlag)
   {
+    clearPendingInCarViewportAdjustment();
     if (resetCategoryFlag)
       mFromCategory = false;
     syncForQueryChange(s);
@@ -279,6 +345,7 @@ public class SearchToolbarController extends ToolbarController
 
   public void setQuerySilently(CharSequence query, boolean fromCategory)
   {
+    clearPendingInCarViewportAdjustment();
     mFromCategory = fromCategory;
     mQuery.removeTextChangedListener(mTextWatcher);
     mQuery.setText(query);
