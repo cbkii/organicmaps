@@ -65,8 +65,7 @@ class RoutingSession
   friend struct UnitClass_AsyncGuiThreadTestWithRoutingSession_TestFollowRoutePercentTest;
 
 public:
-  using FreeDrivingAreaContextProvider =
-      std::function<free_driving_snap::AreaContext(m2::PointD const &)>;
+  using FreeDrivingAreaContextProvider = std::function<free_driving_snap::AreaContext(m2::PointD const &)>;
 
   RoutingSession();
 
