@@ -37,13 +37,17 @@ final class InCarQuickActionButton extends AppCompatImageButton
     final int surfaceAlpha = getResources().getInteger(R.integer.in_car_quick_surface_alpha);
     final int outlineColor = ContextCompat.getColor(getContext(), R.color.in_car_map_control_outline);
     final int outlineWidth = getResources().getDimensionPixelSize(R.dimen.in_car_map_control_outline_width);
+    final int pressedFeedbackAlpha = getResources().getInteger(R.integer.in_car_quick_pressed_feedback_alpha);
+    final int focusedFeedbackAlpha = getResources().getInteger(R.integer.in_car_quick_focused_feedback_alpha);
     setBackground(createBackground(ColorUtils.setAlphaComponent(actionSurface, surfaceAlpha), feedbackColor,
-                                   outlineColor, outlineWidth, cornerRadiusPx));
+                                   outlineColor, outlineWidth, cornerRadiusPx, pressedFeedbackAlpha,
+                                   focusedFeedbackAlpha));
   }
 
   @NonNull
   private static RippleDrawable createBackground(@ColorInt int surfaceColor, @ColorInt int feedbackColor,
-                                                 @ColorInt int outlineColor, int outlineWidthPx, int cornerRadiusPx)
+                                                 @ColorInt int outlineColor, int outlineWidthPx, int cornerRadiusPx,
+                                                 int pressedFeedbackAlpha, int focusedFeedbackAlpha)
   {
     final GradientDrawable surface = roundedDrawable(surfaceColor, cornerRadiusPx);
     surface.setStroke(outlineWidthPx, outlineColor);
@@ -51,8 +55,9 @@ final class InCarQuickActionButton extends AppCompatImageButton
     final ColorStateList feedback = new ColorStateList(
         new int[][] {
             {android.R.attr.state_pressed}, {android.R.attr.state_focused}, {android.R.attr.state_hovered}, {}},
-        new int[] {ColorUtils.setAlphaComponent(feedbackColor, 112), ColorUtils.setAlphaComponent(feedbackColor, 92),
-                   ColorUtils.setAlphaComponent(feedbackColor, 92), Color.TRANSPARENT});
+        new int[] {ColorUtils.setAlphaComponent(feedbackColor, pressedFeedbackAlpha),
+                   ColorUtils.setAlphaComponent(feedbackColor, focusedFeedbackAlpha),
+                   ColorUtils.setAlphaComponent(feedbackColor, focusedFeedbackAlpha), Color.TRANSPARENT});
     return new RippleDrawable(feedback, surface, mask);
   }
 
