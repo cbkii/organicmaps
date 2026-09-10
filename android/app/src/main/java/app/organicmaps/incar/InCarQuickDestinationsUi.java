@@ -231,11 +231,9 @@ public final class InCarQuickDestinationsUi
 
       // Semantic priority is bottom-up on screen: More -> Home -> Work -> Parking -> Fuel/Charging.
       collectDestinationAction(InCarQuickDestinationsStore.Action.HOME, InCarQuickDestinationsStore.getHome(mActivity),
-                               R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home,
-                               R.color.in_car_quick_home);
+                               R.string.in_car_quick_home, R.drawable.ic_in_car_quick_home, R.color.in_car_quick_home);
       collectDestinationAction(InCarQuickDestinationsStore.Action.WORK, InCarQuickDestinationsStore.getWork(mActivity),
-                               R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work,
-                               R.color.in_car_quick_work);
+                               R.string.in_car_quick_work, R.drawable.ic_in_car_quick_work, R.color.in_car_quick_work);
       collectFixedAction(InCarQuickDestinationsStore.Action.PARKING, R.string.category_parking,
                          R.drawable.ic_in_car_quick_parking, R.color.in_car_quick_parking,
                          () -> openCategory(InCarQuickCategoryPolicy.Category.PARKING));
@@ -435,9 +433,9 @@ public final class InCarQuickDestinationsUi
       if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
         bottomMargin = Math.max(0, params.bottomMargin);
       final int minimum = InCarVisuals.currentQuickActionSizePx(mActivity);
-      final int availablePx = Math.max(
-          minimum,
-          parentHeight - mSystemTopInset - dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP) - bottomMargin);
+      final int availablePx =
+          Math.max(minimum, parentHeight - mSystemTopInset - dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP)
+                                - bottomMargin);
       return Math.max(1, pxToDp(availablePx));
     }
 
@@ -471,8 +469,9 @@ public final class InCarQuickDestinationsUi
       final int iconSize = InCarVisuals.currentQuickActionIconSizePx(mActivity);
       final int iconPadding = Math.max(0, (size - iconSize) / 2);
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
-      final LinearLayout.LayoutParams params =
-          raw instanceof LinearLayout.LayoutParams layoutParams ? layoutParams : new LinearLayout.LayoutParams(size, size);
+      final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
+                                                 ? layoutParams
+                                                 : new LinearLayout.LayoutParams(size, size);
       params.width = size;
       params.height = size;
       button.setLayoutParams(params);
@@ -559,8 +558,9 @@ public final class InCarQuickDestinationsUi
     {
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
       final int size = InCarVisuals.currentQuickActionSizePx(mActivity);
-      final LinearLayout.LayoutParams params =
-          raw instanceof LinearLayout.LayoutParams layoutParams ? layoutParams : new LinearLayout.LayoutParams(size, size);
+      final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
+                                                 ? layoutParams
+                                                 : new LinearLayout.LayoutParams(size, size);
       params.setMargins(0, 0, 0, dp(Math.max(0, gapDp)));
       button.setLayoutParams(params);
     }
