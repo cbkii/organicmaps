@@ -136,6 +136,8 @@ private:
 
   RouterResultCode AdjustRoute(Checkpoints const & checkpoints, m2::PointD const & startDirection,
                                RouterDelegate const & delegate, Route & route);
+  RouterResultCode RedressRoute(std::vector<Segment> const & segments, base::Cancellable const & cancellable,
+                                IndexGraphStarter & starter, Route & route);
 
   std::unique_ptr<WorldGraph> MakeWorldGraph();
 
