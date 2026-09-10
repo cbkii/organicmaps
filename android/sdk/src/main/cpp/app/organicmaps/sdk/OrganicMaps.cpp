@@ -97,3 +97,4 @@ JNIEXPORT void Java_app_organicmaps_sdk_OrganicMaps_nativeOnTransit(JNIEnv *, jc
   else
     g_framework->NativeFramework()->EnterBackground();
 }
+}
