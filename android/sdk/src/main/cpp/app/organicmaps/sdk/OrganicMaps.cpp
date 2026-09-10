@@ -25,26 +25,25 @@ void ConfigureInCarFreeDrivingRoadSnap()
 
   extrapolation::Extrapolator::SetLocationHooks(
       [](location::GpsInfo const & rawLocation)
-      {
-        if (!g_framework)
-          return;
-        auto & manager = g_framework->NativeFramework()->GetRoutingManager();
-        if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
-          return;
-        manager.RoutingSession().ObserveFreeDrivingLocation(rawLocation);
-      },
-      [](location::GpsInfo & displayLocation)
-      {
-        if (!g_framework)
-          return;
-        auto & manager = g_framework->NativeFramework()->GetRoutingManager();
-        if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
-          return;
+  {
+    if (!g_framework)
+      return;
+    auto & manager = g_framework->NativeFramework()->GetRoutingManager();
+    if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
+      return;
+    manager.RoutingSession().ObserveFreeDrivingLocation(rawLocation);
+  }, [](location::GpsInfo & displayLocation)
+  {
+    if (!g_framework)
+      return;
+    auto & manager = g_framework->NativeFramework()->GetRoutingManager();
+    if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
+      return;
 
-        location::GpsInfo projected;
-        if (manager.RoutingSession().ProjectFreeDrivingLocationToRoadGraph(displayLocation, projected))
-          displayLocation = projected;
-      });
+    location::GpsInfo projected;
+    if (manager.RoutingSession().ProjectFreeDrivingLocationToRoadGraph(displayLocation, projected))
+      displayLocation = projected;
+  });
 }
 }  // namespace
 
@@ -97,5 +96,4 @@ JNIEXPORT void Java_app_organicmaps_sdk_OrganicMaps_nativeOnTransit(JNIEnv *, jc
     g_framework->NativeFramework()->EnterForeground();
   else
     g_framework->NativeFramework()->EnterBackground();
-}
 }
