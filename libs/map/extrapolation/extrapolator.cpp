@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <memory>
+#include <utility>
 
 namespace
 {
@@ -39,6 +40,24 @@ private:
 
 namespace extrapolation
 {
+namespace
+{
+Extrapolator::RealLocationObserverFn g_realLocationObserver;
+Extrapolator::DisplayLocationTransformFn g_displayLocationTransform;
+}  // namespace
+
+void Extrapolator::SetLocationHooks(RealLocationObserverFn observer, DisplayLocationTransformFn transform)
+{
+  g_realLocationObserver = std::move(observer);
+  g_displayLocationTransform = std::move(transform);
+}
+
+void Extrapolator::ClearLocationHooks()
+{
+  g_realLocationObserver = {};
+  g_displayLocationTransform = {};
+}
+
 location::GpsInfo LinearExtrapolation(location::GpsInfo const & gpsInfo1, location::GpsInfo const & gpsInfo2,
                                       uint64_t timeAfterPoint2Ms)
 {
@@ -125,6 +144,11 @@ Extrapolator::Extrapolator(ExtrapolatedLocationUpdateFn const & update)
 
 void Extrapolator::OnLocationUpdate(location::GpsInfo const & gpsInfo)
 {
+  // This callback runs only on the provider-fix entry point. Synthetic 200 ms
+  // extrapolations never reach it, so confidence/hysteresis cannot be manufactured.
+  if (g_realLocationObserver)
+    g_realLocationObserver(gpsInfo);
+
   {
     std::lock_guard<std::mutex> guard(m_mutex);
     m_beforeLastGpsInfo = m_lastGpsInfo;
@@ -163,7 +187,16 @@ void Extrapolator::ExtrapolatedLocationUpdate(uint64_t locationUpdateCounter)
   }
 
   if (gpsInfo.IsValid())
-    GetPlatform().RunTask(Platform::Thread::Gui, [this, gpsInfo]() { m_extrapolatedLocationUpdate(gpsInfo); });
+  {
+    GetPlatform().RunTask(Platform::Thread::Gui, [this, gpsInfo]() mutable
+    {
+      // The transform receives only the display copy. It may project the marker,
+      // but routing and the provider history above retain the original GpsInfo.
+      if (g_displayLocationTransform)
+        g_displayLocationTransform(gpsInfo);
+      m_extrapolatedLocationUpdate(gpsInfo);
+    });
+  }
 
   {
     std::lock_guard<std::mutex> guard(m_mutex);
