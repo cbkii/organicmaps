@@ -4,6 +4,50 @@
 
 #include "app/organicmaps/sdk/core/jni_helper.hpp"
 
+#include "map/extrapolation/extrapolator.hpp"
+
+#include "routing/free_driving_area_context.hpp"
+
+namespace
+{
+void ConfigureInCarFreeDrivingRoadSnap()
+{
+  if (!g_framework || !android::Platform::Instance().IsInCar())
+    return;
+
+  auto & routingManager = g_framework->NativeFramework()->GetRoutingManager();
+  auto & routingSession = routingManager.RoutingSession();
+  auto const * dataSource = &g_framework->NativeFramework()->GetDataSource();
+
+  routingSession.SetFreeDrivingAreaContextProvider([dataSource](m2::PointD const & point)
+  { return routing::free_driving_snap::ReadAreaContext(*dataSource, point); });
+  routingSession.SetFreeDrivingRoadSnapEnabled(true);
+
+  extrapolation::Extrapolator::SetLocationHooks(
+      [](location::GpsInfo const & rawLocation)
+      {
+        if (!g_framework)
+          return;
+        auto & manager = g_framework->NativeFramework()->GetRoutingManager();
+        if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
+          return;
+        manager.RoutingSession().ObserveFreeDrivingLocation(rawLocation);
+      },
+      [](location::GpsInfo & displayLocation)
+      {
+        if (!g_framework)
+          return;
+        auto & manager = g_framework->NativeFramework()->GetRoutingManager();
+        if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
+          return;
+
+        location::GpsInfo projected;
+        if (manager.RoutingSession().ProjectFreeDrivingLocationToRoadGraph(displayLocation, projected))
+          displayLocation = projected;
+      });
+}
+}  // namespace
+
 extern "C"
 {
 // static void nativeSetSettingsDir(String settingsPath);
@@ -13,7 +57,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_OrganicMaps_nativeSetSettingsDir(JNIEnv 
   android::Platform::Instance().SetSettingsDir(jni::ToNativeString(env, settingsPath));
 }
 
-// static void nativeInitPlatform(Context context, String apkPath, String storagePath, String privatePath, String
+// static void nativeInitPlatform(Context context, String apkPath, String storagePath, String privatePath,
 // tmpPath, String flavorName, String buildType, boolean isTablet);
 JNIEXPORT void Java_app_organicmaps_sdk_OrganicMaps_nativeInitPlatform(JNIEnv * env, jclass clazz, jobject context,
                                                                        jstring apkPath, jstring writablePath,
@@ -36,6 +80,7 @@ JNIEXPORT void Java_app_organicmaps_sdk_OrganicMaps_nativeInitFramework(JNIEnv *
       jmethodID const methodId = jni::GetMethodID(env, *onComplete, "run", "()V");
       env->CallVoidMethod(*onComplete, methodId);
     }));
+    ConfigureInCarFreeDrivingRoadSnap();
   }
 }
 
