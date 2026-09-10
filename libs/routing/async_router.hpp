@@ -64,9 +64,21 @@ public:
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                    EdgeProj & proj);
+
   void FindClosestProjectionsToRoad(m2::PointD const & point, double radius, size_t maxCount,
-                                    std::vector<EdgeProj> & projections);
-  bool AreRoadEdgesConnected(Edge const & from, Edge const & to);
+                                    std::vector<EdgeProj> & projections)
+  {
+    std::lock_guard lock(m_guard);
+    projections.clear();
+    if (m_router)
+      m_router->FindClosestProjectionsToRoad(point, radius, maxCount, projections);
+  }
+
+  bool AreRoadEdgesConnected(Edge const & from, Edge const & to)
+  {
+    std::lock_guard lock(m_guard);
+    return m_router && m_router->AreRoadEdgesConnected(from, to);
+  }
 
 private:
   /// Worker thread function
