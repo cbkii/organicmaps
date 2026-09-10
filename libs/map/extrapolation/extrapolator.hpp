@@ -33,6 +33,8 @@ class Extrapolator
 
 public:
   using ExtrapolatedLocationUpdateFn = std::function<void(location::GpsInfo const &)>;
+  using RealLocationObserverFn = std::function<void(location::GpsInfo const &)>;
+  using DisplayLocationTransformFn = std::function<void(location::GpsInfo &)>;
 
   // |kMaxExtrapolationTimeMs| is time in milliseconds showing how long location will be
   // extrapolated after last location gotten from GPS.
@@ -43,6 +45,13 @@ public:
   // Then X + 2 * kExtrapolationPeriodMs and so on till
   // X + n * kExtrapolationPeriodMs <= kMaxExtrapolationTimeMs.
   static uint64_t constexpr kExtrapolationPeriodMs = 200;
+
+  /// Installs optional process-level hooks for the single active map framework. The real-location
+  /// observer is called exactly once per provider fix on the gui thread. The display transform sees
+  /// only the copy about to be rendered and may not mutate raw provider state. Empty callbacks
+  /// restore the normal extrapolator path.
+  static void SetLocationHooks(RealLocationObserverFn observer, DisplayLocationTransformFn transform);
+  static void ClearLocationHooks();
 
   /// \param update is a function which is called with params according to extrapolated position.
   /// |update| will be called on gui thread.
@@ -67,12 +76,12 @@ private:
   location::GpsInfo m_lastGpsInfo;
   location::GpsInfo m_beforeLastGpsInfo;
   uint64_t m_consecutiveRuns = kExtrapolationCounterUndefined;
-  // Number of calls Extrapolator::OnLocationUpdate() method. This way |m_locationUpdateCounter|
-  // reflects generation of extrapolations. That mean the next gps location is
+  // Number of calls of Extrapolator::OnLocationUpdate(). |m_locationUpdateCounter|
+  // therefore reflects generations of extrapolations; the next provider location is
   // the next generation.
   uint64_t m_locationUpdateCounter = 0;
   // If |m_locationUpdateCounter| < |m_locationUpdateMinValid| when
-  // ExtrapolatedLocationUpdate() is called (on background thread)
+  // ExtrapolatedLocationUpdate() is called (on background thread),
   // ExtrapolatedLocationUpdate() cancels its execution.
   uint64_t m_locationUpdateMinValid = 0;
 };
