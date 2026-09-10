@@ -605,10 +605,10 @@ public final class InCarVisuals
     final int nativeWidth = mapView == null ? 0 : mapView.getLastAppliedSurfaceWidth();
     final int nativeHeight = mapView == null ? 0 : mapView.getLastAppliedSurfaceHeight();
 
-    return new WindowSnapshot(generation, width, height, widthDp, heightDp, profile, controlSizeTier, activity.getTaskId(),
-                              System.identityHashCode(activity), multiWindow, pictureInPicture, config.screenWidthDp,
-                              config.screenHeightDp, config.orientation, mapWidth, mapHeight, surfaceWidth,
-                              surfaceHeight, nativeWidth, nativeHeight);
+    return new WindowSnapshot(generation, width, height, widthDp, heightDp, profile, controlSizeTier,
+                              activity.getTaskId(), System.identityHashCode(activity), multiWindow, pictureInPicture,
+                              config.screenWidthDp, config.screenHeightDp, config.orientation, mapWidth, mapHeight,
+                              surfaceWidth, surfaceHeight, nativeWidth, nativeHeight);
   }
 
   private static void logSnapshot(@NonNull FragmentActivity activity, @NonNull TransitionReason reason,
@@ -821,20 +821,18 @@ public final class InCarVisuals
     if (root.findViewById(R.id.map_buttons_inner_right) == null)
       return;
 
-    final int buttonSize = selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_size,
-                                       R.dimen.in_car_map_button_size, R.dimen.in_car_compact_map_button_size,
-                                       R.dimen.in_car_extra_compact_map_button_size);
+    final int buttonSize =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_map_button_size,
+                    R.dimen.in_car_compact_map_button_size, R.dimen.in_car_extra_compact_map_button_size);
     final int iconSize = selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_icon_size,
                                      R.dimen.in_car_map_button_icon_size, R.dimen.in_car_compact_map_button_icon_size,
                                      R.dimen.in_car_extra_compact_map_button_icon_size);
-    final int zoomIconSize = selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_icon_size,
-                                         R.dimen.in_car_zoom_button_icon_size,
-                                         R.dimen.in_car_compact_zoom_button_icon_size,
-                                         R.dimen.in_car_extra_compact_zoom_button_icon_size);
-    final int minTouchTarget = selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_size,
-                                           R.dimen.in_car_button_min_touch_target,
-                                           R.dimen.in_car_compact_button_min_touch_target,
-                                           R.dimen.in_car_extra_compact_button_min_touch_target);
+    final int zoomIconSize = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.map_button_icon_size, R.dimen.in_car_zoom_button_icon_size,
+        R.dimen.in_car_compact_zoom_button_icon_size, R.dimen.in_car_extra_compact_zoom_button_icon_size);
+    final int minTouchTarget = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
+        R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
     for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
@@ -851,25 +849,25 @@ public final class InCarVisuals
     if (root == null)
       return;
 
-    final int actionButtonSize = selectDimen(
-        activity, enabled, controlSizeTier, R.dimen.routing_action_button_size, R.dimen.in_car_routing_action_button_size,
-        R.dimen.in_car_compact_routing_action_button_size, R.dimen.in_car_extra_compact_routing_action_button_size);
+    final int actionButtonSize =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_action_button_size,
+                    R.dimen.in_car_routing_action_button_size, R.dimen.in_car_compact_routing_action_button_size,
+                    R.dimen.in_car_extra_compact_routing_action_button_size);
     final int actionIconSize = selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_action_button_icon_size,
                                            R.dimen.in_car_routing_action_button_icon_size,
                                            R.dimen.in_car_compact_routing_action_button_icon_size,
                                            R.dimen.in_car_extra_compact_routing_action_button_icon_size);
-    final int minTouchTarget = selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_action_button_size,
-                                           R.dimen.in_car_button_min_touch_target,
-                                           R.dimen.in_car_compact_button_min_touch_target,
-                                           R.dimen.in_car_extra_compact_button_min_touch_target);
+    final int minTouchTarget = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.routing_action_button_size, R.dimen.in_car_button_min_touch_target,
+        R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
     for (int id : new int[] {R.id.routing_btn_search, R.id.routing_btn_bookmarks, R.id.btn__save})
       resizeFab(root.findViewById(id), actionButtonSize, actionIconSize, minTouchTarget);
 
-    final int routerHeight = selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_toolbar_cell_height,
-                                         R.dimen.in_car_routing_toolbar_cell_height,
-                                         R.dimen.in_car_compact_routing_toolbar_cell_height,
-                                         R.dimen.in_car_extra_compact_routing_toolbar_cell_height);
+    final int routerHeight =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_toolbar_cell_height,
+                    R.dimen.in_car_routing_toolbar_cell_height, R.dimen.in_car_compact_routing_toolbar_cell_height,
+                    R.dimen.in_car_extra_compact_routing_toolbar_cell_height);
     for (int id : new int[] {R.id.vehicle, R.id.pedestrian, R.id.transit, R.id.bicycle, R.id.ruler})
       setViewHeight(root.findViewById(id), routerHeight);
 
@@ -890,15 +888,14 @@ public final class InCarVisuals
     if (root == null)
       return;
 
-    final int contentHeight = selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_menu_content_height,
-                                          R.dimen.in_car_nav_menu_content_height,
-                                          R.dimen.in_car_compact_nav_menu_content_height,
-                                          R.dimen.in_car_extra_compact_nav_menu_content_height);
+    final int contentHeight = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.nav_menu_content_height, R.dimen.in_car_nav_menu_content_height,
+        R.dimen.in_car_compact_nav_menu_content_height, R.dimen.in_car_extra_compact_nav_menu_content_height);
     setViewHeight(root.findViewById(R.id.content_frame), contentHeight);
 
-    final int iconHeight = selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_icon_size,
-                                       R.dimen.in_car_nav_icon_size, R.dimen.in_car_compact_nav_icon_size,
-                                       R.dimen.in_car_extra_compact_nav_icon_size);
+    final int iconHeight =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_icon_size, R.dimen.in_car_nav_icon_size,
+                    R.dimen.in_car_compact_nav_icon_size, R.dimen.in_car_extra_compact_nav_icon_size);
     final ImageView tts = root.findViewById(R.id.tts_volume);
     final ImageView settings = root.findViewById(R.id.settings);
     setViewHeight(tts, iconHeight);
@@ -911,12 +908,12 @@ public final class InCarVisuals
     final Button stop = root.findViewById(R.id.stop);
     if (stop == null)
       return;
-    final int buttonHeight = selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_button_height,
-                                         R.dimen.in_car_nav_button_height, R.dimen.in_car_compact_nav_button_height,
-                                         R.dimen.in_car_extra_compact_nav_button_height);
-    final int stopMinWidth = selectDimen(activity, enabled, controlSizeTier, R.dimen.start_button_width,
-                                         R.dimen.in_car_nav_stop_min_width, R.dimen.in_car_compact_nav_stop_min_width,
-                                         R.dimen.in_car_extra_compact_nav_stop_min_width);
+    final int buttonHeight =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_button_height, R.dimen.in_car_nav_button_height,
+                    R.dimen.in_car_compact_nav_button_height, R.dimen.in_car_extra_compact_nav_button_height);
+    final int stopMinWidth =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.start_button_width, R.dimen.in_car_nav_stop_min_width,
+                    R.dimen.in_car_compact_nav_stop_min_width, R.dimen.in_car_extra_compact_nav_stop_min_width);
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
     stop.setMinWidth(stopMinWidth);
