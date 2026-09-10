@@ -5,7 +5,7 @@
 #include "editor/osm_auth.hpp"
 #include "editor/xml_feature.hpp"
 
-#include "opening_hours/opening_hours.hpp"
+#include "3party/opening_hours/opening_hours.hpp"
 
 #include "indexer/fake_feature_ids.hpp"
 #include "indexer/feature_decl.hpp"
@@ -532,7 +532,8 @@ EditableProperties Editor::GetEditableProperties(FeatureType & feature) const
       return {};
     }
 
-    auto const featureOpeningHours = originalObjectPtr->GetOpeningHours();
+    /// @todo Avoid temporary string when the retained opening-hours parser accepts string_view.
+    string const featureOpeningHours(originalObjectPtr->GetOpeningHours());
     // Keep the field editable when there is nothing to preserve (an empty
     // value does not parse) or when the value parses -- the advanced editor
     // then keeps the raw string. Drop it only for values we cannot read back.
