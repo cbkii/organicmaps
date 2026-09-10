@@ -100,9 +100,9 @@ inline double HeadingWeight(location::GpsInfo const & info)
 {
   if (!info.HasSpeed() || info.m_speed <= kDirectionUsefulMinSpeedMps)
     return 0.0;
-  return std::clamp((info.m_speed - kDirectionUsefulMinSpeedMps) /
-                        (kDirectionFullWeightSpeedMps - kDirectionUsefulMinSpeedMps),
-                    0.0, 1.0);
+  return std::clamp(
+      (info.m_speed - kDirectionUsefulMinSpeedMps) / (kDirectionFullWeightSpeedMps - kDirectionUsefulMinSpeedMps), 0.0,
+      1.0);
 }
 
 inline size_t DirectionProbeCount(location::GpsInfo const & info)
@@ -188,7 +188,6 @@ inline bool CanEnterParkingFree(location::GpsInfo const & info, AreaContext cons
 
 inline bool CanEnterOffRoadFree(AreaContext const & context, double evidenceSeconds, double evidenceDistanceM)
 {
-  return evidenceSeconds >= OffRoadReleaseTimeSeconds(context) &&
-         evidenceDistanceM >= OffRoadReleaseDistanceM(context);
+  return evidenceSeconds >= OffRoadReleaseTimeSeconds(context) && evidenceDistanceM >= OffRoadReleaseDistanceM(context);
 }
 }  // namespace routing::free_driving_snap
