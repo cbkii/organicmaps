@@ -7,6 +7,7 @@
 
 #include "kml/type_utils.hpp"
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <string>
@@ -15,7 +16,7 @@
 namespace routing
 {
 
-using CountryParentNameGetterFn = std::function<std::string(std::string const &)>;
+using CountryParentNameGetterFn = std::function<std::string(m2::PointD const &)>;
 
 // Guides with integer ids containing multiple tracks. One track consists of its points.
 using GuidesTracks = std::map<kml::MarkGroupId, std::vector<kml::TrackGeometry>>;
@@ -74,6 +75,29 @@ public:
 
   virtual bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                            EdgeProj & proj) = 0;
+
+  /// Returns up to |maxCount| nearby directed road projections for lightweight map matching.
+  /// Implementations that do not expose a road graph fall back to the single nearest projection.
+  virtual void FindClosestProjectionsToRoad(m2::PointD const & point, double radius, size_t maxCount,
+                                            std::vector<EdgeProj> & projections)
+  {
+    projections.clear();
+    if (maxCount == 0)
+      return;
+
+    EdgeProj projection;
+    if (FindClosestProjectionToRoad(point, m2::PointD::Zero(), radius, projection))
+      projections.push_back(projection);
+  }
+
+  /// Returns true only when |to| is a legal immediate outgoing graph continuation from |from|.
+  /// The default is deliberately conservative for routers without a queryable road graph.
+  virtual bool AreRoadEdgesConnected(Edge const & from, Edge const & to) const
+  {
+    static_cast<void>(from);
+    static_cast<void>(to);
+    return false;
+  }
 
   /// Swap the saved last-route state with the alternative's saved state. Called when the user
   /// picks an alternative variant so a subsequent AdjustRoute (off-route rebuild) adjusts to
