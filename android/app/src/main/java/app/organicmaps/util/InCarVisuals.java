@@ -965,11 +965,19 @@ public final class InCarVisuals
                                  @DimenRes int normal, @DimenRes int inCar, @DimenRes int inCarCompact,
                                  @DimenRes int inCarExtraCompact)
   {
-    if (controlSizeTier == ControlSizeTier.EXTRA_COMPACT)
-      return dimen(activity, inCarExtraCompact);
+    return dimen(activity, selectDimenRes(enabled, controlSizeTier, normal, inCar, inCarCompact, inCarExtraCompact));
+  }
+
+  @DimenRes
+  @VisibleForTesting
+  static int selectDimenRes(boolean enabled, @NonNull ControlSizeTier controlSizeTier, @DimenRes int normal,
+                            @DimenRes int inCar, @DimenRes int inCarCompact, @DimenRes int inCarExtraCompact)
+  {
     if (!enabled)
-      return dimen(activity, normal);
-    return dimen(activity, controlSizeTier == ControlSizeTier.COMPACT ? inCarCompact : inCar);
+      return normal;
+    if (controlSizeTier == ControlSizeTier.EXTRA_COMPACT)
+      return inCarExtraCompact;
+    return controlSizeTier == ControlSizeTier.COMPACT ? inCarCompact : inCar;
   }
 
   private static int dimen(@NonNull Activity activity, @DimenRes int resId)

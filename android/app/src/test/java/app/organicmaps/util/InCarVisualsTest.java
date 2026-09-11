@@ -70,6 +70,13 @@ public class InCarVisualsTest
   }
 
   @Test
+  public void disabledVisualsIgnoreExtraCompactTier()
+  {
+    assertEquals(100,
+                 InCarVisuals.selectDimenRes(false, InCarVisuals.ControlSizeTier.EXTRA_COMPACT, 100, 90, 80, 55));
+  }
+
+  @Test
   public void invalidBoundsAreUnknown()
   {
     assertNull(InCarVisuals.classifyWindow(0, 0));
