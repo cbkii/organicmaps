@@ -10,15 +10,16 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ui/incar-refine-quick-chrome
       - name: Apply opt-out fix and regression test
-        shell: python
+        shell: bash
         run: |
+          python3 - <<'PY'
           from pathlib import Path
 
           src = Path('android/app/src/main/java/app/organicmaps/util/InCarVisuals.java')
@@ -79,7 +80,9 @@ jobs:
           if text.count(marker) != 1:
             raise SystemExit('test insertion marker not found exactly once')
           test.write_text(text.replace(marker, addition + marker))
+          PY
       - name: Commit and push
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
