@@ -115,9 +115,8 @@ MatcherDecision FreeDrivingRoadMatcher::Update(MatcherEvidence const & evidence,
 
   if (m_state == MatchState::ParkingFree || m_state == MatchState::OffRoadFree)
   {
-    if (!evidence.m_allowFreeStateRoadReacquire || !evidence.m_bestAcceptable ||
-        !evidence.m_bestUnambiguous || evidence.m_accuracy == AccuracyBand::Poor ||
-        evidence.m_accuracy == AccuracyBand::Unusable)
+    if (!evidence.m_allowFreeStateRoadReacquire || !evidence.m_bestAcceptable || !evidence.m_bestUnambiguous ||
+        evidence.m_accuracy == AccuracyBand::Poor || evidence.m_accuracy == AccuracyBand::Unusable)
     {
       ClearPending();
       return {MatcherAction::None, m_state, false};
@@ -170,13 +169,14 @@ MatcherDecision FreeDrivingRoadMatcher::Update(MatcherEvidence const & evidence,
   if (evidence.m_relation == RoadRelation::Connected)
   {
     ClearPending();
-    return {evidence.m_motionEstablished ? MatcherAction::UseBestRoad : MatcherAction::HoldCurrentRoad, m_state,
-            false};
+    bool const decisiveTurn = evidence.m_motionEstablished && evidence.m_bestUnambiguous &&
+                              evidence.m_accuracy != AccuracyBand::Poor && evidence.m_accuracy != AccuracyBand::Unusable;
+    return {decisiveTurn ? MatcherAction::UseBestRoad : MatcherAction::HoldCurrentRoad, m_state, false};
   }
 
   if (evidence.m_relation == RoadRelation::ReverseSameRoad)
   {
-    if (!evidence.m_motionEstablished || evidence.m_accuracy == AccuracyBand::Poor ||
+    if (!evidence.m_motionEstablished || !evidence.m_bestUnambiguous || evidence.m_accuracy == AccuracyBand::Poor ||
         evidence.m_accuracy == AccuracyBand::Unusable)
     {
       ClearPending();
