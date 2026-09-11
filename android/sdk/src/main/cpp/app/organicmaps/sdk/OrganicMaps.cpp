@@ -23,15 +23,22 @@ void ConfigureInCarFreeDrivingRoadSnap()
   { return routing::free_driving_snap::ReadAreaContext(*dataSource, point); });
   routingSession.SetFreeDrivingRoadSnapEnabled(true);
 
+  // Reconfiguration is idempotent for the process-level singleton. A future framework teardown
+  // path must likewise clear these hooks before invalidating g_framework.
+  extrapolation::Extrapolator::ClearLocationHooks();
   extrapolation::Extrapolator::SetLocationHooks(
       [](location::GpsInfo const & rawLocation)
   {
     if (!g_framework)
       return;
     auto & manager = g_framework->NativeFramework()->GetRoutingManager();
+    auto & session = manager.RoutingSession();
     if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
+    {
+      session.ResetFreeDrivingRoadGraphMatch();
       return;
-    manager.RoutingSession().ObserveFreeDrivingLocation(rawLocation);
+    }
+    session.ObserveFreeDrivingLocation(rawLocation);
   }, [](location::GpsInfo & displayLocation)
   {
     if (!g_framework)
