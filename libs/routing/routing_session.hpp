@@ -2,6 +2,7 @@
 
 #include "routing/async_router.hpp"
 #include "routing/following_info.hpp"
+#include "routing/free_driving_road_matcher.hpp"
 #include "routing/free_driving_road_snap_policy.hpp"
 #include "routing/position_accumulator.hpp"
 #include "routing/route.hpp"
@@ -26,6 +27,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace location
 {
@@ -159,7 +161,7 @@ public:
   void SetOnNewTurnCallback(OnNewTurn const & onNewTurn);
 
   void SetSpeedCamShowCallback(SpeedCameraShowCallback && callback);
-  void SetSpeedCamClearCallback(SpeedCameraClearCallback && callback);
+  void SetSpeedCamClearCallback(SpeedCamClearCallback && callback);
 
   // Sound turn notification parameters.
   NotificationEvent GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets,
@@ -253,23 +255,22 @@ private:
   PositionAccumulator m_freeDrivingPositionAccumulator;
   bool m_freeDrivingRoadSnapEnabled = false;
   FreeDrivingAreaContextProvider m_freeDrivingAreaContextProvider;
-  free_driving_snap::MatchState m_freeDrivingMatchState = free_driving_snap::MatchState::Unsnapped;
+  free_driving_snap::FreeDrivingRoadMatcher m_freeDrivingRoadMatcher;
   EdgeProj m_freeDrivingProjection;
   bool m_freeDrivingProjectionSeeded = false;
-  EdgeProj m_freeDrivingPendingProjection;
-  bool m_freeDrivingPendingProjectionSeeded = false;
-  size_t m_freeDrivingPendingObservationCount = 0;
+  std::vector<Edge> m_freeDrivingDisplayCorridor;
   m2::PointD m_freeDrivingLastRawPoint;
   bool m_freeDrivingHasLastRawPoint = false;
   double m_freeDrivingLastObservationTimestamp = 0.0;
+  m2::PointD m_freeDrivingLastAcceptedRawPoint;
+  bool m_freeDrivingHasLastAcceptedRawPoint = false;
+  double m_freeDrivingLastAcceptedRoadTimestamp = 0.0;
   free_driving_snap::AreaContext m_freeDrivingAreaContext;
   m2::PointD m_freeDrivingAreaContextPoint;
   bool m_freeDrivingHasAreaContextPoint = false;
   double m_freeDrivingAreaContextTimestamp = 0.0;
-  double m_freeDrivingParkingEvidenceSeconds = 0.0;
-  double m_freeDrivingOffRoadEvidenceSeconds = 0.0;
-  double m_freeDrivingOffRoadEvidenceDistanceM = 0.0;
-  size_t m_freeDrivingReacquireObservationCount = 0;
+  bool m_freeDrivingPersistenceLoaded = false;
+  double m_freeDrivingLastPersistenceTimestamp = 0.0;
 
   ReadyCallback m_buildReadyCallback;
   ReadyCallback m_rebuildReadyCallback;
