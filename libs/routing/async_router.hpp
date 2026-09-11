@@ -74,6 +74,23 @@ public:
       m_router->FindClosestProjectionsToRoad(point, radius, maxCount, projections);
   }
 
+  void FindFreeDrivingRoadCorridor(EdgeProj const & from, m2::PointD const & point, double maxDistanceM,
+                                   size_t maxEdges, size_t maxHops,
+                                   std::vector<FreeDrivingCorridorProjection> & projections)
+  {
+    std::lock_guard lock(m_guard);
+    projections.clear();
+    if (m_router)
+      m_router->FindFreeDrivingRoadCorridor(from, point, maxDistanceM, maxEdges, maxHops, projections);
+  }
+
+  bool GetFreeDrivingRoadMetadata(Edge const & edge, free_driving_snap::RoadMetadata & metadata)
+  {
+    std::lock_guard lock(m_guard);
+    metadata = {};
+    return m_router && m_router->GetFreeDrivingRoadMetadata(edge, metadata);
+  }
+
   bool AreRoadEdgesConnected(Edge const & from, Edge const & to)
   {
     std::lock_guard lock(m_guard);
