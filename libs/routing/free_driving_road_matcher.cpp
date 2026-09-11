@@ -97,6 +97,36 @@ MatcherDecision FreeDrivingRoadMatcher::Update(MatcherEvidence const & evidence,
     m_offRoadEvidenceDistanceM = 0.0;
   }
 
+  if (m_state == MatchState::ParkingFree || m_state == MatchState::OffRoadFree)
+  {
+    if (evidence.m_allowFreeStateRoadReacquire && evidence.m_bestAcceptable && evidence.m_bestUnambiguous &&
+        evidence.m_accuracy != AccuracyBand::Poor && evidence.m_accuracy != AccuracyBand::Unusable)
+    {
+      if (AdvancePending(evidence.m_candidateToken, RequiredPersistentObservations(evidence.m_accuracy)))
+      {
+        m_parkingEvidenceSeconds = 0.0;
+        m_offRoadEvidenceSeconds = 0.0;
+        m_offRoadEvidenceDistanceM = 0.0;
+        return SetState(MatchState::Road, MatcherAction::UseBestRoad);
+      }
+      return {MatcherAction::None, m_state, false};
+    }
+
+    ClearPending();
+    if (m_state == MatchState::OffRoadFree && evidence.m_parkingReleaseEligible &&
+        m_parkingEvidenceSeconds >= ParkingReleaseTimeSeconds(context, HasRecentParkingEntranceHint()))
+    {
+      return SetState(MatchState::ParkingFree, MatcherAction::EnterParkingFree);
+    }
+    if (m_state == MatchState::ParkingFree && evidence.m_offRoadEvidence &&
+        m_offRoadEvidenceSeconds >= OffRoadReleaseTimeSeconds(context, evidence.m_weakRoadMatch) &&
+        m_offRoadEvidenceDistanceM >= OffRoadReleaseDistanceM(context, evidence.m_weakRoadMatch))
+    {
+      return SetState(MatchState::OffRoadFree, MatcherAction::EnterOffRoadFree);
+    }
+    return {MatcherAction::None, m_state, false};
+  }
+
   if (evidence.m_parkingReleaseEligible &&
       m_parkingEvidenceSeconds >= ParkingReleaseTimeSeconds(context, HasRecentParkingEntranceHint()))
   {
@@ -111,20 +141,6 @@ MatcherDecision FreeDrivingRoadMatcher::Update(MatcherEvidence const & evidence,
   {
     m_parkingEvidenceSeconds = 0.0;
     return SetState(MatchState::OffRoadFree, MatcherAction::EnterOffRoadFree);
-  }
-
-  if (m_state == MatchState::ParkingFree || m_state == MatchState::OffRoadFree)
-  {
-    if (!evidence.m_allowFreeStateRoadReacquire || !evidence.m_bestAcceptable || !evidence.m_bestUnambiguous ||
-        evidence.m_accuracy == AccuracyBand::Poor || evidence.m_accuracy == AccuracyBand::Unusable)
-    {
-      ClearPending();
-      return {MatcherAction::None, m_state, false};
-    }
-
-    if (AdvancePending(evidence.m_candidateToken, RequiredPersistentObservations(evidence.m_accuracy)))
-      return SetState(MatchState::Road, MatcherAction::UseBestRoad);
-    return {MatcherAction::None, m_state, false};
   }
 
   if (m_state == MatchState::Unsnapped)
