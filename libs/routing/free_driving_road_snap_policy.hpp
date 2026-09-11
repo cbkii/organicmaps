@@ -5,6 +5,7 @@
 #include "geometry/point2d.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <vector>
