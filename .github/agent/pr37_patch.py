@@ -2,38 +2,34 @@ from pathlib import Path
 
 src = Path('android/app/src/main/java/app/organicmaps/util/InCarVisuals.java')
 text = src.read_text()
-old = """  @DimenRes
-  private static int selectDimen(@NonNull final Activity activity, final boolean enabled,
-                                 @NonNull final ControlSizeTier tier,
-                                 @DimenRes final int normalRes,
-                                 @DimenRes final int compactRes,
-                                 @DimenRes final int extraCompactRes)
+old = """  private static int selectDimen(@NonNull Activity activity, boolean enabled, @NonNull ControlSizeTier controlSizeTier,
+                                 @DimenRes int normal, @DimenRes int inCar, @DimenRes int inCarCompact,
+                                 @DimenRes int inCarExtraCompact)
   {
-    if (tier == ControlSizeTier.EXTRA_COMPACT)
-      return extraCompactRes;
-    return select(enabled, normalRes, compactRes);
+    if (controlSizeTier == ControlSizeTier.EXTRA_COMPACT)
+      return dimen(activity, inCarExtraCompact);
+    if (!enabled)
+      return dimen(activity, normal);
+    return dimen(activity, controlSizeTier == ControlSizeTier.COMPACT ? inCarCompact : inCar);
   }
 """
-new = """  @DimenRes
-  private static int selectDimen(@NonNull final Activity activity, final boolean enabled,
-                                 @NonNull final ControlSizeTier tier,
-                                 @DimenRes final int normalRes,
-                                 @DimenRes final int compactRes,
-                                 @DimenRes final int extraCompactRes)
+new = """  private static int selectDimen(@NonNull Activity activity, boolean enabled, @NonNull ControlSizeTier controlSizeTier,
+                                 @DimenRes int normal, @DimenRes int inCar, @DimenRes int inCarCompact,
+                                 @DimenRes int inCarExtraCompact)
   {
-    return selectDimen(enabled, tier, normalRes, compactRes, extraCompactRes);
+    return dimen(activity, selectDimenRes(enabled, controlSizeTier, normal, inCar, inCarCompact, inCarExtraCompact));
   }
 
   @DimenRes
-  static int selectDimen(final boolean enabled, @NonNull final ControlSizeTier tier,
-                         @DimenRes final int normalRes, @DimenRes final int compactRes,
-                         @DimenRes final int extraCompactRes)
+  @VisibleForTesting
+  static int selectDimenRes(boolean enabled, @NonNull ControlSizeTier controlSizeTier, @DimenRes int normal,
+                            @DimenRes int inCar, @DimenRes int inCarCompact, @DimenRes int inCarExtraCompact)
   {
     if (!enabled)
-      return normalRes;
-    if (tier == ControlSizeTier.EXTRA_COMPACT)
-      return extraCompactRes;
-    return compactRes;
+      return normal;
+    if (controlSizeTier == ControlSizeTier.EXTRA_COMPACT)
+      return inCarExtraCompact;
+    return controlSizeTier == ControlSizeTier.COMPACT ? inCarCompact : inCar;
   }
 """
 if text.count(old) != 1:
@@ -49,7 +45,7 @@ addition = """  @Test
   public void disabledVisualsIgnoreExtraCompactTier()
   {
     assertEquals(100,
-                 InCarVisuals.selectDimen(false, InCarVisuals.ControlSizeTier.EXTRA_COMPACT, 100, 80, 55));
+                 InCarVisuals.selectDimenRes(false, InCarVisuals.ControlSizeTier.EXTRA_COMPACT, 100, 90, 80, 55));
   }
 
 """
