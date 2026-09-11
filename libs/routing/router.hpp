@@ -1,6 +1,7 @@
 #pragma once
 
 #include "routing/checkpoints.hpp"
+#include "routing/free_driving_road_snap_policy.hpp"
 #include "routing/road_graph.hpp"
 #include "routing/router_delegate.hpp"
 #include "routing/routing_callbacks.hpp"
@@ -16,7 +17,7 @@
 namespace routing
 {
 
-using CountryParentNameGetterFn = std::function<std::string(std::string const &)>;
+using CountryParentNameGetterFn = std::function<std::string(m2::PointD const &)>;
 
 // Guides with integer ids containing multiple tracks. One track consists of its points.
 using GuidesTracks = std::map<kml::MarkGroupId, std::vector<kml::TrackGeometry>>;
@@ -27,6 +28,13 @@ struct EdgeProj
 {
   Edge m_edge;
   m2::PointD m_point;
+};
+
+struct FreeDrivingCorridorProjection
+{
+  EdgeProj m_projection;
+  double m_pathDistanceM = 0.0;
+  size_t m_hops = 0;
 };
 
 /// Routing engine type.
@@ -76,8 +84,8 @@ public:
   virtual bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                            EdgeProj & proj) = 0;
 
-  /// Returns up to |maxCount| nearby directed road projections for lightweight map matching.
-  /// Implementations that do not expose a road graph fall back to the single nearest projection.
+  /// Returns nearby directed projections from at most |maxCount| physical road segments.
+  /// Implementations without a queryable graph fall back to one nearest projection.
   virtual void FindClosestProjectionsToRoad(m2::PointD const & point, double radius, size_t maxCount,
                                             std::vector<EdgeProj> & projections)
   {
@@ -90,8 +98,31 @@ public:
       projections.push_back(projection);
   }
 
-  /// Returns true only when |to| is a legal immediate outgoing graph continuation from |from|.
-  /// The default is deliberately conservative for routers without a queryable road graph.
+  /// Builds a bounded local forward corridor from an already accepted projection. The returned
+  /// path distances are along the explored graph, not straight-line chords. This is intentionally
+  /// local and must not invoke route/A* calculation.
+  virtual void FindFreeDrivingRoadCorridor(EdgeProj const & from, m2::PointD const & point, double maxDistanceM,
+                                           size_t maxEdges, size_t maxHops,
+                                           std::vector<FreeDrivingCorridorProjection> & projections) const
+  {
+    static_cast<void>(from);
+    static_cast<void>(point);
+    static_cast<void>(maxDistanceM);
+    static_cast<void>(maxEdges);
+    static_cast<void>(maxHops);
+    projections.clear();
+  }
+
+  /// Returns lightweight, map-derived metadata for ambiguity scoring. False means metadata is
+  /// unavailable and callers must treat the road as unknown rather than rejecting it.
+  virtual bool GetFreeDrivingRoadMetadata(Edge const & edge, free_driving_snap::RoadMetadata & metadata) const
+  {
+    static_cast<void>(edge);
+    metadata = {};
+    return false;
+  }
+
+  /// Returns true only when |to| is an immediate outgoing graph continuation from |from|.
   virtual bool AreRoadEdgesConnected(Edge const & from, Edge const & to) const
   {
     static_cast<void>(from);
