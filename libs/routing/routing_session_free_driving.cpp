@@ -167,7 +167,8 @@ void BoundCandidateSeeds(std::vector<CandidateSeed> & seeds, m2::PointD const & 
   // directed edge first, then retain the nearest remaining projections.  This is deliberately a
   // cheap geometric ordering: relation, metadata and progress scoring happen only for this bounded
   // set below.
-  std::stable_sort(seeds.begin(), seeds.end(), [rawPoint, stickyEdge](CandidateSeed const & lhs, CandidateSeed const & rhs)
+  std::stable_sort(seeds.begin(), seeds.end(),
+                   [rawPoint, stickyEdge](CandidateSeed const & lhs, CandidateSeed const & rhs)
   {
     bool const lhsSticky = stickyEdge != nullptr && SameDirectedEdge(lhs.m_projection.m_edge, *stickyEdge);
     bool const rhsSticky = stickyEdge != nullptr && SameDirectedEdge(rhs.m_projection.m_edge, *stickyEdge);
