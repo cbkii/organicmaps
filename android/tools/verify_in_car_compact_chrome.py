@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
+_FORBIDDEN_XML_DECLARATION = re.compile(rb"<!\s*(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
 
 
 class VerificationError(RuntimeError):
@@ -21,11 +23,22 @@ def read_text(path: Path) -> str:
         raise VerificationError(f"unable to read {path}: {exc}") from exc
 
 
-def resource_values(path: Path) -> dict[str, str]:
+def parse_xml(path: Path) -> ET.Element:
+    """Parse repository XML only after rejecting DTD/entity declarations."""
     try:
-        root = ET.parse(path).getroot()
-    except (OSError, ET.ParseError) as exc:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise VerificationError(f"unable to read {path}: {exc}") from exc
+    if _FORBIDDEN_XML_DECLARATION.search(raw):
+        raise VerificationError(f"{path}: DTD and entity declarations are not allowed")
+    try:
+        return ET.fromstring(raw)
+    except ET.ParseError as exc:
         raise VerificationError(f"unable to parse {path}: {exc}") from exc
+
+
+def resource_values(path: Path) -> dict[str, str]:
+    root = parse_xml(path)
     values: dict[str, str] = {}
     for child in root:
         name = child.attrib.get("name")
@@ -51,10 +64,7 @@ def reject_text(path: Path, text: str, description: str) -> None:
 
 
 def verify_map_selector(path: Path) -> None:
-    try:
-        root = ET.parse(path).getroot()
-    except (OSError, ET.ParseError) as exc:
-        raise VerificationError(f"unable to parse {path}: {exc}") from exc
+    root = parse_xml(path)
     items = list(root.findall("item"))
     if not items:
         raise VerificationError(f"{path}: selector contains no items")
