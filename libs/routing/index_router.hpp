@@ -86,6 +86,13 @@ public:
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                    EdgeProj & proj) override;
+  void FindClosestProjectionsToRoad(m2::PointD const & point, double radius, size_t maxCount,
+                                    std::vector<EdgeProj> & projections) override;
+  void FindFreeDrivingRoadCorridor(EdgeProj const & from, m2::PointD const & point, double maxDistanceM,
+                                   size_t maxEdges, size_t maxHops,
+                                   std::vector<FreeDrivingCorridorProjection> & projections) const override;
+  bool GetFreeDrivingRoadMetadata(Edge const & edge, free_driving_snap::RoadMetadata & metadata) const override;
+  bool AreRoadEdgesConnected(Edge const & from, Edge const & to) const override;
 
   void SwapAltRouteToActive() override;
 
@@ -133,6 +140,8 @@ private:
 
   RouterResultCode AdjustRoute(Checkpoints const & checkpoints, m2::PointD const & startDirection,
                                RouterDelegate const & delegate, Route & route);
+  RouterResultCode RedressRoute(std::vector<Segment> const & segments, base::Cancellable const & cancellable,
+                                IndexGraphStarter & starter, Route & route);
 
   std::unique_ptr<WorldGraph> MakeWorldGraph();
 
@@ -233,9 +242,6 @@ private:
   RouterResultCode ProcessLeapsJoints(std::vector<Segment> const & input, IndexGraphStarter & starter,
                                       std::shared_ptr<AStarProgress> const & progress, RoutesCalculator & calculator,
                                       RoutingResultT & result);
-
-  RouterResultCode RedressRoute(std::vector<Segment> const & segments, base::Cancellable const & cancellable,
-                                IndexGraphStarter & starter, Route & route);
 
   bool AreSpeedCamerasProhibited(NumMwmId mwmID) const;
   bool AreMwmsNear(IndexGraphStarter const & starter) const;

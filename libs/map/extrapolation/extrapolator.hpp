@@ -52,6 +52,7 @@ public:
   // extrapolated position.
 
   void Enable(bool enabled);
+  void Reset();
 
 private:
   /// \returns true if there's enough information for extrapolation and extrapolation is enabled.
@@ -67,12 +68,12 @@ private:
   location::GpsInfo m_lastGpsInfo;
   location::GpsInfo m_beforeLastGpsInfo;
   uint64_t m_consecutiveRuns = kExtrapolationCounterUndefined;
-  // Number of calls Extrapolator::OnLocationUpdate() method. This way |m_locationUpdateCounter|
-  // reflects generation of extrapolations. That mean the next gps location is
+  // Number of calls of Extrapolator::OnLocationUpdate(). |m_locationUpdateCounter|
+  // therefore reflects generations of extrapolations; the next provider location is
   // the next generation.
   uint64_t m_locationUpdateCounter = 0;
   // If |m_locationUpdateCounter| < |m_locationUpdateMinValid| when
-  // ExtrapolatedLocationUpdate() is called (on background thread)
+  // ExtrapolatedLocationUpdate() is called (on background thread),
   // ExtrapolatedLocationUpdate() cancels its execution.
   uint64_t m_locationUpdateMinValid = 0;
 };

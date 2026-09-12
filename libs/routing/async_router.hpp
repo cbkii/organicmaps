@@ -10,10 +10,12 @@
 #include "base/thread.hpp"
 
 #include <condition_variable>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace routing
 {
@@ -62,6 +64,38 @@ public:
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
                                    EdgeProj & proj);
+
+  void FindClosestProjectionsToRoad(m2::PointD const & point, double radius, size_t maxCount,
+                                    std::vector<EdgeProj> & projections)
+  {
+    std::lock_guard lock(m_guard);
+    projections.clear();
+    if (m_router)
+      m_router->FindClosestProjectionsToRoad(point, radius, maxCount, projections);
+  }
+
+  void FindFreeDrivingRoadCorridor(EdgeProj const & from, m2::PointD const & point, double maxDistanceM,
+                                   size_t maxEdges, size_t maxHops,
+                                   std::vector<FreeDrivingCorridorProjection> & projections)
+  {
+    std::lock_guard lock(m_guard);
+    projections.clear();
+    if (m_router)
+      m_router->FindFreeDrivingRoadCorridor(from, point, maxDistanceM, maxEdges, maxHops, projections);
+  }
+
+  bool GetFreeDrivingRoadMetadata(Edge const & edge, free_driving_snap::RoadMetadata & metadata)
+  {
+    std::lock_guard lock(m_guard);
+    metadata = {};
+    return m_router && m_router->GetFreeDrivingRoadMetadata(edge, metadata);
+  }
+
+  bool AreRoadEdgesConnected(Edge const & from, Edge const & to)
+  {
+    std::lock_guard lock(m_guard);
+    return m_router && m_router->AreRoadEdgesConnected(from, to);
+  }
 
 private:
   /// Worker thread function

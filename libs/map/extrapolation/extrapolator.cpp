@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <memory>
+#include <utility>
 
 namespace
 {
@@ -137,6 +138,15 @@ void Extrapolator::OnLocationUpdate(location::GpsInfo const & gpsInfo)
   RunTaskOnBackgroundThread(false /* delayed */);
 }
 
+void Extrapolator::Reset()
+{
+  std::lock_guard<std::mutex> guard(m_mutex);
+  m_lastGpsInfo = {};
+  m_beforeLastGpsInfo = {};
+  m_consecutiveRuns = kExtrapolationCounterUndefined;
+  m_locationUpdateMinValid = ++m_locationUpdateCounter;
+}
+
 void Extrapolator::Enable(bool enabled)
 {
   std::lock_guard<std::mutex> guard(m_mutex);
@@ -163,7 +173,17 @@ void Extrapolator::ExtrapolatedLocationUpdate(uint64_t locationUpdateCounter)
   }
 
   if (gpsInfo.IsValid())
-    GetPlatform().RunTask(Platform::Thread::Gui, [this, gpsInfo]() { m_extrapolatedLocationUpdate(gpsInfo); });
+  {
+    GetPlatform().RunTask(Platform::Thread::Gui, [this, gpsInfo, locationUpdateCounter]()
+    {
+      {
+        std::lock_guard<std::mutex> guard(m_mutex);
+        if (locationUpdateCounter < m_locationUpdateMinValid)
+          return;
+      }
+      m_extrapolatedLocationUpdate(gpsInfo);
+    });
+  }
 
   {
     std::lock_guard<std::mutex> guard(m_mutex);

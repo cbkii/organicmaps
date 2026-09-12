@@ -200,6 +200,7 @@ std::pair<MwmSet::MwmId, MwmSet::RegResult> Framework::RegisterMap(LocalCountryF
 
 void Framework::OnLocationError(TLocationError /*error*/)
 {
+  m_routingManager.ResetFreeDrivingLocationSession();
   m_trafficManager.UpdateMyPosition(TrafficManager::MyPosition());
   if (m_drapeEngine != nullptr)
     m_drapeEngine->LoseLocation();

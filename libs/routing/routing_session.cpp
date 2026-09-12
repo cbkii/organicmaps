@@ -239,6 +239,7 @@ void RoutingSession::Reset()
   CHECK_THREAD_CHECKER(m_threadChecker, ());
   ASSERT(m_router != nullptr, ());
 
+  ResetFreeDrivingRoadGraphMatch();
   RemoveRoute();
   SetState(SessionState::NoValidRoute);
   m_router->ClearState();
@@ -255,6 +256,8 @@ void RoutingSession::Reset()
 void RoutingSession::SetState(SessionState state)
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
+  if (m_state != state)
+    ResetFreeDrivingRoadGraphMatch();
   if (m_changeSessionStateCallback && m_state != state)
     m_changeSessionStateCallback(m_state, state);
 

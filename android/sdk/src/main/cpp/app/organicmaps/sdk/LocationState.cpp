@@ -114,6 +114,13 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeOnLocationE
   g_framework->OnLocationError(errorCode);
 }
 
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeResetFreeDrivingSession(JNIEnv *, jclass)
+{
+  // Provider teardown can precede framework creation. This bridge must fail open.
+  if (g_framework)
+    g_framework->NativeFramework()->GetRoutingManager().ResetFreeDrivingLocationSession();
+}
+
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpdated(JNIEnv * env, jclass clazz,
                                                                                      jlong time, jdouble lat,
                                                                                      jdouble lon, jfloat accuracyH,

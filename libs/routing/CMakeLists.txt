@@ -61,6 +61,8 @@ set(SRC
   features_road_graph.cpp
   features_road_graph.hpp
   following_info.hpp
+  free_driving_road_matcher.cpp
+  free_driving_road_matcher.hpp
   free_driving_road_snap_policy.hpp
   gate_access.hpp
   geometry.cpp
@@ -82,6 +84,7 @@ set(SRC
   index_road_graph.hpp
   index_router.cpp
   index_router.hpp
+  index_router_free_driving.cpp
   joint.cpp
   joint.hpp
   joint_index.cpp
