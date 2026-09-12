@@ -43,6 +43,12 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_SearchRadiusDoesNotExcludeRecoveryRoads)
   TEST_ALMOST_EQUAL_ULPS(SearchRadiusM(MakeFix(10.0, 50.0, 1.0)), 50.0, ());
 }
 
+UNIT_TEST(FreeDrivingRoadSnapPolicy_UsesBoundedEffectiveCandidateBudgets)
+{
+  TEST_EQUAL(kNormalSpatialRoadCount, 6, ());
+  TEST_EQUAL(kRecoverySpatialRoadCount, 8, ());
+}
+
 UNIT_TEST(FreeDrivingRoadSnapPolicy_ModerateAccuracyRequiresMoreAmbiguityMargin)
 {
   TEST_LESS(RequiredRunnerUpMargin(AccuracyBand::Good), RequiredRunnerUpMargin(AccuracyBand::Moderate), ());

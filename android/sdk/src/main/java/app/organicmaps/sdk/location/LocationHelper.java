@@ -268,6 +268,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     // Try to downgrade to the native provider first and restart the service before notifying the user.
     Logger.d(TAG, "provider = " + mLocationProvider.getClass().getSimpleName() + " is not supported,"
                       + " downgrading to use native provider");
+    if (mInCar)
+      LocationState.nativeResetFreeDrivingSession();
     mLocationProvider.stop();
     mLocationProvider = new AndroidNativeProvider(mContext, this);
     mActive = true;
@@ -280,6 +282,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
   {
     Logger.i(TAG);
     mOldLocationProvider = mLocationProvider;
+    if (mInCar)
+      LocationState.nativeResetFreeDrivingSession();
     mLocationProvider.stop();
     mLocationProvider = new RouteSimulationProvider(mContext, this, points);
     mActive = true;
@@ -290,6 +294,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
   public void stopNavigationSimulation()
   {
     Logger.i(TAG);
+    if (mInCar)
+      LocationState.nativeResetFreeDrivingSession();
     mLocationProvider.stop();
     if (mOldLocationProvider == null)
       throw new IllegalStateException("Should be called only after startNavigationSimulation()");
@@ -419,6 +425,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     }
 
     Logger.i(TAG);
+    if (mInCar)
+      LocationState.nativeResetFreeDrivingSession();
     mLocationProvider.stop();
     unsubscribeFromGnssStatusUpdates();
     mSensorHelper.stop();

@@ -4,8 +4,6 @@
 
 #include "app/organicmaps/sdk/core/jni_helper.hpp"
 
-#include "map/extrapolation/extrapolator.hpp"
-
 #include "routing/free_driving_area_context.hpp"
 
 namespace
@@ -22,35 +20,6 @@ void ConfigureInCarFreeDrivingRoadSnap()
   routingSession.SetFreeDrivingAreaContextProvider([dataSource](m2::PointD const & point)
   { return routing::free_driving_snap::ReadAreaContext(*dataSource, point); });
   routingSession.SetFreeDrivingRoadSnapEnabled(true);
-
-  // Reconfiguration is idempotent for the process-level singleton. A future framework teardown
-  // path must likewise clear these hooks before invalidating g_framework.
-  extrapolation::Extrapolator::ClearLocationHooks();
-  extrapolation::Extrapolator::SetLocationHooks(
-      [](location::GpsInfo const & rawLocation)
-  {
-    if (!g_framework)
-      return;
-    auto & manager = g_framework->NativeFramework()->GetRoutingManager();
-    auto & session = manager.RoutingSession();
-    if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
-    {
-      session.ResetFreeDrivingRoadGraphMatch();
-      return;
-    }
-    session.ObserveFreeDrivingLocation(rawLocation);
-  }, [](location::GpsInfo & displayLocation)
-  {
-    if (!g_framework)
-      return;
-    auto & manager = g_framework->NativeFramework()->GetRoutingManager();
-    if (manager.GetRouter() != routing::RouterType::Vehicle || manager.IsRoutingActive())
-      return;
-
-    location::GpsInfo projected;
-    if (manager.RoutingSession().ProjectFreeDrivingLocationToRoadGraph(displayLocation, projected))
-      displayLocation = projected;
-  });
 }
 }  // namespace
 

@@ -33,8 +33,6 @@ class Extrapolator
 
 public:
   using ExtrapolatedLocationUpdateFn = std::function<void(location::GpsInfo const &)>;
-  using RealLocationObserverFn = std::function<void(location::GpsInfo const &)>;
-  using DisplayLocationTransformFn = std::function<void(location::GpsInfo &)>;
 
   // |kMaxExtrapolationTimeMs| is time in milliseconds showing how long location will be
   // extrapolated after last location gotten from GPS.
@@ -46,13 +44,6 @@ public:
   // X + n * kExtrapolationPeriodMs <= kMaxExtrapolationTimeMs.
   static uint64_t constexpr kExtrapolationPeriodMs = 200;
 
-  /// Installs optional process-level hooks for the single active map framework. The real-location
-  /// observer is called exactly once per provider fix on the gui thread. The display transform sees
-  /// only the copy about to be rendered and may not mutate raw provider state. Empty callbacks
-  /// restore the normal extrapolator path.
-  static void SetLocationHooks(RealLocationObserverFn observer, DisplayLocationTransformFn transform);
-  static void ClearLocationHooks();
-
   /// \param update is a function which is called with params according to extrapolated position.
   /// |update| will be called on gui thread.
   explicit Extrapolator(ExtrapolatedLocationUpdateFn const & update);
@@ -61,6 +52,7 @@ public:
   // extrapolated position.
 
   void Enable(bool enabled);
+  void Reset();
 
 private:
   /// \returns true if there's enough information for extrapolation and extrapolation is enabled.

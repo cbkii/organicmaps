@@ -481,7 +481,21 @@ void RoutingManager::OnRoutePointPassed(RouteMarkType type, size_t intermediateI
 
 void RoutingManager::OnLocationUpdate(location::GpsInfo const & info)
 {
+  // Observe once on the provider entry point; display ticks never enter this path.
+  if (m_currentRouterType == RouterType::Vehicle)
+    m_routingSession.ObserveFreeDrivingLocation(info);
+  else
+    m_routingSession.ResetFreeDrivingRoadGraphMatch();
   m_extrapolator.OnLocationUpdate(info);
+}
+
+void RoutingManager::ResetFreeDrivingLocationSession()
+{
+  if (!m_routingSession.IsFreeDrivingRoadSnapEnabled())
+    return;
+  m_routingSession.ResetFreeDrivingRoadGraphMatch();
+  m_extrapolator.Reset();
+  m_gpsInfoCache.reset();
 }
 
 RouterType RoutingManager::GetBestRouter(m2::PointD const & startPoint, m2::PointD const & finalPoint) const
@@ -518,6 +532,12 @@ void RoutingManager::Init(std::shared_ptr<routing::NumMwmIds> ptr)
 
 void RoutingManager::SetRouterImpl(RouterType type)
 {
+  // Router/provider changes start a new display-matching session.  Clear both the matcher
+  // history and any pending synthetic tick before the new router becomes visible.
+  m_routingSession.ResetFreeDrivingRoadGraphMatch();
+  m_extrapolator.Reset();
+  m_gpsInfoCache.reset();
+
   VehicleType const vehicleType = GetVehicleType(type);
 
   m_loadAltitudes = vehicleType != VehicleType::Car;
@@ -921,6 +941,9 @@ void RoutingManager::FollowRoute()
   if (!m_routingSession.EnableFollowMode())
     return;
 
+  m_routingSession.ResetFreeDrivingRoadGraphMatch();
+  m_extrapolator.Reset();
+
   m_transitReadManager->BlockTransitSchemeMode(true /* isBlocked */);
 
   // Switching on the extrapolator only for following mode in car and bicycle navigation.
@@ -1001,6 +1024,9 @@ bool RoutingManager::TryTapOnAlternativeRoute(m2::PointD const & mercator, doubl
 void RoutingManager::CloseRouting(bool removeRoutePoints)
 {
   m_extrapolator.Enable(false);
+  m_routingSession.ResetFreeDrivingRoadGraphMatch();
+  m_extrapolator.Reset();
+  m_gpsInfoCache.reset();
   // Hide preview.
   HidePreviewSegments();
 
@@ -1434,9 +1460,7 @@ void RoutingManager::SetDrapeEngine(ref_ptr<df::DrapeEngine> engine, bool is3dAl
   // Apply gps info which was set before drape engine creation.
   if (m_gpsInfoCache != nullptr)
   {
-    auto routeMatchingInfo = GetRouteMatchingInfo(*m_gpsInfoCache);
-    m_drapeEngine.SafeCall(&df::DrapeEngine::SetGpsInfo, *m_gpsInfoCache, m_routingSession.IsNavigable(),
-                           routeMatchingInfo);
+    OnExtrapolatedLocationUpdate(*m_gpsInfoCache);
     m_gpsInfoCache.reset();
   }
 
@@ -1716,6 +1740,12 @@ void RoutingManager::OnExtrapolatedLocationUpdate(location::GpsInfo const & info
     m_gpsInfoCache = std::make_unique<location::GpsInfo>(gpsInfo);
 
   auto routeMatchingInfo = GetRouteMatchingInfo(gpsInfo);
+  if (m_currentRouterType == RouterType::Vehicle && !IsRoutingActive())
+  {
+    location::GpsInfo projected;
+    if (m_routingSession.ProjectFreeDrivingLocationToRoadGraph(gpsInfo, projected))
+      gpsInfo = projected;
+  }
   m_drapeEngine.SafeCall(&df::DrapeEngine::SetGpsInfo, gpsInfo, m_routingSession.IsNavigable(), routeMatchingInfo);
 }
 

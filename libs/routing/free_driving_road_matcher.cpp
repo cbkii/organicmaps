@@ -186,7 +186,8 @@ MatcherDecision FreeDrivingRoadMatcher::Update(MatcherEvidence const & evidence,
   {
     ClearPending();
     bool const decisiveTurn = evidence.m_motionEstablished && evidence.m_bestUnambiguous &&
-                              evidence.m_accuracy != AccuracyBand::Poor && evidence.m_accuracy != AccuracyBand::Unusable;
+                              evidence.m_accuracy != AccuracyBand::Poor &&
+                              evidence.m_accuracy != AccuracyBand::Unusable;
     return {decisiveTurn ? MatcherAction::UseBestRoad : MatcherAction::HoldCurrentRoad, m_state, false};
   }
 

@@ -77,16 +77,18 @@ void IndexRouter::FindClosestProjectionsToRoad(m2::PointD const & point, double 
   std::vector<EdgeProjectionT> candidates;
 
   // NearestEdgeFinder counts directed results, so a normal two-way road consumes two entries.
-  // Ask for enough directed states, then cap by physical segment so 8 means roughly 8 roads,
-  // not only 4 two-way roads.
+  // Ask for enough directed states to fill the effective budget, then cap the returned directed
+  // projections themselves.  The caller may therefore rely on |maxCount| as a hard work bound.
   size_t const directedLimit = std::min(maxCount * 2 + 2, static_cast<size_t>(std::numeric_limits<uint32_t>::max()));
   m_roadGraph.FindClosestEdges(rect, static_cast<uint32_t>(directedLimit), candidates);
 
   std::vector<Edge> selectedPhysicalSegments;
   selectedPhysicalSegments.reserve(maxCount);
-  projections.reserve(std::min(candidates.size(), maxCount * 2));
+  projections.reserve(std::min(candidates.size(), maxCount));
   for (auto const & [edge, projection] : candidates)
   {
+    if (projections.size() >= maxCount)
+      break;
     if (!HasPhysicalSegment(selectedPhysicalSegments, edge))
     {
       if (selectedPhysicalSegments.size() >= maxCount)
@@ -134,11 +136,8 @@ void IndexRouter::FindFreeDrivingRoadCorridor(EdgeProj const & from, m2::PointD 
     PendingEdge node = pending.front();
     pending.pop_front();
 
-    if (node.m_hops > maxHops || node.m_distanceBeforeEdgeM > maxDistanceM ||
-        HasDirectedEdge(visited, node.m_edge))
-    {
+    if (node.m_hops > maxHops || node.m_distanceBeforeEdgeM > maxDistanceM || HasDirectedEdge(visited, node.m_edge))
       continue;
-    }
     visited.push_back(node.m_edge);
 
     EdgeProj projection{node.m_edge, ProjectToEdge(point, node.m_edge)};

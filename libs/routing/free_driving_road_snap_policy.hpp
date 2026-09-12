@@ -38,8 +38,10 @@ double constexpr kPersistenceRefreshSeconds = 5.0;
 double constexpr kPersistenceMaxAgeSeconds = 7.0 * 24.0 * 60.0 * 60.0;
 double constexpr kPersistenceMaxDistanceM = 250.0;
 
-size_t constexpr kNormalSpatialRoadCount = 8;
-size_t constexpr kRecoverySpatialRoadCount = 12;
+// These are effective directed-candidate budgets.  Corridor expansion and reverse edges are
+// folded into the same bound before the expensive scoring pass.
+size_t constexpr kNormalSpatialRoadCount = 6;
+size_t constexpr kRecoverySpatialRoadCount = 8;
 size_t constexpr kMaxCorridorEdges = 12;
 size_t constexpr kMaxCorridorHops = 5;
 size_t constexpr kMaxDisplayCorridorEdges = 8;
@@ -201,9 +203,9 @@ inline double HeadingWeightForSpeed(double speedMps)
 {
   if (speedMps <= kDirectionUsefulMinSpeedMps)
     return 0.0;
-  return std::clamp((speedMps - kDirectionUsefulMinSpeedMps) /
-                        (kDirectionFullWeightSpeedMps - kDirectionUsefulMinSpeedMps),
-                    0.0, 1.0);
+  return std::clamp(
+      (speedMps - kDirectionUsefulMinSpeedMps) / (kDirectionFullWeightSpeedMps - kDirectionUsefulMinSpeedMps), 0.0,
+      1.0);
 }
 
 inline double HeadingAgreementFactor(double disagreementDegrees)

@@ -161,7 +161,7 @@ public:
   void SetOnNewTurnCallback(OnNewTurn const & onNewTurn);
 
   void SetSpeedCamShowCallback(SpeedCameraShowCallback && callback);
-  void SetSpeedCamClearCallback(SpeedCamClearCallback && callback);
+  void SetSpeedCamClearCallback(SpeedCameraClearCallback && callback);
 
   // Sound turn notification parameters.
   NotificationEvent GenerateNotifications(std::vector<std::string> & notifications, bool announceStreets,
