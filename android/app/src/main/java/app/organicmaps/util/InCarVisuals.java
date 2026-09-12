@@ -54,6 +54,8 @@ public final class InCarVisuals
   static final int COMPACT_WIDTH_DP = 720;
   @VisibleForTesting
   static final int COMPACT_HEIGHT_DP = 480;
+  @VisibleForTesting
+  static final int EXTRA_COMPACT_HEIGHT_DP = 360;
 
   private static final Map<FragmentActivity, Observation> OBSERVATIONS = new WeakHashMap<>();
   private static final Map<Dialog, DialogFitState> DIALOG_FITS = new WeakHashMap<>();
@@ -80,6 +82,13 @@ public final class InCarVisuals
     COMPACT_BOTH
   }
 
+  @VisibleForTesting
+  enum ControlSizeTier {
+    PREFERRED,
+    COMPACT,
+    EXTRA_COMPACT
+  }
+
   private static final class WindowSnapshot
   {
     final long generation;
@@ -89,6 +98,8 @@ public final class InCarVisuals
     final int heightDp;
     @NonNull
     final WindowProfile profile;
+    @NonNull
+    final ControlSizeTier controlSizeTier;
     final int taskId;
     final int activityInstanceId;
     final boolean multiWindow;
@@ -104,9 +115,10 @@ public final class InCarVisuals
     final int nativeHeightPx;
 
     WindowSnapshot(long generation, int contentWidthPx, int contentHeightPx, int widthDp, int heightDp,
-                   @NonNull WindowProfile profile, int taskId, int activityInstanceId, boolean multiWindow,
-                   boolean pictureInPicture, int configWidthDp, int configHeightDp, int orientation, int mapWidthPx,
-                   int mapHeightPx, int surfaceWidthPx, int surfaceHeightPx, int nativeWidthPx, int nativeHeightPx)
+                   @NonNull WindowProfile profile, @NonNull ControlSizeTier controlSizeTier, int taskId,
+                   int activityInstanceId, boolean multiWindow, boolean pictureInPicture, int configWidthDp,
+                   int configHeightDp, int orientation, int mapWidthPx, int mapHeightPx, int surfaceWidthPx,
+                   int surfaceHeightPx, int nativeWidthPx, int nativeHeightPx)
     {
       this.generation = generation;
       this.contentWidthPx = contentWidthPx;
@@ -114,6 +126,7 @@ public final class InCarVisuals
       this.widthDp = widthDp;
       this.heightDp = heightDp;
       this.profile = profile;
+      this.controlSizeTier = controlSizeTier;
       this.taskId = taskId;
       this.activityInstanceId = activityInstanceId;
       this.multiWindow = multiWindow;
@@ -196,6 +209,34 @@ public final class InCarVisuals
     observation.content = null;
     observation.layoutListener = null;
     observation.fragmentCallbacks = null;
+  }
+
+  public static int currentQuickActionSizePx(@NonNull FragmentActivity activity)
+  {
+    return switch (currentControlSizeTier(activity))
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_touch_target_extra_compact);
+      case COMPACT -> dimen(activity, R.dimen.in_car_touch_target_min);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_touch_target_preferred);
+    };
+  }
+
+  public static int currentQuickActionIconSizePx(@NonNull FragmentActivity activity)
+  {
+    return switch (currentControlSizeTier(activity))
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_extra_compact_map_button_icon_size);
+      case COMPACT -> dimen(activity, R.dimen.in_car_compact_map_button_icon_size);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_runtime_button_icon_size);
+    };
+  }
+
+  @NonNull
+  private static ControlSizeTier currentControlSizeTier(@NonNull FragmentActivity activity)
+  {
+    final Observation observation = OBSERVATIONS.get(activity);
+    final WindowSnapshot snapshot = observation == null ? null : observation.snapshot;
+    return snapshot == null ? ControlSizeTier.PREFERRED : snapshot.controlSizeTier;
   }
 
   @NonNull
@@ -331,22 +372,24 @@ public final class InCarVisuals
       scheduleInvalidBoundsRetry(activity, observation, reason, requestGeneration, retriesRemaining, width, height);
       return;
     }
+    final ControlSizeTier controlSizeTier = resolveControlSizeTier(profile, heightDp);
 
     final WindowSnapshot previous = observation.snapshot;
     final boolean boundsChanged =
         previous == null || hasMaterialBoundsChange(previous.contentWidthPx, previous.contentHeightPx, width, height);
     final boolean optimisedVisuals = Config.isInCarOptimisedVisualsEnabled();
-    final boolean controlsChanged =
-        previous == null || profile != previous.profile || optimisedVisuals != observation.optimisedVisuals;
+    final boolean controlsChanged = previous == null || profile != previous.profile
+                                 || controlSizeTier != previous.controlSizeTier
+                                 || optimisedVisuals != observation.optimisedVisuals;
 
-    final WindowSnapshot snapshot =
-        createSnapshot(activity, ++observation.snapshotGeneration, width, height, widthDp, heightDp, profile);
+    final WindowSnapshot snapshot = createSnapshot(activity, ++observation.snapshotGeneration, width, height, widthDp,
+                                                   heightDp, profile, controlSizeTier);
     observation.snapshot = snapshot;
     observation.optimisedVisuals = optimisedVisuals;
 
     final boolean explicitConvergenceTrigger = isExplicitConvergenceTrigger(reason);
     if (controlsChanged || explicitConvergenceTrigger)
-      apply(activity, content, optimisedVisuals, profile);
+      apply(activity, content, optimisedVisuals, controlSizeTier);
 
     if (boundsChanged || controlsChanged || explicitConvergenceTrigger)
     {
@@ -537,8 +580,18 @@ public final class InCarVisuals
   }
 
   @NonNull
+  @VisibleForTesting
+  static ControlSizeTier resolveControlSizeTier(@NonNull WindowProfile profile, int heightDp)
+  {
+    if (heightDp > 0 && heightDp < EXTRA_COMPACT_HEIGHT_DP)
+      return ControlSizeTier.EXTRA_COMPACT;
+    return profile == WindowProfile.FULL ? ControlSizeTier.PREFERRED : ControlSizeTier.COMPACT;
+  }
+
+  @NonNull
   private static WindowSnapshot createSnapshot(@NonNull FragmentActivity activity, long generation, int width,
-                                               int height, int widthDp, int heightDp, @NonNull WindowProfile profile)
+                                               int height, int widthDp, int heightDp, @NonNull WindowProfile profile,
+                                               @NonNull ControlSizeTier controlSizeTier)
   {
     final Configuration config = activity.getResources().getConfiguration();
     final boolean supportsWindowModes = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
@@ -552,10 +605,10 @@ public final class InCarVisuals
     final int nativeWidth = mapView == null ? 0 : mapView.getLastAppliedSurfaceWidth();
     final int nativeHeight = mapView == null ? 0 : mapView.getLastAppliedSurfaceHeight();
 
-    return new WindowSnapshot(generation, width, height, widthDp, heightDp, profile, activity.getTaskId(),
-                              System.identityHashCode(activity), multiWindow, pictureInPicture, config.screenWidthDp,
-                              config.screenHeightDp, config.orientation, mapWidth, mapHeight, surfaceWidth,
-                              surfaceHeight, nativeWidth, nativeHeight);
+    return new WindowSnapshot(generation, width, height, widthDp, heightDp, profile, controlSizeTier,
+                              activity.getTaskId(), System.identityHashCode(activity), multiWindow, pictureInPicture,
+                              config.screenWidthDp, config.screenHeightDp, config.orientation, mapWidth, mapHeight,
+                              surfaceWidth, surfaceHeight, nativeWidth, nativeHeight);
   }
 
   private static void logSnapshot(@NonNull FragmentActivity activity, @NonNull TransitionReason reason,
@@ -569,7 +622,8 @@ public final class InCarVisuals
                       + " dp=" + snapshot.widthDp + "x" + snapshot.heightDp + " map=" + snapshot.mapWidthPx + "x"
                       + snapshot.mapHeightPx + " surface=" + snapshot.surfaceWidthPx + "x" + snapshot.surfaceHeightPx
                       + " native=" + snapshot.nativeWidthPx + "x" + snapshot.nativeHeightPx
-                      + " profile=" + snapshot.profile + " intent=" + describeIntent(activity.getIntent()));
+                      + " profile=" + snapshot.profile + " controlTier=" + snapshot.controlSizeTier
+                      + " intent=" + describeIntent(activity.getIntent()));
   }
 
   @NonNull
@@ -745,25 +799,20 @@ public final class InCarVisuals
       return;
     }
 
-    apply(activity, view, Config.isInCarOptimisedVisualsEnabled(), snapshot.profile);
-  }
-
-  private static boolean isCompact(@NonNull WindowProfile profile)
-  {
-    return profile != WindowProfile.FULL;
+    apply(activity, view, Config.isInCarOptimisedVisualsEnabled(), snapshot.controlSizeTier);
   }
 
   private static void apply(@NonNull Activity activity, @NonNull View scope, boolean enabled,
-                            @NonNull WindowProfile profile)
+                            @NonNull ControlSizeTier controlSizeTier)
   {
-    applyMapButtons(activity, scope, enabled, profile);
-    applyRoutingControls(activity, scope, enabled, profile);
-    applyNavigationControls(activity, scope, enabled, profile);
-    applyPlacePageControls(activity, scope, profile);
+    applyMapButtons(activity, scope, enabled, controlSizeTier);
+    applyRoutingControls(activity, scope, enabled, controlSizeTier);
+    applyNavigationControls(activity, scope, enabled, controlSizeTier);
+    applyPlacePageControls(activity, scope, controlSizeTier);
   }
 
   private static void applyMapButtons(@NonNull Activity activity, @NonNull View scope, boolean enabled,
-                                      @NonNull WindowProfile profile)
+                                      @NonNull ControlSizeTier controlSizeTier)
   {
     final View mapButtonsContainer = scope.findViewById(R.id.map_buttons);
     final View root = mapButtonsContainer != null ? mapButtonsContainer : scope;
@@ -772,17 +821,18 @@ public final class InCarVisuals
     if (root.findViewById(R.id.map_buttons_inner_right) == null)
       return;
 
-    final boolean compact = isCompact(profile);
-    final int buttonSize = selectDimen(activity, enabled, compact, R.dimen.map_button_size,
-                                       R.dimen.in_car_map_button_size, R.dimen.in_car_compact_map_button_size);
-    final int iconSize = selectDimen(activity, enabled, compact, R.dimen.map_button_icon_size,
-                                     R.dimen.in_car_map_button_icon_size, R.dimen.in_car_compact_map_button_icon_size);
-    final int zoomIconSize =
-        selectDimen(activity, enabled, compact, R.dimen.map_button_icon_size, R.dimen.in_car_zoom_button_icon_size,
-                    R.dimen.in_car_compact_zoom_button_icon_size);
-    final int minTouchTarget =
-        selectDimen(activity, enabled, compact, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
-                    R.dimen.in_car_compact_button_min_touch_target);
+    final int buttonSize =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_map_button_size,
+                    R.dimen.in_car_compact_map_button_size, R.dimen.in_car_extra_compact_map_button_size);
+    final int iconSize = selectDimen(activity, enabled, controlSizeTier, R.dimen.map_button_icon_size,
+                                     R.dimen.in_car_map_button_icon_size, R.dimen.in_car_compact_map_button_icon_size,
+                                     R.dimen.in_car_extra_compact_map_button_icon_size);
+    final int zoomIconSize = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.map_button_icon_size, R.dimen.in_car_zoom_button_icon_size,
+        R.dimen.in_car_compact_zoom_button_icon_size, R.dimen.in_car_extra_compact_zoom_button_icon_size);
+    final int minTouchTarget = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
+        R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
     for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
@@ -793,53 +843,59 @@ public final class InCarVisuals
   }
 
   private static void applyRoutingControls(@NonNull Activity activity, @NonNull View scope, boolean enabled,
-                                           @NonNull WindowProfile profile)
+                                           @NonNull ControlSizeTier controlSizeTier)
   {
     final View root = scope.findViewById(R.id.routing_root);
     if (root == null)
       return;
 
-    final boolean compact = isCompact(profile);
     final int actionButtonSize =
-        selectDimen(activity, enabled, compact, R.dimen.routing_action_button_size,
-                    R.dimen.in_car_routing_action_button_size, R.dimen.in_car_compact_routing_action_button_size);
-    final int actionIconSize = selectDimen(activity, enabled, compact, R.dimen.routing_action_button_icon_size,
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_action_button_size,
+                    R.dimen.in_car_routing_action_button_size, R.dimen.in_car_compact_routing_action_button_size,
+                    R.dimen.in_car_extra_compact_routing_action_button_size);
+    final int actionIconSize = selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_action_button_icon_size,
                                            R.dimen.in_car_routing_action_button_icon_size,
-                                           R.dimen.in_car_compact_routing_action_button_icon_size);
-    final int minTouchTarget =
-        selectDimen(activity, enabled, compact, R.dimen.routing_action_button_size,
-                    R.dimen.in_car_button_min_touch_target, R.dimen.in_car_compact_button_min_touch_target);
+                                           R.dimen.in_car_compact_routing_action_button_icon_size,
+                                           R.dimen.in_car_extra_compact_routing_action_button_icon_size);
+    final int minTouchTarget = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.routing_action_button_size, R.dimen.in_car_button_min_touch_target,
+        R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
     for (int id : new int[] {R.id.routing_btn_search, R.id.routing_btn_bookmarks, R.id.btn__save})
       resizeFab(root.findViewById(id), actionButtonSize, actionIconSize, minTouchTarget);
 
     final int routerHeight =
-        selectDimen(activity, enabled, compact, R.dimen.routing_toolbar_cell_height,
-                    R.dimen.in_car_routing_toolbar_cell_height, R.dimen.in_car_compact_routing_toolbar_cell_height);
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.routing_toolbar_cell_height,
+                    R.dimen.in_car_routing_toolbar_cell_height, R.dimen.in_car_compact_routing_toolbar_cell_height,
+                    R.dimen.in_car_extra_compact_routing_toolbar_cell_height);
     for (int id : new int[] {R.id.vehicle, R.id.pedestrian, R.id.transit, R.id.bicycle, R.id.ruler})
       setViewHeight(root.findViewById(id), routerHeight);
 
-    final int closeSize =
-        dimen(activity, compact ? R.dimen.in_car_compact_close_button_size : R.dimen.in_car_routing_close_button_size);
+    final int closeSize = switch (controlSizeTier)
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_extra_compact_routing_close_button_size);
+      case COMPACT -> dimen(activity, R.dimen.in_car_compact_close_button_size);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_routing_close_button_size);
+    };
     setViewSize(root.findViewById(R.id.back), closeSize, closeSize);
     root.requestLayout();
   }
 
   private static void applyNavigationControls(@NonNull Activity activity, @NonNull View scope, boolean enabled,
-                                              @NonNull WindowProfile profile)
+                                              @NonNull ControlSizeTier controlSizeTier)
   {
     final View root = scope.findViewById(R.id.nav_bottom_frame);
     if (root == null)
       return;
 
-    final boolean compact = isCompact(profile);
-    final int contentHeight =
-        selectDimen(activity, enabled, compact, R.dimen.nav_menu_content_height, R.dimen.in_car_nav_menu_content_height,
-                    R.dimen.in_car_compact_nav_menu_content_height);
+    final int contentHeight = selectDimen(
+        activity, enabled, controlSizeTier, R.dimen.nav_menu_content_height, R.dimen.in_car_nav_menu_content_height,
+        R.dimen.in_car_compact_nav_menu_content_height, R.dimen.in_car_extra_compact_nav_menu_content_height);
     setViewHeight(root.findViewById(R.id.content_frame), contentHeight);
 
-    final int iconHeight = selectDimen(activity, enabled, compact, R.dimen.nav_icon_size, R.dimen.in_car_nav_icon_size,
-                                       R.dimen.in_car_compact_nav_icon_size);
+    final int iconHeight =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_icon_size, R.dimen.in_car_nav_icon_size,
+                    R.dimen.in_car_compact_nav_icon_size, R.dimen.in_car_extra_compact_nav_icon_size);
     final ImageView tts = root.findViewById(R.id.tts_volume);
     final ImageView settings = root.findViewById(R.id.settings);
     setViewHeight(tts, iconHeight);
@@ -852,10 +908,12 @@ public final class InCarVisuals
     final Button stop = root.findViewById(R.id.stop);
     if (stop == null)
       return;
-    final int buttonHeight = selectDimen(activity, enabled, compact, R.dimen.nav_button_height,
-                                         R.dimen.in_car_nav_button_height, R.dimen.in_car_compact_nav_button_height);
-    final int stopMinWidth = selectDimen(activity, enabled, compact, R.dimen.start_button_width,
-                                         R.dimen.in_car_nav_stop_min_width, R.dimen.in_car_compact_nav_stop_min_width);
+    final int buttonHeight =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_button_height, R.dimen.in_car_nav_button_height,
+                    R.dimen.in_car_compact_nav_button_height, R.dimen.in_car_extra_compact_nav_button_height);
+    final int stopMinWidth =
+        selectDimen(activity, enabled, controlSizeTier, R.dimen.start_button_width, R.dimen.in_car_nav_stop_min_width,
+                    R.dimen.in_car_compact_nav_stop_min_width, R.dimen.in_car_extra_compact_nav_stop_min_width);
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
     stop.setMinWidth(stopMinWidth);
@@ -863,17 +921,24 @@ public final class InCarVisuals
   }
 
   private static void applyPlacePageControls(@NonNull Activity activity, @NonNull View scope,
-                                             @NonNull WindowProfile profile)
+                                             @NonNull ControlSizeTier controlSizeTier)
   {
     final MaterialButton close = scope.findViewById(R.id.close_button);
     if (close == null)
       return;
 
-    final boolean compact = isCompact(profile);
-    final int controlSize = dimen(
-        activity, compact ? R.dimen.in_car_compact_close_button_size : R.dimen.in_car_place_page_close_button_size);
-    final int iconSize =
-        dimen(activity, compact ? R.dimen.in_car_compact_close_icon_size : R.dimen.in_car_close_icon_size);
+    final int controlSize = switch (controlSizeTier)
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_extra_compact_close_button_size);
+      case COMPACT -> dimen(activity, R.dimen.in_car_compact_close_button_size);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_place_page_close_button_size);
+    };
+    final int iconSize = switch (controlSizeTier)
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_extra_compact_close_icon_size);
+      case COMPACT -> dimen(activity, R.dimen.in_car_compact_close_icon_size);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_close_icon_size);
+    };
     setViewSize(close, controlSize, controlSize);
     close.setMinimumWidth(controlSize);
     close.setMinimumHeight(controlSize);
@@ -896,10 +961,23 @@ public final class InCarVisuals
     }
   }
 
-  private static int selectDimen(@NonNull Activity activity, boolean enabled, boolean compact, @DimenRes int normal,
-                                 @DimenRes int inCar, @DimenRes int inCarCompact)
+  private static int selectDimen(@NonNull Activity activity, boolean enabled, @NonNull ControlSizeTier controlSizeTier,
+                                 @DimenRes int normal, @DimenRes int inCar, @DimenRes int inCarCompact,
+                                 @DimenRes int inCarExtraCompact)
   {
-    return dimen(activity, enabled ? (compact ? inCarCompact : inCar) : normal);
+    return dimen(activity, selectDimenRes(enabled, controlSizeTier, normal, inCar, inCarCompact, inCarExtraCompact));
+  }
+
+  @DimenRes
+  @VisibleForTesting
+  static int selectDimenRes(boolean enabled, @NonNull ControlSizeTier controlSizeTier, @DimenRes int normal,
+                            @DimenRes int inCar, @DimenRes int inCarCompact, @DimenRes int inCarExtraCompact)
+  {
+    if (!enabled)
+      return normal;
+    if (controlSizeTier == ControlSizeTier.EXTRA_COMPACT)
+      return inCarExtraCompact;
+    return controlSizeTier == ControlSizeTier.COMPACT ? inCarCompact : inCar;
   }
 
   private static int dimen(@NonNull Activity activity, @DimenRes int resId)

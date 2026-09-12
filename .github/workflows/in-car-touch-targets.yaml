@@ -16,6 +16,7 @@ on:
       - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/values/in_car_*.xml'
       - 'android/tools/verify_in_car_touch_targets.py'
+      - 'android/tools/verify_in_car_compact_chrome.py'
   pull_request:
     paths:
       - '.github/workflows/in-car-touch-targets.yaml'
@@ -29,6 +30,7 @@ on:
       - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/values/in_car_*.xml'
       - 'android/tools/verify_in_car_touch_targets.py'
+      - 'android/tools/verify_in_car_compact_chrome.py'
 
 permissions:
   contents: read
@@ -45,5 +47,8 @@ jobs:
       - name: Verify touch-target contract
         shell: bash
         run: |
-          python3 -m py_compile android/tools/verify_in_car_touch_targets.py
+          python3 -m py_compile \
+            android/tools/verify_in_car_touch_targets.py \
+            android/tools/verify_in_car_compact_chrome.py
           python3 -X dev -W default android/tools/verify_in_car_touch_targets.py
+          python3 -X dev -W default android/tools/verify_in_car_compact_chrome.py

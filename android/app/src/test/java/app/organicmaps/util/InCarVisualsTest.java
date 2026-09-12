@@ -38,6 +38,44 @@ public class InCarVisualsTest
   }
 
   @Test
+  public void controlTierUsesPreferredSizeForFullWindow()
+  {
+    assertEquals(InCarVisuals.ControlSizeTier.PREFERRED,
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.FULL, InCarVisuals.COMPACT_HEIGHT_DP));
+  }
+
+  @Test
+  public void controlTierUsesCompactSizeForOrdinaryCompactWindow()
+  {
+    assertEquals(InCarVisuals.ControlSizeTier.COMPACT,
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.COMPACT_WIDTH,
+                                                     InCarVisuals.EXTRA_COMPACT_HEIGHT_DP));
+    assertEquals(InCarVisuals.ControlSizeTier.COMPACT,
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.COMPACT_HEIGHT,
+                                                     InCarVisuals.EXTRA_COMPACT_HEIGHT_DP));
+  }
+
+  @Test
+  public void controlTierUsesExtraCompactOnlyBelowHeightThreshold()
+  {
+    assertEquals(InCarVisuals.ControlSizeTier.COMPACT,
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.COMPACT_HEIGHT,
+                                                     InCarVisuals.EXTRA_COMPACT_HEIGHT_DP));
+    assertEquals(InCarVisuals.ControlSizeTier.EXTRA_COMPACT,
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.COMPACT_HEIGHT,
+                                                     InCarVisuals.EXTRA_COMPACT_HEIGHT_DP - 1));
+    assertEquals(InCarVisuals.ControlSizeTier.EXTRA_COMPACT,
+                 InCarVisuals.resolveControlSizeTier(InCarVisuals.WindowProfile.COMPACT_BOTH,
+                                                     InCarVisuals.EXTRA_COMPACT_HEIGHT_DP - 1));
+  }
+
+  @Test
+  public void disabledVisualsIgnoreExtraCompactTier()
+  {
+    assertEquals(100, InCarVisuals.selectDimenRes(false, InCarVisuals.ControlSizeTier.EXTRA_COMPACT, 100, 90, 80, 55));
+  }
+
+  @Test
   public void invalidBoundsAreUnknown()
   {
     assertNull(InCarVisuals.classifyWindow(0, 0));

@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <!-- Preferred direct-display target; compact profiles may use only the explicit 90% floor. -->
+  <!-- Preferred direct-display target; compact profiles retain the established 69dp automotive floor. -->
   <dimen name="in_car_map_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_map_button_icon_size">36dp</dimen>
   <dimen name="in_car_zoom_button_icon_size">38dp</dimen>
   <dimen name="in_car_button_min_touch_target">@dimen/in_car_touch_target_preferred</dimen>
 
-  <!-- Compact visual profiles preserve map space without dropping below the 69dp automotive floor. -->
   <dimen name="in_car_compact_map_button_size">@dimen/in_car_touch_target_min</dimen>
   <dimen name="in_car_compact_map_button_icon_size">32dp</dimen>
   <dimen name="in_car_compact_zoom_button_icon_size">34dp</dimen>
   <dimen name="in_car_compact_button_min_touch_target">@dimen/in_car_touch_target_min</dimen>
+
+  <!-- Emergency tier is selected only for live content height below 360dp. -->
+  <dimen name="in_car_extra_compact_map_button_size">@dimen/in_car_touch_target_extra_compact</dimen>
+  <dimen name="in_car_extra_compact_map_button_icon_size">28dp</dimen>
+  <dimen name="in_car_extra_compact_zoom_button_icon_size">30dp</dimen>
+  <dimen name="in_car_extra_compact_button_min_touch_target">@dimen/in_car_touch_target_extra_compact</dimen>
 
   <!-- Normal values preserve non-InCar/mobile rendering when these generic resources are used there. -->
   <dimen name="routing_action_button_size">40dp</dimen>
@@ -26,6 +31,11 @@
   <dimen name="in_car_compact_routing_action_button_icon_size">30dp</dimen>
   <dimen name="in_car_compact_routing_toolbar_cell_height">@dimen/in_car_touch_target_min</dimen>
 
+  <dimen name="in_car_extra_compact_routing_action_button_size">@dimen/in_car_touch_target_extra_compact</dimen>
+  <dimen name="in_car_extra_compact_routing_action_button_icon_size">26dp</dimen>
+  <dimen name="in_car_extra_compact_routing_toolbar_cell_height">@dimen/in_car_touch_target_extra_compact</dimen>
+  <dimen name="in_car_extra_compact_routing_close_button_size">@dimen/in_car_touch_target_extra_compact</dimen>
+
   <dimen name="in_car_nav_icon_size">56dp</dimen>
   <dimen name="in_car_nav_button_height">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_nav_stop_min_width">112dp</dimen>
@@ -36,11 +46,18 @@
   <dimen name="in_car_compact_nav_stop_min_width">96dp</dimen>
   <dimen name="in_car_compact_nav_menu_content_height">60dp</dimen>
 
+  <dimen name="in_car_extra_compact_nav_icon_size">40dp</dimen>
+  <dimen name="in_car_extra_compact_nav_button_height">@dimen/in_car_touch_target_extra_compact</dimen>
+  <dimen name="in_car_extra_compact_nav_stop_min_width">80dp</dimen>
+  <dimen name="in_car_extra_compact_nav_menu_content_height">48dp</dimen>
+
   <!-- Close controls are mandatory InCar usability, independent of the optional optimised-visuals toggle. -->
   <dimen name="in_car_place_page_close_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_compact_close_button_size">@dimen/in_car_touch_target_min</dimen>
+  <dimen name="in_car_extra_compact_close_button_size">@dimen/in_car_touch_target_extra_compact</dimen>
   <dimen name="in_car_close_icon_size">30dp</dimen>
   <dimen name="in_car_compact_close_icon_size">28dp</dimen>
+  <dimen name="in_car_extra_compact_close_icon_size">24dp</dimen>
 
   <!-- Keep floating dialogs inside reduced TS18/vendor windows without affecting normal flavours. -->
   <dimen name="in_car_dialog_window_margin">16dp</dimen>
