@@ -24,7 +24,10 @@ test -x configure.sh || {
 
 base_version_name="0.0.0"
 version_name="0.0.0-InCar"
-version_code="999999"
+# Organic Maps In-Car production codes occupy 1,000,000,000..2,099,999,999.
+# Keep the fixed engineering lane at the top of that supported range so a
+# TESTING snapshot can update any normal current release without -d/uninstall.
+version_code="2099999999"
 keystore_file="${ORGANICMAPS_KEYSTORE_FILE:-$RUNNER_TEMP/temporary-testing-validation.jks}"
 keystore_password="${KEYSTORE_PASSWORD:-temporary-testing-validation}"
 key_alias="${KEY_ALIAS:-temporary-testing-validation}"
