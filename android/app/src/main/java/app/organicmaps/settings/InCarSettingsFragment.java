@@ -30,6 +30,12 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   {
     super.onViewCreated(view, savedInstanceState);
 
+    // The old MANUAL option depended on a second map-facing camera button. Keep its resource entry
+    // for migration/backward compatibility, but do not expose an impossible mode after that button
+    // has been removed. The runtime policy normalises legacy MANUAL installs to AUTOMATIC.
+    final ListPreference drivingView = getPreference(getString(R.string.pref_in_car_driving_view_mode));
+    filterLegacyManualDrivingView(drivingView);
+
     final ListPreference fallback = getPreference(getString(R.string.pref_in_car_navigation_fallback_mode));
     final OfflineNavigationVoicePack.Mode mode = OfflineNavigationVoicePack.getMode(requireContext());
     fallback.setValue(mode.getPreferenceValue());
@@ -42,6 +48,26 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       TtsPlayer.setEnabled(Config.TTS.isEnabled());
       return true;
     });
+  }
+
+  private static void filterLegacyManualDrivingView(@NonNull ListPreference preference)
+  {
+    final CharSequence[] entries = preference.getEntries();
+    final CharSequence[] values = preference.getEntryValues();
+    if (entries == null || values == null || entries.length != values.length)
+      return;
+
+    final List<CharSequence> filteredEntries = new ArrayList<>(entries.length);
+    final List<CharSequence> filteredValues = new ArrayList<>(values.length);
+    for (int i = 0; i < values.length; ++i)
+    {
+      if ("MANUAL".contentEquals(values[i]))
+        continue;
+      filteredEntries.add(entries[i]);
+      filteredValues.add(values[i]);
+    }
+    preference.setEntries(filteredEntries.toArray(new CharSequence[0]));
+    preference.setEntryValues(filteredValues.toArray(new CharSequence[0]));
   }
 
   @Override
