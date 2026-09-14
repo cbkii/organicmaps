@@ -39,11 +39,13 @@ The install APK keeps the production package identity `app.organicmaps.incar` an
 
 ```text
 versionName=0.0.0-InCar
-versionCode=999999
+versionCode=2099999999
 ABI=arm64-v8a
 ```
 
 `0.0.0-InCar` is the Organic Maps equivalent of the ts-theme fixed testing version: the existing InCar flavour appends `-InCar` to the base testing version `0.0.0`, avoiding a special product-code path solely for testing.
+
+The high fixed `versionCode` is an intentional Organic Maps-specific adaptation. Normal InCar releases use a billion-scale version-code scheme, including a reserved extended range up to `2099999999`, so copying ts-theme's literal `999999` would make a TESTING APK a downgrade from current production builds. Using `2099999999` lets normal current releases be replaced by a TESTING build and lets later TESTING snapshots reinstall/update each other without `adb install -d`. Because ordinary production releases have a lower code, moving from a TESTING install back to a normal release requires an explicit uninstall/downgrade path; TESTING is therefore an engineering lane, not a production-release predecessor.
 
 Each snapshot is identified as `PR<number>-<sha7>` or `SHA-<sha7>`. The draft retains the newest two complete snapshot groups. Every group contains:
 
