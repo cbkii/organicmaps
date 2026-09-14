@@ -66,7 +66,13 @@ jobs:
           python3 -m unittest discover \
             -s android/tools/tests \
             -p 'test_report_in_car_apk_metrics.py'
-          bash -n android/tools/smoke_test_in_car_warm_reentry.sh
+          bash -n \
+            android/tools/ci-adb-logcat-window/adb \
+            android/tools/smoke_test_in_car_apk.sh \
+            android/tools/smoke_test_in_car_warm_reentry.sh \
+            android/tools/smoke_test_in_car_window_resize.sh \
+            android/tools/tests/test_in_car_adb_logcat_compat.sh
+          bash android/tools/tests/test_in_car_adb_logcat_compat.sh
 
       # Keep repository-wide lint as a shared-code quality gate. Web/F-Droid
       # build and publication lanes are intentionally not CI release gates.
@@ -405,6 +411,10 @@ jobs:
           arch: x86_64
           target: default
           script: |
+            export IN_CAR_REAL_ADB="$(command -v adb)"
+            export IN_CAR_LOGCAT_STATE_DIR="${RUNNER_TEMP}/in-car-logcat-window-state-api-${{ matrix.api-level }}"
+            chmod +x android/tools/ci-adb-logcat-window/adb
+            export PATH="$(pwd)/android/tools/ci-adb-logcat-window:${PATH}"
             bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}"
             bash android/tools/smoke_test_in_car_warm_reentry.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/warm-reentry"
             bash android/tools/smoke_test_in_car_window_resize.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/window-resize"

@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+set -u
+
+fail() {
+  printf '::error::%s\n' "$*" >&2
+  exit 1
+}
+
+real_adb="${IN_CAR_REAL_ADB:-}"
+state_dir="${IN_CAR_LOGCAT_STATE_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/in-car-logcat-window}"
+marker_file="${state_dir}/marker.txt"
+logcat_timeout_seconds="${IN_CAR_LOGCAT_TIMEOUT_SECONDS:-30}"
+timeout_cmd=""
+
+[[ -n "${real_adb}" ]] || fail "IN_CAR_REAL_ADB is not set"
+[[ -x "${real_adb}" ]] || fail "IN_CAR_REAL_ADB is not executable: ${real_adb}"
+[[ "${logcat_timeout_seconds}" =~ ^[1-9][0-9]*$ ]] || fail "IN_CAR_LOGCAT_TIMEOUT_SECONDS must be a positive integer"
+(( logcat_timeout_seconds <= 120 )) || fail "IN_CAR_LOGCAT_TIMEOUT_SECONDS must be <= 120"
+mkdir -p -- "${state_dir}" || fail "Unable to create Logcat compatibility state directory: ${state_dir}"
+
+if [[ "${1:-}" != "logcat" ]]; then
+  exec "${real_adb}" "$@"
+fi
+
+if command -v timeout >/dev/null 2>&1; then
+  timeout_cmd="$(command -v timeout)"
+elif command -v gtimeout >/dev/null 2>&1; then
+  timeout_cmd="$(command -v gtimeout)"
+else
+  fail "GNU timeout was not found (install coreutils or provide gtimeout)"
+fi
+
+run_real_bounded() {
+  "${timeout_cmd}" --signal=TERM --kill-after=5s "${logcat_timeout_seconds}s" "${real_adb}" "$@"
+}
+
+is_clear=false
+is_dump=false
+pid_filter=""
+capture_args=()
+for arg in "${@:2}"; do
+  case "${arg}" in
+    -c)
+      is_clear=true
+      ;;
+    -d)
+      is_dump=true
+      capture_args+=("${arg}")
+      ;;
+    --pid=*)
+      pid_filter="${arg#--pid=}"
+      ;;
+    *)
+      capture_args+=("${arg}")
+      ;;
+  esac
+done
+
+if [[ "${is_clear}" == true ]]; then
+  attempt_one="${state_dir}/clear-attempt-1.txt"
+  attempt_two="${state_dir}/clear-attempt-2.txt"
+
+  if run_real_bounded logcat -c > "${attempt_one}" 2>&1; then
+    rm -f -- "${marker_file}"
+    exit 0
+  fi
+
+  if run_real_bounded logcat -b all -c > "${attempt_two}" 2>&1; then
+    rm -f -- "${marker_file}"
+    exit 0
+  fi
+
+  if ! run_real_bounded get-state > "${state_dir}/adb-state-after-clear-failure.txt" 2>&1; then
+    cat "${attempt_one}" "${attempt_two}" >&2
+    fail "ADB transport failed after Logcat clear attempts"
+  fi
+
+  marker="OM_INCAR_LOGCAT_WINDOW_$$_${RANDOM}_$(date +%s)"
+  if ! run_real_bounded shell log -p i -t OrganicMapsInCarSmoke "${marker}" \
+      > "${state_dir}/marker-write.txt" 2>&1; then
+    cat "${attempt_one}" "${attempt_two}" "${state_dir}/marker-write.txt" >&2
+    fail "Logcat clear failed and a compatibility marker could not be written"
+  fi
+
+  if ! run_real_bounded logcat -d -v threadtime -t 256 > "${state_dir}/marker-confirm.txt" 2>&1; then
+    cat "${state_dir}/marker-confirm.txt" >&2
+    fail "Logcat clear failed and the compatibility marker could not be verified"
+  fi
+  if ! grep -Fq -- "${marker}" "${state_dir}/marker-confirm.txt"; then
+    cat "${state_dir}/marker-confirm.txt" >&2
+    fail "Logcat clear failed and the compatibility marker was not visible in the captured buffers"
+  fi
+
+  printf '%s\n' "${marker}" > "${marker_file}" || fail "Unable to persist the Logcat compatibility marker"
+  printf '::warning::adb logcat clear is unavailable; using marker-isolated Logcat windows for this smoke phase.\n' >&2
+  exit 0
+fi
+
+if [[ "${is_dump}" == true && -s "${marker_file}" ]]; then
+  marker="$(cat "${marker_file}")"
+  raw_log="$(mktemp "${state_dir%/}/capture.XXXXXX")" || fail "Unable to create temporary Logcat capture"
+  trap 'rm -f -- "${raw_log}"' EXIT
+
+  run_real_bounded logcat "${capture_args[@]}" > "${raw_log}" 2>&1
+  capture_rc=$?
+  if [[ "${capture_rc}" -ne 0 ]]; then
+    cat "${raw_log}" >&2
+    exit "${capture_rc}"
+  fi
+
+  if ! grep -Fq -- "${marker}" "${raw_log}"; then
+    tail -n 200 "${raw_log}" >&2
+    fail "Logcat compatibility marker fell outside the bounded capture; refusing an ambiguous crash/ANR window"
+  fi
+
+  awk -v marker="${marker}" -v pid="${pid_filter}" '
+    index($0, marker) { seen = 1; next }
+    seen && (pid == "" || $3 == pid) { print }
+    END { if (!seen) exit 42 }
+  ' "${raw_log}"
+  awk_rc=$?
+  [[ "${awk_rc}" -eq 0 ]] || fail "Unable to isolate the marker-bounded Logcat window"
+  exit 0
+fi
+
+exec "${real_adb}" "$@"
