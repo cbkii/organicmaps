@@ -24,6 +24,19 @@ public final class InCarSpeedDisplayPolicy
     return formatter.format(speedMps);
   }
 
+  /** Returns the leading numeric/value token for the compact circular navigation speed display. */
+  @NonNull
+  public static String compactFormattedSpeed(@NonNull CharSequence formatted)
+  {
+    for (int i = 0; i < formatted.length(); ++i)
+    {
+      final char c = formatted.charAt(i);
+      if (Character.isWhitespace(c) || c == '\u00A0')
+        return i == 0 ? formatted.toString() : formatted.subSequence(0, i).toString();
+    }
+    return formatted.toString();
+  }
+
   /**
    * True only when both measurements are valid and current speed is at least five percent above
    * the route-provided speed limit. A zero limit still requires actual positive movement; unknown
