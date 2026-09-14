@@ -24,10 +24,11 @@ test -x configure.sh || {
 
 base_version_name="0.0.0"
 version_name="0.0.0-InCar"
-# Organic Maps In-Car production codes occupy 1,000,000,000..2,099,999,999.
-# Keep the fixed engineering lane at the top of that supported range so a
-# TESTING snapshot can update any normal current release without -d/uninstall.
-version_code="2099999999"
+# The normal In-Car resolver tops out at 2,099,999,999 while the Gradle
+# release override permits Android's 2,100,000,000 ceiling. Reserve that one
+# otherwise-unused code for this fixed TESTING lane so any normal release can
+# be replaced without -d/uninstall and TESTING snapshots can update each other.
+version_code="2100000000"
 keystore_file="${ORGANICMAPS_KEYSTORE_FILE:-$RUNNER_TEMP/temporary-testing-validation.jks}"
 keystore_password="${KEYSTORE_PASSWORD:-temporary-testing-validation}"
 key_alias="${KEY_ALIAS:-temporary-testing-validation}"
