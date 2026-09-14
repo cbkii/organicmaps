@@ -1,6 +1,8 @@
 package app.organicmaps.incar;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -48,5 +50,29 @@ public class InCarSpeedDisplayPolicyTest
                                                              true, 27.0, UNAVAILABLE, speedMps -> "unexpected"));
     assertEquals(UNAVAILABLE, InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT, false,
                                                              Double.NaN, UNAVAILABLE, speedMps -> "unexpected"));
+  }
+
+  @Test
+  public void speedWarningStartsAtFivePercentAboveValidLimit()
+  {
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(20.999, 20.0));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(21.0, 20.0));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(22.0, 20.0));
+  }
+
+  @Test
+  public void speedWarningRequiresValidMeasurements()
+  {
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(21.0, -1.0));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(-1.0, 20.0));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(Double.NaN, 20.0));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(21.0, Double.NaN));
+  }
+
+  @Test
+  public void zeroLimitWarnsOnlyAfterMovementStarts()
+  {
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(0.0, 0.0));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(0.1, 0.0));
   }
 }
