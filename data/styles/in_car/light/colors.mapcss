@@ -24,22 +24,24 @@
 @path: #9B958F;
 @bridleway: #87817B;
 
+/* Black major-road casings are deliberate for direct-sun readability; local-road edges remain
+ * slightly softer so the hierarchy survives rather than turning the whole street network black. */
 @bridge_background: #A0A8AF;
-@bridge_casing: #30363B;
-@casing_road: #41484E;
-@casing_road_major: #30363B;
-@casing_road_local: #484F55;
+@bridge_casing: #000000;
+@casing_road: #252A2E;
+@casing_road_major: #000000;
+@casing_road_local: #343A3F;
 
 @primary_tunnel: #E2E7EA;
 @trunk_tunnel: #E5EAED;
-@primary_tunnel_casing: #30363B;
-@trunk_tunnel_casing: #30363B;
+@primary_tunnel_casing: #000000;
+@trunk_tunnel_casing: #000000;
 @secondary_tunnel: #DEE4E8;
-@secondary_tunnel_casing: #41484E;
+@secondary_tunnel_casing: #252A2E;
 @tertiary_tunnel: #D8DEE2;
-@tertiary_tunnel_casing: #41484E;
+@tertiary_tunnel_casing: #252A2E;
 @unclassified_tunnel: #D4DADE;
-@unclassified_tunnel_casing: #484F55;
+@unclassified_tunnel_casing: #343A3F;
 
 /* TRANSPORT */
 @railway_light: #AEB5BB;
@@ -117,7 +119,7 @@
 @shield_text: #202124;
 @shield_text_halo: #FFFFFF;
 @shield: #FFFFFF;
-@shield_outline: #30363B;
+@shield_outline: #000000;
 
 @water_label: #00565B;
 @park_label: #2E6033;
