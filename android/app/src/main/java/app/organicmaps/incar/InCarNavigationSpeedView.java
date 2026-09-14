@@ -1,19 +1,23 @@
 package app.organicmaps.incar;
 
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.location.Location;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatTextView;
+import androidx.fragment.app.FragmentActivity;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
+import app.organicmaps.util.InCarVisuals;
 
 /**
  * Compact current-speed presentation for the InCar navigation glance cluster.
@@ -70,6 +74,24 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     refreshWarningState();
   }
 
+  @Override
+  protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
+  {
+    final FragmentActivity activity = findActivity(getContext());
+    if (BuildConfig.IS_IN_CAR && activity != null)
+    {
+      final int size = InCarVisuals.currentQuickActionSizePx(activity);
+      final int compact = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min);
+      final int extraCompact = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact);
+      final float textSp = size <= extraCompact ? 20.0f : size <= compact ? 24.0f : 28.0f;
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp);
+      final int exact = MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY);
+      super.onMeasure(exact, exact);
+      return;
+    }
+    super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+  }
+
   private void captureDefaultTextColors()
   {
     if (!mHasWarningState || !mWarningState)
@@ -105,5 +127,21 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
       setTextColor(Color.WHITE);
     else if (mDefaultTextColors != null)
       setTextColor(mDefaultTextColors);
+  }
+
+  @Nullable
+  private static FragmentActivity findActivity(@NonNull Context context)
+  {
+    Context current = context;
+    while (current instanceof ContextWrapper)
+    {
+      if (current instanceof FragmentActivity activity)
+        return activity;
+      final Context base = ((ContextWrapper) current).getBaseContext();
+      if (base == current)
+        break;
+      current = base;
+    }
+    return current instanceof FragmentActivity activity ? activity : null;
   }
 }
