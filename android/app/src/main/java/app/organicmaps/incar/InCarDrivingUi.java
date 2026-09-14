@@ -286,7 +286,8 @@ public final class InCarDrivingUi
     if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
     {
       final RoutingInfo routingInfo = RoutingController.get().getCachedRoutingInfo();
-      final boolean warning = snapshot.navigating && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
+      final boolean warning = snapshot.navigating
+                           && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
                            && snapshot.hasSpeed && routingInfo != null
                            && InCarSpeedDisplayPolicy.isSpeeding(snapshot.speedMps, routingInfo.speedLimitMps);
       navigationSpeedView.setSpeeding(warning);
@@ -319,7 +320,6 @@ public final class InCarDrivingUi
       drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
     }
 
-    // Promotional/help content remains available through menus/settings but is not primary driving-map chrome.
     if (binding.help != null)
       binding.help.setVisibility(View.GONE);
   }
