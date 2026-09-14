@@ -9,16 +9,15 @@ import app.organicmaps.MwmApplication;
 /**
  * Settings projection for the existing InCar Driving View runtime state machine.
  *
- * <p>The runtime authority remains {@link InCarDrivingViewController}/{@link InCarDrivingViewPolicy}.
- * This class only collapses the legacy Driving View settings booleans into one user-facing mode and projects that
- * mode back onto the legacy keys still consumed by that runtime. Normal-launch location following is deliberately
- * separate and remains owned by AutoStartLocationFollowAndRotate.
+ * <p>The map-facing camera authority is the normal My Position control. Driving View is now an
+ * automatic/off policy only; the legacy MANUAL value remains readable solely so existing installs
+ * migrate without losing their intent after the separate Driving View map button was removed.
  */
 public final class InCarDrivingViewModePolicy
 {
   static final String KEY_DRIVING_VIEW_MODE = "InCarDrivingViewMode";
 
-  // Existing Driving View runtime keys retained as the compatibility/storage projection used by the controller.
+  // Existing runtime keys retained as the compatibility/storage projection consumed by the controller.
   static final String LEGACY_KEY_AUTO_DRIVING_VIEW = "InCarAutomaticDrivingView";
   static final String LEGACY_KEY_SHOW_BUTTON = "InCarShowDrivingViewButton";
 
@@ -43,7 +42,7 @@ public final class InCarDrivingViewModePolicy
       }
       catch (IllegalArgumentException ignored)
       {
-        return MANUAL;
+        return AUTOMATIC;
       }
     }
   }
@@ -51,8 +50,8 @@ public final class InCarDrivingViewModePolicy
   private InCarDrivingViewModePolicy() {}
 
   /**
-   * Reads the canonical mode, migrating once from the existing Driving View booleans when needed. Migration is
-   * idempotent and keeps only the keys that still describe Driving View itself.
+   * Reads the canonical mode, migrating the old manual-button contract to AUTOMATIC. Migration is
+   * idempotent and projects only the runtime keys still consumed by the controller.
    */
   @NonNull
   public static DrivingViewMode getMode(@NonNull Context context)
@@ -60,9 +59,13 @@ public final class InCarDrivingViewModePolicy
     final SharedPreferences prefs = prefs(context);
     if (prefs.contains(KEY_DRIVING_VIEW_MODE))
     {
-      final DrivingViewMode mode =
-          DrivingViewMode.fromPreferenceValue(prefs.getString(KEY_DRIVING_VIEW_MODE, DrivingViewMode.MANUAL.name()));
-      projectRuntimeKeys(prefs, mode);
+      final DrivingViewMode stored = DrivingViewMode.fromPreferenceValue(
+          prefs.getString(KEY_DRIVING_VIEW_MODE, DrivingViewMode.AUTOMATIC.name()));
+      final DrivingViewMode mode = normalize(stored);
+      if (mode != stored)
+        persistMode(prefs, mode);
+      else
+        projectRuntimeKeys(prefs, mode);
       return mode;
     }
 
@@ -74,16 +77,16 @@ public final class InCarDrivingViewModePolicy
   /** Persists the user-facing mode and updates the existing Driving View runtime settings projection. */
   public static void setMode(@NonNull Context context, @NonNull DrivingViewMode mode)
   {
-    persistMode(prefs(context), mode);
+    persistMode(prefs(context), normalize(mode));
   }
 
   /**
-   * Derives the closest canonical mode from the legacy Driving View settings.
+   * Preserves legacy intent after removing the separate map button.
    *
    * <ul>
    *   <li>automatic=true → AUTOMATIC</li>
-   *   <li>automatic=false and show-button=true → MANUAL</li>
-   *   <li>automatic=false and show-button=false → OFF</li>
+   *   <li>legacy manual-button enabled → AUTOMATIC</li>
+   *   <li>both disabled → OFF</li>
    * </ul>
    */
   @VisibleForTesting
@@ -95,7 +98,14 @@ public final class InCarDrivingViewModePolicy
       return DrivingViewMode.AUTOMATIC;
 
     final boolean showButton = prefs.getBoolean(LEGACY_KEY_SHOW_BUTTON, true);
-    return showButton ? DrivingViewMode.MANUAL : DrivingViewMode.OFF;
+    return showButton ? DrivingViewMode.AUTOMATIC : DrivingViewMode.OFF;
+  }
+
+  @VisibleForTesting
+  @NonNull
+  static DrivingViewMode normalize(@NonNull DrivingViewMode mode)
+  {
+    return mode == DrivingViewMode.MANUAL ? DrivingViewMode.AUTOMATIC : mode;
   }
 
   private static void persistMode(@NonNull SharedPreferences prefs, @NonNull DrivingViewMode mode)
@@ -106,10 +116,11 @@ public final class InCarDrivingViewModePolicy
 
   private static void projectRuntimeKeys(@NonNull SharedPreferences prefs, @NonNull DrivingViewMode mode)
   {
-    final boolean enabled = mode != DrivingViewMode.OFF;
-    final boolean automatic = mode == DrivingViewMode.AUTOMATIC;
+    final boolean automatic = mode != DrivingViewMode.OFF;
     prefs.edit()
-        .putBoolean(LEGACY_KEY_SHOW_BUTTON, enabled)
+        // The separate map button no longer exists. Keep the old key false so old code paths cannot
+        // resurrect a second camera authority if an install is downgraded/upgraded across this change.
+        .putBoolean(LEGACY_KEY_SHOW_BUTTON, false)
         .putBoolean(LEGACY_KEY_AUTO_DRIVING_VIEW, automatic)
         .apply();
   }
