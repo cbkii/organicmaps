@@ -59,8 +59,8 @@ public final class InCarDrivingViewModePolicy
     final SharedPreferences prefs = prefs(context);
     if (prefs.contains(KEY_DRIVING_VIEW_MODE))
     {
-      final DrivingViewMode stored = DrivingViewMode.fromPreferenceValue(
-          prefs.getString(KEY_DRIVING_VIEW_MODE, DrivingViewMode.AUTOMATIC.name()));
+      final DrivingViewMode stored =
+          DrivingViewMode.fromPreferenceValue(prefs.getString(KEY_DRIVING_VIEW_MODE, DrivingViewMode.AUTOMATIC.name()));
       final DrivingViewMode mode = normalize(stored);
       if (mode != stored)
         persistMode(prefs, mode);
@@ -117,7 +117,8 @@ public final class InCarDrivingViewModePolicy
   private static void projectRuntimeKeys(@NonNull SharedPreferences prefs, @NonNull DrivingViewMode mode)
   {
     final boolean automatic = mode != DrivingViewMode.OFF;
-    prefs.edit()
+    prefs
+        .edit()
         // The separate map button no longer exists. Keep the old key false so old code paths cannot
         // resurrect a second camera authority if an install is downgraded/upgraded across this change.
         .putBoolean(LEGACY_KEY_SHOW_BUTTON, false)
