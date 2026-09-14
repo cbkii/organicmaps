@@ -4,27 +4,17 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.location.Location;
 import android.util.AttributeSet;
 import android.util.TypedValue;
-import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.fragment.app.FragmentActivity;
 import app.organicmaps.BuildConfig;
-import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
-import app.organicmaps.sdk.routing.RoutingController;
-import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.util.InCarVisuals;
 
-/**
- * Compact current-speed presentation for the InCar navigation glance cluster.
- *
- * <p>The route speed limit remains owned by Organic Maps routing. This view only projects the
- * already-available current speed and cached route limit into a high-contrast visual warning.
- */
+/** Compact current-speed presentation for the InCar navigation glance cluster. */
 public final class InCarNavigationSpeedView extends AppCompatTextView
 {
   @Nullable
@@ -55,15 +45,21 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
   {
     final CharSequence value = text == null ? "" : InCarSpeedDisplayPolicy.compactFormattedSpeed(text);
     super.setText(value, type);
-    refreshWarningState();
   }
 
-  @Override
-  public void setVisibility(int visibility)
+  public void setSpeeding(boolean warning)
   {
-    super.setVisibility(visibility);
-    if (visibility == View.VISIBLE)
-      refreshWarningState();
+    if (mHasWarningState && mWarningState == warning)
+      return;
+
+    mHasWarningState = true;
+    mWarningState = warning;
+    setBackgroundResource(warning ? R.drawable.in_car_speed_warning_background
+                                  : R.drawable.in_car_speed_circle_background);
+    if (warning)
+      setTextColor(Color.WHITE);
+    else if (mDefaultTextColors != null)
+      setTextColor(mDefaultTextColors);
   }
 
   @Override
@@ -71,7 +67,8 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
   {
     super.onAttachedToWindow();
     captureDefaultTextColors();
-    refreshWarningState();
+    if (mHasWarningState)
+      setSpeeding(mWarningState);
   }
 
   @Override
@@ -96,37 +93,6 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
   {
     if (!mHasWarningState || !mWarningState)
       mDefaultTextColors = getTextColors();
-  }
-
-  private void refreshWarningState()
-  {
-    if (!BuildConfig.IS_IN_CAR || !isAttachedToWindow())
-      return;
-
-    boolean warning = false;
-    try
-    {
-      final RoutingInfo info = RoutingController.get().getCachedRoutingInfo();
-      final Location location = MwmApplication.from(getContext()).getLocationHelper().getSavedLocation();
-      warning = info != null && location != null && location.hasSpeed()
-             && InCarSpeedDisplayPolicy.isSpeeding(location.getSpeed(), info.speedLimitMps);
-    }
-    catch (RuntimeException ignored)
-    {
-      // Fail open while the Activity/native routing graph is being recreated (including PiP transitions).
-      warning = false;
-    }
-
-    if (mHasWarningState && mWarningState == warning)
-      return;
-    mHasWarningState = true;
-    mWarningState = warning;
-    setBackgroundResource(warning ? R.drawable.in_car_speed_warning_background
-                                  : R.drawable.in_car_speed_circle_background);
-    if (warning)
-      setTextColor(Color.WHITE);
-    else if (mDefaultTextColors != null)
-      setTextColor(mDefaultTextColors);
   }
 
   @Nullable
