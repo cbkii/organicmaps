@@ -22,6 +22,8 @@ import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
+import app.organicmaps.sdk.routing.RoutingController;
+import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.util.log.Logger;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
@@ -280,6 +282,15 @@ public final class InCarDrivingUi
     binding.speed.setVisibility(snapshot.navigating ? View.INVISIBLE : View.VISIBLE);
     if (binding.navigationSpeed != null)
       binding.navigationSpeed.setVisibility(snapshot.navigating ? View.VISIBLE : View.GONE);
+
+    if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
+    {
+      final RoutingInfo routingInfo = RoutingController.get().getCachedRoutingInfo();
+      final boolean warning = snapshot.navigating && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
+                           && snapshot.hasSpeed && routingInfo != null
+                           && InCarSpeedDisplayPolicy.isSpeeding(snapshot.speedMps, routingInfo.speedLimitMps);
+      navigationSpeedView.setSpeeding(warning);
+    }
 
     applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
     if (binding.navigationSpeed != null)
