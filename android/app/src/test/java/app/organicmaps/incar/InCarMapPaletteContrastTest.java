@@ -1,5 +1,6 @@
 package app.organicmaps.incar;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -36,6 +37,10 @@ public class InCarMapPaletteContrastTest
     assertContrastAtLeast(palette, "label_light", "background", 4.5);
     assertContrastAtLeast(palette, "building_label", "building0", 4.5);
     assertContrastAtLeast(palette, "building_label", "building1", 4.5);
+    assertEquals("Major road casing is a deliberate high-glare black keyline", 0x000000,
+                 requireColor(palette, "casing_road_major"));
+    assertEquals("Road shields retain the same hard light-map edge", 0x000000,
+                 requireColor(palette, "shield_outline"));
   }
 
   @Test
