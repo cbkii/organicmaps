@@ -44,8 +44,13 @@ public final class InCarSpeedDisplayPolicy
    */
   public static boolean isSpeeding(double speedMps, double speedLimitMps)
   {
-    if (!Double.isFinite(speedMps) || speedMps < 0.0 || !Double.isFinite(speedLimitMps) || speedLimitMps < 0.0)
+    if (!isFinite(speedMps) || speedMps < 0.0 || !isFinite(speedLimitMps) || speedLimitMps < 0.0)
       return false;
     return speedMps > speedLimitMps && speedMps >= speedLimitMps * SPEED_WARNING_FACTOR;
+  }
+
+  private static boolean isFinite(double value)
+  {
+    return !Double.isNaN(value) && !Double.isInfinite(value);
   }
 }
