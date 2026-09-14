@@ -53,6 +53,14 @@ public class InCarSpeedDisplayPolicyTest
   }
 
   @Test
+  public void compactSpeedKeepsValueAndDropsUnit()
+  {
+    assertEquals("45", InCarSpeedDisplayPolicy.compactFormattedSpeed("45 km/h"));
+    assertEquals("100", InCarSpeedDisplayPolicy.compactFormattedSpeed("100\u00A0km/h"));
+    assertEquals("--", InCarSpeedDisplayPolicy.compactFormattedSpeed("--"));
+  }
+
+  @Test
   public void speedWarningStartsAtFivePercentAboveValidLimit()
   {
     assertFalse(InCarSpeedDisplayPolicy.isSpeeding(20.999, 20.0));
