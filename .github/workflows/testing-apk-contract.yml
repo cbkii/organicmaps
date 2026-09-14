@@ -1,0 +1,46 @@
+name: Testing APK Contract
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/testing-apk-draft.yml'
+      - '.github/workflows/testing-apk-publish.yml'
+      - '.github/workflows/testing-apk-contract.yml'
+      - 'scripts/ci/build-incar-testing-input.sh'
+      - 'android/tools/tests/test_testing_draft_workflow.py'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/testing-apk-draft.yml'
+      - '.github/workflows/testing-apk-publish.yml'
+      - '.github/workflows/testing-apk-contract.yml'
+      - 'scripts/ci/build-incar-testing-input.sh'
+      - 'android/tools/tests/test_testing_draft_workflow.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Static workflow contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate helper and workflow contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/ci/build-incar-testing-input.sh
+          python3 -m py_compile android/tools/tests/test_testing_draft_workflow.py
+          python3 -m unittest android.tools.tests.test_testing_draft_workflow -v
+          git diff --check HEAD^ HEAD 2>/dev/null || git diff --check
