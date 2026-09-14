@@ -6,21 +6,9 @@
   android:layout_width="wrap_content"
   android:layout_height="wrap_content"
   android:orientation="vertical">
-  <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@id/in_car_driving_view_button"
-    style="@style/MwmWidget.MapButton.Zoom"
-    android:layout_marginBottom="@dimen/in_car_map_zoom_gap"
-    android:contentDescription="@string/in_car_driving_view_button"
-    android:foreground="@drawable/in_car_map_control_outline_round"
-    android:visibility="gone"
-    app:backgroundTint="@color/in_car_map_button_background"
-    app:borderWidth="0dp"
-    app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-    app:srcCompat="@drawable/ic_in_car_driving_view"
-    app:tint="@color/icon_tint" />
-  <!-- Keep the established zoom-container id around +/- only so Config.showZoomButtons() does not
-       accidentally become the visibility authority for the independent Driving View control. -->
+  <!-- The standard My Position control below this include is the single map-facing
+       recentre/follow authority. Driving View remains an InCar setting/runtime policy rather
+       than a second, visually competing camera button. -->
   <LinearLayout
     android:id="@+id/zoom_buttons_container"
     android:layout_width="wrap_content"
