@@ -81,7 +81,7 @@ jobs:
           grep -Eq '^built_sha=[0-9a-f]{40}$' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_package=app.organicmaps.incar' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_version_name=0.0.0-InCar' incoming/BUILD_INFO.txt
-          grep -Fxq 'testing_version_code=999999' incoming/BUILD_INFO.txt
+          grep -Fxq 'testing_version_code=2099999999' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_abi=arm64-v8a' incoming/BUILD_INFO.txt
           recorded_run="$(sed -n 's/^build_run_id=//p' incoming/BUILD_INFO.txt | head -n 1)"
           [[ "$recorded_run" == "$SOURCE_RUN_ID" ]] || {
@@ -168,7 +168,7 @@ jobs:
 
           badging="$($aapt dump badging "outgoing/$install_name" | head -n 1)"
           grep -Fq "package: name='app.organicmaps.incar'" <<<"$badging"
-          grep -Fq "versionCode='999999'" <<<"$badging"
+          grep -Fq "versionCode='2099999999'" <<<"$badging"
           grep -Fq "versionName='0.0.0-InCar'" <<<"$badging"
           unzip -l "outgoing/$install_name" | grep -Fq 'lib/arm64-v8a/liborganicmaps.so'
 
@@ -444,7 +444,6 @@ jobs:
           }
 
           mapfile -t groups < <(
-            jq -r '.[ ] | empty' "$assets_json" 2>/dev/null || true
             jq -r '.[]
               | select(.name == "BUILD_INFO.txt" or (.name | test("^BUILD_INFO-(PR[1-9][0-9]*-[0-9a-f]{7}|SHA-[0-9a-f]{7})\\.txt$")))
               | [.created_at, .name] | @tsv' "$assets_json" | sort -r
@@ -479,7 +478,7 @@ jobs:
           $MANAGED_MARKER
           **TESTING ONLY.** These Organic Maps In-Car development snapshots are for physical/engineering validation. They are not production releases and the newest snapshot is not necessarily the safest one.
 
-          Both retained install snapshots intentionally use package `app.organicmaps.incar`, Android `versionName=0.0.0-InCar` and `versionCode=999999`, so TESTING builds remain in the same reinstall/update lane. DEBUG APKs use the separate debug package identity and are provided for diagnostics only.
+          Both retained install snapshots intentionally use package app.organicmaps.incar, Android versionName=0.0.0-InCar and versionCode=2099999999, so TESTING builds remain in the same reinstall/update lane. DEBUG APKs use the separate debug package identity and are provided for diagnostics only.
 
           ## Current TESTING builds
 
