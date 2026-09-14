@@ -13,7 +13,7 @@ class TestingDraftWorkflowTests(unittest.TestCase):
         self.assertIn("TEST_RELEASE_TITLE: 000 Testing Only Version", PUBLISH)
         self.assertIn("TEST_RELEASE_TAG: 000-testing-only", PUBLISH)
         self.assertIn('version_name="0.0.0-InCar"', HELPER)
-        self.assertIn('version_code="2099999999"', HELPER)
+        self.assertIn('version_code="2100000000"', HELPER)
         self.assertIn('testing_package "app.organicmaps.incar"', HELPER)
         self.assertIn('testing_abi "arm64-v8a"', HELPER)
 
@@ -78,7 +78,7 @@ class TestingDraftWorkflowTests(unittest.TestCase):
     def test_install_apk_is_re_signed_and_verified_as_incar(self):
         self.assertIn("organicmaps-incar-testing.jks", PUBLISH)
         self.assertIn("app.organicmaps.incar", PUBLISH)
-        self.assertIn("versionCode='2099999999'", PUBLISH)
+        self.assertIn("versionCode='2100000000'", PUBLISH)
         self.assertIn("versionName='0.0.0-InCar'", PUBLISH)
         self.assertIn("lib/arm64-v8a/liborganicmaps.so", PUBLISH)
 
