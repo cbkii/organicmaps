@@ -112,18 +112,7 @@ public final class InCarDrivingUi
         return;
       }
 
-      TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
-      if (navigationSpeed == null)
-      {
-        final ViewStub navigationSpeedStub = activity.findViewById(R.id.in_car_nav_speed_stub);
-        if (navigationSpeedStub != null)
-        {
-          final View inflated = navigationSpeedStub.inflate();
-          if (inflated instanceof TextView textView)
-            navigationSpeed = textView;
-        }
-      }
-
+      final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
       final View help = activity.findViewById(R.id.help_button);
       binding = new Binding(overlay, speed, navigationSpeed, help, controller);
       BINDINGS.put(activity, new WeakReference<>(binding));
