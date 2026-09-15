@@ -67,7 +67,13 @@ chmod +x ./gradlew
   -Parm64 \
   app:testInCarDebug assembleInCarDebug
 
-./gradlew --no-daemon --stacktrace \
+# The fixed TESTING versionCode intentionally occupies Android's absolute
+# ceiling. Organic Maps' unrelated Wear module derives its own versionCode as
+# rootVersionCode * 10 + 1, so eagerly configuring every project would overflow
+# that module even though this invocation packages only the InCar app. Keep the
+# release override scoped to the requested app task instead of weakening the
+# fixed update-lane contract.
+./gradlew --no-daemon --stacktrace --configure-on-demand \
   -Parm64 \
   -PinCarReleaseVersionName="$base_version_name" \
   -PinCarReleaseVersionCode="$version_code" \
