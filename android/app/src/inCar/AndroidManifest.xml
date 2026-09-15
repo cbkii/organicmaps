@@ -11,6 +11,12 @@
       tools:node="remove"/>
 
   <application>
+    <!-- InCar alone advertises standard Android PiP. Entry remains externally/system owned: no
+         auto-enter callbacks or OEM windowing hooks are added to the shared map Activity. -->
+    <activity
+        android:name="app.organicmaps.MwmActivity"
+        android:supportsPictureInPicture="true" />
+
     <service
         android:name="app.organicmaps.car.AndroidAutoService"
         tools:node="remove"/>
