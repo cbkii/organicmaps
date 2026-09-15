@@ -47,6 +47,8 @@ The Android CI additionally runs the retained SDK connected tests, x86_64 InCar 
 
 Emulator/CI success is not physical TS18 validation. Record physical validation separately.
 
+Treat the rolling **000 Testing Only Version** draft as an explicit engineering checkpoint, not per-commit CI. Request a TESTING snapshot by adding `testing-apk`, putting `/testing-apk` in the newest PR commit message, commenting `/testing-apk` in the PR conversation, or manually dispatching **Refresh Testing APK Draft** from `master` with the exact PR/ref/SHA in `source_to_build`. Inline review-thread comments are intentionally not a signing trigger. Request one when an installable `app.organicmaps.incar` artefact is needed for physical head-unit validation, reproducing a device-only defect, handing a build to a physical tester, or preserving a device-testable point before a risky follow-up. Do not trigger TESTING for docs-only/trivial changes that do not need installation. The draft retains the newest two complete snapshot groups; its release notes are authoritative for PR/head/built-SHA identity.
+
 ## Repository scope guard
 
 `python3 tools/ci/verify_android_repo_scope.py` is mandatory after cleanup or upstream import. Do not weaken its forbidden-path, symlink/submodule closure, large-asset or size-budget checks merely to make CI pass. Fix the dependency or document a genuinely required Android runtime asset.
