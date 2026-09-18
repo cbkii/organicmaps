@@ -4,6 +4,7 @@
 #include "routing/free_driving_road_snap_policy.hpp"
 
 #include <cmath>
+#include <limits>
 
 namespace free_driving_road_snap_policy_tests
 {
@@ -55,6 +56,7 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_ModerateAccuracyRequiresMoreAmbiguityMargin)
   TEST(IsUnambiguous(1.0, 1.4, AccuracyBand::Good), ());
   TEST(!IsUnambiguous(1.0, 1.4, AccuracyBand::Moderate), ());
   TEST(!IsUnambiguous(1.0, 10.0, AccuracyBand::Poor), ());
+  TEST(IsUnambiguous(1.0, std::numeric_limits<double>::max(), AccuracyBand::Good), ());
 }
 
 UNIT_TEST(FreeDrivingRoadSnapPolicy_HeadingWeightFallsAtLowSpeedAndConflict)
