@@ -77,7 +77,7 @@ chmod +x ./gradlew
   -Parm64 \
   -PinCarReleaseVersionName="$base_version_name" \
   -PinCarReleaseVersionCode="$version_code" \
-  assembleInCarRelease
+  :app:assembleInCarRelease
 
 cd "$repo_dir"
 
