@@ -60,7 +60,7 @@ struct Candidate
   double m_pathProgressPenalty = 0.0;
   double m_chordProgressPenalty = 0.0;
   double m_roadClassPenalty = 0.0;
-  double m_score = std::numeric_limits<double>::max();
+  double m_score = free_driving_snap::kNoRunnerUpScore;
 };
 
 char const * StateName(free_driving_snap::MatchState state)
@@ -305,7 +305,7 @@ double RunnerUpScore(std::vector<Candidate> const & candidates, Candidate const 
   for (auto const & candidate : candidates)
     if (candidate.m_projection.m_edge.GetFeatureId() != best.m_projection.m_edge.GetFeatureId())
       return candidate.m_score;
-  return std::numeric_limits<double>::max();
+  return free_driving_snap::kNoRunnerUpScore;
 }
 
 bool HasDecisiveCorridorSeed(AsyncRouter & router, std::vector<CandidateSeed> const & seeds,
@@ -624,7 +624,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   Candidate const * current = previous != nullptr ? FindCurrentCandidate(candidates, previous->m_edge) : nullptr;
   bool const bestAcceptable = best != nullptr && IsAcceptable(*best, policyInfo, previous != nullptr);
   double const runnerUpScore =
-      best != nullptr ? RunnerUpScore(candidates, *best) : std::numeric_limits<double>::max();
+      best != nullptr ? RunnerUpScore(candidates, *best) : free_driving_snap::kNoRunnerUpScore;
   bool const bestUnambiguous =
       best != nullptr && free_driving_snap::IsUnambiguous(best->m_score, runnerUpScore, accuracy);
   bool const bestStrong = bestAcceptable && best->m_distanceM <= free_driving_snap::StrongRoadDistanceM(policyInfo) &&
@@ -798,7 +798,7 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
   }
 
   EdgeProj bestProjection;
-  double bestScore = std::numeric_limits<double>::max();
+  double bestScore = free_driving_snap::kNoRunnerUpScore;
   m2::PointD bearingDirection;
   if (displayInput.HasBearing())
     bearingDirection = DirectionFromBearing(displayInput.m_bearing);
