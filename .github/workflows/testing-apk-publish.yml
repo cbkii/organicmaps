@@ -53,7 +53,7 @@ jobs:
           }
 
       - name: Download build input
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: ${{ inputs.artifact_name }}
           path: incoming
@@ -226,6 +226,11 @@ jobs:
             done
           }
 
+          is_expected_draft_tag() {
+            local tag="$1"
+            [[ "$tag" == "$TEST_RELEASE_TAG" || "$tag" =~ ^untagged-[0-9a-f]+$ ]]
+          }
+
           release_assets_json() {
             api_read "repos/$GITHUB_REPOSITORY/releases/$1/assets?per_page=100"
           }
@@ -345,13 +350,16 @@ jobs:
             printf '[`%s`](%s)' "${sha:0:7}" "$url"
           }
 
+          # GitHub may expose an unpublished draft through an internal
+          # untagged-<id> identity even when TEST_RELEASE_TAG was requested.
+          # The managed marker + fixed title are the durable draft identity.
           release_id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq ".[] | select(.draft == true and .name == \"$TEST_RELEASE_TITLE\" and .tag_name == \"$TEST_RELEASE_TAG\" and (.body // \"\" | contains(\"$MANAGED_MARKER\"))) | [.updated_at, .id] | @tsv" \
+            --jq ".[] | select(.draft == true and .name == \"$TEST_RELEASE_TITLE\" and (.body // \"\" | contains(\"$MANAGED_MARKER\"))) | [.updated_at, .id] | @tsv" \
             | sort -r | head -n 1 | cut -f2)"
 
           if [[ -z "$release_id" ]]; then
             release_id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq ".[] | select(.draft == true and .name == \"$TEST_RELEASE_TITLE\" and .tag_name == \"$TEST_RELEASE_TAG\") | [.updated_at, .id] | @tsv" \
+              --jq ".[] | select(.draft == true and .name == \"$TEST_RELEASE_TITLE\" and (.tag_name == \"$TEST_RELEASE_TAG\" or (.tag_name | test(\"^untagged-[0-9a-f]+$\")))) | [.updated_at, .id] | @tsv" \
               | sort -r | head -n 1 | cut -f2)"
           fi
 
@@ -373,11 +381,21 @@ jobs:
               --jq .id)"
           fi
 
-          state="$(api_read "repos/$GITHUB_REPOSITORY/releases/$release_id" --jq '[.draft, .name, .tag_name] | @tsv')"
-          [[ "$state" == $'true\t'"$TEST_RELEASE_TITLE"$'\t'"$TEST_RELEASE_TAG" ]] || {
-            echo "::error::Testing release is not the required draft/title/tag before asset refresh: $state"
+          state_json="$(api_read "repos/$GITHUB_REPOSITORY/releases/$release_id")"
+          draft_state="$(jq -r .draft <<<"$state_json")"
+          release_name="$(jq -r .name <<<"$state_json")"
+          release_tag="$(jq -r .tag_name <<<"$state_json")"
+          if [[ "$draft_state" != true || "$release_name" != "$TEST_RELEASE_TITLE" ]]; then
+            echo "::error::Testing release is not the required managed draft before asset refresh: draft=$draft_state name=$release_name tag=$release_tag"
             exit 1
-          }
+          fi
+          if ! is_expected_draft_tag "$release_tag"; then
+            echo "::error::Testing draft has an unexpected tag identity before asset refresh: $release_tag"
+            exit 1
+          fi
+          if [[ "$release_tag" != "$TEST_RELEASE_TAG" ]]; then
+            echo "::notice::GitHub exposes the managed TESTING draft with internal tag '$release_tag'; requested tag remains '$TEST_RELEASE_TAG'."
+          fi
 
           assets_json="$RUNNER_TEMP/testing-assets.json"
           release_assets_json "$release_id" > "$assets_json"
@@ -638,12 +656,33 @@ jobs:
             -f make_latest=false >/dev/null
 
           final="$(api_read "repos/$GITHUB_REPOSITORY/releases/$release_id")"
-          [[ "$(jq -r .draft <<<"$final")" == true ]]
-          [[ "$(jq -r .name <<<"$final")" == "$TEST_RELEASE_TITLE" ]]
-          [[ "$(jq -r .tag_name <<<"$final")" == "$TEST_RELEASE_TAG" ]]
-          jq -e --arg marker "$MANAGED_MARKER" '(.body // "") | contains($marker)' <<<"$final" >/dev/null
-          jq -e --arg name "$INFO_NAME" '.assets[] | select(.name == $name and .state == "uploaded" and .size > 0)' <<<"$final" >/dev/null
-          ! grep -Fq '](null)' <<<"$(jq -r .body <<<"$final")"
+          final_draft="$(jq -r .draft <<<"$final")"
+          final_name="$(jq -r .name <<<"$final")"
+          final_tag="$(jq -r .tag_name <<<"$final")"
+          [[ "$final_draft" == true ]] || {
+            echo "::error::Final TESTING release is no longer a draft."
+            exit 1
+          }
+          [[ "$final_name" == "$TEST_RELEASE_TITLE" ]] || {
+            echo "::error::Final TESTING draft title mismatch: expected '$TEST_RELEASE_TITLE', found '$final_name'."
+            exit 1
+          }
+          is_expected_draft_tag "$final_tag" || {
+            echo "::error::Final TESTING draft has unexpected tag identity '$final_tag'."
+            exit 1
+          }
+          jq -e --arg marker "$MANAGED_MARKER" '(.body // "") | contains($marker)' <<<"$final" >/dev/null || {
+            echo "::error::Final TESTING draft lost the managed marker."
+            exit 1
+          }
+          jq -e --arg name "$INFO_NAME" '.assets[] | select(.name == $name and .state == "uploaded" and .size > 0)' <<<"$final" >/dev/null || {
+            echo "::error::Final TESTING draft is missing uploaded metadata asset '$INFO_NAME'."
+            exit 1
+          }
+          if grep -Fq '](null)' <<<"$(jq -r .body <<<"$final")"; then
+            echo "::error::Final TESTING draft release notes contain a null asset link."
+            exit 1
+          fi
 
           retained_count="$(jq -r '[.assets[] | select(.name == "BUILD_INFO.txt" or (.name | test("^BUILD_INFO-(PR[1-9][0-9]*-[0-9a-f]{7}|SHA-[0-9a-f]{7})\\.txt$")))] | length' <<<"$final")"
           (( retained_count >= 1 && retained_count <= 2 )) || {
