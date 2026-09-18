@@ -1,0 +1,134 @@
+name: Testing APK Contract
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/testing-apk-draft.yml'
+      - '.github/workflows/testing-apk-publish.yml'
+      - '.github/workflows/testing-apk-contract.yml'
+      - 'scripts/ci/build-incar-testing-input.sh'
+      - 'android/tools/tests/test_testing_draft_workflow.py'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/testing-apk-draft.yml'
+      - '.github/workflows/testing-apk-publish.yml'
+      - '.github/workflows/testing-apk-contract.yml'
+      - 'scripts/ci/build-incar-testing-input.sh'
+      - 'android/tools/tests/test_testing_draft_workflow.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Static workflow contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate helper and workflow contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/ci/build-incar-testing-input.sh
+          python3 -m py_compile android/tools/tests/test_testing_draft_workflow.py
+          python3 -m unittest android.tools.tests.test_testing_draft_workflow -v
+          git diff --check HEAD^ HEAD 2>/dev/null || git diff --check
+
+  build-input:
+    name: Exercise fixed-version InCar TESTING build
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Install native build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 200
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Initialise submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git submodule sync --recursive
+          git submodule update --depth 1 --init --recursive --jobs="$(($(nproc) * 20))"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Organic Maps Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          compile_sdk="$(sed -n 's/^propCompileSdkVersion=//p' android/gradle.properties | head -n1)"
+          ndk_version="$(sed -n 's/^propNdkVersion=//p' android/gradle.properties | head -n1)"
+          build_tools_version="36.0.0"
+          cmake_version="3.22.1"
+
+          if [[ ! "$compile_sdk" =~ ^[0-9]+$ ]] || [[ -z "$ndk_version" ]]; then
+            echo "::error::Unable to resolve compile SDK / NDK versions from android/gradle.properties."
+            exit 1
+          fi
+
+          sdkmanager="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$sdkmanager" \
+            "platform-tools" \
+            "platforms;android-${compile_sdk}" \
+            "build-tools;${build_tools_version}" \
+            "cmake;${cmake_version}" \
+            "ndk;${ndk_version}" >/dev/null
+
+          build_tools_dir="${ANDROID_SDK_ROOT}/build-tools/${build_tools_version}"
+          test -x "${build_tools_dir}/apksigner"
+          echo "${ANDROID_SDK_ROOT}/cmake/${cmake_version}/bin" >> "$GITHUB_PATH"
+          echo "${build_tools_dir}" >> "$GITHUB_PATH"
+          printf 'sdk.dir=%s\n' "$ANDROID_SDK_ROOT" > android/local.properties
+
+      - name: Exercise shared testing build helper
+        shell: bash
+        env:
+          TESTING_SOURCE_KIND: contract
+          TESTING_REQUESTED_SOURCE: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          TESTING_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TESTING_SOURCE_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          TESTING_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          TESTING_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          TESTING_PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+          TESTING_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          TESTING_TRIGGER_TYPE: contract
+          TESTING_TRIGGER_ACTOR: ${{ github.actor }}
+          TESTING_BUILD_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          bash scripts/ci/build-incar-testing-input.sh . "$RUNNER_TEMP/testing-input"
+          test -s "$RUNNER_TEMP/testing-input/incar-debug.apk"
+          test -s "$RUNNER_TEMP/testing-input/incar-release.apk"
+          grep -Fxq 'testing_package=app.organicmaps.incar' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
+          grep -Fxq 'testing_version_name=0.0.0-InCar' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
+          grep -Fxq 'testing_version_code=2100000000' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
+          grep -Fxq 'testing_abi=arm64-v8a' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
