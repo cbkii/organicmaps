@@ -12,8 +12,9 @@ class TestingDraftWorkflowTests(unittest.TestCase):
     def test_fixed_release_title_and_version_contract_are_unchanged(self):
         self.assertIn("TEST_RELEASE_TITLE: 000 Testing Only Version", PUBLISH)
         self.assertIn("TEST_RELEASE_TAG: 000-testing-only", PUBLISH)
-        self.assertIn('.tag_name == \\"$TEST_RELEASE_TAG\\"', PUBLISH)
-        self.assertIn("jq -r .tag_name", PUBLISH)
+        self.assertIn("is_expected_draft_tag", PUBLISH)
+        self.assertIn("^untagged-[0-9a-f]+$", PUBLISH)
+        self.assertIn("requested tag remains", PUBLISH)
         self.assertIn('version_name="0.0.0-InCar"', HELPER)
         self.assertIn('version_code="2100000000"', HELPER)
         self.assertIn('testing_package "app.organicmaps.incar"', HELPER)
@@ -69,6 +70,16 @@ class TestingDraftWorkflowTests(unittest.TestCase):
         for name in ("KEYSTORE_BASE64", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD"):
             self.assertIn(name, DRAFT)
             self.assertIn(name, PUBLISH)
+
+    def test_publisher_adopts_github_internal_untagged_draft_identity(self):
+        self.assertIn("The managed marker + fixed title are the durable draft identity.", PUBLISH)
+        self.assertIn('contains(\\"$MANAGED_MARKER\\")', PUBLISH)
+        self.assertIn("is_expected_draft_tag \"$release_tag\"", PUBLISH)
+        self.assertIn("is_expected_draft_tag \"$final_tag\"", PUBLISH)
+        self.assertIn(
+            "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5",
+            PUBLISH,
+        )
 
     def test_missing_or_duplicated_handoff_is_failure(self):
         self.assertIn("Expected exactly one unexpired", PUBLISH)
