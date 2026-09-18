@@ -31,6 +31,27 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up JDK 17 for Android SDK bootstrap
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Verify Android SDK bootstrap
+        # Mirror the production release bootstrap without release secrets or
+        # package installation. This catches setup-action/package regressions
+        # before a manual release is attempted.
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: ''
+
+      - name: Verify sdkmanager is usable
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager --version
+
       - name: Compile resolver
         shell: bash
         run: python3 -m py_compile android/tools/resolve_in_car_release_version.py
