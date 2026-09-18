@@ -170,9 +170,9 @@ inline double RequiredRunnerUpMargin(AccuracyBand accuracy)
   case AccuracyBand::Good: return 0.28;
   case AccuracyBand::Moderate: return 0.50;
   case AccuracyBand::Poor:
-  case AccuracyBand::Unusable: return std::numeric_limits<double>::infinity();
+  case AccuracyBand::Unusable: return std::numeric_limits<double>::max();
   }
-  return std::numeric_limits<double>::infinity();
+  return std::numeric_limits<double>::max();
 }
 
 inline bool IsUnambiguous(double bestScore, double runnerUpScore, AccuracyBand accuracy)
