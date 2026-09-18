@@ -60,7 +60,7 @@ struct Candidate
   double m_pathProgressPenalty = 0.0;
   double m_chordProgressPenalty = 0.0;
   double m_roadClassPenalty = 0.0;
-  double m_score = free_driving_snap::kNoRunnerUpScore;
+  double m_score = std::numeric_limits<double>::max();
 };
 
 char const * StateName(free_driving_snap::MatchState state)
@@ -798,7 +798,7 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
   }
 
   EdgeProj bestProjection;
-  double bestScore = free_driving_snap::kNoRunnerUpScore;
+  double bestScore = std::numeric_limits<double>::max();
   m2::PointD bearingDirection;
   if (displayInput.HasBearing())
     bearingDirection = DirectionFromBearing(displayInput.m_bearing);
