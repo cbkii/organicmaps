@@ -16,6 +16,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
+@SuppressWarnings("unchecked")
 public class WeekScheduleBuilderTest
 {
   WeekScheduleBuilder builder;
