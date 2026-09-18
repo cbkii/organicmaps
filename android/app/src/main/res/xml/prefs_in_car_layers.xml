@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto">
+
+  <SwitchPreferenceCompat
+    android:key="in_car_layer_outdoors"
+    android:title="@string/button_layer_outdoor"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
+  <SwitchPreferenceCompat
+    android:key="in_car_layer_isolines"
+    android:title="@string/button_layer_isolines"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
+  <SwitchPreferenceCompat
+    android:key="in_car_layer_hiking"
+    android:title="@string/button_layer_hiking"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
+  <SwitchPreferenceCompat
+    android:key="in_car_layer_cycling"
+    android:title="@string/button_layer_cycling"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
+  <SwitchPreferenceCompat
+    android:key="in_car_layer_satellite"
+    android:title="@string/button_layer_satellite"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+</androidx.preference.PreferenceScreen>

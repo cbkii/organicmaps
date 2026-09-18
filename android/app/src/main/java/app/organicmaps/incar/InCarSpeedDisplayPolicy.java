@@ -5,6 +5,8 @@ import androidx.annotation.NonNull;
 /** Pure adapter that deliberately delegates unit conversion/formatting to Organic Maps. */
 public final class InCarSpeedDisplayPolicy
 {
+  private static final double SPEED_WARNING_FACTOR = 1.05;
+
   public interface Formatter
   {
     @NonNull
@@ -20,5 +22,35 @@ public final class InCarSpeedDisplayPolicy
     if (health != InCarDrivingViewController.LocationHealth.CURRENT || !hasSpeed || speedMps < 0.0)
       return unavailableText;
     return formatter.format(speedMps);
+  }
+
+  /** Returns the leading numeric/value token for the compact circular navigation speed display. */
+  @NonNull
+  public static String compactFormattedSpeed(@NonNull CharSequence formatted)
+  {
+    for (int i = 0; i < formatted.length(); ++i)
+    {
+      final char c = formatted.charAt(i);
+      if (Character.isWhitespace(c) || c == '\u00A0')
+        return i == 0 ? formatted.toString() : formatted.subSequence(0, i).toString();
+    }
+    return formatted.toString();
+  }
+
+  /**
+   * True only when both measurements are valid and current speed is at least five percent above
+   * the route-provided speed limit. A zero limit still requires actual positive movement; unknown
+   * limits are represented by a negative value by RoutingInfo and must never create a warning.
+   */
+  public static boolean isSpeeding(double speedMps, double speedLimitMps)
+  {
+    if (!isFinite(speedMps) || speedMps < 0.0 || !isFinite(speedLimitMps) || speedLimitMps < 0.0)
+      return false;
+    return speedMps > speedLimitMps && speedMps >= speedLimitMps * SPEED_WARNING_FACTOR;
+  }
+
+  private static boolean isFinite(double value)
+  {
+    return !Double.isNaN(value) && !Double.isInfinite(value);
   }
 }

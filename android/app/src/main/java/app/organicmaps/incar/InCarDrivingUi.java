@@ -22,6 +22,8 @@ import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
+import app.organicmaps.sdk.routing.RoutingController;
+import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.util.log.Logger;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
@@ -110,18 +112,7 @@ public final class InCarDrivingUi
         return;
       }
 
-      TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
-      if (navigationSpeed == null)
-      {
-        final ViewStub navigationSpeedStub = activity.findViewById(R.id.in_car_nav_speed_stub);
-        if (navigationSpeedStub != null)
-        {
-          final View inflated = navigationSpeedStub.inflate();
-          if (inflated instanceof TextView textView)
-            navigationSpeed = textView;
-        }
-      }
-
+      final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
       final View help = activity.findViewById(R.id.help_button);
       binding = new Binding(overlay, speed, navigationSpeed, help, controller);
       BINDINGS.put(activity, new WeakReference<>(binding));
@@ -281,6 +272,16 @@ public final class InCarDrivingUi
     if (binding.navigationSpeed != null)
       binding.navigationSpeed.setVisibility(snapshot.navigating ? View.VISIBLE : View.GONE);
 
+    if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
+    {
+      final RoutingInfo routingInfo = RoutingController.get().getCachedRoutingInfo();
+      final boolean warning = snapshot.navigating
+                           && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
+                           && snapshot.hasSpeed && routingInfo != null
+                           && InCarSpeedDisplayPolicy.isSpeeding(snapshot.speedMps, routingInfo.speedLimitMps);
+      navigationSpeedView.setSpeeding(warning);
+    }
+
     applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
     if (binding.navigationSpeed != null)
       applyLocationHealth(activity, binding.navigationSpeed, snapshot.locationHealth, speedText);
@@ -308,7 +309,6 @@ public final class InCarDrivingUi
       drivingView.setImageTintList(ColorStateList.valueOf(buttonForeground));
     }
 
-    // Promotional/help content remains available through menus/settings but is not primary driving-map chrome.
     if (binding.help != null)
       binding.help.setVisibility(View.GONE);
   }

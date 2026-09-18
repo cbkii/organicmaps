@@ -269,6 +269,29 @@ if [[ "${target_sdk}" != "${expected_target_sdk}" ]]; then
   fail "Unexpected in-car targetSdkVersion: ${target_sdk:-not found}; expected ${expected_target_sdk}."
 fi
 
+# Verify the capability after manifest merging, not merely in the InCar source overlay.
+if ! python3 - "${manifest}" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+ANDROID = "{http://schemas.android.com/apk/res/android}"
+root = ET.parse(sys.argv[1]).getroot()
+application = root.find("application")
+if application is None:
+    raise SystemExit("merged manifest has no application element")
+for activity in application.findall("activity"):
+    if activity.get(ANDROID + "name") != "app.organicmaps.MwmActivity":
+        continue
+    if activity.get(ANDROID + "supportsPictureInPicture") != "true":
+        raise SystemExit("MwmActivity is not PiP-capable in the merged InCar APK manifest")
+    break
+else:
+    raise SystemExit("MwmActivity is missing from the merged InCar APK manifest")
+PY
+then
+  fail "Merged InCar APK does not advertise standard PiP on MwmActivity."
+fi
+
 forbidden_manifest=(
   'app.organicmaps.car.AndroidAutoService'
   'androidx.car.app.NAVIGATION_TEMPLATES'
@@ -359,6 +382,7 @@ if [[ -n "${summary_file}" ]]; then
     echo "- targetSdkVersion: \`${target_sdk}\`"
     echo '- ABI: `arm64-v8a` only'
     echo '- Native runtime: `lib/arm64-v8a/liborganicmaps.so` present'
+    echo '- MwmActivity standard PiP capability: `true` in merged APK manifest'
     if [[ -n "${apk_cert_sha256}" ]]; then
       echo "- Signer SHA-256: \`${apk_cert_sha256}\`"
     else
@@ -380,6 +404,7 @@ printf 'versionName: %s\n' "${version_name}"
 printf 'versionCode: %s\n' "${version_code}"
 printf 'minSdkVersion: %s\n' "${min_sdk}"
 printf 'targetSdkVersion: %s\n' "${target_sdk}"
+printf 'MwmActivity PiP capable: true\n'
 if [[ -n "${apk_cert_sha256}" ]]; then
   printf 'Signer SHA-256: %s\n' "${apk_cert_sha256}"
 else

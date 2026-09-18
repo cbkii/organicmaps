@@ -16,7 +16,8 @@
   <color name="in_car_icon_primary">#FF3C4043</color>
   <color name="in_car_icon_secondary">#FF5F6368</color>
   <color name="in_car_divider">#FF80868B</color>
-  <color name="in_car_map_control_outline">#E6FFFFFF</color>
+  <!-- Opaque black remains legible when light/translucent map chrome is washed out by glare. -->
+  <color name="in_car_map_control_outline">#FF000000</color>
 
   <color name="in_car_selection_accent">#FF0072B1</color>
   <color name="in_car_selection_foreground">#FFFFFFFF</color>

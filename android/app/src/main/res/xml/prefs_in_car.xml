@@ -9,6 +9,12 @@
     android:summary="@string/in_car_quick_destinations_summary"
     app:fragment="app.organicmaps.settings.InCarQuickDestinationsSettingsFragment" />
 
+  <Preference
+    android:key="in_car_map_layers"
+    android:title="@string/layers_title"
+    app:fragment="app.organicmaps.settings.InCarMapLayersSettingsFragment"
+    app:singleLineTitle="false" />
+
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_driving_view">
 
@@ -18,7 +24,7 @@
       android:summary="@string/in_car_driving_view_mode_summary"
       android:entries="@array/in_car_driving_view_mode_entries"
       android:entryValues="@array/in_car_driving_view_mode_values"
-      android:defaultValue="MANUAL"
+      android:defaultValue="AUTOMATIC"
       android:persistent="false"
       app:singleLineTitle="false" />
 
