@@ -56,7 +56,7 @@ class TestingDraftWorkflowTests(unittest.TestCase):
         self.assertIn("build-incar-testing-input.sh", DRAFT)
         self.assertIn("verify_android_repo_scope.py", HELPER)
         self.assertIn("app:testInCarDebug assembleInCarDebug", HELPER)
-        self.assertIn("assembleInCarRelease", HELPER)
+        self.assertIn(":app:assembleInCarRelease", HELPER)
         self.assertIn("--configure-on-demand", HELPER)
         self.assertIn('-PinCarReleaseVersionName="$base_version_name"', HELPER)
         self.assertIn('-PinCarReleaseVersionCode="$version_code"', HELPER)
