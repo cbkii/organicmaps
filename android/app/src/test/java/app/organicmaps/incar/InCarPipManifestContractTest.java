@@ -35,8 +35,7 @@ public class InCarPipManifestContractTest
   public void noAutomaticPipEntryPathIsIntroduced() throws IOException
   {
     final Path root = findRepositoryRoot();
-    final String sharedActivity =
-        readUtf8(root.resolve("android/app/src/main/java/app/organicmaps/MwmActivity.java"));
+    final String sharedActivity = readUtf8(root.resolve("android/app/src/main/java/app/organicmaps/MwmActivity.java"));
     assertNoAutoPip(sharedActivity);
 
     final Path inCarJava = root.resolve("android/app/src/main/java/app/organicmaps/incar");
