@@ -12,6 +12,8 @@ class TestingDraftWorkflowTests(unittest.TestCase):
     def test_fixed_release_title_and_version_contract_are_unchanged(self):
         self.assertIn("TEST_RELEASE_TITLE: 000 Testing Only Version", PUBLISH)
         self.assertIn("TEST_RELEASE_TAG: 000-testing-only", PUBLISH)
+        self.assertIn('.tag_name == \\"$TEST_RELEASE_TAG\\"', PUBLISH)
+        self.assertIn("jq -r .tag_name", PUBLISH)
         self.assertIn('version_name="0.0.0-InCar"', HELPER)
         self.assertIn('version_code="2100000000"', HELPER)
         self.assertIn('testing_package "app.organicmaps.incar"', HELPER)
