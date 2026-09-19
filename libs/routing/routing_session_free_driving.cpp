@@ -623,8 +623,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   Candidate const * best = candidates.empty() ? nullptr : &candidates.front();
   Candidate const * current = previous != nullptr ? FindCurrentCandidate(candidates, previous->m_edge) : nullptr;
   bool const bestAcceptable = best != nullptr && IsAcceptable(*best, policyInfo, previous != nullptr);
-  double const runnerUpScore =
-      best != nullptr ? RunnerUpScore(candidates, *best) : free_driving_snap::kNoRunnerUpScore;
+  double const runnerUpScore = best != nullptr ? RunnerUpScore(candidates, *best) : free_driving_snap::kNoRunnerUpScore;
   bool const bestUnambiguous =
       best != nullptr && free_driving_snap::IsUnambiguous(best->m_score, runnerUpScore, accuracy);
   bool const bestStrong = bestAcceptable && best->m_distanceM <= free_driving_snap::StrongRoadDistanceM(policyInfo) &&
