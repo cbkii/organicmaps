@@ -410,13 +410,16 @@ jobs:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: default
-          script: |
-            export IN_CAR_REAL_ADB="$(command -v adb)"
-            export IN_CAR_LOGCAT_STATE_DIR="${RUNNER_TEMP}/in-car-logcat-window-state-api-${{ matrix.api-level }}"
-            chmod +x android/tools/ci-adb-logcat-window/adb
-            export PATH="$(pwd)/android/tools/ci-adb-logcat-window:${PATH}"
-            bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}"
-            bash android/tools/smoke_test_in_car_warm_reentry.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/warm-reentry"
+          # android-emulator-runner executes newline-separated script entries independently.
+          # Fold the setup and smoke commands into one shell invocation so the ADB compatibility
+          # wrapper environment remains active for every smoke phase.
+          script: >-
+            export IN_CAR_REAL_ADB="$(command -v adb)" &&
+            export IN_CAR_LOGCAT_STATE_DIR="${RUNNER_TEMP}/in-car-logcat-window-state-api-${{ matrix.api-level }}" &&
+            chmod +x android/tools/ci-adb-logcat-window/adb &&
+            export PATH="$(pwd)/android/tools/ci-adb-logcat-window:${PATH}" &&
+            bash android/tools/smoke_test_in_car_apk.sh --apk "${{ steps.apk.outputs.path }}" --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}" &&
+            bash android/tools/smoke_test_in_car_warm_reentry.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/warm-reentry" &&
             bash android/tools/smoke_test_in_car_window_resize.sh --package app.organicmaps.incar.profileable --proof-dir "${RUNNER_TEMP}/in-car-profileable-ci-launch-smoke-api-${{ matrix.api-level }}/window-resize"
 
       - name: Upload optimised InCar launch smoke evidence
