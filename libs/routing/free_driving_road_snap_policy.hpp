@@ -37,6 +37,7 @@ double constexpr kParkingEntranceHintSeconds = 10.0;
 double constexpr kPersistenceRefreshSeconds = 5.0;
 double constexpr kPersistenceMaxAgeSeconds = 7.0 * 24.0 * 60.0 * 60.0;
 double constexpr kPersistenceMaxDistanceM = 250.0;
+double constexpr kNoRunnerUpScore = std::numeric_limits<double>::max();
 
 // These are effective directed-candidate budgets.  Corridor expansion and reverse edges are
 // folded into the same bound before the expensive scoring pass.
@@ -170,16 +171,16 @@ inline double RequiredRunnerUpMargin(AccuracyBand accuracy)
   case AccuracyBand::Good: return 0.28;
   case AccuracyBand::Moderate: return 0.50;
   case AccuracyBand::Poor:
-  case AccuracyBand::Unusable: return std::numeric_limits<double>::infinity();
+  case AccuracyBand::Unusable: return std::numeric_limits<double>::max();
   }
-  return std::numeric_limits<double>::infinity();
+  return std::numeric_limits<double>::max();
 }
 
 inline bool IsUnambiguous(double bestScore, double runnerUpScore, AccuracyBand accuracy)
 {
   if (accuracy == AccuracyBand::Poor || accuracy == AccuracyBand::Unusable)
     return false;
-  if (!std::isfinite(runnerUpScore))
+  if (runnerUpScore == kNoRunnerUpScore)
     return true;
   return runnerUpScore - bestScore >= RequiredRunnerUpMargin(accuracy);
 }

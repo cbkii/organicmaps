@@ -270,7 +270,7 @@ class ColorSlidersView @JvmOverloads constructor(
         }
     }
 
-    private enum class Channel(@StringRes val labelRes: Int) {
+    private enum class Channel(@param:StringRes val labelRes: Int) {
         RED(R.string.color_picker_red),
         GREEN(R.string.color_picker_green),
         BLUE(R.string.color_picker_blue),

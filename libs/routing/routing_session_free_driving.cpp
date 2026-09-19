@@ -80,11 +80,6 @@ bool SameDirectedEdge(Edge const & lhs, Edge const & rhs)
   return lhs.SameRoadSegmentAndDirection(rhs);
 }
 
-bool SamePhysicalSegment(Edge const & lhs, Edge const & rhs)
-{
-  return lhs.GetFeatureId() == rhs.GetFeatureId() && lhs.GetSegId() == rhs.GetSegId();
-}
-
 bool SameLogicalRoad(Edge const & lhs, Edge const & rhs)
 {
   return lhs.GetFeatureId() == rhs.GetFeatureId() && lhs.IsForward() == rhs.IsForward();
@@ -310,7 +305,7 @@ double RunnerUpScore(std::vector<Candidate> const & candidates, Candidate const 
   for (auto const & candidate : candidates)
     if (candidate.m_projection.m_edge.GetFeatureId() != best.m_projection.m_edge.GetFeatureId())
       return candidate.m_score;
-  return std::numeric_limits<double>::infinity();
+  return free_driving_snap::kNoRunnerUpScore;
 }
 
 bool HasDecisiveCorridorSeed(AsyncRouter & router, std::vector<CandidateSeed> const & seeds,
@@ -628,8 +623,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   Candidate const * best = candidates.empty() ? nullptr : &candidates.front();
   Candidate const * current = previous != nullptr ? FindCurrentCandidate(candidates, previous->m_edge) : nullptr;
   bool const bestAcceptable = best != nullptr && IsAcceptable(*best, policyInfo, previous != nullptr);
-  double const runnerUpScore =
-      best != nullptr ? RunnerUpScore(candidates, *best) : std::numeric_limits<double>::infinity();
+  double const runnerUpScore = best != nullptr ? RunnerUpScore(candidates, *best) : free_driving_snap::kNoRunnerUpScore;
   bool const bestUnambiguous =
       best != nullptr && free_driving_snap::IsUnambiguous(best->m_score, runnerUpScore, accuracy);
   bool const bestStrong = bestAcceptable && best->m_distanceM <= free_driving_snap::StrongRoadDistanceM(policyInfo) &&
