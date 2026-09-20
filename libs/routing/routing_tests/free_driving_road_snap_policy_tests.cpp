@@ -55,6 +55,8 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_ModerateAccuracyRequiresMoreAmbiguityMargin)
   TEST(IsUnambiguous(1.0, 1.4, AccuracyBand::Good), ());
   TEST(!IsUnambiguous(1.0, 1.4, AccuracyBand::Moderate), ());
   TEST(!IsUnambiguous(1.0, 10.0, AccuracyBand::Poor), ());
+  TEST(std::isfinite(kNoRunnerUpScore), ());
+  TEST(std::isfinite(RequiredRunnerUpMargin(AccuracyBand::Unusable)), ());
   TEST(IsUnambiguous(1.0, kNoRunnerUpScore, AccuracyBand::Good), ());
 }
 
