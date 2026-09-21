@@ -31,7 +31,7 @@ on:
       - 'tools/kothic/**'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -42,8 +42,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.head_ref }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Checkout Kothic style compiler
         shell: bash
@@ -56,18 +55,6 @@ jobs:
       - name: Generate drawing rules
         shell: bash
         run: tools/unix/generate_drules.sh
-
-      - name: Commit generated rules for this PR branch
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/incar-high-glare-light-palette'
-        shell: bash
-        run: |
-          git config user.name "github-actions"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/drules_in_car.bin data/drules_in_car.txt
-          if ! git diff --cached --quiet; then
-            git commit -m "Regenerate InCar drawing rules"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
 
       - name: Upload generated InCar rules
         if: always()
