@@ -14,7 +14,6 @@ on:
       - 'data/drules_in_car.txt'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
-      - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
@@ -27,6 +26,7 @@ on:
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'tools/unix/generate_drules.sh'
+      - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
 
