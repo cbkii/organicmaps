@@ -13,6 +13,8 @@ on:
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'tools/unix/generate_drules.sh'
+      - 'tools/ci/verify_in_car_light_palette.py'
+      - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
@@ -45,6 +47,10 @@ jobs:
       - name: Checkout Kothic style compiler
         shell: bash
         run: git submodule update --init --depth 1 tools/kothic
+
+      - name: Verify high-glare InCar light palette
+        shell: bash
+        run: python3 -X dev -W default tools/ci/verify_in_car_light_palette.py
 
       - name: Generate drawing rules
         shell: bash
