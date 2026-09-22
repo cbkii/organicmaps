@@ -5,29 +5,23 @@
  * ranges so existing .mwm files remain valid.
  */
 
-/* High-contrast driving roads.
- *
- * The stock vehicle style deliberately fades many roads at lower zooms. That is
- * useful on a normal phone map but counterproductive on the TS18 under glare:
- * alpha blending collapses both luminance and warm/cool separation. InCar keeps
- * every core driving-road class fully opaque from its first visible zoom.
- */
-line|z6-[highway=motorway][!tunnel],
-line|z6-[highway=trunk][!tunnel],
-line|z10-[highway=motorway_link][!tunnel],
-line|z10-[highway=trunk_link][!tunnel],
-line|z8-[highway=primary][!tunnel],
-line|z11-[highway=primary_link][!tunnel],
-line|z10-[highway=secondary][!tunnel],
-line|z13-[highway=secondary_link][!tunnel]
+/* High-contrast road edges. */
+line|z14-[highway=motorway][!tunnel],
+line|z14-[highway=trunk][!tunnel],
+line|z14-[highway=motorway_link][!tunnel],
+line|z14-[highway=trunk_link][!tunnel],
+line|z14-[highway=primary][!tunnel],
+line|z14-[highway=primary_link][!tunnel],
+line|z14-[highway=secondary][!tunnel],
+line|z14-[highway=secondary_link][!tunnel]
 {opacity: 1; casing-opacity: 1; casing-color: @casing_road_major; casing-linecap: butt;}
 
-line|z11-[highway=tertiary][!tunnel],
+line|z14-[highway=tertiary][!tunnel],
 line|z14-[highway=tertiary_link][!tunnel],
-line|z12-[highway=residential][!tunnel],
-line|z11-[highway=unclassified][!tunnel],
-line|z12-[highway=road][!tunnel],
-line|z12-[highway=living_street][!tunnel],
+line|z14-[highway=residential][!tunnel],
+line|z14-[highway=unclassified][!tunnel],
+line|z14-[highway=road][!tunnel],
+line|z14-[highway=living_street][!tunnel],
 line|z14-[highway=service][!tunnel]
 {opacity: 1; casing-opacity: 1; casing-color: @casing_road_local; casing-linecap: butt;}
 
