@@ -32,8 +32,8 @@
 @bridge_background: #78838C;
 @bridge_casing: #20262B;
 @casing_road: #2A3137;
-@casing_road_major: #20262B;
-@casing_road_local: #343C42;
+@casing_road_major: #080C10;
+@casing_road_local: #2B3237;
 
 @primary_tunnel: #DCCFB9;
 @trunk_tunnel: #DEC89F;
@@ -93,7 +93,7 @@
 @industrial: #68747D;
 @sport: #B7D2A8;
 @parking: #89949C;
-@parking_l: #A0A9AF;
+@parking_l: #929CA3;
 @military: #D93025;
 @prison: #59636B;
 @farmland: #BBC39A;
@@ -107,7 +107,7 @@
 /* LABELS */
 @label_dark: #181B1D;
 @label_medium: #252A2E;
-@label_light: #30363B;
+@label_light: #161A1D;
 @label_halo_medium: #F4F1EA;
 @label_halo_light: #FFFFFF;
 @in_car_place_label: #493200;
