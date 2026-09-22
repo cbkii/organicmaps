@@ -13,6 +13,12 @@ STYLE_COLOR = re.compile(r"^\s*([A-Za-z0-9_]+)-color\s*:\s*(#[0-9A-Fa-f]{6})\s*;
 STYLE_OPACITY = re.compile(r"^\s*([A-Za-z0-9_]+)-opacity\s*:\s*([0-9.]+)\s*;\s*$")
 PROPERTY = re.compile(r"(?:^|;)\s*([A-Za-z-]+)\s*:\s*([^;]+)\s*;")
 
+
+DRULE_COLOUR = re.compile(r"^  (c\d+) (#[0-9A-Fa-f]{8}) (#[0-9A-Fa-f]{8})$")
+DRULE_NAMED = re.compile(r"^  ([A-Za-z0-9_]+) (c\d+)$")
+DRULE_ZOOM = re.compile(r"^  z(\d+)$")
+DRULE_LINE_COLOUR = re.compile(r"^    line\b.*\bcolor=(c\d+)\b")
+
 LOW_ZOOM_LIGHT_SELECTORS = (
     "line|z6-13[highway=motorway][!tunnel]",
     "line|z6-13[highway=trunk][!tunnel]",
