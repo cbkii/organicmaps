@@ -12,6 +12,7 @@ on:
       - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
+      - 'android/sdk/src/main/assets/drules_in_car.bin'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/kothic'
@@ -25,6 +26,7 @@ on:
       - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
+      - 'android/sdk/src/main/assets/drules_in_car.bin'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/kothic'
@@ -70,3 +72,11 @@ jobs:
       - name: Verify checked-in InCar rules are current
         shell: bash
         run: git diff --exit-code -- data/drules_in_car.bin data/drules_in_car.txt
+
+      - name: Verify packaged InCar asset matches generated rules
+        shell: bash
+        run: |
+          if ! cmp -s data/drules_in_car.bin android/sdk/src/main/assets/drules_in_car.bin; then
+            echo 'Packaged InCar drawing rules differ from data/drules_in_car.bin.' >&2
+            exit 1
+          fi
