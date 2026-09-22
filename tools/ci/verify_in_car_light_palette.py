@@ -177,11 +177,205 @@ def require_contrast(
         )
 
 
+
+def read_compiled_drules(
+    path: Path,
+) -> tuple[dict[str, str], dict[str, str], dict[tuple[str, int], list[str]]]:
+    """Read the generated dump and retain the light-variant line-colour contract."""
+    colours: dict[str, str] = {}
+    named_colours: dict[str, str] = {}
+    line_colours: dict[tuple[str, int], list[str]] = {}
+
+    section = ""
+    current_type: str | None = None
+    current_zoom: int | None = None
+    variants_seen = False
+
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if line == "variants: light dark":
+            variants_seen = True
+            continue
+        if line == "colors:":
+            section = "colors"
+            continue
+        if line == "named-colors:":
+            section = "named"
+            continue
+        if line.startswith("type "):
+            section = "types"
+            current_type = line.removeprefix("type ")
+            current_zoom = None
+            continue
+
+        if section == "colors":
+            match = DRULE_COLOUR.fullmatch(line)
+            if match is not None:
+                name, light_value, _dark_value = match.groups()
+                colours[name] = light_value.upper()
+            continue
+
+        if section == "named":
+            match = DRULE_NAMED.fullmatch(line)
+            if match is not None:
+                name, colour_ref = match.groups()
+                named_colours[name] = colour_ref
+            continue
+
+        if section == "types":
+            zoom_match = DRULE_ZOOM.fullmatch(line)
+            if zoom_match is not None:
+                current_zoom = int(zoom_match.group(1))
+                continue
+
+            line_match = DRULE_LINE_COLOUR.match(line)
+            if line_match is not None:
+                if current_type is None or current_zoom is None:
+                    raise VerificationError(
+                        f"{path}:{line_number}: line colour outside type/zoom"
+                    )
+                line_colours.setdefault((current_type, current_zoom), []).append(
+                    line_match.group(1)
+                )
+
+    if not variants_seen:
+        raise VerificationError(f"{path}: expected 'variants: light dark'")
+    if not colours or not line_colours:
+        raise VerificationError(f"{path}: generated drawing-rule dump is incomplete")
+    return colours, named_colours, line_colours
+
+
+def opaque_compiled_colour(rgb: str) -> str:
+    # Kothic's generated dump stores transparency in the leading byte:
+    # 00RRGGBB is fully opaque, while non-zero prefixes are translucent.
+    return "#00" + rgb.removeprefix("#").upper()
+
+
+def require_compiled_line_colour(
+    *,
+    drules_path: Path,
+    colours: dict[str, str],
+    line_colours: dict[tuple[str, int], list[str]],
+    type_name: str,
+    zoom: int,
+    expected_rgb: str,
+    role: str,
+) -> None:
+    refs = line_colours.get((type_name, zoom), [])
+    values = [colours.get(ref, "") for ref in refs]
+    expected = opaque_compiled_colour(expected_rgb)
+
+    if expected not in values:
+        raise VerificationError(
+            f"{drules_path}: {type_name} z{zoom} does not compile an opaque "
+            f"{role} {expected}; found {values or 'no line colours'}"
+        )
+
+    rgb_suffix = expected[3:]
+    translucent_matches = [
+        value
+        for value in values
+        if value and value[3:] == rgb_suffix and value != expected
+    ]
+    if translucent_matches:
+        raise VerificationError(
+            f"{drules_path}: {type_name} z{zoom} retains translucent {role} "
+            f"variants {translucent_matches} alongside {expected}"
+        )
+
+
+def verify_compiled_light_style(
+    *,
+    drules_path: Path,
+    palette: dict[str, str],
+    palette_path: Path,
+    style_colours: dict[str, str],
+    style_path: Path,
+) -> None:
+    colours, named_colours, line_colours = read_compiled_drules(drules_path)
+
+    route_rgb = require_colour(style_colours, "Route", style_path)
+    route_ref = named_colours.get("Route")
+    if route_ref is None:
+        raise VerificationError(f"{drules_path}: generated named colour Route is missing")
+    compiled_route = colours.get(route_ref)
+    expected_route = opaque_compiled_colour(route_rgb)
+    if compiled_route != expected_route:
+        raise VerificationError(
+            f"{drules_path}: Route compiled as {compiled_route}, expected {expected_route}"
+        )
+
+    low_zoom_cases = (
+        ("highway-motorway", range(6, 14), "trunk0"),
+        ("highway-trunk", range(6, 14), "trunk0"),
+        ("highway-motorway_link", range(10, 14), "trunk0"),
+        ("highway-trunk_link", range(10, 14), "trunk0"),
+        ("highway-primary", range(8, 14), "primary0"),
+        ("highway-primary_link", range(11, 14), "primary1"),
+        ("highway-secondary", range(10, 14), "secondary0"),
+        ("highway-secondary_link", (13,), "secondary0"),
+        ("highway-tertiary", range(11, 14), "residential"),
+        ("highway-residential", range(12, 14), "residential"),
+        ("highway-unclassified", range(11, 14), "unclassified"),
+        ("highway-road", range(12, 14), "unclassified"),
+        ("highway-living_street", range(12, 14), "unclassified"),
+    )
+    for type_name, zooms, palette_name in low_zoom_cases:
+        expected_rgb = require_colour(palette, palette_name, palette_path)
+        for zoom in zooms:
+            require_compiled_line_colour(
+                drules_path=drules_path,
+                colours=colours,
+                line_colours=line_colours,
+                type_name=type_name,
+                zoom=zoom,
+                expected_rgb=expected_rgb,
+                role="road fill",
+            )
+
+    high_zoom_cases = (
+        ("highway-motorway", 14, "trunk0", "casing_road_major"),
+        ("highway-trunk", 14, "trunk0", "casing_road_major"),
+        ("highway-motorway_link", 14, "trunk0", "casing_road_major"),
+        ("highway-trunk_link", 14, "trunk0", "casing_road_major"),
+        ("highway-primary", 14, "primary1", "casing_road_major"),
+        ("highway-primary_link", 14, "primary1", "casing_road_major"),
+        ("highway-secondary", 14, "secondary0", "casing_road_major"),
+        ("highway-secondary_link", 14, "secondary0", "casing_road_major"),
+        ("highway-tertiary", 15, "residential", "casing_road_local"),
+        ("highway-tertiary_link", 15, "residential", "casing_road_local"),
+        ("highway-residential", 15, "residential", "casing_road_local"),
+        ("highway-unclassified", 14, "unclassified", "casing_road_local"),
+        ("highway-road", 14, "unclassified", "casing_road_local"),
+        ("highway-living_street", 14, "unclassified", "casing_road_local"),
+        ("highway-service", 15, "unclassified", "casing_road_local"),
+    )
+    for type_name, zoom, fill_name, casing_name in high_zoom_cases:
+        require_compiled_line_colour(
+            drules_path=drules_path,
+            colours=colours,
+            line_colours=line_colours,
+            type_name=type_name,
+            zoom=zoom,
+            expected_rgb=require_colour(palette, fill_name, palette_path),
+            role="road fill",
+        )
+        require_compiled_line_colour(
+            drules_path=drules_path,
+            colours=colours,
+            line_colours=line_colours,
+            type_name=type_name,
+            zoom=zoom,
+            expected_rgb=require_colour(palette, casing_name, palette_path),
+            role="road casing",
+        )
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     palette_path = root / "data/styles/in_car/light/colors.mapcss"
     style_path = root / "data/styles/in_car/light/style.mapcss"
     overrides_path = root / "data/styles/in_car/include/InCarOverrides.mapcss"
+    drules_path = root / "data/drules_in_car.txt"
 
     try:
         palette = read_values(palette_path, VAR)
@@ -263,6 +457,14 @@ def main() -> int:
                     background=background,
                 )
 
+        verify_compiled_light_style(
+            drules_path=drules_path,
+            palette=palette,
+            palette_path=palette_path,
+            style_colours=style_colours,
+            style_path=style_path,
+        )
+
         if background != "#78838C":
             raise VerificationError(
                 f"background must retain the qualified cool-slate anchor #78838C, found {background}"
@@ -271,7 +473,7 @@ def main() -> int:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1
 
-    print("PASS: InCar high-glare light palette rendered-contrast hierarchy verified")
+    print("PASS: InCar high-glare source and compiled rendered-contrast hierarchy verified")
     return 0
 
 
