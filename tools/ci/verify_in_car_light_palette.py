@@ -88,8 +88,19 @@ def find_rule_properties(path: Path, selector: str) -> dict[str, str]:
     if block_end < 0:
         raise VerificationError(f"{path}: unterminated rule body after {selector}")
 
+    properties: dict[str, str] = {}
     body = source[block_start + 1:block_end]
-    return {name: value.strip() for name, value in PROPERTY.findall(body)}
+    for declaration in body.split(";"):
+        declaration = declaration.strip()
+        if not declaration:
+            continue
+        if ":" not in declaration:
+            raise VerificationError(
+                f"{path}: malformed declaration {declaration!r} after {selector}"
+            )
+        name, value = declaration.split(":", 1)
+        properties[name.strip()] = value.strip()
+    return properties
 
 
 def require_opacity(path: Path, selector: str, property_name: str) -> float:
