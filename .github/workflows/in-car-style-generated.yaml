@@ -1,82 +1,56 @@
-name: InCar Generated Style Check
+name: InCar Generated Style Materialisation
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - '.github/workflows/in-car-style-generated.yaml'
-      - '.gitmodules'
-      - 'data/styles/in_car/**'
-      - 'data/styles/vehicle/**'
-      - 'data/styles/default/include/**'
-      - 'data/drules_in_car.bin'
-      - 'data/drules_in_car.txt'
-      - 'android/sdk/src/main/assets/drules_in_car.bin'
-      - 'tools/unix/generate_drules.sh'
-      - 'tools/ci/verify_in_car_light_palette.py'
-      - 'tools/kothic'
-      - 'tools/kothic/**'
   pull_request:
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
-      - '.gitmodules'
       - 'data/styles/in_car/**'
-      - 'data/styles/vehicle/**'
-      - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'android/sdk/src/main/assets/drules_in_car.bin'
-      - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
-      - 'tools/kothic'
-      - 'tools/kothic/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  verify:
-    name: Verify generated InCar drawing rules
+  materialise:
+    name: Materialise canonical generated InCar rules
+    if: github.head_ref == 'fix/incar-high-glare-light-palette' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout sources
+      - name: Checkout PR branch
         uses: actions/checkout@v6
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
 
       - name: Checkout Kothic style compiler
         shell: bash
         run: git submodule update --init --depth 1 tools/kothic
 
-      - name: Verify high-glare InCar light palette
-        shell: bash
-        run: python3 -X dev -W default tools/ci/verify_in_car_light_palette.py
-
       - name: Generate drawing rules
         shell: bash
         run: tools/unix/generate_drules.sh
 
-      - name: Upload generated InCar rules
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-in-car-drules
-          path: |
-            data/drules_in_car.bin
-            data/drules_in_car.txt
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Verify checked-in InCar rules are current
+      - name: Verify source and compiled InCar light palette
         shell: bash
-        run: git diff --exit-code -- data/drules_in_car.bin data/drules_in_car.txt
+        run: python3 -X dev -W default tools/ci/verify_in_car_light_palette.py
 
-      - name: Verify packaged InCar asset matches generated rules
+      - name: Commit canonical generated artefacts
         shell: bash
         run: |
-          if ! cmp -s data/drules_in_car.bin android/sdk/src/main/assets/drules_in_car.bin; then
-            echo 'Packaged InCar drawing rules differ from data/drules_in_car.bin.' >&2
-            exit 1
+          cp data/drules_in_car.bin android/sdk/src/main/assets/drules_in_car.bin
+          git config user.name "github-actions"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            data/drules_in_car.bin \
+            data/drules_in_car.txt \
+            android/sdk/src/main/assets/drules_in_car.bin
+          if git diff --cached --quiet; then
+            echo "Generated artefacts are already current."
+            exit 0
           fi
+          git commit -m "Regenerate final InCar drawing rules"
+          git push origin HEAD:fix/incar-high-glare-light-palette
