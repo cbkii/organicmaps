@@ -1,124 +1,128 @@
-/* High-glare in-car palette: bright roads over deliberately darker neutral surroundings. */
+/* High-glare in-car daylight palette.
+ *
+ * Warm road fills sit against a cooler, darker slate environment so road hierarchy survives
+ * reflected daylight without depending on hue alone. Dark casings provide an independent edge cue.
+ */
 
 /* BASE */
-@background: #A0A8AF;
+@background: #78838C;
 
 /* BOUNDARIES */
-@border_country: #70777D;
-@border_region: #858C92;
+@border_country: #4F5961;
+@border_region: #66717A;
 
 /* ROADS */
-@trunk0: #FFFFFF;
-@trunk1: #FFFFFF;
-@primary0: #FFFFFF;
-@primary1: #FAFBFC;
-@primary2: #FAFBFC;
-@secondary0: #FFFFFF;
-@residential: #FFFFFF;
-@unclassified: #F7F9FA;
-@pedestrian: #E4E8EB;
-@footway: #AAB1B7;
-@cycleway: #8E9CA7;
-@construction: #A7ADB3;
-@track: #8F8982;
-@path: #9B958F;
-@bridleway: #87817B;
+@trunk0: #FFE0A0;
+@trunk1: #FFE0A0;
+@primary0: #FFE7B0;
+@primary1: #FFE7B0;
+@primary2: #FFE7B0;
+@secondary0: #FFF0D0;
+@residential: #FFF7E8;
+@unclassified: #FFF3DC;
+@pedestrian: #E7DED0;
+@footway: #9AA4AB;
+@cycleway: #7492A6;
+@construction: #9C8F7E;
+@track: #817568;
+@path: #8C8073;
+@bridleway: #746A60;
 
-@bridge_background: #A0A8AF;
-@bridge_casing: #30363B;
-@casing_road: #41484E;
-@casing_road_major: #30363B;
-@casing_road_local: #484F55;
+@bridge_background: #78838C;
+@bridge_casing: #20262B;
+@casing_road: #2A3137;
+@casing_road_major: #20262B;
+@casing_road_local: #343C42;
 
-@primary_tunnel: #E2E7EA;
-@trunk_tunnel: #E5EAED;
-@primary_tunnel_casing: #30363B;
-@trunk_tunnel_casing: #30363B;
-@secondary_tunnel: #DEE4E8;
-@secondary_tunnel_casing: #41484E;
-@tertiary_tunnel: #D8DEE2;
-@tertiary_tunnel_casing: #41484E;
-@unclassified_tunnel: #D4DADE;
-@unclassified_tunnel_casing: #484F55;
+@primary_tunnel: #D9C9AC;
+@trunk_tunnel: #DCC7A0;
+@primary_tunnel_casing: #20262B;
+@trunk_tunnel_casing: #20262B;
+@secondary_tunnel: #DDD2C0;
+@secondary_tunnel_casing: #2A3137;
+@tertiary_tunnel: #D5CEC4;
+@tertiary_tunnel_casing: #2A3137;
+@unclassified_tunnel: #CEC8BF;
+@unclassified_tunnel_casing: #343C42;
 
 /* TRANSPORT */
-@railway_light: #AEB5BB;
-@railway: #8F979E;
-@railway_tourism: #A5998E;
-@railway_dash: #A0A8AF;
-@railway_tunnel: #7E868D;
-@tram: #969EA5;
+@railway_light: #929CA4;
+@railway: #69747D;
+@railway_tourism: #8E7968;
+@railway_dash: #78838C;
+@railway_tunnel: #5B656D;
+@tram: #7A858D;
 
 /* AERODROME */
-@aerodrome0: #ABB2B7;
-@aerodrome1: #ABB2B7;
-@aerodrome2: #ABB2B7;
-@aerodrome3: #ABB2B7;
-@aerodrome4: #ABB2B7;
-@aerodrome5: #ABB2B7;
+@aerodrome0: #919BA3;
+@aerodrome1: #919BA3;
+@aerodrome2: #919BA3;
+@aerodrome3: #919BA3;
+@aerodrome4: #919BA3;
+@aerodrome5: #919BA3;
 
 /* NATURAL */
-@glacier: #FFFFFF;
-@water: #A8DADC;
-@water_bad: #B7D5D2;
-@river: #72BFC4;
-@wetland: #D7E7E2;
-@forest: #C8DFC3;
-@beach: #F8E7A5;
-@barerock: #D5D0C8;
-@desert: #EFE4BC;
+@glacier: #F7FBFC;
+@water: #74CAD2;
+@water_bad: #8BBDBA;
+@river: #3FAEB9;
+@wetland: #A9C6BE;
+@forest: #A9CF9B;
+@beach: #F2D98C;
+@barerock: #ACA397;
+@desert: #D9C995;
 
-@green0: #D8EAD3;
-@green1: #D4E9CF;
-@green2: #D0E6CB;
-@green3: #CCE3C7;
-@green4: #C8DFC3;
-@green5: #C8DFC3;
-@green6: #6F8950;
-@leisure: #B0B8B0;
+@green0: #BED8B5;
+@green1: #B7D5AD;
+@green2: #B0D2A5;
+@green3: #ACD09F;
+@green4: #A9CF9B;
+@green5: #A9CF9B;
+@green6: #536F3D;
+@leisure: #8FA094;
 
 /* BUILDINGS */
-@housenumber: #34383B;
-@building_label: #34383B;
-@building0: #A8B0B6;
-@building1: #A3ABB2;
-@building_border0: #858D93;
+@housenumber: #202124;
+@building_label: #202124;
+@building0: #A1A8AD;
+@building1: #949CA2;
+@building_border0: #69737B;
 
 /* LANDUSE */
-@industrial: #A5ABB0;
-@sport: #CDE0C9;
-@parking: #A4ACB2;
-@parking_l: #AAB1B7;
+@industrial: #646F78;
+@sport: #A8CE9C;
+@parking: #939CA3;
+@parking_l: #A9B0B5;
 @military: #D93025;
-@prison: #697178;
-@farmland: #E1E0C8;
-@farmyard: #DCD5C6;
+@prison: #4F5961;
+@farmland: #B7BE92;
+@farmyard: #B6A88F;
 
 /* BARRIERS */
-@fence: #70777D;
-@hedge: #5F8D58;
-@cliff: #8A715E;
+@fence: #4F5961;
+@hedge: #487A45;
+@cliff: #765A45;
 
 /* LABELS */
 @label_dark: #202124;
-@label_medium: #34383B;
-@label_light: #373D42;
-@label_halo_medium: #F1F3F4;
+@label_medium: #2B3034;
+@label_light: #343B40;
+@label_halo_medium: #F6F3E9;
 @label_halo_light: #FFFFFF;
 @in_car_place_label: #6B5000;
 
 @city_label: #202124;
-@country_label: #373D42;
-@state_label: #373D42;
-@district_label: #373D42;
-@poi_label: #34383B;
-@subway_label: #373D42;
+@country_label: #343B40;
+@state_label: #343B40;
+@district_label: #343B40;
+@poi_label: #2B3034;
+@subway_label: #343B40;
 
 @shield_text: #202124;
 @shield_text_halo: #FFFFFF;
-@shield: #FFFFFF;
-@shield_outline: #30363B;
+@shield: #FFF7E8;
+@shield_outline: #20262B;
 
-@water_label: #00565B;
-@park_label: #2E6033;
+@water_label: #004E55;
+@park_label: #285A2D;
 @halo_park_label: #FFFFFF;

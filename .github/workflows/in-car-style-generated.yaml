@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
       - '.gitmodules'
+      - 'android/tools/verify_in_car_day_palette.py'
       - 'data/styles/in_car/**'
       - 'data/styles/vehicle/**'
       - 'data/styles/default/include/**'
@@ -19,6 +20,7 @@ on:
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
       - '.gitmodules'
+      - 'android/tools/verify_in_car_day_palette.py'
       - 'data/styles/in_car/**'
       - 'data/styles/vehicle/**'
       - 'data/styles/default/include/**'
@@ -45,6 +47,10 @@ jobs:
       - name: Checkout Kothic style compiler
         shell: bash
         run: git submodule update --init --depth 1 tools/kothic
+
+      - name: Verify InCar daylight palette
+        shell: bash
+        run: python3 android/tools/verify_in_car_day_palette.py
 
       - name: Generate drawing rules
         shell: bash
