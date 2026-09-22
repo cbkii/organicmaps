@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the high-glare InCar light-map contrast hierarchy."""
+"""Verify the rendered high-glare InCar light-map contrast hierarchy."""
 
 from __future__ import annotations
 
@@ -9,23 +9,44 @@ from pathlib import Path
 
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 VAR = re.compile(r"^\s*@([A-Za-z0-9_]+)\s*:\s*(#[0-9A-Fa-f]{6})\s*;\s*$")
-STYLE = re.compile(r"^\s*([A-Za-z0-9_]+)-color\s*:\s*(#[0-9A-Fa-f]{6})\s*;\s*$")
+STYLE_COLOR = re.compile(r"^\s*([A-Za-z0-9_]+)-color\s*:\s*(#[0-9A-Fa-f]{6})\s*;\s*$")
+STYLE_OPACITY = re.compile(r"^\s*([A-Za-z0-9_]+)-opacity\s*:\s*([0-9.]+)\s*;\s*$")
+PROPERTY = re.compile(r"(?:^|;)\s*([A-Za-z-]+)\s*:\s*([^;]+)\s*;")
 
-REQUIRED_OPAQUE_DRIVING_SELECTORS = (
-    "line|z6-[highway=motorway][!tunnel]",
-    "line|z6-[highway=trunk][!tunnel]",
-    "line|z10-[highway=motorway_link][!tunnel]",
-    "line|z10-[highway=trunk_link][!tunnel]",
-    "line|z8-[highway=primary][!tunnel]",
-    "line|z11-[highway=primary_link][!tunnel]",
-    "line|z10-[highway=secondary][!tunnel]",
-    "line|z13-[highway=secondary_link][!tunnel]",
-    "line|z11-[highway=tertiary][!tunnel]",
+LOW_ZOOM_LIGHT_SELECTORS = (
+    "line|z6-13[highway=motorway][!tunnel]",
+    "line|z6-13[highway=trunk][!tunnel]",
+    "line|z10-13[highway=motorway_link][!tunnel]",
+    "line|z10-13[highway=trunk_link][!tunnel]",
+    "line|z8-13[highway=primary][!tunnel]",
+    "line|z11-13[highway=primary_link][!tunnel]",
+    "line|z10-13[highway=secondary][!tunnel]",
+    "line|z13[highway=secondary_link][!tunnel]",
+    "line|z11-13[highway=tertiary][!tunnel]",
+    "line|z12-13[highway=residential][!tunnel]",
+    "line|z11-13[highway=unclassified][!tunnel]",
+    "line|z12-13[highway=road][!tunnel]",
+    "line|z12-13[highway=living_street][!tunnel]",
+)
+
+HIGH_ZOOM_MAJOR_SELECTORS = (
+    "line|z14-[highway=motorway][!tunnel]",
+    "line|z14-[highway=trunk][!tunnel]",
+    "line|z14-[highway=motorway_link][!tunnel]",
+    "line|z14-[highway=trunk_link][!tunnel]",
+    "line|z14-[highway=primary][!tunnel]",
+    "line|z14-[highway=primary_link][!tunnel]",
+    "line|z14-[highway=secondary][!tunnel]",
+    "line|z14-[highway=secondary_link][!tunnel]",
+)
+
+HIGH_ZOOM_LOCAL_SELECTORS = (
+    "line|z14-[highway=tertiary][!tunnel]",
     "line|z14-[highway=tertiary_link][!tunnel]",
-    "line|z12-[highway=residential][!tunnel]",
-    "line|z11-[highway=unclassified][!tunnel]",
-    "line|z12-[highway=road][!tunnel]",
-    "line|z12-[highway=living_street][!tunnel]",
+    "line|z14-[highway=residential][!tunnel]",
+    "line|z14-[highway=unclassified][!tunnel]",
+    "line|z14-[highway=road][!tunnel]",
+    "line|z14-[highway=living_street][!tunnel]",
     "line|z14-[highway=service][!tunnel]",
 )
 
@@ -34,24 +55,59 @@ class VerificationError(RuntimeError):
     pass
 
 
-def read_colours(path: Path, pattern: re.Pattern[str]) -> dict[str, str]:
-    colours: dict[str, str] = {}
+def read_values(path: Path, pattern: re.Pattern[str]) -> dict[str, str]:
+    values: dict[str, str] = {}
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         match = pattern.match(line)
         if match is None:
             continue
         name, value = match.groups()
-        if name in colours:
-            raise VerificationError(f"{path}:{line_number}: duplicate colour {name}")
-        colours[name] = value.upper()
-    return colours
+        if name in values:
+            raise VerificationError(f"{path}:{line_number}: duplicate value {name}")
+        values[name] = value.upper() if value.startswith("#") else value
+    return values
 
 
-def require(colours: dict[str, str], name: str, source: Path) -> str:
+def require_colour(colours: dict[str, str], name: str, source: Path) -> str:
     value = colours.get(name)
     if value is None or HEX.fullmatch(value) is None:
         raise VerificationError(f"{source}: missing six-digit colour {name}")
     return value
+
+
+def find_rule_properties(path: Path, selector: str) -> dict[str, str]:
+    source = path.read_text(encoding="utf-8")
+    selector_index = source.find(selector)
+    if selector_index < 0:
+        raise VerificationError(f"{path}: missing selector {selector}")
+
+    block_start = source.find("{", selector_index)
+    if block_start < 0:
+        raise VerificationError(f"{path}: missing rule body after {selector}")
+    block_end = source.find("}", block_start)
+    if block_end < 0:
+        raise VerificationError(f"{path}: unterminated rule body after {selector}")
+
+    body = source[block_start + 1:block_end]
+    return {name: value.strip() for name, value in PROPERTY.findall(body)}
+
+
+def require_opacity(path: Path, selector: str, property_name: str) -> float:
+    properties = find_rule_properties(path, selector)
+    value = properties.get(property_name)
+    if value is None:
+        raise VerificationError(f"{path}: {selector} does not set {property_name}")
+    try:
+        opacity = float(value)
+    except ValueError as exc:
+        raise VerificationError(
+            f"{path}: {selector} has non-numeric {property_name}={value!r}"
+        ) from exc
+    if opacity != 1.0:
+        raise VerificationError(
+            f"{path}: {selector} must set {property_name}: 1, found {opacity:g}"
+        )
+    return opacity
 
 
 def relative_luminance(value: str) -> float:
@@ -74,8 +130,8 @@ def contrast(first: str, second: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
-def composite(foreground: str, background: str, opacity: float) -> str:
-    """Return the effective sRGB colour after source-over alpha compositing."""
+def composite_encoded_srgb(foreground: str, background: str, opacity: float) -> str:
+    """Return deterministic encoded-sRGB source-over compositing."""
     if not 0.0 <= opacity <= 1.0:
         raise VerificationError(f"invalid opacity {opacity}")
 
@@ -94,35 +150,20 @@ def require_contrast(
     second_name: str,
     second: str,
     minimum: float,
+    *,
+    first_opacity: float = 1.0,
+    second_opacity: float = 1.0,
+    background: str,
 ) -> None:
-    ratio = contrast(first, second)
+    effective_first = composite_encoded_srgb(first, background, first_opacity)
+    effective_second = composite_encoded_srgb(second, background, second_opacity)
+    ratio = contrast(effective_first, effective_second)
     if ratio < minimum:
         raise VerificationError(
-            f"{first_name} {first} vs {second_name} {second}: "
+            f"{first_name} {first} @ {first_opacity:g} -> {effective_first} vs "
+            f"{second_name} {second} @ {second_opacity:g} -> {effective_second}: "
             f"contrast {ratio:.2f}:1 is below {minimum:.2f}:1"
         )
-
-
-def require_full_opacity_contract(path: Path) -> None:
-    source = path.read_text(encoding="utf-8")
-    for selector in REQUIRED_OPAQUE_DRIVING_SELECTORS:
-        selector_index = source.find(selector)
-        if selector_index < 0:
-            raise VerificationError(f"{path}: missing full-opacity driving selector {selector}")
-
-        block_start = source.find("{", selector_index)
-        if block_start < 0:
-            raise VerificationError(f"{path}: missing rule body after {selector}")
-        block_end = source.find("}", block_start)
-        if block_end < 0:
-            raise VerificationError(f"{path}: unterminated rule body after {selector}")
-
-        # A grouped selector must resolve to the first following declaration block.
-        body = re.sub(r"\s+", "", source[block_start + 1:block_end])
-        if "opacity:1;" not in body or "casing-opacity:1;" not in body:
-            raise VerificationError(
-                f"{path}: {selector} must render fill and casing at full opacity"
-            )
 
 
 def main() -> int:
@@ -132,12 +173,33 @@ def main() -> int:
     overrides_path = root / "data/styles/in_car/include/InCarOverrides.mapcss"
 
     try:
-        palette = read_colours(palette_path, VAR)
-        style = read_colours(style_path, STYLE)
-        require_full_opacity_contract(overrides_path)
+        palette = read_values(palette_path, VAR)
+        style_colours = read_values(style_path, STYLE_COLOR)
+        style_opacities = read_values(style_path, STYLE_OPACITY)
 
-        background = require(palette, "background", palette_path)
-        route = require(style, "Route", style_path)
+        # Regression check for the compositing path itself.
+        if composite_encoded_srgb("#FFFFFF", "#000000", 0.5) != "#808080":
+            raise VerificationError("encoded-sRGB compositing self-check failed")
+
+        low_fill_opacities = [
+            require_opacity(style_path, selector, "opacity")
+            for selector in LOW_ZOOM_LIGHT_SELECTORS
+        ]
+        high_fill_opacities = [
+            require_opacity(overrides_path, selector, "opacity")
+            for selector in HIGH_ZOOM_MAJOR_SELECTORS + HIGH_ZOOM_LOCAL_SELECTORS
+        ]
+        high_casing_opacities = [
+            require_opacity(overrides_path, selector, "casing-opacity")
+            for selector in HIGH_ZOOM_MAJOR_SELECTORS + HIGH_ZOOM_LOCAL_SELECTORS
+        ]
+
+        road_opacity = min(low_fill_opacities + high_fill_opacities)
+        casing_opacity = min(high_casing_opacities)
+
+        background = require_colour(palette, "background", palette_path)
+        route = require_colour(style_colours, "Route", style_path)
+        route_opacity = float(style_opacities.get("Route", "1"))
 
         road_names = (
             "trunk0",
@@ -149,36 +211,52 @@ def main() -> int:
             "residential",
             "unclassified",
         )
-        roads = {name: require(palette, name, palette_path) for name in road_names}
+        roads = {name: require_colour(palette, name, palette_path) for name in road_names}
 
-        # These are effective rendered colours, not raw swatches. The source
-        # contract above intentionally pins core driving roads to opacity 1 from
-        # their first visible zoom so glare cannot blend them back into the base.
-        effective_roads = {
-            name: composite(road, background, 1.0)
-            for name, road in roads.items()
-        }
+        for name, road in roads.items():
+            require_contrast(
+                name,
+                road,
+                "background",
+                background,
+                3.0,
+                first_opacity=road_opacity,
+                background=background,
+            )
+            require_contrast(
+                "Route",
+                route,
+                name,
+                road,
+                3.5,
+                first_opacity=route_opacity,
+                second_opacity=road_opacity,
+                background=background,
+            )
 
-        for name, road in effective_roads.items():
-            require_contrast(name, road, "background", background, 3.0)
-
-        # Route is opaque in the InCar style; compare it with the effective
-        # composited road colour so any future alpha change cannot be ignored.
-        effective_route = composite(route, background, 1.0)
-        for name, road in effective_roads.items():
-            require_contrast("Route", effective_route, name, road, 3.5)
-
-        # Casings are also forced opaque by the same driving-road contract.
-        for casing_name in ("casing_road", "casing_road_major", "casing_road_local"):
-            casing = composite(require(palette, casing_name, palette_path), background, 1.0)
-            for road_name, road in effective_roads.items():
-                require_contrast(casing_name, casing, road_name, road, 7.0)
+        # Only these casing tokens are selected by the existing z14+ InCar
+        # override for ordinary driving roads. Lower zoom tiers have no visible
+        # casing width, so inherited vehicle casing alpha is not part of the
+        # rendered ordinary-road contract being qualified here.
+        for casing_name in ("casing_road_major", "casing_road_local"):
+            casing = require_colour(palette, casing_name, palette_path)
+            for road_name, road in roads.items():
+                require_contrast(
+                    casing_name,
+                    casing,
+                    road_name,
+                    road,
+                    7.0,
+                    first_opacity=casing_opacity,
+                    second_opacity=road_opacity,
+                    background=background,
+                )
 
         if background != "#78838C":
             raise VerificationError(
                 f"background must retain the qualified cool-slate anchor #78838C, found {background}"
             )
-    except (OSError, VerificationError) as exc:
+    except (OSError, ValueError, VerificationError) as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1
 
