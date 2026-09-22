@@ -50,13 +50,13 @@ jobs:
         shell: bash
         run: git submodule update --init --depth 1 tools/kothic
 
+      - name: Verify high-glare InCar light palette
+        shell: bash
+        run: python3 -X dev -W default tools/ci/verify_in_car_light_palette.py
+
       - name: Generate drawing rules
         shell: bash
         run: tools/unix/generate_drules.sh
-
-      - name: Verify source and compiled InCar light palette
-        shell: bash
-        run: python3 -X dev -W default tools/ci/verify_in_car_light_palette.py
 
       - name: Upload generated InCar rules
         if: always()
