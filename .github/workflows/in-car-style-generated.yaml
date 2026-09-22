@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - fix/incar-high-glare-day-palette
     paths:
       - '.github/workflows/in-car-style-generated.yaml'
       - '.gitmodules'
@@ -34,7 +33,7 @@ on:
       - 'tools/kothic/**'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -44,6 +43,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Checkout Kothic style compiler
         shell: bash
@@ -60,19 +61,6 @@ jobs:
       - name: Synchronize Android InCar drawing rules asset
         shell: bash
         run: cp data/drules_in_car.bin android/sdk/src/main/assets/drules_in_car.bin
-
-      - name: Commit generated InCar rules on the palette branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/incar-high-glare-day-palette'
-        shell: bash
-        run: |
-          if git diff --quiet -- data/drules_in_car.bin data/drules_in_car.txt android/sdk/src/main/assets/drules_in_car.bin; then
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/drules_in_car.bin data/drules_in_car.txt android/sdk/src/main/assets/drules_in_car.bin
-          git commit -m 'Regenerate and package InCar drawing rules'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Upload generated InCar rules
         if: always()
