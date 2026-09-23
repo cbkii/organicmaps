@@ -105,6 +105,20 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
+  public void repeatedReadyStateRemainsPromptFree()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    for (int i = 0; i < 10; ++i)
+    {
+      assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(true, false));
+      assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
+      assertFalse(coordinator.isPermissionRequestPending());
+      assertFalse(coordinator.isLocationSettingsTransitionPending());
+    }
+  }
+
+  @Test
   public void externallyGrantedPermissionClearsRememberedDenial()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
