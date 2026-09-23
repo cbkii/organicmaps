@@ -1,0 +1,47 @@
+name: Temporary Location Prompt PR Patch
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/incar-location-prompt-idempotency'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/incar-location-prompt-idempotency
+
+      - name: Apply embedded patch and remove temporary workflows
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/tmp-location-prompt-patch.yml').read_text(encoding='utf-8').splitlines()
+          start = next(i for i, line in enumerate(source) if "python3 - <<'PY'" in line) + 1
+          end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
+          body = []
+          for line in source[start:end]:
+              body.append(line[10:] if line.startswith('          ') else line)
+          Path('/tmp/apply_location_patch.py').write_text('\n'.join(body) + '\n', encoding='utf-8')
+          PY
+          python3 /tmp/apply_location_patch.py
+          rm .github/workflows/tmp-location-prompt-patch.yml
+          rm .github/workflows/tmp-location-prompt-pr-patch.yml
+          git diff --check
+
+      - name: Commit materialised integration
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android/app/src/main/java/app/organicmaps/MwmActivity.java .github/workflows/tmp-location-prompt-patch.yml .github/workflows/tmp-location-prompt-pr-patch.yml
+          git commit -m 'Harden location prompts across warm lifecycle events'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
