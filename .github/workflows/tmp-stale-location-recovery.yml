@@ -1,0 +1,72 @@
+name: Temporary Stale Location Recovery
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/incar-location-prompt-idempotency'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/incar-location-prompt-idempotency
+
+      - name: Patch stale provider callback recovery
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('android/app/src/main/java/app/organicmaps/MwmActivity.java')
+          text = path.read_text(encoding='utf-8')
+          old = (
+              '    if (action == ProviderAction.NONE || action == ProviderAction.IGNORE_STALE_CALLBACK)\n'
+              '      return;\n'
+          )
+          new = (
+              '    if (action == ProviderAction.NONE)\n'
+              '      return;\n\n'
+              '    if (action == ProviderAction.IGNORE_STALE_CALLBACK)\n'
+              '    {\n'
+              '      // LocationHelper has already stopped updates and published ERROR_GPS_OFF before this callback.\n'
+              '      // If Android now reports both permission and providers ready, restore normal location operation.\n'
+              '      if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)\n'
+              '        LocationState.nativeSwitchToNextMode();\n'
+              '      return;\n'
+              '    }\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one stale-callback branch, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Install repository clang-format version
+        shell: bash
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-toolchain-noble-22.list
+          sudo apt-get update
+          sudo apt-get install -y clang-format-22
+
+      - name: Format and remove temporary workflow
+        shell: bash
+        run: |
+          clang-format-22 -i android/app/src/main/java/app/organicmaps/MwmActivity.java
+          rm .github/workflows/tmp-stale-location-recovery.yml
+          git diff --check
+
+      - name: Commit materialised recovery
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android/app/src/main/java/app/organicmaps/MwmActivity.java .github/workflows/tmp-stale-location-recovery.yml
+          git commit -m 'Restore location after stale provider callbacks'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
