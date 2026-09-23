@@ -1,9 +1,10 @@
 package app.organicmaps.location;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertEquals;
 
+import app.organicmaps.location.LocationPromptCoordinator.PermissionAction;
 import app.organicmaps.location.LocationPromptCoordinator.ProviderAction;
 import org.junit.Test;
 
@@ -41,12 +42,26 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
+  public void permanentlyDeniedPermissionUsesAppSettingsInsteadOfAnotherRequest()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    assertEquals(PermissionAction.REQUEST_PERMISSION, coordinator.onPermissionRequired(false, false));
+    coordinator.finishPermissionRequest(false, false);
+
+    assertTrue(coordinator.isPermissionPermanentlyDenied());
+    assertEquals(PermissionAction.SHOW_APP_SETTINGS, coordinator.onPermissionRequired(false, false));
+    assertEquals(ProviderAction.SHOW_APP_SETTINGS,
+                 coordinator.onProviderUnavailable(false, false, false));
+  }
+
+  @Test
   public void repeatedCallbacksWhilePermissionRequestOutstandingDoNothing()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertTrue(coordinator.beginPermissionRequest(false, false));
-    assertFalse(coordinator.beginPermissionRequest(false, false));
+    assertEquals(PermissionAction.REQUEST_PERMISSION, coordinator.onPermissionRequired(false, false));
+    assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(false, false));
     assertEquals(ProviderAction.NONE,
                  coordinator.onProviderUnavailable(false, false, false));
   }
@@ -67,7 +82,7 @@ public class LocationPromptCoordinatorTest
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertFalse(coordinator.beginPermissionRequest(false, true));
+    assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(false, true));
     assertEquals(ProviderAction.NONE,
                  coordinator.onProviderUnavailable(false, false, true));
     assertEquals(ProviderAction.NONE,
@@ -87,14 +102,16 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
-  public void permissionResultAllowsFreshCurrentStateOnLaterOperation()
+  public void externallyGrantedPermissionClearsRememberedDenial()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertTrue(coordinator.beginPermissionRequest(false, false));
-    coordinator.finishPermissionRequest();
+    assertEquals(PermissionAction.REQUEST_PERMISSION, coordinator.onPermissionRequired(false, false));
+    coordinator.finishPermissionRequest(false, false);
+    assertTrue(coordinator.isPermissionPermanentlyDenied());
 
-    assertFalse(coordinator.beginPermissionRequest(true, false));
+    assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(true, false));
+    assertFalse(coordinator.isPermissionPermanentlyDenied());
     assertFalse(coordinator.isPermissionRequestPending());
   }
 }
