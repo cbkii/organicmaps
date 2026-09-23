@@ -1963,8 +1963,17 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                                                                    isLocationErrorDialogShowing());
     logLocationPromptState("provider-disabled", "decision=" + action);
 
-    if (action == ProviderAction.NONE || action == ProviderAction.IGNORE_STALE_CALLBACK)
+    if (action == ProviderAction.NONE)
       return;
+
+    if (action == ProviderAction.IGNORE_STALE_CALLBACK)
+    {
+      // LocationHelper has already stopped updates and published ERROR_GPS_OFF before this callback.
+      // If Android now reports both permission and providers ready, restore normal location operation.
+      if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+        LocationState.nativeSwitchToNextMode();
+      return;
+    }
 
     if (action == ProviderAction.REQUEST_PERMISSION)
     {
