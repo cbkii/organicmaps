@@ -1,0 +1,51 @@
+name: Temporary Location Prompt Formatter
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.head_ref == 'fix/incar-location-prompt-idempotency'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/incar-location-prompt-idempotency
+
+      - name: Install repository clang-format version
+        shell: bash
+        run: |
+          sudo apt purge -y clang-format-18 || true
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          echo 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-toolchain-noble-22.list
+          sudo apt-get update
+          sudo apt-get install -y clang-format-22
+          sudo update-alternatives --force --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 10
+
+      - name: Format edited Java and remove temporary workflow
+        shell: bash
+        run: |
+          clang-format -i \
+            android/app/src/main/java/app/organicmaps/MwmActivity.java \
+            android/app/src/main/java/app/organicmaps/location/LocationPromptCoordinator.java \
+            android/app/src/test/java/app/organicmaps/location/LocationPromptCoordinatorTest.java
+          rm .github/workflows/tmp-format-location-prompt.yml
+          git diff --check
+
+      - name: Commit formatting
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android/app/src/main/java/app/organicmaps/MwmActivity.java \
+                  android/app/src/main/java/app/organicmaps/location/LocationPromptCoordinator.java \
+                  android/app/src/test/java/app/organicmaps/location/LocationPromptCoordinatorTest.java \
+                  .github/workflows/tmp-format-location-prompt.yml
+          git commit -m 'Format final location lifecycle hardening'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
