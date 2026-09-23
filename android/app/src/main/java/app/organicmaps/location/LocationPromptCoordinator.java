@@ -70,9 +70,9 @@ public final class LocationPromptCoordinator
     {
       return switch (onPermissionRequired(false, locationUiShowing))
       {
-      case REQUEST_PERMISSION -> ProviderAction.REQUEST_PERMISSION;
-      case SHOW_APP_SETTINGS -> ProviderAction.SHOW_APP_SETTINGS;
-      case NONE -> ProviderAction.NONE;
+        case REQUEST_PERMISSION -> ProviderAction.REQUEST_PERMISSION;
+        case SHOW_APP_SETTINGS -> ProviderAction.SHOW_APP_SETTINGS;
+        case NONE -> ProviderAction.NONE;
       };
     }
 

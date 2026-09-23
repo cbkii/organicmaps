@@ -15,8 +15,7 @@ public class LocationPromptCoordinatorTest
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertEquals(ProviderAction.IGNORE_STALE_CALLBACK,
-                 coordinator.onProviderUnavailable(true, true, false));
+    assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
     assertFalse(coordinator.isPermissionRequestPending());
     assertFalse(coordinator.isLocationSettingsTransitionPending());
   }
@@ -26,8 +25,7 @@ public class LocationPromptCoordinatorTest
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,
-                 coordinator.onProviderUnavailable(true, false, false));
+    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS, coordinator.onProviderUnavailable(true, false, false));
     assertFalse(coordinator.isPermissionRequestPending());
   }
 
@@ -36,8 +34,7 @@ public class LocationPromptCoordinatorTest
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertEquals(ProviderAction.REQUEST_PERMISSION,
-                 coordinator.onProviderUnavailable(false, false, false));
+    assertEquals(ProviderAction.REQUEST_PERMISSION, coordinator.onProviderUnavailable(false, false, false));
     assertTrue(coordinator.isPermissionRequestPending());
   }
 
@@ -51,8 +48,7 @@ public class LocationPromptCoordinatorTest
 
     assertTrue(coordinator.isPermissionPermanentlyDenied());
     assertEquals(PermissionAction.SHOW_APP_SETTINGS, coordinator.onPermissionRequired(false, false));
-    assertEquals(ProviderAction.SHOW_APP_SETTINGS,
-                 coordinator.onProviderUnavailable(false, false, false));
+    assertEquals(ProviderAction.SHOW_APP_SETTINGS, coordinator.onProviderUnavailable(false, false, false));
   }
 
   @Test
@@ -62,8 +58,7 @@ public class LocationPromptCoordinatorTest
 
     assertEquals(PermissionAction.REQUEST_PERMISSION, coordinator.onPermissionRequired(false, false));
     assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(false, false));
-    assertEquals(ProviderAction.NONE,
-                 coordinator.onProviderUnavailable(false, false, false));
+    assertEquals(ProviderAction.NONE, coordinator.onProviderUnavailable(false, false, false));
   }
 
   @Test
@@ -73,8 +68,7 @@ public class LocationPromptCoordinatorTest
 
     assertTrue(coordinator.beginLocationSettingsTransition());
     assertFalse(coordinator.beginLocationSettingsTransition());
-    assertEquals(ProviderAction.NONE,
-                 coordinator.onProviderUnavailable(true, false, false));
+    assertEquals(ProviderAction.NONE, coordinator.onProviderUnavailable(true, false, false));
   }
 
   @Test
@@ -83,10 +77,8 @@ public class LocationPromptCoordinatorTest
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
     assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(false, true));
-    assertEquals(ProviderAction.NONE,
-                 coordinator.onProviderUnavailable(false, false, true));
-    assertEquals(ProviderAction.NONE,
-                 coordinator.onProviderUnavailable(true, false, true));
+    assertEquals(ProviderAction.NONE, coordinator.onProviderUnavailable(false, false, true));
+    assertEquals(ProviderAction.NONE, coordinator.onProviderUnavailable(true, false, true));
   }
 
   @Test
@@ -97,8 +89,7 @@ public class LocationPromptCoordinatorTest
     assertTrue(coordinator.beginLocationSettingsTransition());
     coordinator.finishLocationSettingsTransition();
 
-    assertEquals(ProviderAction.IGNORE_STALE_CALLBACK,
-                 coordinator.onProviderUnavailable(true, true, false));
+    assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
   }
 
   @Test

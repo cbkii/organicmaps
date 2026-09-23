@@ -559,8 +559,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                                            this::onLocationPermissionsResult);
     mLocationResolutionRequest = registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(),
                                                            this::onLocationResolutionResult);
-    mLocationSettingsRequest = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
-                                                         this::onLocationSettingsResult);
+    mLocationSettingsRequest =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::onLocationSettingsResult);
     mPostNotificationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestPermission(),
                                                                    this::onPostNotificationPermissionResult);
     mPowerSaveSettings =
@@ -1619,7 +1619,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   }
 
   private boolean requestLocationPermissionIfNeeded(boolean requiredPermissionGranted, @NonNull String reason,
-                                          boolean reportDeniedToNative)
+                                                    boolean reportDeniedToNative)
   {
     final PermissionAction action =
         mLocationPromptCoordinator.onPermissionRequired(requiredPermissionGranted, isLocationErrorDialogShowing());
@@ -1661,16 +1661,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
 
     final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
-                                         .setTitle(R.string.enable_location_services)
-                                         .setMessage(R.string.location_is_disabled_long_text)
-                                         .setOnDismissListener(dialog -> mLocationErrorDialog = null)
-                                         .setNegativeButton(R.string.close, null);
+                                                   .setTitle(R.string.enable_location_services)
+                                                   .setMessage(R.string.location_is_disabled_long_text)
+                                                   .setOnDismissListener(dialog -> mLocationErrorDialog = null)
+                                                   .setNegativeButton(R.string.close, null);
     if (showSettingsAction)
     {
-      final Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                             Uri.parse("package:" + getPackageName()));
+      final Intent intent =
+          new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
       builder.setPositiveButton(R.string.settings,
-                      (dialog, which) -> launchLocationSettings(intent, "app permission settings"));
+                                (dialog, which) -> launchLocationSettings(intent, "app permission settings"));
     }
     mLocationErrorDialog = builder.show();
   }
@@ -1701,22 +1701,21 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private boolean canShowLocationPermissionRationale()
   {
     return ActivityCompat.shouldShowRequestPermissionRationale(this, ACCESS_COARSE_LOCATION)
-        || ActivityCompat.shouldShowRequestPermissionRationale(this, ACCESS_FINE_LOCATION);
+ || ActivityCompat.shouldShowRequestPermissionRationale(this, ACCESS_FINE_LOCATION);
   }
 
   private void logLocationPromptState(@NonNull String entry, @NonNull String reason)
   {
     final Intent intent = getIntent();
     Logger.i(LOCATION_TAG,
-   entry + ": " + reason + ", action=" + (intent == null ? null : intent.getAction()) + ", categories="
-       + (intent == null ? null : intent.getCategories()) + ", permissionGranted="
-       + LocationUtils.checkLocationPermission(this) + ", servicesEnabled="
-       + LocationUtils.areLocationServicesTurnedOn(this) + ", permissionPending="
-       + mLocationPromptCoordinator.isPermissionRequestPending() + ", settingsPending="
-       + mLocationPromptCoordinator.isLocationSettingsTransitionPending() + ", dialogShowing="
-       + isLocationErrorDialogShowing());
+             entry + ": " + reason + ", action=" + (intent == null ? null : intent.getAction())
+                 + ", categories=" + (intent == null ? null : intent.getCategories())
+                 + ", permissionGranted=" + LocationUtils.checkLocationPermission(this)
+                 + ", servicesEnabled=" + LocationUtils.areLocationServicesTurnedOn(this)
+                 + ", permissionPending=" + mLocationPromptCoordinator.isPermissionRequestPending()
+                 + ", settingsPending=" + mLocationPromptCoordinator.isLocationSettingsTransitionPending()
+                 + ", dialogShowing=" + isLocationErrorDialogShowing());
   }
-
 
   /**
    * Called when location is updated.
@@ -1824,30 +1823,30 @@ public class MwmActivity extends BaseMwmFragmentActivity
         Logger.w(LOCATION_TAG, "Only ACCESS_COARSE_LOCATION permission granted");
         if (isLocationErrorDialogShowing())
         {
-Logger.w(LOCATION_TAG, "Don't show 'Precise Location denied' dialog because another dialog is in progress");
-return;
+          Logger.w(LOCATION_TAG, "Don't show 'Precise Location denied' dialog because another dialog is in progress");
+          return;
         }
         if (!mPreciseLocationDialogShown)
         {
-mPreciseLocationDialogShown = true;
-final MaterialAlertDialogBuilder builder =
-    new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
-        .setTitle("⚠ " + getString(R.string.limited_accuracy))
-        .setMessage(R.string.precise_location_is_disabled_long_text)
-        .setNegativeButton(R.string.close, (dialog, which) -> dialog.dismiss())
-        .setCancelable(true)
-        .setOnDismissListener(dialog -> mLocationErrorDialog = null);
-final Intent intent = Utils.makeSystemLocationSettingIntent(this);
-if (intent != null)
-{
-  builder.setPositiveButton(R.string.location_settings,
-                            (dialog, which) -> launchLocationSettings(intent, "precise location settings"));
-}
-mLocationErrorDialog = builder.show();
+          mPreciseLocationDialogShown = true;
+          final MaterialAlertDialogBuilder builder =
+              new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
+                  .setTitle("⚠ " + getString(R.string.limited_accuracy))
+                  .setMessage(R.string.precise_location_is_disabled_long_text)
+                  .setNegativeButton(R.string.close, (dialog, which) -> dialog.dismiss())
+                  .setCancelable(true)
+                  .setOnDismissListener(dialog -> mLocationErrorDialog = null);
+          final Intent intent = Utils.makeSystemLocationSettingIntent(this);
+          if (intent != null)
+          {
+            builder.setPositiveButton(R.string.location_settings,
+                                      (dialog, which) -> launchLocationSettings(intent, "precise location settings"));
+          }
+          mLocationErrorDialog = builder.show();
         }
         else
         {
-Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENGTH_LONG).show();
+          Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENGTH_LONG).show();
         }
       }
       return;
@@ -1945,8 +1944,8 @@ Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENG
   {
     final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
     final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
-    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(
-        permissionGranted, servicesEnabled, isLocationErrorDialogShowing());
+    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
+                                                                                   isLocationErrorDialogShowing());
     logLocationPromptState("provider-disabled", "decision=" + action);
 
     if (action == ProviderAction.NONE || action == ProviderAction.IGNORE_STALE_CALLBACK)
@@ -1968,15 +1967,15 @@ Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENG
     LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
 
     final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
-                                         .setTitle(R.string.enable_location_services)
-                                         .setMessage(R.string.location_is_disabled_long_text)
-                                         .setOnDismissListener(dialog -> mLocationErrorDialog = null)
-                                         .setNegativeButton(R.string.close, null);
+                                                   .setTitle(R.string.enable_location_services)
+                                                   .setMessage(R.string.location_is_disabled_long_text)
+                                                   .setOnDismissListener(dialog -> mLocationErrorDialog = null)
+                                                   .setNegativeButton(R.string.close, null);
     final Intent intent = Utils.makeSystemLocationSettingIntent(this);
     if (intent != null)
     {
       builder.setPositiveButton(R.string.location_settings,
-                      (dialog, which) -> launchLocationSettings(intent, "location provider settings"));
+                                (dialog, which) -> launchLocationSettings(intent, "location provider settings"));
     }
     mLocationErrorDialog = builder.show();
   }
