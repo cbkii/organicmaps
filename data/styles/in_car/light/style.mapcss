@@ -8,6 +8,33 @@
 @import("../../vehicle/include/Subways.mapcss");
 @import("../include/InCarOverrides.mapcss");
 
+/* High-glare light-only driving-road opacity override. */
+/*
+ * Vehicle road rules deliberately fade the core driving hierarchy at lower
+ * zooms (including 0.3, 0.7 and 0.8 fills). On the darker InCar light base
+ * those blends erase the luminance hierarchy that this palette guarantees.
+ *
+ * Keep only the ordinary, non-tunnel driving roads opaque here. z14+ is also
+ * made opaque by InCarOverrides; tunnels retain their existing treatment.
+ * This file is imported only by the InCar light/day style, so night is
+ * unchanged.
+ */
+line|z6-13[highway=motorway][!tunnel],
+line|z6-13[highway=trunk][!tunnel],
+line|z10-13[highway=motorway_link][!tunnel],
+line|z10-13[highway=trunk_link][!tunnel],
+line|z8-13[highway=primary][!tunnel],
+line|z11-13[highway=primary_link][!tunnel],
+line|z10-13[highway=secondary][!tunnel],
+line|z13[highway=secondary_link][!tunnel],
+line|z11-13[highway=tertiary][!tunnel],
+line|z12-13[highway=residential][!tunnel],
+line|z11-13[highway=unclassified][!tunnel],
+line|z12-13[highway=road][!tunnel],
+line|z12-13[highway=living_street][!tunnel]
+{opacity: 1;}
+
+
 colors
 {
   GuiText-color: #202124;
