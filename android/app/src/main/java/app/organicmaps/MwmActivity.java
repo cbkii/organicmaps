@@ -23,6 +23,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.view.KeyEvent;
@@ -1898,14 +1899,23 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationResolutionRequired(@NonNull PendingIntent pendingIntent)
   {
-    Logger.d(LOCATION_TAG);
+    if (!LocationUtils.checkLocationPermission(this))
+    {
+      requestLocationPermissionIfNeeded(false, "location resolution callback without runtime permission", true);
+      return;
+    }
 
-    // Cancel our dialog in favor of system dialog.
+    if (!mLocationPromptCoordinator.beginLocationSettingsTransition())
+    {
+      logLocationPromptState("resolution", "duplicate system resolution skipped");
+      return;
+    }
+
+    // Cancel our dialog in favor of the system resolution dialog.
     dismissLocationErrorDialog();
-
-    // Launch system permission resolution dialog.
-    Logger.i(LOCATION_TAG, "Starting location resolution dialog");
-    IntentSenderRequest intentSenderRequest = new IntentSenderRequest.Builder(pendingIntent.getIntentSender()).build();
+    logLocationPromptState("resolution", "starting system location resolution");
+    final IntentSenderRequest intentSenderRequest =
+        new IntentSenderRequest.Builder(pendingIntent.getIntentSender()).build();
     mLocationResolutionRequest.launch(intentSenderRequest);
   }
 
@@ -1916,23 +1926,28 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   private void onLocationResolutionResult(@NonNull ActivityResult result)
   {
+    mLocationPromptCoordinator.finishLocationSettingsTransition();
     final int resultCode = result.getResultCode();
-    Logger.d(LOCATION_TAG, "resultCode = " + resultCode);
+    final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+    logLocationPromptState("resolution-result", "resultCode=" + resultCode);
 
-    if (resultCode != Activity.RESULT_OK)
+    if (!permissionGranted)
     {
-      Logger.w(LOCATION_TAG, "Location resolution has been refused");
-      // Calls onMyPositionModeChanged(NOT_FOLLOW_NO_POSITION).
+      requestLocationPermissionIfNeeded(false, "resolution returned without runtime permission", true);
+      return;
+    }
+
+    if (resultCode != Activity.RESULT_OK || !servicesEnabled)
+    {
+      Logger.w(LOCATION_TAG, "Location resolution did not leave providers enabled");
       LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
       return;
     }
 
     Logger.i(LOCATION_TAG, "Location resolution has been granted, restarting location");
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-    {
-      // Calls onMyPositionModeChanged(PENDING_POSITION).
       LocationState.nativeSwitchToNextMode();
-    }
   }
 
   /**
