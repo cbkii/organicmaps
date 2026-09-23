@@ -62,6 +62,18 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
+  public void permissionRequestBlocksCompetingSettingsTransition()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    assertEquals(PermissionAction.REQUEST_PERMISSION, coordinator.onPermissionRequired(false, false));
+    assertFalse(coordinator.beginLocationSettingsTransition());
+
+    coordinator.finishPermissionRequest(true, false);
+    assertTrue(coordinator.beginLocationSettingsTransition());
+  }
+
+  @Test
   public void repeatedCallbacksWhileSettingsOutstandingDoNothing()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
