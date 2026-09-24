@@ -83,7 +83,40 @@ def verify_camera_control_rail(root):
             raise base.VerificationError(f"{overlay_layout}: Driving View button must not be duplicated in the overlay")
 
 
+def verify_shared_resource_contract(root):
+    required = (
+        root / "android/app/src/main/res/layout/in_car_action_menu_item.xml",
+        root / "android/app/src/main/res/drawable/in_car_search_row_even.xml",
+        root / "android/app/src/main/res/drawable/in_car_search_row_odd.xml",
+        root / "android/app/src/main/res/drawable-night/in_car_search_row_even.xml",
+        root / "android/app/src/main/res/drawable-night/in_car_search_row_odd.xml",
+        root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml",
+    )
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise base.VerificationError(f"shared src/main InCar resource fallbacks missing: {missing}")
+
+    fallback_text = base.read_text(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml")
+    if 'name="in_car_selection_foreground"' not in fallback_text:
+        raise base.VerificationError("shared src/main InCar colour fallback is missing selection foreground")
+
+    theme = base.read_text(root / "android/app/src/inCar/res/values/in_car_dialog_theme.xml")
+    for attr in ("android:windowFixedWidthMajor", "android:windowFixedWidthMinor"):
+        expected = f'<item name="{attr}">@fraction/in_car_compact_dialog_width_fraction</item>'
+        if expected not in theme:
+            raise base.VerificationError(f"InCar direct alert theme is missing compact width cap: {attr}")
+
+
+original_verify_code = base.verify_code
+
+
+def verify_code(root):
+    original_verify_code(root)
+    verify_shared_resource_contract(root)
+
+
 base.verify_camera_control_rail = verify_camera_control_rail
+base.verify_code = verify_code
 
 if __name__ == "__main__":
     raise SystemExit(base.main())

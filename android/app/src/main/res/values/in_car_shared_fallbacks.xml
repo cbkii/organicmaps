@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- src/main Java references this token in an InCar-only runtime branch. Keep a shared symbol for
+       normal variants; the inCar source-set overlay supplies the automotive foreground colour. -->
+  <color name="in_car_selection_foreground">@color/base_accent</color>
+</resources>
