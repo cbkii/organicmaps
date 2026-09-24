@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  format:
-    if: github.event.head_commit.message == 'Format PR48 final source'
+  apply-format:
+    if: github.event.head_commit.message == 'Format PR48 final source v2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -24,34 +24,20 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           activity = Path('android/app/src/main/java/app/organicmaps/MwmActivity.java')
           text = activity.read_text()
-          old = '''  private void onLocationSettingsResult(@NonNull ActivityResult result)
-  {
-
-    mLocationPromptCoordinator.finishLocationSettingsTransition();
-'''
-          new = '''  private void onLocationSettingsResult(@NonNull ActivityResult result)
-  {
-    mLocationPromptCoordinator.finishLocationSettingsTransition();
-'''
+          old = "  private void onLocationSettingsResult(@NonNull ActivityResult result)\n  {\n\n    mLocationPromptCoordinator.finishLocationSettingsTransition();\n"
+          new = "  private void onLocationSettingsResult(@NonNull ActivityResult result)\n  {\n    mLocationPromptCoordinator.finishLocationSettingsTransition();\n"
           assert text.count(old) == 1, 'MwmActivity formatting target changed'
           activity.write_text(text.replace(old, new, 1))
-
           tests = Path('android/app/src/test/java/app/organicmaps/location/LocationPromptCoordinatorTest.java')
           text = tests.read_text()
-          old = '''    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,
-                 coordinator.onProviderUnavailable(true, false, false));
-'''
-          new = '''    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS, coordinator.onProviderUnavailable(true, false, false));
-'''
+          old = "    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,\n                 coordinator.onProviderUnavailable(true, false, false));\n"
+          new = "    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS, coordinator.onProviderUnavailable(true, false, false));\n"
           assert text.count(old) == 1, 'test formatting target changed'
           tests.write_text(text.replace(old, new, 1))
-
           Path('.github/workflows/pr48-format-once.yml').unlink()
           PY
-
           git diff --check
           git diff --stat
 
