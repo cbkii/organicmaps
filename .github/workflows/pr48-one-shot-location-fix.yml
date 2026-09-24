@@ -10,15 +10,15 @@ permissions:
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'Apply PR48 exact source patch'
+    if: github.event.head_commit.message == 'Run PR48 lifecycle completion'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: fix/incar-location-prompt-idempotency
           fetch-depth: 0
 
-      - name: Apply exact lifecycle fixes
+      - name: Apply lifecycle completion
         shell: bash
         run: |
           python3 - <<'PY'
@@ -27,17 +27,10 @@ jobs:
           activity = Path('android/app/src/main/java/app/organicmaps/MwmActivity.java')
           text = activity.read_text()
 
-          old_settings = '''  private void onLocationSettingsResult(@NonNull ActivityResult result)
-          {
-            mLocationPromptCoordinator.finishLocationSettingsTransition();
-            final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
-            final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
-            logLocationPromptState("settings-result", "returned from Android location settings");
-
-            if (permissionGranted && servicesEnabled && LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-              LocationState.nativeSwitchToNextMode();
-          }
-          '''
+          settings_start = '  private void onLocationSettingsResult(@NonNull ActivityResult result)\n  {\n'
+          settings_next = '\n  private boolean canShowLocationPermissionRationale()\n'
+          start = text.index(settings_start)
+          end = text.index(settings_next, start)
           new_settings = '''  private void onLocationSettingsResult(@NonNull ActivityResult result)
           {
             mLocationPromptCoordinator.finishLocationSettingsTransition();
@@ -70,8 +63,7 @@ jobs:
             }
           }
           '''
-          assert text.count(old_settings) == 1, 'settings-result source shape changed'
-          text = text.replace(old_settings, new_settings, 1)
+          text = text[:start] + new_settings + text[end:]
 
           old_recording = '''      // This variable is a simple hack to re initiate the flow
                 // according to action of user. Calling it hack because we are avoiding
@@ -79,44 +71,43 @@ jobs:
                 mLocationPermissionRequestedForRecording =
                     requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
           '''
-          new_recording = '''      // Preserve the user's recording request even when another permission/settings UI
-                // already owns the location flow. The completion callback consumes it once fine
-                // location is genuinely available.
-                mLocationPermissionRequestedForRecording = true;
-                requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
-          '''
+          if old_recording not in text:
+            old_recording = '''      // This variable is a simple hack to re initiate the flow
+      // according to action of user. Calling it hack because we are avoiding
+      // creation of new methods by using this variable.
+      mLocationPermissionRequestedForRecording =
+          requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
+'''
+          new_recording = '''      // Preserve the recording request even when another location UI already owns the flow.
+      mLocationPermissionRequestedForRecording = true;
+      requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
+'''
           assert text.count(old_recording) == 1, 'track-recording source shape changed'
           text = text.replace(old_recording, new_recording, 1)
           activity.write_text(text)
 
           tests = Path('android/app/src/test/java/app/organicmaps/location/LocationPromptCoordinatorTest.java')
           test_text = tests.read_text()
-          anchor = '''  @Test
-            public void returningFromSettingsReevaluatesCurrentProviderState()
-            {
-              final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+          test_name = 'returningFromSettingsWithProviderDisabledUsesProviderSettings'
+          if test_name not in test_text:
+            marker = '''  @Test
+  public void repeatedReadyStateRemainsPromptFree()
+'''
+            addition = '''  @Test
+  public void returningFromSettingsWithProviderDisabledUsesProviderSettings()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-              assertTrue(coordinator.beginLocationSettingsTransition());
-              coordinator.finishLocationSettingsTransition();
+    assertTrue(coordinator.beginLocationSettingsTransition());
+    coordinator.finishLocationSettingsTransition();
 
-              assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
-            }
-          '''
-          addition = anchor + '''
-            @Test
-            public void returningFromSettingsWithProviderDisabledUsesProviderSettings()
-            {
-              final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS, coordinator.onProviderUnavailable(true, false, false));
+  }
 
-              assertTrue(coordinator.beginLocationSettingsTransition());
-              coordinator.finishLocationSettingsTransition();
-
-              assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,
-                           coordinator.onProviderUnavailable(true, false, false));
-            }
-          '''
-          assert test_text.count(anchor) == 1, 'settings-return test anchor changed'
-          tests.write_text(test_text.replace(anchor, addition, 1))
+'''
+            assert test_text.count(marker) == 1, 'test insertion marker changed'
+            test_text = test_text.replace(marker, addition + marker, 1)
+            tests.write_text(test_text)
 
           Path('.github/workflows/pr48-one-shot-location-fix.yml').unlink()
           PY
