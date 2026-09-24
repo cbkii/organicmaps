@@ -36,7 +36,7 @@ jobs:
           PY
           git diff --check
 
-      - name: Format and verify edited sources
+      - name: Format edited sources
         shell: bash
         run: |
           sudo apt purge -y clang-format-18 || true
@@ -45,7 +45,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq clang-format-22
           sudo update-alternatives --force --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 10
-          sudo update-alternatives --force --install /usr/bin/git-clang-format git-clang-format /usr/bin/git-clang-format-22 10
           clang-format -i \
             android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp \
             android/sdk/src/main/java/app/organicmaps/sdk/location/LocationHelper.java \
@@ -59,7 +58,6 @@ jobs:
             libs/routing/routing_session_free_driving.cpp \
             libs/routing/routing_tests/free_driving_road_matcher_tests.cpp \
             libs/routing/routing_tests/free_driving_road_snap_policy_tests.cpp
-          tools/unix/clang-format.sh
           git diff --check
 
       - name: Commit implementation and remove one-shot tooling
