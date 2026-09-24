@@ -105,6 +105,18 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
+  public void returningFromSettingsWithProviderDisabledUsesProviderSettings()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    assertTrue(coordinator.beginLocationSettingsTransition());
+    coordinator.finishLocationSettingsTransition();
+
+    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,
+                 coordinator.onProviderUnavailable(true, false, false));
+  }
+
+  @Test
   public void repeatedReadyStateRemainsPromptFree()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();

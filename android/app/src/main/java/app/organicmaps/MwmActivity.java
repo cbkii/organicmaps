@@ -1690,13 +1690,35 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void onLocationSettingsResult(@NonNull ActivityResult result)
   {
+
     mLocationPromptCoordinator.finishLocationSettingsTransition();
     final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean fineLocationGranted = LocationUtils.checkFineLocationPermission(this);
     final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
     logLocationPromptState("settings-result", "returned from Android location settings");
 
-    if (permissionGranted && servicesEnabled && LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+    if (!permissionGranted)
+    {
+      requestLocationPermissionIfNeeded(false, "returned from settings without runtime permission", true);
+      return;
+    }
+
+    if (!servicesEnabled)
+    {
+      onLocationDisabled();
+      return;
+    }
+
+    // Reconcile remembered denial state against the current Android permission state.
+    mLocationPromptCoordinator.onPermissionRequired(true, isLocationErrorDialogShowing());
+    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
       LocationState.nativeSwitchToNextMode();
+
+    if (mLocationPermissionRequestedForRecording && fineLocationGranted)
+    {
+      mLocationPermissionRequestedForRecording = false;
+      startTrackRecording();
+    }
   }
 
   private boolean canShowLocationPermissionRationale()
@@ -2160,11 +2182,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!LocationUtils.checkFineLocationPermission(this))
     {
       Logger.i(TAG, "Location permission not granted");
-      // This variable is a simple hack to re initiate the flow
-      // according to action of user. Calling it hack because we are avoiding
-      // creation of new methods by using this variable.
-      mLocationPermissionRequestedForRecording =
-          requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
+      // Preserve the recording request even when another location UI already owns the flow.
+      mLocationPermissionRequestedForRecording = true;
+      requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
       return false;
     }
 
