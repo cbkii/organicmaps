@@ -550,7 +550,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   location::GpsInfo policyInfo = rawLocation;
   double const effectiveSpeedMps =
       free_driving_snap::EffectiveSpeedMps(rawLocation, rawStepM, observationIntervalSeconds);
-  if (!policyInfo.HasSpeed() && observationIntervalSeconds > 0.0)
+  if (rawLocation.HasSpeed() || observationIntervalSeconds > 0.0)
     policyInfo.m_speed = effectiveSpeedMps;
 
   m2::PointD displacementDirection = motionEvidence.HasDirection() ? motionEvidence.m_direction : m2::PointD{};

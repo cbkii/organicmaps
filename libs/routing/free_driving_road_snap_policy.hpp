@@ -366,18 +366,26 @@ inline double RoadClassSpeedPenalty(location::GpsInfo const & info, RoadMetadata
 
 inline double ProgressScaleM(location::GpsInfo const & info, double expectedM, double motionConfidence)
 {
+  // Preserve PR #38's normal/cruise-speed scale exactly. Finer progress discrimination is only
+  // admitted while crawling and only when trajectory evidence is coherent enough to support it.
+  if (!info.HasSpeed() || info.m_speed > kCruiseSpeedMps)
+    return std::max(10.0, expectedM + 5.0);
+
   double floorM = 10.0;
+  double paddingM = 5.0;
   auto const accuracy = GetAccuracyBand(info);
   if (accuracy == AccuracyBand::Good && motionConfidence >= 0.35)
   {
     double const confidence = std::clamp((motionConfidence - 0.35) / 0.65, 0.0, 1.0);
     floorM = 6.0 - 2.0 * confidence;
+    paddingM = 3.0;
   }
   else if (accuracy == AccuracyBand::Moderate && motionConfidence >= 0.60)
   {
     floorM = 7.0;
+    paddingM = 4.0;
   }
-  return std::max(floorM, expectedM + 3.0);
+  return std::max(floorM, expectedM + paddingM);
 }
 
 inline double ParkingCandidateScoreAdjustment(AreaContext const & context, RoadMetadata const & metadata,

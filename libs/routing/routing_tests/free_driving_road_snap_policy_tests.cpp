@@ -132,6 +132,8 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_LowSpeedProgressUsesFinerScaleOnlyWithEviden
   TEST_LESS(ProgressScaleM(good, 2.0, 0.8), ProgressScaleM(good, 2.0, 0.0), ());
   auto moderate = MakeFix(4.0 / 3.6, 25.0, 1.0);
   TEST_ALMOST_EQUAL_ULPS(ProgressScaleM(moderate, 2.0, 0.2), 10.0, ());
+  auto cruising = MakeFix(40.0 / 3.6, 6.0, 1.0);
+  TEST_ALMOST_EQUAL_ULPS(ProgressScaleM(cruising, 20.0, 1.0), 25.0, ());
 }
 
 UNIT_TEST(FreeDrivingRoadSnapPolicy_TemporalEvidenceRejectsBadClockIntervals)
