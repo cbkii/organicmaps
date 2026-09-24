@@ -2,6 +2,7 @@
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:id="@+id/in_car_camera_controls_rail"
   android:layout_width="wrap_content"
   android:layout_height="wrap_content"
   android:orientation="vertical">
@@ -25,7 +26,7 @@
        sizes; the shared outline and internal separators reduce visual objects without shrinking
        interaction targets. -->
   <LinearLayout
-    android:id="@+id/in_car_camera_controls_rail"
+    android:id="@+id/zoom_buttons_container"
     android:layout_width="@dimen/in_car_map_primary_button_size"
     android:layout_height="wrap_content"
     android:background="@drawable/in_car_camera_rail_background"
