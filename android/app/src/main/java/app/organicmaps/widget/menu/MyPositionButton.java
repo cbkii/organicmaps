@@ -84,9 +84,8 @@ public class MyPositionButton
     mButton.setImageDrawable(image);
     mButton.setMaxImageSize((int) resources.getDimension(sizeDimen));
     if (BuildConfig.IS_IN_CAR && following)
-      ImageViewCompat.setImageTintList(mButton,
-                                       ColorStateList.valueOf(ContextCompat.getColor(context,
-                                                                                    R.color.in_car_selection_foreground)));
+      ImageViewCompat.setImageTintList(
+          mButton, ColorStateList.valueOf(ContextCompat.getColor(context, R.color.in_car_selection_foreground)));
     else
       ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, colorAttr)));
     if (BuildConfig.IS_IN_CAR)
