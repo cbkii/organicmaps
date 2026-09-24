@@ -60,6 +60,9 @@ struct Candidate
   double m_pathProgressPenalty = 0.0;
   double m_chordProgressPenalty = 0.0;
   double m_roadClassPenalty = 0.0;
+  double m_parkingSemanticAdjustment = 0.0;
+  bool m_insideParkingArea = false;
+  bool m_parkingRoad = false;
   double m_score = std::numeric_limits<double>::max();
 };
 
@@ -184,6 +187,11 @@ void AddUniqueEdge(std::vector<Edge> & edges, Edge const & edge)
     edges.push_back(edge);
 }
 
+double ObservationTimestamp(location::GpsInfo const & info)
+{
+  return free_driving_snap::LowSpeedMotionEstimator::ObservationTimestamp(info);
+}
+
 double ObservationIntervalSeconds(double previousTimestamp, double currentTimestamp)
 {
   if (previousTimestamp <= 0.0 || currentTimestamp <= previousTimestamp)
@@ -209,7 +217,7 @@ double ExpectedTravelMeters(location::GpsInfo const & info, double intervalSecon
 Candidate ScoreCandidate(AsyncRouter & router, CandidateSeed seed, location::GpsInfo const & info,
                          m2::PointD const & rawPoint, m2::PointD const & movementDirection, double headingWeight,
                          EdgeProj const * previous, double roadIntervalSeconds, double rawTravelSinceAcceptedM,
-                         bool parkingContext)
+                         free_driving_snap::AreaContext const & areaContext, double motionConfidence)
 {
   Candidate candidate;
   candidate.m_projection = std::move(seed.m_projection);
@@ -234,14 +242,27 @@ Candidate ScoreCandidate(AsyncRouter & router, CandidateSeed seed, location::Gps
     candidate.m_headingPenalty = free_driving_snap::HeadingPenaltyDegrees(candidate.m_headingDegrees, headingWeight);
   }
 
-  bool const needMetadata = candidate.m_relation == free_driving_snap::RoadRelation::Unrelated || parkingContext;
+  bool const needMetadata =
+      candidate.m_relation == free_driving_snap::RoadRelation::Unrelated || areaContext.HasParkingSignals();
   if (needMetadata)
     candidate.m_hasMetadata = router.GetFreeDrivingRoadMetadata(candidate.m_projection.m_edge, candidate.m_metadata);
+
+  candidate.m_insideParkingArea =
+      free_driving_snap::IsPointInsideNearbyParkingArea(areaContext, candidate.m_projection.m_point);
+  candidate.m_parkingRoad =
+      candidate.m_hasMetadata &&
+      (candidate.m_metadata.m_parkingAisle ||
+       (candidate.m_insideParkingArea && candidate.m_metadata.m_class == free_driving_snap::RoadClass::Service));
+  if (candidate.m_hasMetadata)
+  {
+    candidate.m_parkingSemanticAdjustment = free_driving_snap::ParkingCandidateScoreAdjustment(
+        areaContext, candidate.m_metadata, candidate.m_relation, candidate.m_insideParkingArea, motionConfidence);
+  }
 
   if (previous != nullptr && roadIntervalSeconds > 0.0)
   {
     double const expectedM = ExpectedTravelMeters(info, roadIntervalSeconds, rawTravelSinceAcceptedM);
-    double const scaleM = std::max(10.0, expectedM + 5.0);
+    double const scaleM = free_driving_snap::ProgressScaleM(info, expectedM, motionConfidence);
     double const chordM = mercator::DistanceOnEarth(previous->m_point, candidate.m_projection.m_point);
 
     if (candidate.m_pathDistanceM >= 0.0)
@@ -272,7 +293,8 @@ Candidate ScoreCandidate(AsyncRouter & router, CandidateSeed seed, location::Gps
   candidate.m_roadClassPenalty =
       free_driving_snap::RoadClassSpeedPenalty(info, candidate.m_metadata, candidate.m_relation);
   candidate.m_score = candidate.m_distancePenalty + candidate.m_headingPenalty + candidate.m_continuityPenalty +
-                      candidate.m_pathProgressPenalty + candidate.m_chordProgressPenalty + candidate.m_roadClassPenalty;
+                      candidate.m_pathProgressPenalty + candidate.m_chordProgressPenalty +
+                      candidate.m_roadClassPenalty + candidate.m_parkingSemanticAdjustment;
   return candidate;
 }
 
@@ -300,12 +322,18 @@ Candidate const * FindCurrentCandidate(std::vector<Candidate> const & candidates
   return it == candidates.end() ? nullptr : &*it;
 }
 
-double RunnerUpScore(std::vector<Candidate> const & candidates, Candidate const & best)
+Candidate const * RunnerUpCandidate(std::vector<Candidate> const & candidates, Candidate const & best)
 {
   for (auto const & candidate : candidates)
     if (candidate.m_projection.m_edge.GetFeatureId() != best.m_projection.m_edge.GetFeatureId())
-      return candidate.m_score;
-  return free_driving_snap::kNoRunnerUpScore;
+      return &candidate;
+  return nullptr;
+}
+
+double UndirectedDirectionAngleDegrees(m2::PointD const & lhs, m2::PointD const & rhs)
+{
+  double const angle = DirectionAngleDegrees(lhs, rhs);
+  return std::min(angle, 180.0 - angle);
 }
 
 bool HasDecisiveCorridorSeed(AsyncRouter & router, std::vector<CandidateSeed> const & seeds,
@@ -396,6 +424,8 @@ void RoutingSession::ResetFreeDrivingRoadGraphMatch()
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
   m_freeDrivingPositionAccumulator.Clear();
+  m_freeDrivingMotionEstimator.Reset();
+  m_freeDrivingLastMotionEvidence = {};
   m_freeDrivingRoadMatcher.Reset();
   m_freeDrivingProjection = {};
   m_freeDrivingProjectionSeeded = false;
@@ -429,8 +459,9 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   }
 
   m2::PointD const rawPoint = mercator::FromLatLon(rawLocation.m_latitude, rawLocation.m_longitude);
+  double const observationTimestamp = ObservationTimestamp(rawLocation);
 
-  if (m_freeDrivingLastObservationTimestamp > 0.0 && rawLocation.m_timestamp - m_freeDrivingLastObservationTimestamp >
+  if (m_freeDrivingLastObservationTimestamp > 0.0 && observationTimestamp - m_freeDrivingLastObservationTimestamp >
                                                          free_driving_snap::kMaxAcceptedObservationGapSeconds)
   {
     // ACC sleep/provider pauses invalidate fine-grained evidence but retain the coarse in-memory
@@ -445,9 +476,9 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   }
 
   double const observationIntervalSeconds =
-      ObservationIntervalSeconds(m_freeDrivingLastObservationTimestamp, rawLocation.m_timestamp);
+      ObservationIntervalSeconds(m_freeDrivingLastObservationTimestamp, observationTimestamp);
   double const evidenceDeltaSeconds =
-      free_driving_snap::TemporalEvidenceDeltaSeconds(m_freeDrivingLastObservationTimestamp, rawLocation.m_timestamp);
+      free_driving_snap::TemporalEvidenceDeltaSeconds(m_freeDrivingLastObservationTimestamp, observationTimestamp);
   double rawStepM = 0.0;
   if (m_freeDrivingHasLastRawPoint && observationIntervalSeconds > 0.0)
     rawStepM = mercator::DistanceOnEarth(m_freeDrivingLastRawPoint, rawPoint);
@@ -457,14 +488,13 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     double contextMoveM = 0.0;
     if (m_freeDrivingHasAreaContextPoint)
       contextMoveM = mercator::DistanceOnEarth(m_freeDrivingAreaContextPoint, rawPoint);
-    if (!m_freeDrivingHasAreaContextPoint ||
-        free_driving_snap::ShouldRefreshAreaContext(m_freeDrivingAreaContextTimestamp, rawLocation.m_timestamp,
-                                                    contextMoveM))
+    if (!m_freeDrivingHasAreaContextPoint || free_driving_snap::ShouldRefreshAreaContext(
+                                                 m_freeDrivingAreaContextTimestamp, observationTimestamp, contextMoveM))
     {
       m_freeDrivingAreaContext = m_freeDrivingAreaContextProvider(rawPoint);
       m_freeDrivingAreaContextPoint = rawPoint;
       m_freeDrivingHasAreaContextPoint = true;
-      m_freeDrivingAreaContextTimestamp = rawLocation.m_timestamp;
+      m_freeDrivingAreaContextTimestamp = observationTimestamp;
     }
   }
 
@@ -510,9 +540,12 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   {
     m_freeDrivingLastRawPoint = rawPoint;
     m_freeDrivingHasLastRawPoint = true;
-    m_freeDrivingLastObservationTimestamp = rawLocation.m_timestamp;
+    m_freeDrivingLastObservationTimestamp = observationTimestamp;
     return;
   }
+
+  auto const motionEvidence = m_freeDrivingMotionEstimator.Push(rawLocation, rawPoint);
+  m_freeDrivingLastMotionEvidence = motionEvidence;
 
   location::GpsInfo policyInfo = rawLocation;
   double const effectiveSpeedMps =
@@ -520,10 +553,10 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   if (!policyInfo.HasSpeed() && observationIntervalSeconds > 0.0)
     policyInfo.m_speed = effectiveSpeedMps;
 
-  m2::PointD displacementDirection;
+  m2::PointD displacementDirection = motionEvidence.HasDirection() ? motionEvidence.m_direction : m2::PointD{};
   double const displacementThresholdM = std::clamp(rawLocation.m_horizontalAccuracy * 0.35, 2.0, 6.0);
-  if (m_freeDrivingHasLastRawPoint && observationIntervalSeconds > 0.0 && rawStepM >= displacementThresholdM &&
-      rawStepM <= 80.0)
+  if (displacementDirection.IsAlmostZero() && m_freeDrivingHasLastRawPoint && observationIntervalSeconds > 0.0 &&
+      rawStepM >= displacementThresholdM && rawStepM <= 80.0)
   {
     displacementDirection = rawPoint - m_freeDrivingLastRawPoint;
   }
@@ -534,21 +567,50 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   }
 
   m2::PointD movementDirection = displacementDirection;
-  double headingWeight = free_driving_snap::HeadingWeightForSpeed(effectiveSpeedMps);
-  if (rawLocation.HasBearing())
+  double headingWeight = 0.0;
+  double const bearingReliability = free_driving_snap::BearingReliability(rawLocation);
+  if (effectiveSpeedMps <= free_driving_snap::kCruiseSpeedMps && motionEvidence.HasDirection() &&
+      motionEvidence.m_confidence >= 0.15)
+  {
+    movementDirection = motionEvidence.m_direction;
+    headingWeight = free_driving_snap::TrajectoryHeadingWeight(effectiveSpeedMps, motionEvidence.m_confidence);
+    if (rawLocation.HasBearing())
+    {
+      double const agreement = free_driving_snap::HeadingAgreementFactor(
+          DirectionAngleDegrees(DirectionFromBearing(rawLocation.m_bearing), motionEvidence.m_direction));
+      headingWeight *= 0.75 + 0.25 * agreement * bearingReliability;
+    }
+  }
+  else if (rawLocation.HasBearing())
   {
     m2::PointD const bearingDirection = DirectionFromBearing(rawLocation.m_bearing);
     movementDirection = bearingDirection;
-    if (!displacementDirection.IsAlmostZero())
+    headingWeight = free_driving_snap::HeadingWeightForSpeed(effectiveSpeedMps) * bearingReliability;
+    if (motionEvidence.HasDirection())
+    {
+      headingWeight *= free_driving_snap::HeadingAgreementFactor(
+          DirectionAngleDegrees(bearingDirection, motionEvidence.m_direction));
+    }
+    else if (!displacementDirection.IsAlmostZero())
     {
       headingWeight *=
           free_driving_snap::HeadingAgreementFactor(DirectionAngleDegrees(bearingDirection, displacementDirection));
     }
   }
+  else if (motionEvidence.HasDirection())
+  {
+    movementDirection = motionEvidence.m_direction;
+    headingWeight = free_driving_snap::TrajectoryHeadingWeight(effectiveSpeedMps, motionEvidence.m_confidence);
+  }
+  else if (!displacementDirection.IsAlmostZero())
+  {
+    headingWeight = free_driving_snap::HeadingWeightForSpeed(effectiveSpeedMps) * 0.5;
+  }
 
   bool const stationaryHold = free_driving_snap::IsStationaryHold(policyInfo, rawStepM, observationIntervalSeconds);
   bool const motionEstablished =
-      free_driving_snap::HasEstablishedMotion(policyInfo, rawStepM, observationIntervalSeconds);
+      free_driving_snap::HasEstablishedMotion(policyInfo, rawStepM, observationIntervalSeconds) ||
+      motionEvidence.m_confidence >= 0.50;
 
   EdgeProj const * previous =
       m_freeDrivingProjectionSeeded && m_freeDrivingRoadMatcher.GetState() == free_driving_snap::MatchState::Road
@@ -558,9 +620,9 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   double roadIntervalSeconds = 0.0;
   double rawTravelSinceAcceptedM = 0.0;
   if (previous != nullptr && m_freeDrivingLastAcceptedRoadTimestamp > 0.0 &&
-      rawLocation.m_timestamp > m_freeDrivingLastAcceptedRoadTimestamp)
+      observationTimestamp > m_freeDrivingLastAcceptedRoadTimestamp)
   {
-    double const interval = rawLocation.m_timestamp - m_freeDrivingLastAcceptedRoadTimestamp;
+    double const interval = observationTimestamp - m_freeDrivingLastAcceptedRoadTimestamp;
     if (interval <= kMaximumProgressIntervalSeconds)
     {
       roadIntervalSeconds = interval;
@@ -606,16 +668,13 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   BoundCandidateSeeds(seeds, rawPoint, previous != nullptr ? &previous->m_edge : nullptr,
                       candidateBudget + (previous != nullptr ? 1 : 0));
 
-  bool const parkingContext = m_freeDrivingAreaContext.HasParkingArea() ||
-                              m_freeDrivingAreaContext.m_insideLargeBuilding ||
-                              m_freeDrivingAreaContext.m_nearParkingEntrance;
   std::vector<Candidate> candidates;
   candidates.reserve(seeds.size());
   for (auto & seed : seeds)
   {
     candidates.push_back(ScoreCandidate(*m_router, std::move(seed), policyInfo, rawPoint, movementDirection,
                                         headingWeight, previous, roadIntervalSeconds, rawTravelSinceAcceptedM,
-                                        parkingContext));
+                                        m_freeDrivingAreaContext, motionEvidence.m_confidence));
   }
   std::sort(candidates.begin(), candidates.end(),
             [](Candidate const & lhs, Candidate const & rhs) { return lhs.m_score < rhs.m_score; });
@@ -623,15 +682,28 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   Candidate const * best = candidates.empty() ? nullptr : &candidates.front();
   Candidate const * current = previous != nullptr ? FindCurrentCandidate(candidates, previous->m_edge) : nullptr;
   bool const bestAcceptable = best != nullptr && IsAcceptable(*best, policyInfo, previous != nullptr);
-  double const runnerUpScore = best != nullptr ? RunnerUpScore(candidates, *best) : free_driving_snap::kNoRunnerUpScore;
+  Candidate const * runnerUp = best != nullptr ? RunnerUpCandidate(candidates, *best) : nullptr;
+  double const runnerUpScore = runnerUp != nullptr ? runnerUp->m_score : free_driving_snap::kNoRunnerUpScore;
+  bool parallelAmbiguous = false;
+  if (best != nullptr && runnerUp != nullptr)
+  {
+    double const angle = UndirectedDirectionAngleDegrees(best->m_projection.m_edge.GetDirection(),
+                                                         runnerUp->m_projection.m_edge.GetDirection());
+    double const separationM = mercator::DistanceOnEarth(best->m_projection.m_point, runnerUp->m_projection.m_point);
+    parallelAmbiguous = free_driving_snap::IsParallelCandidateAmbiguous(
+        angle, separationM, std::abs(runnerUp->m_score - best->m_score),
+        std::abs(runnerUp->m_parkingSemanticAdjustment - best->m_parkingSemanticAdjustment), policyInfo,
+        motionEvidence.m_confidence);
+  }
   bool const bestUnambiguous =
-      best != nullptr && free_driving_snap::IsUnambiguous(best->m_score, runnerUpScore, accuracy);
+      best != nullptr && free_driving_snap::IsUnambiguous(best->m_score, runnerUpScore, accuracy) && !parallelAmbiguous;
   bool const bestStrong = bestAcceptable && best->m_distanceM <= free_driving_snap::StrongRoadDistanceM(policyInfo) &&
                           best->m_score <= free_driving_snap::CandidateScoreLimit(accuracy) - kStrongScoreHeadroom;
   bool const bestBeatsCurrent = current == nullptr || (best != nullptr && best == current) ||
                                 (best != nullptr && best->m_score + kUnrelatedSwitchMargin < current->m_score);
   bool const roadMismatch = !bestAcceptable;
   bool const bestParkingAisle = best != nullptr && best->m_hasMetadata && best->m_metadata.m_parkingAisle;
+  bool const bestParkingRoad = best != nullptr && best->m_parkingRoad;
 
   double const openWeakThresholdM =
       std::max(free_driving_snap::StrongRoadDistanceM(policyInfo), rawLocation.m_horizontalAccuracy * 1.5 + 2.0);
@@ -655,8 +727,9 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
       evidenceStepM = rawStepM;
   }
 
-  bool const parkingReleaseEligible = free_driving_snap::ParkingReleaseEligible(
-      policyInfo, m_freeDrivingAreaContext, roadMismatch || weakRoadMatch, bestParkingAisle, stationaryHold);
+  bool const parkingReleaseEligible =
+      free_driving_snap::ParkingReleaseEligible(policyInfo, m_freeDrivingAreaContext, roadMismatch || weakRoadMatch,
+                                                bestParkingRoad, stationaryHold, motionEstablished);
 
   auto const currentState = m_freeDrivingRoadMatcher.GetState();
   bool allowFreeStateRoadReacquire = false;
@@ -669,7 +742,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     else if (currentState == free_driving_snap::MatchState::ParkingFree)
     {
       allowFreeStateRoadReacquire = !m_freeDrivingAreaContext.HasParkingArea() ||
-                                    (m_freeDrivingAreaContext.m_nearParkingEntrance && !bestParkingAisle);
+                                    (m_freeDrivingAreaContext.m_nearParkingEntrance && !bestParkingRoad);
     }
   }
 
@@ -680,6 +753,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   evidence.m_bestUnambiguous = bestUnambiguous;
   evidence.m_bestBeatsCurrent = bestBeatsCurrent;
   evidence.m_bestParkingAisle = bestParkingAisle;
+  evidence.m_bestParkingRoad = bestParkingRoad;
   evidence.m_stationaryHold = stationaryHold;
   evidence.m_motionEstablished = motionEstablished;
   evidence.m_parkingReleaseEligible = parkingReleaseEligible;
@@ -704,7 +778,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     m_freeDrivingProjectionSeeded = true;
     m_freeDrivingLastAcceptedRawPoint = rawPoint;
     m_freeDrivingHasLastAcceptedRawPoint = true;
-    m_freeDrivingLastAcceptedRoadTimestamp = rawLocation.m_timestamp;
+    m_freeDrivingLastAcceptedRoadTimestamp = observationTimestamp;
     if (edgeChanged || m_freeDrivingDisplayCorridor.empty())
       RefreshDisplayCorridor(*m_router, m_freeDrivingProjection, policyInfo, m_freeDrivingDisplayCorridor);
   }
@@ -717,7 +791,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     m_freeDrivingProjectionSeeded = true;
     m_freeDrivingLastAcceptedRawPoint = rawPoint;
     m_freeDrivingHasLastAcceptedRawPoint = true;
-    m_freeDrivingLastAcceptedRoadTimestamp = rawLocation.m_timestamp;
+    m_freeDrivingLastAcceptedRoadTimestamp = observationTimestamp;
     if (m_freeDrivingDisplayCorridor.empty())
       RefreshDisplayCorridor(*m_router, m_freeDrivingProjection, policyInfo, m_freeDrivingDisplayCorridor);
   }
@@ -733,9 +807,11 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   if (decision.m_stateChanged)
   {
     LOG(LDEBUG,
-        ("Free-driving road snap:", StateName(previousState), "->", StateName(decision.m_state),
-         "speed_mps=", effectiveSpeedMps, "accuracy_m=", rawLocation.m_horizontalAccuracy,
-         "best_score=", best ? best->m_score : -1.0, "runner_up=", std::isfinite(runnerUpScore) ? runnerUpScore : -1.0,
+        ("Free-driving road snap:", StateName(previousState), "->", StateName(decision.m_state), "speed_mps=",
+         effectiveSpeedMps, "accuracy_m=", rawLocation.m_horizontalAccuracy, "best_score=", best ? best->m_score : -1.0,
+         "runner_up=", std::isfinite(runnerUpScore) ? runnerUpScore : -1.0, "motion_conf=", motionEvidence.m_confidence,
+         "bearing_acc=", rawLocation.m_bearingAccuracy, "speed_acc=", rawLocation.m_speedAccuracy,
+         "parallel_ambiguous=", parallelAmbiguous, "parking_semantic=", best ? best->m_parkingSemanticAdjustment : 0.0,
          "parking=", m_freeDrivingAreaContext.m_insideParking,
          "structured_parking=", m_freeDrivingAreaContext.m_insideStructuredParking, "strong_open=",
          m_freeDrivingAreaContext.m_insideStrongOpenArea, "weak_open=", m_freeDrivingAreaContext.m_insideWeakOpenArea));
@@ -752,7 +828,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
 
   m_freeDrivingLastRawPoint = rawPoint;
   m_freeDrivingHasLastRawPoint = true;
-  m_freeDrivingLastObservationTimestamp = rawLocation.m_timestamp;
+  m_freeDrivingLastObservationTimestamp = observationTimestamp;
 }
 
 bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo const & displayInput,
@@ -798,18 +874,37 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
 
   EdgeProj bestProjection;
   double bestScore = std::numeric_limits<double>::max();
-  m2::PointD bearingDirection;
-  if (displayInput.HasBearing())
-    bearingDirection = DirectionFromBearing(displayInput.m_bearing);
+  m2::PointD displayDirection;
+  double displayDirectionWeight = 0.0;
+  if (m_freeDrivingLastMotionEvidence.HasDirection())
+  {
+    displayDirection = m_freeDrivingLastMotionEvidence.m_direction;
+    double const speedMps = displayInput.HasSpeed() ? std::max(0.0, displayInput.m_speed) : 0.0;
+    displayDirectionWeight =
+        free_driving_snap::TrajectoryHeadingWeight(speedMps, m_freeDrivingLastMotionEvidence.m_confidence);
+  }
+  if (displayInput.HasBearing() && displayInput.HasSpeed() &&
+      displayInput.m_speed > free_driving_snap::kDirectionUsefulMinSpeedMps)
+  {
+    displayDirection = DirectionFromBearing(displayInput.m_bearing);
+    displayDirectionWeight = free_driving_snap::HeadingWeightForSpeed(displayInput.m_speed) *
+                             free_driving_snap::BearingReliability(displayInput);
+  }
 
   for (auto const & edge : *edges)
   {
     EdgeProj projection{edge, ProjectToEdge(rawPoint, edge)};
     double score = mercator::DistanceOnEarth(rawPoint, projection.m_point);
-    if (!bearingDirection.IsAlmostZero() && displayInput.HasSpeed() &&
-        displayInput.m_speed > free_driving_snap::kDirectionUsefulMinSpeedMps)
+    if (!displayDirection.IsAlmostZero() && displayDirectionWeight > 0.0)
+      score += DirectionAngleDegrees(displayDirection, edge.GetDirection()) / 90.0 * 5.0 * displayDirectionWeight;
+
+    if (SameDirectedEdge(edge, m_freeDrivingProjection.m_edge))
     {
-      score += DirectionAngleDegrees(bearingDirection, edge.GetDirection()) / 90.0 * 5.0;
+      score -= 1.5;
+      double const acceptedToEndM = mercator::DistanceOnEarth(m_freeDrivingProjection.m_point, edge.GetEndPoint());
+      double const candidateToEndM = mercator::DistanceOnEarth(projection.m_point, edge.GetEndPoint());
+      if (candidateToEndM > acceptedToEndM + 3.0)
+        score += std::min(6.0, (candidateToEndM - acceptedToEndM - 3.0) * 0.5);
     }
 
     if (score < bestScore)

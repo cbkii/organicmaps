@@ -54,6 +54,14 @@ inline void CopyAreaTriangles(FeatureType & feature, std::vector<m2::PointD> & t
   }, FeatureType::BEST_GEOMETRY);
 }
 
+inline bool IsPointInsideTriangles(std::vector<m2::PointD> const & triangles, m2::PointD const & point)
+{
+  for (size_t i = 0; i + 2 < triangles.size(); i += 3)
+    if (m2::IsPointInsideTriangle(point, triangles[i], triangles[i + 1], triangles[i + 2]))
+      return true;
+  return false;
+}
+
 inline void MaybeSelectFreeArea(FeatureType & feature, int priority, int & selectedPriority, double & selectedAreaM2,
                                 std::vector<m2::PointD> & triangles)
 {
@@ -71,6 +79,11 @@ inline void MaybeSelectFreeArea(FeatureType & feature, int priority, int & selec
   triangles = std::move(candidate);
 }
 }  // namespace detail
+
+inline bool IsPointInsideNearbyParkingArea(AreaContext const & context, m2::PointD const & point)
+{
+  return detail::IsPointInsideTriangles(context.m_nearbyParkingAreaTriangles, point);
+}
 
 // Constrains |point| to the cached mapped parking/building area. A point already inside the
 // triangulated area is preserved exactly. A noisy point just outside is projected to the nearest
@@ -129,6 +142,9 @@ inline AreaContext ReadAreaContext(DataSource const & dataSource, m2::PointD con
   static ftypes::BaseCheckerEx const structuredParking(
       {{"amenity", "parking", "underground"}, {"amenity", "parking", "multi-storey"}});
   static ftypes::BaseCheckerEx const parkingEntrance({{"amenity", "parking_entrance"}});
+  static ftypes::BaseCheckerEx const parkingSpace({{"amenity", "parking_space"}});
+  static ftypes::BaseCheckerEx const parkingLane({{"amenity", "parking", "lane"}});
+  static ftypes::BaseCheckerEx const streetSideParking({{"amenity", "parking", "street_side"}});
   static ftypes::BaseCheckerEx const parkingLikeLand({{"landuse", "garages"}});
   static ftypes::BaseCheckerEx const strongOpenArea({{"landuse", "farmland"},
                                                      {"landuse", "field"},
@@ -163,8 +179,35 @@ inline AreaContext ReadAreaContext(DataSource const & dataSource, m2::PointD con
       return;
     }
 
+    if (parkingSpace(types))
+    {
+      if (feature::GetMinDistanceMeters(feature, point) <= 15.0)
+        context.m_nearParkingSpace = true;
+      return;
+    }
+
+    if (parkingLane(types) || streetSideParking(types))
+    {
+      if (detail::IsInsideArea(feature, point))
+      {
+        context.m_insideParkingLane = parkingLane(types);
+        context.m_insideStreetSideParking = streetSideParking(types);
+      }
+      return;
+    }
+
     if (ftypes::IsParkingChecker::Instance()(types))
     {
+      double const distanceM = feature::GetMinDistanceMeters(feature, point);
+      if (distanceM <= 30.0)
+      {
+        context.m_nearParkingArea = true;
+        if (distanceM < context.m_nearestParkingAreaDistanceM)
+        {
+          context.m_nearestParkingAreaDistanceM = distanceM;
+          detail::CopyAreaTriangles(feature, context.m_nearbyParkingAreaTriangles);
+        }
+      }
       if (detail::IsInsideArea(feature, point))
       {
         context.m_insideParking = true;
@@ -179,6 +222,16 @@ inline AreaContext ReadAreaContext(DataSource const & dataSource, m2::PointD con
 
     if (parkingLikeLand(types))
     {
+      double const distanceM = feature::GetMinDistanceMeters(feature, point);
+      if (distanceM <= 30.0)
+      {
+        context.m_nearParkingArea = true;
+        if (distanceM < context.m_nearestParkingAreaDistanceM)
+        {
+          context.m_nearestParkingAreaDistanceM = distanceM;
+          detail::CopyAreaTriangles(feature, context.m_nearbyParkingAreaTriangles);
+        }
+      }
       if (detail::IsInsideArea(feature, point))
       {
         context.m_insideParking = true;

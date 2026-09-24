@@ -38,24 +38,26 @@ class GpsInfo
 {
 public:
   TLocationSource m_source = EUndefined;
-  /// @TODO(bykoianko) |m_timestamp| is calculated based on platform methods which don't
-  /// guarantee that |m_timestamp| is monotonic. |m_monotonicTimeMs| should be added to
-  /// class |GpsInfo|. This time should be calculated based on Location::getElapsedRealtimeNanos()
-  /// method in case of Android. How to calculate such time in case of iOS should be
-  /// investigated.
-  /// \note For most cases |m_timestamp| is monotonic.
+  // Wall time is retained for persisted state. m_monotonicTimestamp is preferred for
+  // short-lived motion evidence when a provider supplies it (Android elapsedRealtimeNanos()).
   double m_timestamp = 0.0;             //!< seconds from 1st Jan 1970
+  double m_monotonicTimestamp = -1.0;   //!< seconds from a monotonic platform clock
   double m_latitude = 0.0;              //!< degrees
   double m_longitude = 0.0;             //!< degrees
   double m_horizontalAccuracy = 100.0;  //!< metres
   double m_altitude = 0.0;              //!< metres
   double m_verticalAccuracy = -1.0;     //!< metres
   double m_bearing = -1.0;              //!< positive degrees from the true North
+  double m_bearingAccuracy = -1.0;      //!< degrees
   double m_speed = -1.0;                //!< metres per second
+  double m_speedAccuracy = -1.0;        //!< metres per second
 
   bool IsValid() const { return m_source != EUndefined; }
+  bool HasMonotonicTimestamp() const { return m_monotonicTimestamp > 0.0; }
   bool HasBearing() const { return m_bearing >= 0.0; }
+  bool HasBearingAccuracy() const { return m_bearingAccuracy >= 0.0; }
   bool HasSpeed() const { return m_speed >= 0.0; }
+  bool HasSpeedAccuracy() const { return m_speedAccuracy >= 0.0; }
   bool HasAltitude() const { return m_verticalAccuracy >= 0.0; }
   ms::LatLon GetLatLon() const { return {m_latitude, m_longitude}; }
 };

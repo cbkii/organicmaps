@@ -105,17 +105,29 @@ struct AreaContext
 {
   bool m_insideParking = false;
   bool m_insideStructuredParking = false;
+  bool m_nearParkingArea = false;
   bool m_nearParkingEntrance = false;
+  bool m_nearParkingSpace = false;
+  bool m_insideStreetSideParking = false;
+  bool m_insideParkingLane = false;
   bool m_insideLargeBuilding = false;
   bool m_insideStrongOpenArea = false;
   bool m_insideWeakOpenArea = false;
+  double m_nearestParkingAreaDistanceM = std::numeric_limits<double>::max();
 
-  // When the current fix is in a mapped parking/building area this stores that area's
-  // triangulation. ParkingFree display projection can therefore keep the actual measured
-  // position (or its nearest in-area point) rather than collapsing to an area centre.
+  // Free-area geometry is used only after ParkingFree has been entered. Nearby parking geometry
+  // is separately retained so bounded road candidates can be classified as inside/outside a
+  // facility without turning parking proximity itself into snap authority.
   std::vector<m2::PointD> m_freeAreaTriangles;
+  std::vector<m2::PointD> m_nearbyParkingAreaTriangles;
 
   bool HasParkingArea() const { return m_insideParking || m_insideStructuredParking; }
+  bool HasParkingSignals() const
+  {
+    return HasParkingArea() || m_nearParkingArea || m_nearParkingEntrance || m_nearParkingSpace ||
+           m_insideStreetSideParking || m_insideParkingLane || m_insideLargeBuilding;
+  }
+  bool SuppressesParkingFree() const { return m_insideStreetSideParking || m_insideParkingLane; }
   bool HasFreeAreaGeometry() const { return !m_freeAreaTriangles.empty(); }
 };
 
@@ -194,7 +206,20 @@ inline double RecentDirectionTrackLengthM(location::GpsInfo const & info)
 inline double EffectiveSpeedMps(location::GpsInfo const & info, double rawStepM, double deltaSeconds)
 {
   if (info.HasSpeed())
-    return std::max(0.0, info.m_speed);
+  {
+    double const providerSpeed = std::max(0.0, info.m_speed);
+    if (info.HasSpeedAccuracy() && deltaSeconds > 0.0 && rawStepM >= 0.0)
+    {
+      double const plausibleRawLimitM = std::max(20.0, providerSpeed * deltaSeconds * 4.0 + 10.0);
+      if (rawStepM <= plausibleRawLimitM)
+      {
+        double const displacementSpeed = rawStepM / deltaSeconds;
+        double const providerWeight = std::clamp(1.0 - info.m_speedAccuracy / 5.0, 0.25, 1.0);
+        return providerWeight * providerSpeed + (1.0 - providerWeight) * displacementSpeed;
+      }
+    }
+    return providerSpeed;
+  }
   if (deltaSeconds <= 0.0 || rawStepM < 0.0 || rawStepM > 80.0)
     return 0.0;
   return rawStepM / deltaSeconds;
@@ -207,6 +232,26 @@ inline double HeadingWeightForSpeed(double speedMps)
   return std::clamp(
       (speedMps - kDirectionUsefulMinSpeedMps) / (kDirectionFullWeightSpeedMps - kDirectionUsefulMinSpeedMps), 0.0,
       1.0);
+}
+
+inline double BearingReliability(location::GpsInfo const & info)
+{
+  if (!info.HasBearing())
+    return 0.0;
+  if (!info.HasBearingAccuracy())
+    return 0.65;
+  if (info.m_bearingAccuracy <= 10.0)
+    return 1.0;
+  if (info.m_bearingAccuracy >= 60.0)
+    return 0.10;
+  return 1.0 - (info.m_bearingAccuracy - 10.0) / 50.0 * 0.90;
+}
+
+inline double TrajectoryHeadingWeight(double speedMps, double motionConfidence)
+{
+  motionConfidence = std::clamp(motionConfidence, 0.0, 1.0);
+  double const lowSpeedWeight = 0.35 * motionConfidence;
+  return std::max(lowSpeedWeight, HeadingWeightForSpeed(speedMps) * motionConfidence);
 }
 
 inline double HeadingAgreementFactor(double disagreementDegrees)
@@ -319,6 +364,75 @@ inline double RoadClassSpeedPenalty(location::GpsInfo const & info, RoadMetadata
   return std::clamp(excessKmh / 40.0 * 0.65, 0.0, 0.65);
 }
 
+inline double ProgressScaleM(location::GpsInfo const & info, double expectedM, double motionConfidence)
+{
+  double floorM = 10.0;
+  auto const accuracy = GetAccuracyBand(info);
+  if (accuracy == AccuracyBand::Good && motionConfidence >= 0.35)
+  {
+    double const confidence = std::clamp((motionConfidence - 0.35) / 0.65, 0.0, 1.0);
+    floorM = 6.0 - 2.0 * confidence;
+  }
+  else if (accuracy == AccuracyBand::Moderate && motionConfidence >= 0.60)
+  {
+    floorM = 7.0;
+  }
+  return std::max(floorM, expectedM + 3.0);
+}
+
+inline double ParkingCandidateScoreAdjustment(AreaContext const & context, RoadMetadata const & metadata,
+                                              RoadRelation relation, bool candidateInsideParkingArea,
+                                              double motionConfidence)
+{
+  if (context.SuppressesParkingFree())
+    return 0.0;
+
+  double adjustment = 0.0;
+  if (candidateInsideParkingArea && context.HasParkingArea())
+  {
+    if (metadata.m_parkingAisle)
+      adjustment -= 0.45;
+    else if (metadata.m_class == RoadClass::Service)
+      adjustment -= 0.28;
+
+    if (context.m_nearParkingEntrance && relation == RoadRelation::Connected)
+      adjustment -= 0.18;
+  }
+  else if (candidateInsideParkingArea && context.m_nearParkingEntrance && relation == RoadRelation::Connected &&
+           motionConfidence >= 0.25)
+  {
+    // Entry transition: useful only when topology and coherent motion agree. Mere proximity to a
+    // car park must not pull a slowly moving vehicle off the adjacent public road.
+    adjustment -= metadata.m_parkingAisle ? 0.28 : (metadata.m_class == RoadClass::Service ? 0.18 : 0.0);
+    if (metadata.m_driveway)
+      adjustment -= 0.08;
+  }
+
+  if (context.m_nearParkingSpace && candidateInsideParkingArea && metadata.m_parkingAisle)
+    adjustment -= 0.06;
+
+  if (context.HasParkingArea() && !candidateInsideParkingArea && relation == RoadRelation::Unrelated &&
+      metadata.m_class != RoadClass::Service)
+  {
+    adjustment += 0.15;
+  }
+
+  return adjustment;
+}
+
+inline bool IsParallelCandidateAmbiguous(double undirectedAngleDegrees, double separationM, double scoreGap,
+                                         double semanticGap, location::GpsInfo const & info, double motionConfidence)
+{
+  if (undirectedAngleDegrees > 20.0 || scoreGap > 0.75)
+    return false;
+  double const separationLimitM = std::clamp(info.m_horizontalAccuracy * 1.5, 8.0, 30.0);
+  if (separationM > separationLimitM)
+    return false;
+  // Strong, motion-supported semantic evidence (for example a mapped aisle inside the parking
+  // polygon versus a parallel public road outside it) may break an otherwise parallel tie.
+  return !(semanticGap >= 0.25 && motionConfidence >= 0.35);
+}
+
 inline double ParkingReleaseTimeSeconds(AreaContext const & context, bool recentEntranceHint)
 {
   double seconds = context.m_insideStructuredParking ? 2.0 : (context.m_insideParking ? 3.0 : 5.0);
@@ -328,9 +442,9 @@ inline double ParkingReleaseTimeSeconds(AreaContext const & context, bool recent
 }
 
 inline bool ParkingReleaseEligible(location::GpsInfo const & info, AreaContext const & context, bool roadMismatch,
-                                   bool bestParkingAisle, bool stationaryHold)
+                                   bool bestParkingRoad, bool stationaryHold, bool motionEstablished)
 {
-  if (!info.HasSpeed() || info.m_speed > kParkingFreeMaxSpeedMps)
+  if (!info.HasSpeed() || info.m_speed > kParkingFreeMaxSpeedMps || context.SuppressesParkingFree())
     return false;
 
   // Entrance proximity is a transition hint only. It must never release a car that is simply
@@ -341,11 +455,14 @@ inline bool ParkingReleaseEligible(location::GpsInfo const & info, AreaContext c
   if (context.m_insideLargeBuilding && !context.HasParkingArea())
     return roadMismatch;
 
-  // Keep a good mapped parking aisle while traversing the facility, then allow fine-position
-  // free movement as the car slows to manoeuvre/park or when the aisle no longer explains the fix.
-  if (bestParkingAisle && !roadMismatch && !stationaryHold && info.m_speed > kParkingFinePositionMaxSpeedMps)
+  // A moving vehicle on a plausible mapped parking road remains road-snapped even below 6 km/h.
+  // ParkingFree is for final manoeuvring/stationary positioning, missing geometry or sustained
+  // mismatch, not a speed threshold by itself.
+  if (bestParkingRoad && !roadMismatch && motionEstablished)
     return false;
-  return roadMismatch || stationaryHold || !bestParkingAisle || info.m_speed <= kParkingFinePositionMaxSpeedMps;
+  if (bestParkingRoad && !roadMismatch && !stationaryHold && info.m_speed > kParkingFinePositionMaxSpeedMps)
+    return false;
+  return roadMismatch || stationaryHold || !bestParkingRoad || info.m_speed <= kParkingFinePositionMaxSpeedMps;
 }
 
 inline double OffRoadReleaseTimeSeconds(AreaContext const & context, bool weakRoadMatch)

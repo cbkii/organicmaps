@@ -141,6 +141,21 @@ UNIT_TEST(FreeDrivingRoadMatcher_ParkingEntranceHintAloneNeverReleasesRoad)
     TEST_EQUAL(matcher.Update(evidence, context).m_state, MatchState::Road, ());
 }
 
+UNIT_TEST(FreeDrivingRoadMatcher_MovingMappedParkingRoadRemainsRoad)
+{
+  FreeDrivingRoadMatcher matcher;
+  AcquireRoad(matcher);
+  AreaContext context;
+  context.m_insideParking = true;
+
+  auto evidence = RoadEvidence(1);
+  evidence.m_relation = RoadRelation::SameDirectedEdge;
+  evidence.m_bestParkingRoad = true;
+  evidence.m_parkingReleaseEligible = false;
+  for (size_t i = 0; i < 5; ++i)
+    TEST_EQUAL(matcher.Update(evidence, context).m_state, MatchState::Road, ());
+}
+
 UNIT_TEST(FreeDrivingRoadMatcher_ParkingManoeuvreEntersFinePositionMode)
 {
   FreeDrivingRoadMatcher matcher;
