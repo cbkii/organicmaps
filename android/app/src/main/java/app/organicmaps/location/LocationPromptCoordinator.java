@@ -100,6 +100,7 @@ public final class LocationPromptCoordinator
     return true;
   }
 
+  /** Clears the in-flight marker; callers must re-read Android permission and provider state afterwards. */
   public void finishLocationSettingsTransition()
   {
     mLocationSettingsTransitionPending = false;
