@@ -1,0 +1,60 @@
+name: Apply low-speed road matching
+
+on:
+  push:
+    branches:
+      - fix/incar-low-speed-road-matching
+    paths:
+      - '.github/workflows/_apply-low-speed-road-matching.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/incar-low-speed-road-matching
+          fetch-depth: 1
+
+      - name: Apply bounded matcher changes
+        shell: bash
+        run: |
+          python3 tools/ci/apply_low_speed_matching_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('libs/routing/routing_tests/free_driving_road_snap_policy_tests.cpp')
+          text = path.read_text()
+          text = text.replace(
+              'TEST_GREATER_OR_EQUAL(ProgressScaleM(moderate, 2.0, 0.2), 10.0, ());',
+              'TEST_ALMOST_EQUAL_ULPS(ProgressScaleM(moderate, 2.0, 0.2), 10.0, ());')
+          path.write_text(text)
+          PY
+          git diff --check
+
+      - name: Install repository clang-format
+        shell: bash
+        run: |
+          sudo apt purge -y clang-format-18 || true
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          echo 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-toolchain-noble-22.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format-22
+          sudo update-alternatives --force --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 10
+          sudo update-alternatives --force --install /usr/bin/git-clang-format git-clang-format /usr/bin/git-clang-format-22 10
+          tools/unix/clang-format.sh
+          git diff --check
+
+      - name: Commit implementation and remove one-shot tooling
+        shell: bash
+        run: |
+          git rm .github/workflows/_apply-low-speed-road-matching.yml tools/ci/apply_low_speed_matching_patch.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Improve low-speed InCar road matching'
+          git push origin HEAD:fix/incar-low-speed-road-matching
