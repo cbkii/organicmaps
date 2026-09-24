@@ -1,0 +1,57 @@
+name: InCar Routing Contract Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/in-car-routing-contracts.yaml'
+      - 'android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java'
+      - 'android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java'
+      - 'android/app/src/main/res/layout*/routing_bottom_sheet.xml'
+      - 'android/app/src/main/res/layout*/route_plan_line.xml'
+      - 'android/app/src/main/res/layout*/routing_plan_header.xml'
+      - 'android/app/src/main/res/layout*/routing_start_button.xml'
+      - 'android/app/src/main/res/layout*/altitude_chart_panel.xml'
+      - 'android/app/src/inCar/res/layout*/routing_bottom_sheet.xml'
+      - 'android/app/src/inCar/res/layout*/route_plan_line.xml'
+      - 'android/app/src/inCar/res/layout*/routing_plan_header.xml'
+      - 'android/app/src/inCar/res/layout*/routing_start_button.xml'
+      - 'android/app/src/inCar/res/layout*/altitude_chart_panel.xml'
+      - 'android/tools/verify_in_car_layout_contracts.py'
+  pull_request:
+    paths:
+      - '.github/workflows/in-car-routing-contracts.yaml'
+      - 'android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java'
+      - 'android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java'
+      - 'android/app/src/main/res/layout*/routing_bottom_sheet.xml'
+      - 'android/app/src/main/res/layout*/route_plan_line.xml'
+      - 'android/app/src/main/res/layout*/routing_plan_header.xml'
+      - 'android/app/src/main/res/layout*/routing_start_button.xml'
+      - 'android/app/src/main/res/layout*/altitude_chart_panel.xml'
+      - 'android/app/src/inCar/res/layout*/routing_bottom_sheet.xml'
+      - 'android/app/src/inCar/res/layout*/route_plan_line.xml'
+      - 'android/app/src/inCar/res/layout*/routing_plan_header.xml'
+      - 'android/app/src/inCar/res/layout*/routing_start_button.xml'
+      - 'android/app/src/inCar/res/layout*/altitude_chart_panel.xml'
+      - 'android/tools/verify_in_car_layout_contracts.py'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify routing control ownership and dispatch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Verify routing layout and dispatch contracts
+        shell: bash
+        run: |
+          python3 -m py_compile android/tools/verify_in_car_layout_contracts.py
+          python3 -X dev -W default android/tools/verify_in_car_layout_contracts.py
