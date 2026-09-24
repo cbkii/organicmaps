@@ -179,6 +179,7 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
     search_listener = fragment.split("mSearchBtn.setOnClickListener", 1)[1].split(
         "mBookmarkBtn.setOnClickListener", 1
     )[0]
+    fragment_flat = " ".join(fragment.split())
     source_contracts = {
         "START is resolved from bottomButtons":
             "requireOwnedView(bottomButtons, R.id.start)" in controller,
@@ -187,7 +188,7 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
         "mandatory controls have no Activity fallback":
             "activity.findViewById(resourceId)" not in controller,
         "fragment passes the bottom-buttons owner":
-            "newInstance(requireActivity(), mFrame, mButtonsLayout, mChartPanel" in fragment,
+            "newInstance(requireActivity(), mFrame, mButtonsLayout, mChartPanel" in fragment_flat,
         "Search is resolved from bottom-buttons owner":
             "requireOwnedView(mButtonsLayout, R.id.routing_btn_search)" in fragment,
         "START has exactly one listener": controller.count("mStart.setOnClickListener") == 1,

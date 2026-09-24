@@ -127,9 +127,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mRoutingContainer = requireActivity().findViewById(R.id.routing_container);
     mButtonsLayout = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_bottom_buttons);
 
-    mRoutingBottomMenuController =
-        RoutingBottomMenuController.newInstance(requireActivity(), mFrame, mButtonsLayout, mChartPanel,
-                                                mChartHeaderAdapter, this);
+    mRoutingBottomMenuController = RoutingBottomMenuController.newInstance(requireActivity(), mFrame, mButtonsLayout,
+                                                                           mChartPanel, mChartHeaderAdapter, this);
     mRoutingBottomMenuController.setVisibilityChangedCallback(this::updateSheetLayout);
     mRoutingRoot = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_root);
     mRoutingBottomContainer = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_bottom_container);
