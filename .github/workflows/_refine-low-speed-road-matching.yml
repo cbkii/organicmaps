@@ -1,0 +1,51 @@
+name: Refine low-speed road matching
+
+on:
+  push:
+    branches:
+      - fix/incar-low-speed-road-matching
+    paths:
+      - '.github/workflows/_refine-low-speed-road-matching.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/incar-low-speed-road-matching
+          fetch-depth: 1
+
+      - name: Apply refinement
+        shell: bash
+        run: |
+          python3 tools/ci/refine_low_speed_matching_patch.py
+          git diff --check
+
+      - name: Format edited sources
+        shell: bash
+        run: |
+          sudo apt purge -y clang-format-18 || true
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          echo 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-toolchain-noble-22.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format-22
+          clang-format-22 -i \
+            libs/routing/free_driving_road_snap_policy.hpp \
+            libs/routing/routing_session_free_driving.cpp \
+            libs/routing/routing_tests/free_driving_road_snap_policy_tests.cpp
+          git diff --check
+
+      - name: Commit refinement and remove one-shot tooling
+        shell: bash
+        run: |
+          git rm .github/workflows/_refine-low-speed-road-matching.yml tools/ci/refine_low_speed_matching_patch.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Keep matcher refinements low-speed scoped'
+          git push origin HEAD:fix/incar-low-speed-road-matching
