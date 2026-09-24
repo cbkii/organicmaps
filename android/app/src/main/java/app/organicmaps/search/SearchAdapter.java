@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.sdk.search.SearchResult;
 import app.organicmaps.util.Graphics;
@@ -146,7 +147,7 @@ public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchData
     void bind(@NonNull SearchResult result, int order)
     {
       super.bind(result, order);
-      setBackground();
+      setBackground(order);
 
       formatOpeningHours(mResult);
       UiUtils.setTextAndHideIfEmpty(mDescription, mResult.description.description);
@@ -196,8 +197,14 @@ public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchData
       }
     }
 
-    private void setBackground()
+    private void setBackground(int order)
     {
+      if (BuildConfig.IS_IN_CAR)
+      {
+        mFrame.setBackgroundResource((order & 1) == 0 ? R.drawable.in_car_search_row_even
+                                                       : R.drawable.in_car_search_row_odd);
+        return;
+      }
       final Context context = mHostFragment.requireActivity();
       final int itemBg = ThemeUtils.getResource(context, R.attr.clickableBackground);
       mFrame.setBackgroundResource(itemBg);
