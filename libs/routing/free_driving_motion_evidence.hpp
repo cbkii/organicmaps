@@ -29,6 +29,7 @@ struct MotionEvidence
 
 // Uses only real low-speed provider observations; extrapolated display ticks never enter this estimator.
 // The owner resets it outside the low-speed regime so fast-road history cannot bias a later crawl.
+// Provider speed remains the speed authority; this trajectory supplies independent direction/confidence.
 // Short coherent trajectories are more useful than instantaneous GNSS bearing while a car is
 // crawling, but noisy/stationary fixes deliberately produce no direction evidence.
 class LowSpeedMotionEstimator
