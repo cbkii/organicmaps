@@ -16,6 +16,7 @@ on:
       - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/values/in_car_*.xml'
       - 'android/tools/verify_in_car_touch_targets.py'
+      - 'android/tools/verify_in_car_touch_targets_rail.py'
       - 'android/tools/verify_in_car_compact_chrome.py'
   pull_request:
     paths:
@@ -30,6 +31,7 @@ on:
       - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/values/in_car_*.xml'
       - 'android/tools/verify_in_car_touch_targets.py'
+      - 'android/tools/verify_in_car_touch_targets_rail.py'
       - 'android/tools/verify_in_car_compact_chrome.py'
 
 permissions:
@@ -49,6 +51,7 @@ jobs:
         run: |
           python3 -m py_compile \
             android/tools/verify_in_car_touch_targets.py \
+            android/tools/verify_in_car_touch_targets_rail.py \
             android/tools/verify_in_car_compact_chrome.py
-          python3 -X dev -W default android/tools/verify_in_car_touch_targets.py
+          python3 -X dev -W default android/tools/verify_in_car_touch_targets_rail.py
           python3 -X dev -W default android/tools/verify_in_car_compact_chrome.py
