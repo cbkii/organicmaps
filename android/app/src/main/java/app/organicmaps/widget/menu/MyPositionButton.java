@@ -13,8 +13,11 @@ import androidx.annotation.AttrRes;
 import androidx.annotation.DimenRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.core.widget.ImageViewCompat;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.location.LocationState;
@@ -76,9 +79,18 @@ public class MyPositionButton
       mIcons.put(mode, image);
     }
 
+    final boolean following = mode == LocationState.FOLLOW || mode == LocationState.FOLLOW_AND_ROTATE;
+    mButton.setSelected(BuildConfig.IS_IN_CAR && following);
     mButton.setImageDrawable(image);
     mButton.setMaxImageSize((int) resources.getDimension(sizeDimen));
-    ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, colorAttr)));
+    if (BuildConfig.IS_IN_CAR && following)
+      ImageViewCompat.setImageTintList(mButton,
+                                       ColorStateList.valueOf(ContextCompat.getColor(context,
+                                                                                    R.color.in_car_selection_foreground)));
+    else
+      ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, colorAttr)));
+    if (BuildConfig.IS_IN_CAR)
+      mButton.setContentDescription(context.getString(inCarContentDescription(mode)));
     updatePadding(mode);
 
     if (mode == LocationState.PENDING_POSITION)
@@ -94,6 +106,20 @@ public class MyPositionButton
     }
     else
       mButton.clearAnimation();
+  }
+
+  @StringRes
+  private static int inCarContentDescription(int mode)
+  {
+    return switch (mode)
+    {
+      case LocationState.PENDING_POSITION -> R.string.in_car_location_mode_finding;
+      case LocationState.NOT_FOLLOW_NO_POSITION -> R.string.in_car_location_mode_unavailable;
+      case LocationState.NOT_FOLLOW -> R.string.in_car_location_mode_free;
+      case LocationState.FOLLOW -> R.string.in_car_location_mode_centred;
+      case LocationState.FOLLOW_AND_ROTATE -> R.string.in_car_location_mode_heading;
+      default -> throw new IllegalArgumentException("Invalid button mode: " + mode);
+    };
   }
 
   private void updatePadding(int mode)
