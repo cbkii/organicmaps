@@ -23,6 +23,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.view.KeyEvent;
@@ -67,6 +68,9 @@ import app.organicmaps.incar.InCarRouterPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.intent.IntentProcessor;
+import app.organicmaps.location.LocationPromptCoordinator;
+import app.organicmaps.location.LocationPromptCoordinator.PermissionAction;
+import app.organicmaps.location.LocationPromptCoordinator.ProviderAction;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
@@ -187,7 +191,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   private ActivityResultLauncher<String[]> mLocationPermissionRequest;
-  private boolean mLocationPermissionRequestedForRecording = false;
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  private LocationPromptCoordinator mLocationPromptCoordinator;
+
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  private ActivityResultLauncher<Intent> mLocationSettingsRequest;
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   private ActivityResultLauncher<String> mPostNotificationPermissionRequest;
@@ -538,6 +546,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mPlacePageViewModel = new ViewModelProvider(this).get(PlacePageViewModel.class);
     mSearchPageViewModel = new ViewModelProvider(this).get(SearchPageViewModel.class);
     mMapButtonsViewModel = new ViewModelProvider(this).get(MapButtonsViewModel.class);
+    mLocationPromptCoordinator = new ViewModelProvider(this).get(LocationPromptCoordinator.class);
     // We don't need to manually handle removing the observers it follows the activity lifecycle
     mMapButtonsViewModel.getBottomButtonsHeight().observe(this, this::onMapBottomButtonsHeightChange);
     mMapButtonsViewModel.getLayoutMode().observe(this, this::initNavigationButtons);
@@ -552,6 +561,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                                            this::onLocationPermissionsResult);
     mLocationResolutionRequest = registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(),
                                                            this::onLocationResolutionResult);
+    mLocationSettingsRequest =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::onLocationSettingsResult);
     mPostNotificationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestPermission(),
                                                                    this::onPostNotificationPermissionResult);
     mPowerSaveSettings =
@@ -978,6 +989,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     setIntent(intent);
     mIntentConsumed = false;
     super.onNewIntent(intent);
+    logLocationPromptState("onNewIntent", "warm intent received; location UI unchanged");
     if (mMapController.isRenderingActive())
       processIntent();
     if (intent.getAction() != null && intent.getAction().equals(TrackRecordingService.STOP_TRACK_RECORDING))
@@ -1012,6 +1024,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     refreshLightStatusBar();
 
     MwmApplication.from(this).getSensorHelper().addListener(this);
+    logLocationPromptState("onResume", "activity foregrounded");
   }
 
   @Override
@@ -1076,6 +1089,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mLocationPermissionRequest = null;
     mLocationResolutionRequest.unregister();
     mLocationResolutionRequest = null;
+    mLocationSettingsRequest.unregister();
+    mLocationSettingsRequest = null;
     mPostNotificationPermissionRequest.unregister();
     mPostNotificationPermissionRequest = null;
     mPowerSaveSettings.unregister();
@@ -1565,16 +1580,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
     }
 
-    // Check for any location permissions.
     if (!LocationUtils.checkLocationPermission(this))
     {
       Logger.w(LOCATION_TAG, "Permissions ACCESS_COARSE_LOCATION and ACCESS_FINE_LOCATION are not granted");
-      // Calls onMyPositionModeChanged(NOT_FOLLOW_NO_POSITION).
-      LocationState.nativeOnLocationError(LocationState.ERROR_DENIED);
-
-      Logger.i(LOCATION_TAG, "Requesting ACCESS_FINE_LOCATION + ACCESS_FINE_LOCATION permissions");
-      dismissLocationErrorDialog();
-      mLocationPermissionRequest.launch(new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+      requestLocationPermissionIfNeeded(false, "location mode requires runtime permission", true);
       return;
     }
 
@@ -1582,10 +1591,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
     if ((newMode == FOLLOW || newMode == FOLLOW_AND_ROTATE) && !LocationUtils.checkFineLocationPermission(this))
     {
-      // Try to optimistically request FINE permission for FOLLOW and FOLLOW_AND_ROTATE modes.
-      Logger.i(LOCATION_TAG, "Requesting ACCESS_FINE_LOCATION permission for " + LocationState.nameOf(newMode));
-      dismissLocationErrorDialog();
-      mLocationPermissionRequest.launch(new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+      requestLocationPermissionIfNeeded(false, "follow mode requires fine location", false);
     }
   }
 
@@ -1607,6 +1613,128 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (mLocationErrorDialog != null && mLocationErrorDialog.isShowing())
       mLocationErrorDialog.dismiss();
     mLocationErrorDialog = null;
+  }
+
+  private boolean isLocationErrorDialogShowing()
+  {
+    return mLocationErrorDialog != null && mLocationErrorDialog.isShowing();
+  }
+
+  private boolean requestLocationPermissionIfNeeded(boolean requiredPermissionGranted, @NonNull String reason,
+                                                    boolean reportDeniedToNative)
+  {
+    final PermissionAction action =
+        mLocationPromptCoordinator.onPermissionRequired(requiredPermissionGranted, isLocationErrorDialogShowing());
+    if (action == PermissionAction.NONE)
+    {
+      logLocationPromptState("permission", "skipped: " + reason);
+      return false;
+    }
+    if (action == PermissionAction.SHOW_APP_SETTINGS)
+    {
+      showLocationPermissionDeniedDialog(true);
+      logLocationPromptState("permission", "app settings offered: " + reason);
+      return false;
+    }
+
+    launchReservedLocationPermissionRequest(reason, reportDeniedToNative);
+    return true;
+  }
+
+  private void launchReservedLocationPermissionRequest(@NonNull String reason, boolean reportDeniedToNative)
+  {
+    if (!mLocationPromptCoordinator.isPermissionRequestPending())
+    {
+      logLocationPromptState("permission", "reserved request missing: " + reason);
+      return;
+    }
+
+    if (reportDeniedToNative)
+      LocationState.nativeOnLocationError(LocationState.ERROR_DENIED);
+
+    dismissLocationErrorDialog();
+    logLocationPromptState("permission", "request launched: " + reason);
+    mLocationPermissionRequest.launch(new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+  }
+
+  private void showLocationPermissionDeniedDialog(boolean showSettingsAction)
+  {
+    if (isLocationErrorDialogShowing())
+      return;
+
+    final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
+                                                   .setTitle(R.string.enable_location_services)
+                                                   .setMessage(R.string.location_is_disabled_long_text)
+                                                   .setOnDismissListener(dialog -> mLocationErrorDialog = null)
+                                                   .setNegativeButton(R.string.close, null);
+    if (showSettingsAction)
+    {
+      final Intent intent =
+          new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
+      builder.setPositiveButton(R.string.settings,
+                                (dialog, which) -> launchLocationSettings(intent, "app permission settings"));
+    }
+    mLocationErrorDialog = builder.show();
+  }
+
+  private void launchLocationSettings(@NonNull Intent intent, @NonNull String reason)
+  {
+    if (!mLocationPromptCoordinator.beginLocationSettingsTransition())
+    {
+      logLocationPromptState("settings", "duplicate launch skipped: " + reason);
+      return;
+    }
+
+    logLocationPromptState("settings", "launching: " + reason);
+    mLocationSettingsRequest.launch(intent);
+  }
+
+  private void onLocationSettingsResult(@NonNull ActivityResult result)
+  {
+    mLocationPromptCoordinator.finishLocationSettingsTransition();
+    final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean fineLocationGranted = LocationUtils.checkFineLocationPermission(this);
+    final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+    logLocationPromptState("settings-result", "returned from Android location settings");
+
+    if (!permissionGranted)
+    {
+      requestLocationPermissionIfNeeded(false, "returned from settings without runtime permission", true);
+      return;
+    }
+
+    if (!servicesEnabled)
+    {
+      onLocationDisabled();
+      return;
+    }
+
+    // Reconcile remembered denial state against the current Android permission state.
+    mLocationPromptCoordinator.onPermissionRequired(true, isLocationErrorDialogShowing());
+    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+      LocationState.nativeSwitchToNextMode();
+
+    if (mLocationPromptCoordinator.consumeTrackRecordingRequest(fineLocationGranted))
+      startTrackRecording();
+  }
+
+  private boolean canShowLocationPermissionRationale()
+  {
+    return ActivityCompat.shouldShowRequestPermissionRationale(this, ACCESS_COARSE_LOCATION)
+ || ActivityCompat.shouldShowRequestPermissionRationale(this, ACCESS_FINE_LOCATION);
+  }
+
+  private void logLocationPromptState(@NonNull String entry, @NonNull String reason)
+  {
+    final Intent intent = getIntent();
+    Logger.i(LOCATION_TAG,
+             entry + ": " + reason + ", action=" + (intent == null ? null : intent.getAction())
+                 + ", categories=" + (intent == null ? null : intent.getCategories())
+                 + ", permissionGranted=" + LocationUtils.checkLocationPermission(this)
+                 + ", servicesEnabled=" + LocationUtils.areLocationServicesTurnedOn(this)
+                 + ", permissionPending=" + mLocationPromptCoordinator.isPermissionRequestPending()
+                 + ", settingsPending=" + mLocationPromptCoordinator.isLocationSettingsTransitionPending()
+                 + ", dialogShowing=" + isLocationErrorDialogShowing());
   }
 
   /**
@@ -1681,7 +1809,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   private void onLocationPermissionsResult(java.util.Map<String, Boolean> permissions)
   {
-    // Print permissions that have been granted or refused.
     for (java.util.Map.Entry<String, Boolean> entry : permissions.entrySet())
     {
       final String permission = entry.getKey().substring(entry.getKey().lastIndexOf('.') + 1);
@@ -1691,16 +1818,18 @@ public class MwmActivity extends BaseMwmFragmentActivity
         Logger.w(LOCATION_TAG, "Permission " + permission + " has been refused");
     }
 
-    boolean requestedForRecording = mLocationPermissionRequestedForRecording;
-    mLocationPermissionRequestedForRecording = false;
-    if (LocationUtils.checkLocationPermission(this))
+    final boolean locationPermissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean canShowRationale = canShowLocationPermissionRationale();
+
+    if (locationPermissionGranted)
     {
+      mLocationPromptCoordinator.finishPermissionRequest(true, canShowRationale);
       final boolean hasFineLocationPermission = LocationUtils.checkFineLocationPermission(this);
 
       if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
         LocationState.nativeSwitchToNextMode();
 
-      if (requestedForRecording && hasFineLocationPermission)
+      if (mLocationPromptCoordinator.consumeTrackRecordingRequest(hasFineLocationPermission))
         startTrackRecording();
 
       if (hasFineLocationPermission)
@@ -1710,7 +1839,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       else
       {
         Logger.w(LOCATION_TAG, "Only ACCESS_COARSE_LOCATION permission granted");
-        if (mLocationErrorDialog != null && mLocationErrorDialog.isShowing())
+        if (isLocationErrorDialogShowing())
         {
           Logger.w(LOCATION_TAG, "Don't show 'Precise Location denied' dialog because another dialog is in progress");
           return;
@@ -1728,10 +1857,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
           final Intent intent = Utils.makeSystemLocationSettingIntent(this);
           if (intent != null)
           {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
-            intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-            builder.setPositiveButton(R.string.location_settings, (dialog, which) -> startActivity(intent));
+            builder.setPositiveButton(R.string.location_settings,
+                                      (dialog, which) -> launchLocationSettings(intent, "precise location settings"));
           }
           mLocationErrorDialog = builder.show();
         }
@@ -1744,21 +1871,19 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
 
     Logger.w(LOCATION_TAG, "Permissions ACCESS_COARSE_LOCATION and ACCESS_FINE_LOCATION have been refused");
-    // Calls onMyPositionModeChanged(NOT_FOLLOW_NO_POSITION).
+    // Keep the request marked pending while publishing ERROR_DENIED so a synchronous mode callback
+    // cannot immediately launch a second Android permission request.
     LocationState.nativeOnLocationError(LocationState.ERROR_DENIED);
+    mLocationPromptCoordinator.finishPermissionRequest(false, canShowRationale);
 
-    if (mLocationErrorDialog != null && mLocationErrorDialog.isShowing())
+    if (isLocationErrorDialogShowing())
     {
       Logger.w(LOCATION_TAG, "Don't show 'location denied' error dialog because another dialog is in progress");
       return;
     }
 
-    mLocationErrorDialog = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
-                               .setTitle(R.string.enable_location_services)
-                               .setMessage(R.string.location_is_disabled_long_text)
-                               .setOnDismissListener(dialog -> mLocationErrorDialog = null)
-                               .setNegativeButton(R.string.close, null)
-                               .show();
+    showLocationPermissionDeniedDialog(!canShowRationale);
+    logLocationPromptState("permission-result", canShowRationale ? "denied" : "permanently denied");
   }
 
   /**
@@ -1791,14 +1916,44 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationResolutionRequired(@NonNull PendingIntent pendingIntent)
   {
-    Logger.d(LOCATION_TAG);
+    final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
+                                                                                   isLocationErrorDialogShowing());
+    logLocationPromptState("resolution", "decision=" + action);
 
-    // Cancel our dialog in favor of system dialog.
+    if (action == ProviderAction.NONE)
+      return;
+
+    if (action == ProviderAction.IGNORE_STALE_CALLBACK)
+    {
+      restoreLocationAfterStaleUnavailableCallback();
+      return;
+    }
+
+    if (action == ProviderAction.REQUEST_PERMISSION)
+    {
+      launchReservedLocationPermissionRequest("location resolution callback without runtime permission", true);
+      return;
+    }
+
+    if (action == ProviderAction.SHOW_APP_SETTINGS)
+    {
+      showLocationPermissionDeniedDialog(true);
+      return;
+    }
+
+    if (!mLocationPromptCoordinator.beginLocationSettingsTransition())
+    {
+      logLocationPromptState("resolution", "duplicate system resolution skipped");
+      return;
+    }
+
+    // Cancel our dialog in favor of the system resolution dialog.
     dismissLocationErrorDialog();
-
-    // Launch system permission resolution dialog.
-    Logger.i(LOCATION_TAG, "Starting location resolution dialog");
-    IntentSenderRequest intentSenderRequest = new IntentSenderRequest.Builder(pendingIntent.getIntentSender()).build();
+    logLocationPromptState("resolution", "starting system location resolution");
+    final IntentSenderRequest intentSenderRequest =
+        new IntentSenderRequest.Builder(pendingIntent.getIntentSender()).build();
     mLocationResolutionRequest.launch(intentSenderRequest);
   }
 
@@ -1809,23 +1964,28 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   private void onLocationResolutionResult(@NonNull ActivityResult result)
   {
+    mLocationPromptCoordinator.finishLocationSettingsTransition();
     final int resultCode = result.getResultCode();
-    Logger.d(LOCATION_TAG, "resultCode = " + resultCode);
+    final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+    logLocationPromptState("resolution-result", "resultCode=" + resultCode);
 
-    if (resultCode != Activity.RESULT_OK)
+    if (!permissionGranted)
     {
-      Logger.w(LOCATION_TAG, "Location resolution has been refused");
-      // Calls onMyPositionModeChanged(NOT_FOLLOW_NO_POSITION).
-      LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
+      requestLocationPermissionIfNeeded(false, "resolution returned without runtime permission", true);
       return;
     }
 
-    Logger.i(LOCATION_TAG, "Location resolution has been granted, restarting location");
-    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+    if (!servicesEnabled)
     {
-      // Calls onMyPositionModeChanged(PENDING_POSITION).
-      LocationState.nativeSwitchToNextMode();
+      Logger.w(LOCATION_TAG, "Location resolution did not leave providers enabled, resultCode=" + resultCode);
+      onLocationDisabled();
+      return;
     }
+
+    Logger.i(LOCATION_TAG, "Android location providers are enabled after resolution, restarting location");
+    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+      LocationState.nativeSwitchToNextMode();
   }
 
   /**
@@ -1835,16 +1995,37 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationDisabled()
   {
-    Logger.d(LOCATION_TAG, "settings = " + LocationUtils.areLocationServicesTurnedOn(this));
+    final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
+                                                                                   isLocationErrorDialogShowing());
+    logLocationPromptState("provider-disabled", "decision=" + action);
 
-    // Calls onMyPositionModeChanged(NOT_FOLLOW_NO_POSITION).
-    LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
+    if (action == ProviderAction.NONE)
+      return;
 
-    if (mLocationErrorDialog != null && mLocationErrorDialog.isShowing())
+    if (action == ProviderAction.IGNORE_STALE_CALLBACK)
     {
-      Logger.d(LOCATION_TAG, "Don't show 'location disabled' error dialog because another dialog is in progress");
+      // LocationHelper has already stopped updates and published ERROR_GPS_OFF before this callback.
+      // If Android now reports both permission and providers ready, restore normal location operation.
+      restoreLocationAfterStaleUnavailableCallback();
       return;
     }
+
+    if (action == ProviderAction.REQUEST_PERMISSION)
+    {
+      launchReservedLocationPermissionRequest("provider callback received without runtime permission", true);
+      return;
+    }
+
+    if (action == ProviderAction.SHOW_APP_SETTINGS)
+    {
+      showLocationPermissionDeniedDialog(true);
+      return;
+    }
+
+    // Provider state is genuinely disabled while runtime permission is valid.
+    LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
 
     final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
                                                    .setTitle(R.string.enable_location_services)
@@ -1854,12 +2035,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
     final Intent intent = Utils.makeSystemLocationSettingIntent(this);
     if (intent != null)
     {
-      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-      intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
-      intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-      builder.setPositiveButton(R.string.location_settings, (dialog, which) -> startActivity(intent));
+      builder.setPositiveButton(R.string.location_settings,
+                                (dialog, which) -> launchLocationSettings(intent, "location provider settings"));
     }
     mLocationErrorDialog = builder.show();
+  }
+
+  private void restoreLocationAfterStaleUnavailableCallback()
+  {
+    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+      LocationState.nativeSwitchToNextMode();
   }
 
   private boolean requestBatterySaverPermission()
@@ -2018,13 +2203,13 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!LocationUtils.checkFineLocationPermission(this))
     {
       Logger.i(TAG, "Location permission not granted");
-      // This variable is a simple hack to re initiate the flow
-      // according to action of user. Calling it hack because we are avoiding
-      // creation of new methods by using this variable.
-      mLocationPermissionRequestedForRecording = true;
-      mLocationPermissionRequest.launch(new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+      // Preserve the recording request even when another location UI already owns the flow.
+      mLocationPromptCoordinator.requestTrackRecording();
+      requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
       return false;
     }
+
+    mLocationPromptCoordinator.onTrackRecordingStarted();
 
     requestPostNotificationsPermission();
 
