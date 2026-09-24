@@ -191,8 +191,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   private ActivityResultLauncher<String[]> mLocationPermissionRequest;
-  private boolean mLocationPermissionRequestedForRecording = false;
-  private final LocationPromptCoordinator mLocationPromptCoordinator = new LocationPromptCoordinator();
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  private LocationPromptCoordinator mLocationPromptCoordinator;
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   private ActivityResultLauncher<Intent> mLocationSettingsRequest;
@@ -546,6 +546,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mPlacePageViewModel = new ViewModelProvider(this).get(PlacePageViewModel.class);
     mSearchPageViewModel = new ViewModelProvider(this).get(SearchPageViewModel.class);
     mMapButtonsViewModel = new ViewModelProvider(this).get(MapButtonsViewModel.class);
+    mLocationPromptCoordinator = new ViewModelProvider(this).get(LocationPromptCoordinator.class);
     // We don't need to manually handle removing the observers it follows the activity lifecycle
     mMapButtonsViewModel.getBottomButtonsHeight().observe(this, this::onMapBottomButtonsHeightChange);
     mMapButtonsViewModel.getLayoutMode().observe(this, this::initNavigationButtons);
@@ -1713,11 +1714,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
       LocationState.nativeSwitchToNextMode();
 
-    if (mLocationPermissionRequestedForRecording && fineLocationGranted)
-    {
-      mLocationPermissionRequestedForRecording = false;
+    if (mLocationPromptCoordinator.consumeTrackRecordingRequest(fineLocationGranted))
       startTrackRecording();
-    }
   }
 
   private boolean canShowLocationPermissionRationale()
@@ -1820,8 +1818,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
         Logger.w(LOCATION_TAG, "Permission " + permission + " has been refused");
     }
 
-    boolean requestedForRecording = mLocationPermissionRequestedForRecording;
-    mLocationPermissionRequestedForRecording = false;
     final boolean locationPermissionGranted = LocationUtils.checkLocationPermission(this);
     final boolean canShowRationale = canShowLocationPermissionRationale();
 
@@ -1833,7 +1829,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
         LocationState.nativeSwitchToNextMode();
 
-      if (requestedForRecording && hasFineLocationPermission)
+      if (mLocationPromptCoordinator.consumeTrackRecordingRequest(hasFineLocationPermission))
         startTrackRecording();
 
       if (hasFineLocationPermission)
@@ -1920,9 +1916,30 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationResolutionRequired(@NonNull PendingIntent pendingIntent)
   {
-    if (!LocationUtils.checkLocationPermission(this))
+    final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+    final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(
+        permissionGranted, servicesEnabled, isLocationErrorDialogShowing());
+    logLocationPromptState("resolution", "decision=" + action);
+
+    if (action == ProviderAction.NONE)
+      return;
+
+    if (action == ProviderAction.IGNORE_STALE_CALLBACK)
     {
-      requestLocationPermissionIfNeeded(false, "location resolution callback without runtime permission", true);
+      restoreLocationAfterStaleUnavailableCallback();
+      return;
+    }
+
+    if (action == ProviderAction.REQUEST_PERMISSION)
+    {
+      launchReservedLocationPermissionRequest("location resolution callback without runtime permission", true);
+      return;
+    }
+
+    if (action == ProviderAction.SHOW_APP_SETTINGS)
+    {
+      showLocationPermissionDeniedDialog(true);
       return;
     }
 
@@ -1959,14 +1976,14 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
     }
 
-    if (resultCode != Activity.RESULT_OK || !servicesEnabled)
+    if (!servicesEnabled)
     {
-      Logger.w(LOCATION_TAG, "Location resolution did not leave providers enabled");
-      LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
+      Logger.w(LOCATION_TAG, "Location resolution did not leave providers enabled, resultCode=" + resultCode);
+      onLocationDisabled();
       return;
     }
 
-    Logger.i(LOCATION_TAG, "Location resolution has been granted, restarting location");
+    Logger.i(LOCATION_TAG, "Android location providers are enabled after resolution, restarting location");
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
       LocationState.nativeSwitchToNextMode();
   }
@@ -1991,8 +2008,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     {
       // LocationHelper has already stopped updates and published ERROR_GPS_OFF before this callback.
       // If Android now reports both permission and providers ready, restore normal location operation.
-      if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-        LocationState.nativeSwitchToNextMode();
+      restoreLocationAfterStaleUnavailableCallback();
       return;
     }
 
@@ -2023,6 +2039,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                 (dialog, which) -> launchLocationSettings(intent, "location provider settings"));
     }
     mLocationErrorDialog = builder.show();
+  }
+
+  private void restoreLocationAfterStaleUnavailableCallback()
+  {
+    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+      LocationState.nativeSwitchToNextMode();
   }
 
   private boolean requestBatterySaverPermission()
@@ -2182,10 +2204,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
     {
       Logger.i(TAG, "Location permission not granted");
       // Preserve the recording request even when another location UI already owns the flow.
-      mLocationPermissionRequestedForRecording = true;
+      mLocationPromptCoordinator.requestTrackRecording();
       requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
       return false;
     }
+
+    mLocationPromptCoordinator.onTrackRecordingStarted();
 
     requestPostNotificationsPermission();
 

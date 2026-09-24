@@ -1,5 +1,7 @@
 package app.organicmaps.location;
 
+import androidx.lifecycle.ViewModel;
+
 /**
  * Keeps Android location permission and settings UI single-flight while callers re-check the
  * current platform state on every callback.
@@ -8,7 +10,7 @@ package app.organicmaps.location;
  * changed outside Organic Maps while the activity is backgrounded, so callers must supply fresh
  * Android state for every decision.</p>
  */
-public final class LocationPromptCoordinator
+public final class LocationPromptCoordinator extends ViewModel
 {
   public enum PermissionAction
   {
@@ -29,6 +31,7 @@ public final class LocationPromptCoordinator
   private boolean mPermissionRequestPending;
   private boolean mLocationSettingsTransitionPending;
   private boolean mPermissionPermanentlyDenied;
+  private boolean mTrackRecordingRequested;
 
   /**
    * Classifies a location operation which currently requires Android runtime permission.
@@ -119,5 +122,33 @@ public final class LocationPromptCoordinator
   public boolean isPermissionPermanentlyDenied()
   {
     return mPermissionPermanentlyDenied;
+  }
+
+  /** Retains a user track-recording request until precise location permission becomes valid. */
+  public void requestTrackRecording()
+  {
+    mTrackRecordingRequested = true;
+  }
+
+  /**
+   * Completes a retained track-recording request only when precise location permission is valid.
+   */
+  public boolean consumeTrackRecordingRequest(boolean fineLocationPermissionGranted)
+  {
+    if (!mTrackRecordingRequested || !fineLocationPermissionGranted)
+      return false;
+
+    mTrackRecordingRequested = false;
+    return true;
+  }
+
+  public void onTrackRecordingStarted()
+  {
+    mTrackRecordingRequested = false;
+  }
+
+  public boolean isTrackRecordingRequested()
+  {
+    return mTrackRecordingRequested;
   }
 }

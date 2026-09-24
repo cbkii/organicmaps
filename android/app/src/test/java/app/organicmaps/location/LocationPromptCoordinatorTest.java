@@ -142,4 +142,47 @@ public class LocationPromptCoordinatorTest
     assertFalse(coordinator.isPermissionPermanentlyDenied());
     assertFalse(coordinator.isPermissionRequestPending());
   }
+
+  @Test
+  public void trackRecordingRequestSurvivesCompetingLocationUi()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    assertTrue(coordinator.beginLocationSettingsTransition());
+    coordinator.requestTrackRecording();
+    assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(false, false));
+    assertTrue(coordinator.isTrackRecordingRequested());
+
+    coordinator.finishLocationSettingsTransition();
+    assertFalse(coordinator.consumeTrackRecordingRequest(false));
+    assertTrue(coordinator.isTrackRecordingRequested());
+    assertTrue(coordinator.consumeTrackRecordingRequest(true));
+    assertFalse(coordinator.isTrackRecordingRequested());
+  }
+
+  @Test
+  public void deniedPermissionDoesNotDiscardTrackRecordingRequest()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    coordinator.requestTrackRecording();
+    assertEquals(PermissionAction.REQUEST_PERMISSION, coordinator.onPermissionRequired(false, false));
+    coordinator.finishPermissionRequest(false, false);
+
+    assertTrue(coordinator.isTrackRecordingRequested());
+    assertFalse(coordinator.consumeTrackRecordingRequest(false));
+    assertTrue(coordinator.consumeTrackRecordingRequest(true));
+  }
+
+  @Test
+  public void startingRecordingClearsAnyRetainedRequest()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    coordinator.requestTrackRecording();
+    coordinator.onTrackRecordingStarted();
+
+    assertFalse(coordinator.isTrackRecordingRequested());
+    assertFalse(coordinator.consumeTrackRecordingRequest(true));
+  }
 }
