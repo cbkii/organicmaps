@@ -27,9 +27,9 @@ struct MotionEvidence
   bool HasDirection() const { return m_confidence > 0.0 && !m_direction.IsAlmostZero(); }
 };
 
-// Uses only real provider observations. Short coherent trajectories are more useful than
-// instantaneous GNSS bearing while a car is crawling, but noisy/stationary fixes deliberately
-// produce no direction evidence.
+// Uses only real provider observations; extrapolated display ticks never enter this estimator.
+// Short coherent trajectories are more useful than instantaneous GNSS bearing while a car is
+// crawling, but noisy/stationary fixes deliberately produce no direction evidence.
 class LowSpeedMotionEstimator
 {
 public:
