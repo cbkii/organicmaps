@@ -36,7 +36,7 @@ jobs:
           PY
           git diff --check
 
-      - name: Install repository clang-format
+      - name: Format and verify edited sources
         shell: bash
         run: |
           sudo apt purge -y clang-format-18 || true
@@ -46,6 +46,19 @@ jobs:
           sudo apt-get install -y -qq clang-format-22
           sudo update-alternatives --force --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 10
           sudo update-alternatives --force --install /usr/bin/git-clang-format git-clang-format /usr/bin/git-clang-format-22 10
+          clang-format -i \
+            android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp \
+            android/sdk/src/main/java/app/organicmaps/sdk/location/LocationHelper.java \
+            android/sdk/src/main/java/app/organicmaps/sdk/location/LocationState.java \
+            libs/platform/location.hpp \
+            libs/routing/free_driving_area_context.hpp \
+            libs/routing/free_driving_motion_evidence.hpp \
+            libs/routing/free_driving_road_matcher.hpp \
+            libs/routing/free_driving_road_snap_policy.hpp \
+            libs/routing/routing_session.hpp \
+            libs/routing/routing_session_free_driving.cpp \
+            libs/routing/routing_tests/free_driving_road_matcher_tests.cpp \
+            libs/routing/routing_tests/free_driving_road_snap_policy_tests.cpp
           tools/unix/clang-format.sh
           git diff --check
 
