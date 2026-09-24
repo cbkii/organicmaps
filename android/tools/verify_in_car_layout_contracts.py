@@ -181,6 +181,8 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
         if "routing_start_button" not in included_layouts(buttons):
             missing.add("routing_start_button include")
         frame_conflicts = {"routing_btn_search", "btn__save", "start"} & descendant_ids(frame)
+        if "routing_start_button" in included_layouts(frame):
+            frame_conflicts.add("routing_start_button include")
         if missing:
             failures.append(f"{path.relative_to(repo_root)}: bottom-buttons owner missing {sorted(missing)}")
         if frame_conflicts:
