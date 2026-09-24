@@ -112,7 +112,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   {
     super.onViewCreated(view, savedInstanceState);
     mViewModel = new ViewModelProvider(requireActivity()).get(RoutingPlanViewModel.class);
-    mFrame = view.findViewById(R.id.routing_sheet_frame);
+    mFrame = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_sheet_frame);
     mRoutingTypesContainer = mFrame.findViewById(R.id.routing_types_frame);
     mRouterTypes = mFrame.findViewById(R.id.route_type);
     mPeekHeightMargins = getResources().getDimensionPixelSize(R.dimen.routing_margin_peek_height);
@@ -125,13 +125,14 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
     mChartHeaderAdapter = new ChartHeaderAdapter(mChartPanel);
     mRoutingContainer = requireActivity().findViewById(R.id.routing_container);
-    mButtonsLayout = view.findViewById(R.id.routing_bottom_buttons);
+    mButtonsLayout = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_bottom_buttons);
 
     mRoutingBottomMenuController =
-        RoutingBottomMenuController.newInstance(requireActivity(), mFrame, mChartPanel, mChartHeaderAdapter, this);
+        RoutingBottomMenuController.newInstance(requireActivity(), mFrame, mButtonsLayout, mChartPanel,
+                                                mChartHeaderAdapter, this);
     mRoutingBottomMenuController.setVisibilityChangedCallback(this::updateSheetLayout);
-    mRoutingRoot = view.findViewById(R.id.routing_root);
-    mRoutingBottomContainer = view.findViewById(R.id.routing_bottom_container);
+    mRoutingRoot = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_root);
+    mRoutingBottomContainer = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_bottom_container);
     applyInCarPhysicalSide();
 
     mTransitStepsView = mChartPanel.findViewById(R.id.transit_recycler_view);
@@ -140,9 +141,9 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mDrivingOptionsBtn.setOnClickListener(
         v -> DrivingOptionsActivity.start(requireActivity(), startDrivingOptionsForResult));
 
-    mSearchBtn = mRoutingRoot.findViewById(R.id.routing_btn_search);
-    mBookmarkBtn = mButtonsLayout.findViewById(R.id.routing_btn_bookmarks);
-    mRouteMoreBtn = mButtonsLayout.findViewById(R.id.routing_btn_more);
+    mSearchBtn = RoutingBottomMenuController.requireOwnedView(mButtonsLayout, R.id.routing_btn_search);
+    mBookmarkBtn = RoutingBottomMenuController.requireOwnedView(mButtonsLayout, R.id.routing_btn_bookmarks);
+    mRouteMoreBtn = RoutingBottomMenuController.requireOwnedView(mButtonsLayout, R.id.routing_btn_more);
     mSearchBtn.setOnClickListener(
         v -> mMapButtonClickListener.onMapButtonClick(MapButtonsController.MapButtons.search));
     mBookmarkBtn.setOnClickListener(

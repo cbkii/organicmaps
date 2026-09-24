@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ANDROID_ID = "{http://schemas.android.com/apk/res/android}id"
+LAYOUT = "layout"
 
 # Each entry models views that current routing code treats as structurally
 # mandatory. Android may independently select any matching layout qualifier for
@@ -71,6 +72,14 @@ class LayoutContractError(RuntimeError):
     """Raised when a required Android layout contract cannot be inspected safely."""
 
 
+def layout_variants(repo_root: Path, filename: str) -> list[Path]:
+    return sorted(
+        path
+        for source_set in ("main", "inCar")
+        for path in (repo_root / f"android/app/src/{source_set}/res").glob(f"layout*/{filename}")
+    )
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     default_root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
@@ -106,9 +115,100 @@ def read_layout_ids(path: Path) -> set[str]:
     return ids
 
 
+def find_required_element(root: ET.Element, view_id: str, path: Path) -> ET.Element:
+    for element in root.iter():
+        if resource_id_name(element.get(ANDROID_ID)) == view_id:
+            return element
+    raise LayoutContractError(f"{path}: missing required owner @{view_id}")
+
+
+def descendant_ids(element: ET.Element) -> set[str]:
+    return {
+        name
+        for descendant in element.iter()
+        if (name := resource_id_name(descendant.get(ANDROID_ID))) is not None
+    }
+
+
+def included_layouts(element: ET.Element) -> set[str]:
+    return {
+        layout.removeprefix("@layout/")
+        for descendant in element.iter("include")
+        if (layout := descendant.get(LAYOUT, "")).startswith("@layout/")
+    }
+
+
+def verify_routing_control_ownership(repo_root: Path) -> list[str]:
+    """Protect the owner and dispatch boundaries that cannot be exercised in host JVM UI tests."""
+    variants = layout_variants(repo_root, "routing_bottom_sheet.xml")
+    failures: list[str] = []
+    print("[routing control ownership]")
+    for path in variants:
+        try:
+            root = ET.parse(path).getroot()
+            frame = find_required_element(root, "routing_sheet_frame", path)
+            buttons = find_required_element(root, "routing_bottom_buttons", path)
+        except (OSError, ET.ParseError, LayoutContractError) as exc:
+            failures.append(str(exc))
+            continue
+
+        button_ids = descendant_ids(buttons)
+        missing = {"routing_btn_search", "btn__save"} - button_ids
+        if "routing_start_button" not in included_layouts(buttons):
+            missing.add("routing_start_button include")
+        frame_conflicts = {"routing_btn_search", "btn__save", "start"} & descendant_ids(frame)
+        if missing:
+            failures.append(f"{path.relative_to(repo_root)}: bottom-buttons owner missing {sorted(missing)}")
+        if frame_conflicts:
+            failures.append(
+                f"{path.relative_to(repo_root)}: sheet frame incorrectly owns {sorted(frame_conflicts)}"
+            )
+        if not missing and not frame_conflicts:
+            print(f"PASS {path.relative_to(repo_root)}")
+
+    controller = (
+        repo_root
+        / "android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java"
+    ).read_text(encoding="utf-8")
+    fragment = (
+        repo_root / "android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java"
+    ).read_text(encoding="utf-8")
+    start_listener = controller.split("mStart.setOnClickListener", 1)[1].split(
+        "mTransitRecyclerView", 1
+    )[0]
+    search_listener = fragment.split("mSearchBtn.setOnClickListener", 1)[1].split(
+        "mBookmarkBtn.setOnClickListener", 1
+    )[0]
+    source_contracts = {
+        "START is resolved from bottomButtons":
+            "requireOwnedView(bottomButtons, R.id.start)" in controller,
+        "Save is resolved from bottomButtons":
+            "requireOwnedView(bottomButtons, R.id.btn__save)" in controller,
+        "mandatory controls have no Activity fallback":
+            "activity.findViewById(resourceId)" not in controller,
+        "fragment passes the bottom-buttons owner":
+            "newInstance(requireActivity(), mFrame, mButtonsLayout, mChartPanel" in fragment,
+        "Search is resolved from bottom-buttons owner":
+            "requireOwnedView(mButtonsLayout, R.id.routing_btn_search)" in fragment,
+        "START has exactly one listener": controller.count("mStart.setOnClickListener") == 1,
+        "START dispatches only route start":
+            "mListener.onRoutingStart();" in start_listener and "MapButtons.search" not in start_listener,
+        "Search dispatches only search":
+            "onMapButtonClick(MapButtonsController.MapButtons.search)" in search_listener
+            and "onRoutingStart" not in search_listener,
+    }
+    for description, satisfied in source_contracts.items():
+        if satisfied:
+            print(f"PASS {description}")
+        else:
+            failures.append(f"routing source contract failed: {description}")
+    print()
+    return failures
+
+
 def verify_layout_contract(repo_root: Path, filename: str, required_ids: tuple[str, ...]) -> list[str]:
-    res_root = repo_root / "android/app/src/main/res"
-    variants = sorted(res_root.glob(f"layout*/{filename}"))
+    res_root = repo_root / "android/app/src"
+    variants = layout_variants(repo_root, filename)
     if not variants:
         raise LayoutContractError(f"no {filename} layouts found under {res_root}")
 
@@ -131,6 +231,7 @@ def verify_layout_contracts(repo_root: Path) -> list[str]:
     failures: list[str] = []
     for filename, required_ids in LAYOUT_CONTRACTS:
         failures.extend(verify_layout_contract(repo_root, filename, required_ids))
+    failures.extend(verify_routing_control_ownership(repo_root))
     return failures
 
 

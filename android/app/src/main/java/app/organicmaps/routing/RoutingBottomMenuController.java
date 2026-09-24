@@ -108,33 +108,40 @@ final class RoutingBottomMenuController
 
   @NonNull
   static RoutingBottomMenuController newInstance(@NonNull Activity activity, @NonNull View frame,
-                                                 @NonNull View chartPanel,
+                                                 @NonNull View bottomButtons, @NonNull View chartPanel,
                                                  @Nullable RecyclerView.Adapter<?> headerAdapter,
                                                  @NonNull RoutingBottomMenuListener listener)
   {
     // Chart-related ids live inside the chartPanel view tree (it is inflated standalone and hosted by the
     // route-list ConcatAdapter header), so they must be resolved from chartPanel rather than from frame.
-    View timeElevationLine = chartPanel.findViewById(R.id.time_elevation_line);
-    View transitTime = chartPanel.findViewById(R.id.transit_time);
-    TextView rulerTime = chartPanel.findViewById(R.id.time_ruler);
-    TextView error = (TextView) getViewById(activity, frame, R.id.error);
-    RoutingProgressButton start = (RoutingProgressButton) getViewById(activity, frame, R.id.start);
-    View altitudeChart = chartPanel.findViewById(R.id.altitude_chart);
-    TextView time = chartPanel.findViewById(R.id.time);
-    TextView timeVehicle = chartPanel.findViewById(R.id.time_vehicle);
-    TextView altitudeDifference = chartPanel.findViewById(R.id.altitude_difference);
-    TextView arrival = (TextView) getViewById(activity, frame, R.id.arrival);
-    View saveButton = getViewById(activity, frame, R.id.btn__save);
+    View timeElevationLine = requireOwnedView(chartPanel, R.id.time_elevation_line);
+    View transitTime = requireOwnedView(chartPanel, R.id.transit_time);
+    TextView rulerTime = requireOwnedView(chartPanel, R.id.time_ruler);
+    TextView error = requireOwnedView(frame, R.id.error);
+    RoutingProgressButton start = requireOwnedView(bottomButtons, R.id.start);
+    View altitudeChart = requireOwnedView(chartPanel, R.id.altitude_chart);
+    TextView time = requireOwnedView(chartPanel, R.id.time);
+    TextView timeVehicle = requireOwnedView(chartPanel, R.id.time_vehicle);
+    TextView altitudeDifference = requireOwnedView(chartPanel, R.id.altitude_difference);
+    TextView arrival = chartPanel.findViewById(R.id.arrival);
+    View saveButton = requireOwnedView(bottomButtons, R.id.btn__save);
     return new RoutingBottomMenuController(activity, chartPanel, timeElevationLine, transitTime, rulerTime, error,
                                            start, altitudeChart, time, altitudeDifference, timeVehicle, arrival,
                                            saveButton, headerAdapter, listener);
   }
 
   @NonNull
-  private static View getViewById(@NonNull Activity activity, @NonNull View frame, @IdRes int resourceId)
+  static <T extends View> T requireOwnedView(@NonNull View owner, @IdRes int resourceId)
   {
-    View view = frame.findViewById(resourceId);
-    return view == null ? activity.findViewById(resourceId) : view;
+    T view = owner.findViewById(resourceId);
+    if (view == null)
+      throw new IllegalStateException("Required routing view is absent from its owner: " + resourceId);
+    return view;
+  }
+
+  static boolean canDispatchStart(@NonNull StartState state, boolean isPlanning, boolean isBuilt)
+  {
+    return state == StartState.ENABLED && isPlanning && isBuilt;
   }
 
   private RoutingBottomMenuController(@NonNull Activity context, @NonNull View altitudeChartFrame,
@@ -206,7 +213,8 @@ final class RoutingBottomMenuController
     mStart.setOnClickListener(v -> {
       // Ignore the event if the back and start buttons are pressed at the same time.
       // https://github.com/organicmaps/organicmaps/issues/6628
-      if (RoutingController.get().isPlanning())
+      RoutingController controller = RoutingController.get();
+      if (canDispatchStart(mStartState, controller.isPlanning(), controller.isBuilt()))
         mListener.onRoutingStart();
     });
     mTransitRecyclerView = altitudeChartFrame.findViewById(R.id.transit_recycler_view);
