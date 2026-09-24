@@ -1,0 +1,134 @@
+name: PR48 one-shot location fix
+
+on:
+  push:
+    branches:
+      - fix/incar-location-prompt-idempotency
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply PR48 exact source patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/incar-location-prompt-idempotency
+          fetch-depth: 0
+
+      - name: Apply exact lifecycle fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          activity = Path('android/app/src/main/java/app/organicmaps/MwmActivity.java')
+          text = activity.read_text()
+
+          old_settings = '''  private void onLocationSettingsResult(@NonNull ActivityResult result)
+          {
+            mLocationPromptCoordinator.finishLocationSettingsTransition();
+            final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+            final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+            logLocationPromptState("settings-result", "returned from Android location settings");
+
+            if (permissionGranted && servicesEnabled && LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+              LocationState.nativeSwitchToNextMode();
+          }
+          '''
+          new_settings = '''  private void onLocationSettingsResult(@NonNull ActivityResult result)
+          {
+            mLocationPromptCoordinator.finishLocationSettingsTransition();
+            final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+            final boolean fineLocationGranted = LocationUtils.checkFineLocationPermission(this);
+            final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+            logLocationPromptState("settings-result", "returned from Android location settings");
+
+            if (!permissionGranted)
+            {
+              requestLocationPermissionIfNeeded(false, "returned from settings without runtime permission", true);
+              return;
+            }
+
+            if (!servicesEnabled)
+            {
+              onLocationDisabled();
+              return;
+            }
+
+            // Reconcile remembered denial state against the current Android permission state.
+            mLocationPromptCoordinator.onPermissionRequired(true, isLocationErrorDialogShowing());
+            if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+              LocationState.nativeSwitchToNextMode();
+
+            if (mLocationPermissionRequestedForRecording && fineLocationGranted)
+            {
+              mLocationPermissionRequestedForRecording = false;
+              startTrackRecording();
+            }
+          }
+          '''
+          assert text.count(old_settings) == 1, 'settings-result source shape changed'
+          text = text.replace(old_settings, new_settings, 1)
+
+          old_recording = '''      // This variable is a simple hack to re initiate the flow
+                // according to action of user. Calling it hack because we are avoiding
+                // creation of new methods by using this variable.
+                mLocationPermissionRequestedForRecording =
+                    requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
+          '''
+          new_recording = '''      // Preserve the user's recording request even when another permission/settings UI
+                // already owns the location flow. The completion callback consumes it once fine
+                // location is genuinely available.
+                mLocationPermissionRequestedForRecording = true;
+                requestLocationPermissionIfNeeded(false, "track recording requires fine location", false);
+          '''
+          assert text.count(old_recording) == 1, 'track-recording source shape changed'
+          text = text.replace(old_recording, new_recording, 1)
+          activity.write_text(text)
+
+          tests = Path('android/app/src/test/java/app/organicmaps/location/LocationPromptCoordinatorTest.java')
+          test_text = tests.read_text()
+          anchor = '''  @Test
+            public void returningFromSettingsReevaluatesCurrentProviderState()
+            {
+              final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+              assertTrue(coordinator.beginLocationSettingsTransition());
+              coordinator.finishLocationSettingsTransition();
+
+              assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
+            }
+          '''
+          addition = anchor + '''
+            @Test
+            public void returningFromSettingsWithProviderDisabledUsesProviderSettings()
+            {
+              final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+              assertTrue(coordinator.beginLocationSettingsTransition());
+              coordinator.finishLocationSettingsTransition();
+
+              assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,
+                           coordinator.onProviderUnavailable(true, false, false));
+            }
+          '''
+          assert test_text.count(anchor) == 1, 'settings-return test anchor changed'
+          tests.write_text(test_text.replace(anchor, addition, 1))
+
+          Path('.github/workflows/pr48-one-shot-location-fix.yml').unlink()
+          PY
+
+          git diff --check
+          git diff --stat
+
+      - name: Commit focused fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Complete location settings lifecycle hardening'
+          git push origin HEAD:fix/incar-location-prompt-idempotency
