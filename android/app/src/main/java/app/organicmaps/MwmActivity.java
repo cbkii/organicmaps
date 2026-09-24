@@ -1918,8 +1918,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
     final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
-    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(
-        permissionGranted, servicesEnabled, isLocationErrorDialogShowing());
+    final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
+                                                                                   isLocationErrorDialogShowing());
     logLocationPromptState("resolution", "decision=" + action);
 
     if (action == ProviderAction.NONE)
