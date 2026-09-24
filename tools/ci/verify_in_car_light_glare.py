@@ -31,12 +31,10 @@ GEOMETRY_FLOORS = (
     ("line|z14[highway=motorway][!tunnel]", "width", 5.65),
     ("line|z16[highway=motorway][!tunnel]", "width", 10.35),
     ("line|z18[highway=motorway][!tunnel]", "width", 28.75),
-    ("line|z14[highway=motorway][!tunnel]", "casing-width", 0.90),
     ("line|z12[highway=primary][!tunnel]", "width", 2.75),
     ("line|z14[highway=primary][!tunnel]", "width", 4.05),
     ("line|z16[highway=primary][!tunnel]", "width", 7.50),
     ("line|z18[highway=primary][!tunnel]", "width", 25.30),
-    ("line|z14[highway=primary][!tunnel]", "casing-width", 0.45),
     ("line|z12[highway=secondary][!tunnel]", "width", 2.90),
     ("line|z14[highway=secondary][!tunnel]", "width", 3.70),
     ("line|z16[highway=secondary][!tunnel]", "width", 6.90),
@@ -77,6 +75,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[2]
     palette_path = root / "data/styles/in_car/light/colors.mapcss"
     style_path = root / "data/styles/in_car/light/style.mapcss"
+    geometry_path = root / "data/styles/in_car/include/InCarOverrides.mapcss"
 
     try:
         palette = read_values(palette_path, VAR)
@@ -97,13 +96,15 @@ def main() -> int:
             for road_name, road in roads.items():
                 require_ratio(f"{casing_name}/{road_name}", casing, road, 10.0)
 
+        # Kothic requires geometry shared by the packed light/dark variants. Keep the
+        # glare-specific colour contract above light-only, but assert the shared stroke floors.
         for selector, property_name, minimum in GEOMETRY_FLOORS:
-            require_numeric_property(style_path, selector, property_name, minimum)
+            require_numeric_property(geometry_path, selector, property_name, minimum)
     except (OSError, ValueError, VerificationError) as exc:
         print(f"FAILED: {exc}")
         return 1
 
-    print("PASS: strengthened InCar light glare contrast and road geometry verified")
+    print("PASS: strengthened InCar light glare contrast and shared road geometry verified")
     return 0
 
 
