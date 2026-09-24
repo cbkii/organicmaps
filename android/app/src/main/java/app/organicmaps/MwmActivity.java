@@ -1690,7 +1690,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void onLocationSettingsResult(@NonNull ActivityResult result)
   {
-
     mLocationPromptCoordinator.finishLocationSettingsTransition();
     final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
     final boolean fineLocationGranted = LocationUtils.checkFineLocationPermission(this);

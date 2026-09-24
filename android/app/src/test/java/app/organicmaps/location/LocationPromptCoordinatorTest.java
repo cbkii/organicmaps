@@ -112,8 +112,7 @@ public class LocationPromptCoordinatorTest
     assertTrue(coordinator.beginLocationSettingsTransition());
     coordinator.finishLocationSettingsTransition();
 
-    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS,
-                 coordinator.onProviderUnavailable(true, false, false));
+    assertEquals(ProviderAction.SHOW_LOCATION_SETTINGS, coordinator.onProviderUnavailable(true, false, false));
   }
 
   @Test
