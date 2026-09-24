@@ -23,7 +23,6 @@ struct MatcherEvidence
   bool m_bestStrong = false;
   bool m_bestUnambiguous = false;
   bool m_bestBeatsCurrent = false;
-  bool m_bestParkingAisle = false;
   bool m_bestParkingRoad = false;
   bool m_stationaryHold = false;
   bool m_motionEstablished = false;
