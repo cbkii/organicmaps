@@ -54,6 +54,28 @@ final class RoutingBottomMenuController
     BUILDING
   }
 
+  static final class StartGate
+  {
+    @NonNull
+    private StartState mState = StartState.DISABLED;
+
+    @NonNull
+    StartState getState()
+    {
+      return mState;
+    }
+
+    void setState(@NonNull StartState state)
+    {
+      mState = state;
+    }
+
+    boolean canDispatch(boolean isPlanning, boolean isBuilt)
+    {
+      return mState == StartState.ENABLED && isPlanning && isBuilt;
+    }
+  }
+
   private static final String STATE_ALTITUDE_CHART_SHOWN = "altitude_chart_shown";
   private static final String STATE_ERROR = "error";
   // Dimming applied to the save button once the route has been saved (it stays disabled until rebuilt).
@@ -104,7 +126,7 @@ final class RoutingBottomMenuController
   @Nullable
   private Runnable mVisibilityChangedCallback;
   @NonNull
-  private StartState mStartState = StartState.DISABLED;
+  private final StartGate mStartGate = new StartGate();
 
   @NonNull
   static RoutingBottomMenuController newInstance(@NonNull Activity activity, @NonNull View frame,
@@ -137,11 +159,6 @@ final class RoutingBottomMenuController
     if (view == null)
       throw new IllegalStateException("Required routing view is absent from its owner: " + resourceId);
     return view;
-  }
-
-  static boolean canDispatchStart(@NonNull StartState state, boolean isPlanning, boolean isBuilt)
-  {
-    return state == StartState.ENABLED && isPlanning && isBuilt;
   }
 
   private RoutingBottomMenuController(@NonNull Activity context, @NonNull View altitudeChartFrame,
@@ -214,7 +231,7 @@ final class RoutingBottomMenuController
       // Ignore the event if the back and start buttons are pressed at the same time.
       // https://github.com/organicmaps/organicmaps/issues/6628
       RoutingController controller = RoutingController.get();
-      if (canDispatchStart(mStartState, controller.isPlanning(), controller.isBuilt()))
+      if (mStartGate.canDispatch(controller.isPlanning(), controller.isBuilt()))
         mListener.onRoutingStart();
     });
     mTransitRecyclerView = altitudeChartFrame.findViewById(R.id.transit_recycler_view);
@@ -376,10 +393,10 @@ final class RoutingBottomMenuController
   // Single entry point for the Start button visual state. The button itself is always visible.
   void setStartState(@NonNull StartState state)
   {
-    if (state == mStartState)
+    if (state == mStartGate.getState())
       return;
     mStart.setBuildProgress(0);
-    mStartState = state;
+    mStartGate.setState(state);
     mStart.setEnabled(state == StartState.ENABLED);
     notifyVisibilityChanged();
   }

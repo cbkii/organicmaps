@@ -10,6 +10,7 @@ from pathlib import Path
 
 ANDROID_ID = "{http://schemas.android.com/apk/res/android}id"
 LAYOUT = "layout"
+MAX_LAYOUT_BYTES = 1024 * 1024
 
 # Each entry models views that current routing code treats as structurally
 # mandatory. Android may independently select any matching layout qualifier for
@@ -102,10 +103,7 @@ def resource_id_name(value: str | None) -> str | None:
 
 
 def read_layout_ids(path: Path) -> set[str]:
-    try:
-        root = ET.parse(path).getroot()
-    except (OSError, ET.ParseError) as exc:
-        raise LayoutContractError(f"unable to parse {path}: {exc}") from exc
+    root = parse_layout(path)
 
     ids: set[str] = set()
     for element in root.iter():
@@ -113,6 +111,32 @@ def read_layout_ids(path: Path) -> set[str]:
         if name:
             ids.add(name)
     return ids
+
+
+def parse_layout(path: Path) -> ET.Element:
+    try:
+        source = path.read_bytes()
+    except OSError as exc:
+        raise LayoutContractError(f"unable to parse {path}: {exc}") from exc
+    if len(source) > MAX_LAYOUT_BYTES:
+        raise LayoutContractError(f"{path}: layout exceeds {MAX_LAYOUT_BYTES} bytes")
+    if b"<!DOCTYPE" in source or b"<!ENTITY" in source:
+        raise LayoutContractError(f"{path}: DTD/entity declarations are forbidden")
+    try:
+        return ET.fromstring(source)
+    except ET.ParseError as exc:
+        raise LayoutContractError(f"unable to parse {path}: {exc}") from exc
+
+
+def extract_between(source: str, start: str, end: str, description: str, failures: list[str]) -> str:
+    if start not in source:
+        failures.append(f"routing source contract failed: missing {description} start marker")
+        return ""
+    remainder = source.split(start, 1)[1]
+    if end not in remainder:
+        failures.append(f"routing source contract failed: missing {description} end marker")
+        return ""
+    return remainder.split(end, 1)[0]
 
 
 def find_required_element(root: ET.Element, view_id: str, path: Path) -> ET.Element:
@@ -145,7 +169,7 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
     print("[routing control ownership]")
     for path in variants:
         try:
-            root = ET.parse(path).getroot()
+            root = parse_layout(path)
             frame = find_required_element(root, "routing_sheet_frame", path)
             buttons = find_required_element(root, "routing_bottom_buttons", path)
         except (OSError, ET.ParseError, LayoutContractError) as exc:
@@ -173,12 +197,12 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
     fragment = (
         repo_root / "android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java"
     ).read_text(encoding="utf-8")
-    start_listener = controller.split("mStart.setOnClickListener", 1)[1].split(
-        "mTransitRecyclerView", 1
-    )[0]
-    search_listener = fragment.split("mSearchBtn.setOnClickListener", 1)[1].split(
-        "mBookmarkBtn.setOnClickListener", 1
-    )[0]
+    start_listener = extract_between(
+        controller, "mStart.setOnClickListener", "mTransitRecyclerView", "START listener", failures
+    )
+    search_listener = extract_between(
+        fragment, "mSearchBtn.setOnClickListener", "mBookmarkBtn.setOnClickListener", "Search listener", failures
+    )
     fragment_flat = " ".join(fragment.split())
     source_contracts = {
         "START is resolved from bottomButtons":

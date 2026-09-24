@@ -8,31 +8,34 @@ import org.junit.Test;
 public class RoutingBottomMenuControllerTest
 {
   @Test
-  public void startDispatchRequiresEnabledBuiltPlanningRoute()
+  public void startGateRequiresEnabledBuiltPlanningRoute()
   {
-    assertFalse(
-        RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.DISABLED, true, true));
-    assertFalse(
-        RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.BUILDING, true, true));
-    assertFalse(
-        RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.ENABLED, false, true));
-    assertFalse(
-        RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.ENABLED, true, false));
-    assertTrue(
-        RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.ENABLED, true, true));
+    final RoutingBottomMenuController.StartGate gate = new RoutingBottomMenuController.StartGate();
+
+    assertFalse(gate.canDispatch(true, true));
+    gate.setState(RoutingBottomMenuController.StartState.BUILDING);
+    assertFalse(gate.canDispatch(true, true));
+    gate.setState(RoutingBottomMenuController.StartState.ENABLED);
+    assertFalse(gate.canDispatch(false, true));
+    assertFalse(gate.canDispatch(true, false));
+    assertTrue(gate.canDispatch(true, true));
   }
 
   @Test
   public void repeatedBuildStartEndCyclesDoNotRetainAStaleStartState()
   {
+    final RoutingBottomMenuController.StartGate gate = new RoutingBottomMenuController.StartGate();
+
     for (int cycle = 0; cycle < 3; ++cycle)
     {
-      assertFalse(
-          RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.BUILDING, true, false));
-      assertTrue(
-          RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.ENABLED, true, true));
-      assertFalse(
-          RoutingBottomMenuController.canDispatchStart(RoutingBottomMenuController.StartState.DISABLED, false, false));
+      gate.setState(RoutingBottomMenuController.StartState.BUILDING);
+      assertFalse(gate.canDispatch(true, false));
+
+      gate.setState(RoutingBottomMenuController.StartState.ENABLED);
+      assertTrue(gate.canDispatch(true, true));
+
+      gate.setState(RoutingBottomMenuController.StartState.DISABLED);
+      assertFalse(gate.canDispatch(false, false));
     }
   }
 }
