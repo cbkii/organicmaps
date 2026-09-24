@@ -1,8 +1,10 @@
 /* In-car visual overrides.
  *
- * Keep geometry and font sizes from the stock vehicle style. Improve separation
- * with casings/halos and hide low-value POIs only inside already-indexed zoom
- * ranges so existing .mwm files remain valid.
+ * Preserve the stock vehicle hierarchy while strengthening road geometry,
+ * casings/halos and low-value POI suppression inside already-indexed zoom
+ * ranges so existing .mwm files remain valid. Kothic packs light/dark variants
+ * with shared geometry, therefore road-width changes live here while the
+ * high-glare colour maths remains light-only.
  */
 
 /* High-contrast road edges. */
@@ -24,6 +26,65 @@ line|z14-[highway=road][!tunnel],
 line|z14-[highway=living_street][!tunnel],
 line|z14-[highway=service][!tunnel]
 {opacity: 1; casing-opacity: 1; casing-color: @casing_road_local; casing-linecap: butt;}
+
+/*
+ * Ordinary driving roads get a modest ~15% stroke lift at typical in-car zooms.
+ * Tunnels and non-driving paths retain stock geometry. The shared placement is
+ * required by the packed light/dark drawing-rule format; light-only glare
+ * separation is supplied independently by the light palette.
+ */
+line|z12[highway=motorway][!tunnel], line|z12[highway=trunk][!tunnel] {width: 4.25;}
+line|z13[highway=motorway][!tunnel], line|z13[highway=trunk][!tunnel] {width: 5.3;}
+line|z14[highway=motorway][!tunnel], line|z14[highway=trunk][!tunnel] {width: 5.65;}
+line|z15[highway=motorway][!tunnel], line|z15[highway=trunk][!tunnel] {width: 6.9;}
+line|z16[highway=motorway][!tunnel], line|z16[highway=trunk][!tunnel] {width: 10.35;}
+line|z17[highway=motorway][!tunnel], line|z17[highway=trunk][!tunnel] {width: 17.25;}
+line|z18[highway=motorway][!tunnel], line|z18[highway=trunk][!tunnel] {width: 28.75;}
+
+line|z12[highway=motorway_link][!tunnel], line|z12[highway=trunk_link][!tunnel] {width: 2.9;}
+line|z13[highway=motorway_link][!tunnel], line|z13[highway=trunk_link][!tunnel] {width: 3.25;}
+line|z14[highway=motorway_link][!tunnel], line|z14[highway=trunk_link][!tunnel] {width: 3.9;}
+line|z15[highway=motorway_link][!tunnel], line|z15[highway=trunk_link][!tunnel] {width: 5.75;}
+line|z16[highway=motorway_link][!tunnel], line|z16[highway=trunk_link][!tunnel] {width: 8.3;}
+line|z17[highway=motorway_link][!tunnel], line|z17[highway=trunk_link][!tunnel] {width: 13.8;}
+line|z18[highway=motorway_link][!tunnel], line|z18[highway=trunk_link][!tunnel] {width: 20.7;}
+
+line|z12[highway=primary][!tunnel], line|z12[highway=primary_link][!tunnel] {width: 2.75;}
+line|z13[highway=primary][!tunnel], line|z13[highway=primary_link][!tunnel] {width: 3.45;}
+line|z14[highway=primary][!tunnel], line|z14[highway=primary_link][!tunnel] {width: 4.05;}
+line|z15[highway=primary][!tunnel], line|z15[highway=primary_link][!tunnel] {width: 4.85;}
+line|z16[highway=primary][!tunnel], line|z16[highway=primary_link][!tunnel] {width: 7.5;}
+line|z17[highway=primary][!tunnel], line|z17[highway=primary_link][!tunnel] {width: 15;}
+line|z18[highway=primary][!tunnel], line|z18[highway=primary_link][!tunnel] {width: 25.3;}
+
+line|z12[highway=secondary][!tunnel] {width: 2.9;}
+line|z13[highway=secondary][!tunnel], line|z13[highway=secondary_link][!tunnel] {width: 3.35;}
+line|z14[highway=secondary][!tunnel], line|z14[highway=secondary_link][!tunnel] {width: 3.7;}
+line|z15[highway=secondary][!tunnel], line|z15[highway=secondary_link][!tunnel] {width: 4.85;}
+line|z16[highway=secondary][!tunnel], line|z16[highway=secondary_link][!tunnel] {width: 6.9;}
+line|z17[highway=secondary][!tunnel], line|z17[highway=secondary_link][!tunnel] {width: 11;}
+line|z18[highway=secondary][!tunnel], line|z18[highway=secondary_link][!tunnel] {width: 17.25;}
+
+line|z12[highway=tertiary][!tunnel] {width: 1.4;}
+line|z13[highway=tertiary][!tunnel] {width: 2.15;}
+line|z14[highway=tertiary][!tunnel], line|z14[highway=tertiary_link][!tunnel] {width: 3.7;}
+line|z15[highway=tertiary][!tunnel], line|z15[highway=tertiary_link][!tunnel] {width: 4.4;}
+line|z16[highway=tertiary][!tunnel], line|z16[highway=tertiary_link][!tunnel] {width: 6.2;}
+line|z17[highway=tertiary][!tunnel], line|z17[highway=tertiary_link][!tunnel] {width: 9.7;}
+line|z18[highway=tertiary][!tunnel], line|z18[highway=tertiary_link][!tunnel] {width: 16.1;}
+
+line|z12[highway=residential][!tunnel], line|z12[highway=unclassified][!tunnel], line|z12[highway=road][!tunnel], line|z12[highway=living_street][!tunnel] {width: 0.95;}
+line|z13[highway=residential][!tunnel], line|z13[highway=unclassified][!tunnel], line|z13[highway=road][!tunnel], line|z13[highway=living_street][!tunnel] {width: 1.85;}
+line|z14[highway=residential][!tunnel], line|z14[highway=unclassified][!tunnel], line|z14[highway=road][!tunnel], line|z14[highway=living_street][!tunnel] {width: 2.55;}
+line|z15[highway=residential][!tunnel], line|z15[highway=unclassified][!tunnel], line|z15[highway=road][!tunnel], line|z15[highway=living_street][!tunnel] {width: 4.15;}
+line|z16[highway=residential][!tunnel], line|z16[highway=unclassified][!tunnel], line|z16[highway=road][!tunnel], line|z16[highway=living_street][!tunnel] {width: 5.9;}
+line|z17[highway=residential][!tunnel], line|z17[highway=unclassified][!tunnel], line|z17[highway=road][!tunnel], line|z17[highway=living_street][!tunnel] {width: 9.2;}
+line|z18[highway=residential][!tunnel], line|z18[highway=unclassified][!tunnel], line|z18[highway=road][!tunnel], line|z18[highway=living_street][!tunnel] {width: 13.8;}
+
+line|z15[highway=service][!tunnel] {width: 1.85;}
+line|z16[highway=service][!tunnel] {width: 3.45;}
+line|z17[highway=service][!tunnel] {width: 6.45;}
+line|z18[highway=service][!tunnel] {width: 7.35;}
 
 /* Motorway/trunk casings. */
 line|z14[highway=motorway], line|z14[highway=trunk] {casing-width: 1.1;}
