@@ -544,14 +544,24 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     return;
   }
 
-  auto const motionEvidence = m_freeDrivingMotionEstimator.Push(rawLocation, rawPoint);
-  m_freeDrivingLastMotionEvidence = motionEvidence;
-
   location::GpsInfo policyInfo = rawLocation;
   double const effectiveSpeedMps =
       free_driving_snap::EffectiveSpeedMps(rawLocation, rawStepM, observationIntervalSeconds);
   if (rawLocation.HasSpeed() || observationIntervalSeconds > 0.0)
     policyInfo.m_speed = effectiveSpeedMps;
+
+  free_driving_snap::MotionEvidence motionEvidence;
+  if (effectiveSpeedMps <= free_driving_snap::kCruiseSpeedMps)
+  {
+    motionEvidence = m_freeDrivingMotionEstimator.Push(rawLocation, rawPoint);
+  }
+  else
+  {
+    // Do not carry a fast-road trajectory into the first few fixes after slowing for a junction,
+    // driveway or parking facility. Low-speed direction must be rebuilt from low-speed fixes.
+    m_freeDrivingMotionEstimator.Reset();
+  }
+  m_freeDrivingLastMotionEvidence = motionEvidence;
 
   m2::PointD displacementDirection = motionEvidence.HasDirection() ? motionEvidence.m_direction : m2::PointD{};
   double const displacementThresholdM = std::clamp(rawLocation.m_horizontalAccuracy * 0.35, 2.0, 6.0);

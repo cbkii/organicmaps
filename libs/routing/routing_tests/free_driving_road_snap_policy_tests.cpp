@@ -103,7 +103,15 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_UsesProviderUncertainty)
   TEST_LESS(BearingReliability(fix), 0.4, ());
 
   fix.m_speedAccuracy = 0.2;
-  TEST_LESS(std::abs(EffectiveSpeedMps(fix, 10.0, 1.0) - 2.0), 0.5, ());
+  TEST_GREATER(SpeedReliability(fix), 0.9, ());
+  TEST_ALMOST_EQUAL_ULPS(EffectiveSpeedMps(fix, 10.0, 1.0), 2.0, ());
+
+  // Poor speed accuracy lowers motion confidence; one lateral positional jump must not replace
+  // the provider's speed estimate or establish motion by itself.
+  fix.m_speedAccuracy = 5.0;
+  TEST_LESS(SpeedReliability(fix), 0.25, ());
+  TEST_ALMOST_EQUAL_ULPS(EffectiveSpeedMps(fix, 10.0, 1.0), 2.0, ());
+  TEST(!HasEstablishedMotion(fix, 5.0, 1.0), ());
 }
 
 UNIT_TEST(FreeDrivingRoadSnapPolicy_CoherentCrawlBuildsDirectionEvidence)

@@ -205,24 +205,27 @@ inline double RecentDirectionTrackLengthM(location::GpsInfo const & info)
 
 inline double EffectiveSpeedMps(location::GpsInfo const & info, double rawStepM, double deltaSeconds)
 {
+  // Android's provider speed is normally Doppler-derived and should remain the speed authority.
+  // Position-step speed is only a fallback when the provider supplies no speed at all; otherwise
+  // low-speed GNSS jitter could be amplified into a false high-speed observation.
   if (info.HasSpeed())
-  {
-    double const providerSpeed = std::max(0.0, info.m_speed);
-    if (info.HasSpeedAccuracy() && deltaSeconds > 0.0 && rawStepM >= 0.0)
-    {
-      double const plausibleRawLimitM = std::max(20.0, providerSpeed * deltaSeconds * 4.0 + 10.0);
-      if (rawStepM <= plausibleRawLimitM)
-      {
-        double const displacementSpeed = rawStepM / deltaSeconds;
-        double const providerWeight = std::clamp(1.0 - info.m_speedAccuracy / 5.0, 0.25, 1.0);
-        return providerWeight * providerSpeed + (1.0 - providerWeight) * displacementSpeed;
-      }
-    }
-    return providerSpeed;
-  }
+    return std::max(0.0, info.m_speed);
   if (deltaSeconds <= 0.0 || rawStepM < 0.0 || rawStepM > 80.0)
     return 0.0;
   return rawStepM / deltaSeconds;
+}
+
+inline double SpeedReliability(location::GpsInfo const & info)
+{
+  if (!info.HasSpeed())
+    return 0.0;
+  if (!info.HasSpeedAccuracy())
+    return 1.0;
+  if (info.m_speedAccuracy <= 0.5)
+    return 1.0;
+  if (info.m_speedAccuracy >= 5.0)
+    return 0.20;
+  return 1.0 - (info.m_speedAccuracy - 0.5) / 4.5 * 0.80;
 }
 
 inline double HeadingWeightForSpeed(double speedMps)
@@ -275,11 +278,13 @@ inline bool IsStationaryHold(location::GpsInfo const & info, double rawStepM, do
 
 inline bool HasEstablishedMotion(location::GpsInfo const & info, double rawStepM, double deltaSeconds)
 {
-  if (info.HasSpeed() && info.m_speed >= kMotionEstablishedSpeedMps)
+  if (info.HasSpeed() && info.m_speed >= kMotionEstablishedSpeedMps && SpeedReliability(info) >= 0.35)
     return true;
   if (deltaSeconds <= 0.0)
     return false;
-  double const displacementThresholdM = std::clamp(info.m_horizontalAccuracy * 0.4, 2.0, 6.0);
+  double displacementThresholdM = std::clamp(info.m_horizontalAccuracy * 0.4, 2.0, 6.0);
+  if (info.HasSpeedAccuracy() && SpeedReliability(info) < 0.35)
+    displacementThresholdM = std::max(displacementThresholdM, std::clamp(info.m_horizontalAccuracy * 0.8, 4.0, 12.0));
   return rawStepM >= displacementThresholdM && rawStepM / deltaSeconds >= kMotionEstablishedSpeedMps;
 }
 
