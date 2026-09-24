@@ -202,7 +202,7 @@ public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchData
       if (BuildConfig.IS_IN_CAR)
       {
         mFrame.setBackgroundResource((order & 1) == 0 ? R.drawable.in_car_search_row_even
-                                                       : R.drawable.in_car_search_row_odd);
+                                                      : R.drawable.in_car_search_row_odd);
         return;
       }
       final Context context = mHostFragment.requireActivity();
