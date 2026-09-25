@@ -50,8 +50,9 @@ public final class LocationState
 
   static native void nativeResetFreeDrivingSession();
 
-  static native void nativeLocationUpdated(long time, double lat, double lon, float accuracyH, double altitude,
-                                           float accuracyV, float speed, float bearing);
+  static native void nativeLocationUpdated(long time, long monotonicTimeNanos, double lat, double lon, float accuracyH,
+                                           double altitude, float accuracyV, float speed, float speedAccuracy,
+                                           float bearing, float bearingAccuracy);
 
   private static native void nativeSetDrivingViewEnabled(boolean enabled, boolean autoReturn, boolean recenter);
 

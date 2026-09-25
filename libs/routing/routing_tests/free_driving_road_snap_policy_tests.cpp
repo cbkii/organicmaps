@@ -1,6 +1,7 @@
 #include "testing/testing.hpp"
 
 #include "routing/free_driving_area_context.hpp"
+#include "routing/free_driving_motion_evidence.hpp"
 #include "routing/free_driving_road_snap_policy.hpp"
 
 #include <cmath>
@@ -92,6 +93,57 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_RecentDirectionWindowScalesWithSpeed)
   TEST_ALMOST_EQUAL_ULPS(RecentDirectionTrackLengthM(MakeFix(30.0, 8.0, 1.0)), kRecentDirectionMaxTrackM, ());
 }
 
+UNIT_TEST(FreeDrivingRoadSnapPolicy_UsesProviderUncertainty)
+{
+  auto fix = MakeFix(2.0, 8.0, 1.0);
+  fix.m_bearing = 90.0;
+  fix.m_bearingAccuracy = 5.0;
+  TEST_GREATER(BearingReliability(fix), 0.9, ());
+  fix.m_bearingAccuracy = 50.0;
+  TEST_LESS(BearingReliability(fix), 0.4, ());
+
+  fix.m_speedAccuracy = 0.2;
+  TEST_GREATER(SpeedReliability(fix), 0.9, ());
+  TEST_ALMOST_EQUAL_ULPS(EffectiveSpeedMps(fix, 10.0, 1.0), 2.0, ());
+
+  // Poor speed accuracy lowers motion confidence; one lateral positional jump must not replace
+  // the provider's speed estimate or establish motion by itself.
+  fix.m_speedAccuracy = 5.0;
+  TEST_LESS(SpeedReliability(fix), 0.25, ());
+  TEST_ALMOST_EQUAL_ULPS(EffectiveSpeedMps(fix, 10.0, 1.0), 2.0, ());
+  TEST(!HasEstablishedMotion(fix, 5.0, 1.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_CoherentCrawlBuildsDirectionEvidence)
+{
+  LowSpeedMotionEstimator estimator;
+  auto fix = MakeFix(4.0 / 3.6, 5.0, 1.0);
+  fix.m_monotonicTimestamp = 1.0;
+  auto point = mercator::FromLatLon(-35.0, 149.0);
+  TEST(!estimator.Push(fix, point).HasDirection(), ());
+
+  fix.m_monotonicTimestamp = 2.0;
+  point = mercator::FromLatLon(-35.0, 149.00003);
+  TEST(!estimator.Push(fix, point).HasDirection(), ());
+
+  fix.m_monotonicTimestamp = 3.0;
+  point = mercator::FromLatLon(-35.0, 149.00006);
+  auto const evidence = estimator.Push(fix, point);
+  TEST(evidence.HasDirection(), ());
+  TEST_GREATER(evidence.m_confidence, 0.15, ());
+  TEST_GREATER(TrajectoryHeadingWeight(4.0 / 3.6, evidence.m_confidence), 0.0, ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_LowSpeedProgressUsesFinerScaleOnlyWithEvidence)
+{
+  auto good = MakeFix(4.0 / 3.6, 6.0, 1.0);
+  TEST_LESS(ProgressScaleM(good, 2.0, 0.8), ProgressScaleM(good, 2.0, 0.0), ());
+  auto moderate = MakeFix(4.0 / 3.6, 25.0, 1.0);
+  TEST_ALMOST_EQUAL_ULPS(ProgressScaleM(moderate, 2.0, 0.2), 10.0, ());
+  auto cruising = MakeFix(40.0 / 3.6, 6.0, 1.0);
+  TEST_ALMOST_EQUAL_ULPS(ProgressScaleM(cruising, 20.0, 1.0), 25.0, ());
+}
+
 UNIT_TEST(FreeDrivingRoadSnapPolicy_TemporalEvidenceRejectsBadClockIntervals)
 {
   TEST_ALMOST_EQUAL_ULPS(TemporalEvidenceDeltaSeconds(100.0, 101.0), 1.0, ());
@@ -128,11 +180,11 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingEntranceIsHintNotReleaseAuthority)
   auto slow = MakeFix(10.0 / 3.6, 8.0, 10.0);
   AreaContext entranceOnly;
   entranceOnly.m_nearParkingEntrance = true;
-  TEST(!ParkingReleaseEligible(slow, entranceOnly, true, false, false), ());
+  TEST(!ParkingReleaseEligible(slow, entranceOnly, true, false, false, true), ());
 
   AreaContext surface;
   surface.m_insideParking = true;
-  TEST(ParkingReleaseEligible(slow, surface, false, false, false), ());
+  TEST(ParkingReleaseEligible(slow, surface, false, false, false, true), ());
 }
 
 UNIT_TEST(FreeDrivingRoadSnapPolicy_MappedParkingAisleStaysUsefulUntilFinePositioning)
@@ -142,9 +194,52 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_MappedParkingAisleStaysUsefulUntilFinePositi
   auto traversing = MakeFix(10.0 / 3.6, 8.0, 10.0);
   auto manoeuvring = MakeFix(5.0 / 3.6, 8.0, 10.0);
 
-  TEST(!ParkingReleaseEligible(traversing, surface, false, true, false), ());
-  TEST(ParkingReleaseEligible(manoeuvring, surface, false, true, false), ());
-  TEST(ParkingReleaseEligible(traversing, surface, false, true, true), ());
+  TEST(!ParkingReleaseEligible(traversing, surface, false, true, false, true), ());
+  TEST(ParkingReleaseEligible(manoeuvring, surface, false, true, false, false), ());
+  TEST(ParkingReleaseEligible(traversing, surface, false, true, true, false), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_MovingMappedParkingRoadStaysSnappedAtCrawlSpeed)
+{
+  AreaContext surface;
+  surface.m_insideParking = true;
+  auto crawling = MakeFix(3.0 / 3.6, 8.0, 10.0);
+  TEST(!ParkingReleaseEligible(crawling, surface, false, true, false, true), ());
+  TEST(ParkingReleaseEligible(crawling, surface, false, true, true, false), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_RoadwayParkingNeverCreatesParkingFreeAuthority)
+{
+  AreaContext streetSide;
+  streetSide.m_insideStreetSideParking = true;
+  auto crawling = MakeFix(3.0 / 3.6, 8.0, 10.0);
+  TEST(!ParkingReleaseEligible(crawling, streetSide, true, false, true, false), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingSemanticsOnlyBreakSupportedTies)
+{
+  AreaContext inside;
+  inside.m_insideParking = true;
+  RoadMetadata aisle;
+  aisle.m_class = RoadClass::Service;
+  aisle.m_parkingAisle = true;
+  TEST_LESS(ParkingCandidateScoreAdjustment(inside, aisle, RoadRelation::Unrelated, true, 0.5), 0.0, ());
+
+  AreaContext merelyNear;
+  merelyNear.m_nearParkingArea = true;
+  TEST_ALMOST_EQUAL_ULPS(ParkingCandidateScoreAdjustment(merelyNear, aisle, RoadRelation::Unrelated, true, 0.8), 0.0,
+                         ());
+
+  merelyNear.m_nearParkingEntrance = true;
+  TEST_LESS(ParkingCandidateScoreAdjustment(merelyNear, aisle, RoadRelation::Connected, true, 0.8), 0.0, ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ParallelRoadNeedsMoreThanOneLateralFix)
+{
+  auto fix = MakeFix(10.0 / 3.6, 8.0, 1.0);
+  TEST(IsParallelCandidateAmbiguous(5.0, 8.0, 0.3, 0.0, fix, 0.6), ());
+  TEST(!IsParallelCandidateAmbiguous(5.0, 8.0, 0.3, 0.30, fix, 0.6), ());
+  TEST(!IsParallelCandidateAmbiguous(35.0, 8.0, 0.3, 0.0, fix, 0.6), ());
 }
 
 UNIT_TEST(FreeDrivingRoadSnapPolicy_StructuredParkingReleasesSooner)

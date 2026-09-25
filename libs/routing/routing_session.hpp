@@ -2,6 +2,7 @@
 
 #include "routing/async_router.hpp"
 #include "routing/following_info.hpp"
+#include "routing/free_driving_motion_evidence.hpp"
 #include "routing/free_driving_road_matcher.hpp"
 #include "routing/free_driving_road_snap_policy.hpp"
 #include "routing/position_accumulator.hpp"
@@ -253,6 +254,8 @@ private:
   // history and evidence so projected Drape coordinates cannot feed routing state.
   PositionAccumulator m_positionAccumulator;
   PositionAccumulator m_freeDrivingPositionAccumulator;
+  free_driving_snap::LowSpeedMotionEstimator m_freeDrivingMotionEstimator;
+  free_driving_snap::MotionEvidence m_freeDrivingLastMotionEvidence;
   bool m_freeDrivingRoadSnapEnabled = false;
   FreeDrivingAreaContextProvider m_freeDrivingAreaContextProvider;
   free_driving_snap::FreeDrivingRoadMatcher m_freeDrivingRoadMatcher;

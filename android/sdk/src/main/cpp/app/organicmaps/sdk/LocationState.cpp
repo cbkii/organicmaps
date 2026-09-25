@@ -121,16 +121,16 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeResetFreeDr
     g_framework->NativeFramework()->GetRoutingManager().ResetFreeDrivingLocationSession();
 }
 
-JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpdated(JNIEnv * env, jclass clazz,
-                                                                                     jlong time, jdouble lat,
-                                                                                     jdouble lon, jfloat accuracyH,
-                                                                                     jdouble altitude, jfloat accuracyV,
-                                                                                     jfloat speed, jfloat bearing)
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpdated(
+    JNIEnv * env, jclass clazz, jlong time, jlong monotonicTimeNanos, jdouble lat, jdouble lon, jfloat accuracyH,
+    jdouble altitude, jfloat accuracyV, jfloat speed, jfloat speedAccuracy, jfloat bearing, jfloat bearingAccuracy)
 {
   location::GpsInfo info;
   info.m_source = location::EAndroidNative;
 
   info.m_timestamp = static_cast<double>(time) / 1000.0;
+  if (monotonicTimeNanos > 0)
+    info.m_monotonicTimestamp = static_cast<double>(monotonicTimeNanos) / 1.0e9;
   info.m_latitude = lat;
   info.m_longitude = lon;
 
@@ -145,9 +145,13 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
 
   if (bearing >= 0)
     info.m_bearing = bearing;
+  if (bearingAccuracy >= 0)
+    info.m_bearingAccuracy = bearingAccuracy;
 
   if (speed >= 0)
     info.m_speed = speed;
+  if (speedAccuracy >= 0)
+    info.m_speedAccuracy = speedAccuracy;
 
   auto const drapeEngine = GetDrapeEngine();
   bool hasPendingStartupCamera = drapeEngine != nullptr && HasCurrentStartupCameraBridge(drapeEngine.get());

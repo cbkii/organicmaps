@@ -182,11 +182,14 @@ public class LocationHelper implements BaseLocationProvider.Listener
     }
 
     final LocationCompatExtractor.Altitude altitude = LocationCompatExtractor.getAltitude(mSavedLocation);
-    LocationState.nativeLocationUpdated(
-        mSavedLocation.getTime(), mSavedLocation.getLatitude(), mSavedLocation.getLongitude(),
-        mSavedLocation.getAccuracy(), altitude != null ? altitude.altitude() : 0,
-        altitude != null ? altitude.accuracy() : -1, mSavedLocation.hasSpeed() ? mSavedLocation.getSpeed() : -1,
-        mSavedLocation.hasBearing() ? mSavedLocation.getBearing() : -1);
+    final LocationCompatExtractor.Speed speed = LocationCompatExtractor.getSpeed(mSavedLocation);
+    final LocationCompatExtractor.Bearing bearing = LocationCompatExtractor.getBearing(mSavedLocation);
+    LocationState.nativeLocationUpdated(mSavedLocation.getTime(), mSavedLocation.getElapsedRealtimeNanos(),
+                                        mSavedLocation.getLatitude(), mSavedLocation.getLongitude(),
+                                        mSavedLocation.getAccuracy(), altitude != null ? altitude.altitude() : 0,
+                                        altitude != null ? altitude.accuracy() : -1, speed != null ? speed.speed() : -1,
+                                        speed != null ? speed.accuracy() : -1, bearing != null ? bearing.bearing() : -1,
+                                        bearing != null ? bearing.accuracy() : -1);
   }
 
   private void notifyLocationUpdateTimeout()
