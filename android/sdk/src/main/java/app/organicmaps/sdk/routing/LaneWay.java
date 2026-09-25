@@ -1,10 +1,12 @@
 package app.organicmaps.sdk.routing;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.Keep;
 import app.organicmaps.sdk.R;
 
-public enum LaneWay
-{
+/** Native routing code resolves these enum constants by their Java field names. */
+@Keep
+public enum LaneWay {
   None(R.drawable.ic_turn_straight),
   ReverseLeft(R.drawable.ic_turn_uleft),
   SharpLeft(R.drawable.ic_turn_left_sharp),

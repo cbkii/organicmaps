@@ -241,6 +241,10 @@ if ! unzip -tq "${apk}" >/dev/null; then
   fail "APK ZIP integrity verification failed: ${apk}"
 fi
 
+routing_jni_verifier="$(dirname -- "${BASH_SOURCE[0]}")/verify_routing_jni_contract.py"
+[[ -f "${routing_jni_verifier}" ]] || fail "Routing JNI contract verifier is missing: ${routing_jni_verifier}"
+python3 "${routing_jni_verifier}" --apk "${apk}" || fail "Routing JNI contract verification failed."
+
 manifest="${proof_dir}/manifest.xml"
 zip_list="${proof_dir}/zip-list.txt"
 dex_entries_file="${proof_dir}/dex-entries.txt"
@@ -395,6 +399,7 @@ if [[ -n "${summary_file}" ]]; then
     echo '- OSM editor Activity manifest surface: absent'
     echo '- Track Recording and downloader manifest surfaces: present'
     echo '- In-car drawing rules asset: present'
+    echo '- Routing JNI enum fields: present in packaged DEX'
   } >> "${summary_file}"
 fi
 

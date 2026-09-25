@@ -59,11 +59,34 @@ public class RoutingController
     default void onStartRouteBuilding() {}
   }
 
+  // A disclaimer may outlive the route whose START tap opened it. Invalidate its
+  // captured revision whenever the native route is rebuilt or closed.
+  static final class RouteStartGate
+  {
+    private long mRevision;
+
+    long getRevision()
+    {
+      return mRevision;
+    }
+
+    void invalidate()
+    {
+      ++mRevision;
+    }
+
+    boolean canStart(boolean planning, boolean built, long expectedRevision)
+    {
+      return planning && built && expectedRevision == mRevision;
+    }
+  }
+
   private static final RoutingController sInstance = new RoutingController();
 
   @Nullable
   private Container mContainer;
 
+  private final RouteStartGate mRouteStartGate = new RouteStartGate();
   private BuildState mBuildState = BuildState.NONE;
   private State mState = State.NONE;
   @Nullable
@@ -286,6 +309,7 @@ public class RoutingController
 
   private void build()
   {
+    mRouteStartGate.invalidate();
     Framework.nativeRemoveRoute();
 
     Logger.d(TAG, "build");
@@ -379,8 +403,29 @@ public class RoutingController
     startPlanning(startPoint, endPoint);
   }
 
+  public long getRouteRevision()
+  {
+    return mRouteStartGate.getRevision();
+  }
+
   public void start()
   {
+    startIfRouteRevisionMatches(getRouteRevision());
+  }
+
+  public boolean canStartRouteRevision(long expectedRevision)
+  {
+    return mRouteStartGate.canStart(isPlanning(), isBuilt(), expectedRevision);
+  }
+
+  public void startIfRouteRevisionMatches(long expectedRevision)
+  {
+    if (!canStartRouteRevision(expectedRevision))
+    {
+      Logger.w(TAG, "Ignoring START for a cancelled, replaced or already started route");
+      return;
+    }
+
     Logger.d(TAG, "start");
 
     // This saving is needed just for situation when the user starts navigation
@@ -494,6 +539,7 @@ public class RoutingController
   private void cancelInternal(boolean deleteSavedRoute)
   {
     Logger.d(TAG, "cancelInternal");
+    mRouteStartGate.invalidate();
 
     resetPoiPickState();
 
