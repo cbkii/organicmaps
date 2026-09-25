@@ -101,10 +101,16 @@ def verify_shared_resource_contract(root):
         raise base.VerificationError("shared src/main InCar colour fallback is missing selection foreground")
 
     theme = base.read_text(root / "android/app/src/inCar/res/values/in_car_dialog_theme.xml")
-    for attr in ("android:windowFixedWidthMajor", "android:windowFixedWidthMinor"):
+    for attr in ("windowFixedWidthMajor", "windowFixedWidthMinor"):
         expected = f'<item name="{attr}">@fraction/in_car_compact_dialog_width_fraction</item>'
         if expected not in theme:
-            raise base.VerificationError(f"InCar direct alert theme is missing compact width cap: {attr}")
+            raise base.VerificationError(f"InCar direct alert theme is missing AppCompat compact width cap: {attr}")
+
+    for attr in ("android:windowFixedWidthMajor", "android:windowFixedWidthMinor"):
+        if f'<item name="{attr}">' in theme:
+            raise base.VerificationError(
+                f"InCar direct alert theme must not use framework-private width attribute: {attr}"
+            )
 
 
 original_verify_code = base.verify_code
