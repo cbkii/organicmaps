@@ -29,14 +29,20 @@ LABELS = (
 )
 
 
-def run(adb: list[str], *args: str, binary: bool = False):
-    result = subprocess.run(
-        [*adb, *args],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=not binary,
-    )
+def run(adb: list[str], *args: str, binary: bool = False, timeout: float = 60.0):
+    try:
+        # All values are passed as argv elements with shell=False. The executable prefix is
+        # constructed internally by adb_command(); serial/package values cannot become shell syntax.
+        result = subprocess.run(  # noqa: S603
+            [*adb, *args],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=not binary,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"adb {' '.join(args)} timed out after {timeout:g}s") from exc
     if result.returncode != 0:
         stderr = result.stderr.decode(errors="replace") if binary else result.stderr
         raise RuntimeError(f"adb {' '.join(args)} failed ({result.returncode}): {stderr.strip()}")
@@ -74,7 +80,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("label", choices=LABELS)
     parser.add_argument("--serial", help="ADB serial when more than one device is connected")
-    parser.add_argument("--package", default="app.organicmaps", help="package to inspect")
+    parser.add_argument("--package", default="app.organicmaps.incar", help="package to inspect")
     parser.add_argument("--output", default="in-car-validation", help="host output directory")
     args = parser.parse_args()
 
