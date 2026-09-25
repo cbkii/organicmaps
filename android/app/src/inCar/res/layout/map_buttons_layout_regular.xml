@@ -25,14 +25,6 @@
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:layout_alignParentBottom="true"
-      android:layout_marginBottom="@dimen/margin_half"
-      app:layout_constraintBottom_toTopOf="@+id/my_position"
-      app:layout_constraintRight_toRightOf="parent" />
-    <include
-      layout="@layout/map_buttons_myposition"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_alignParentBottom="true"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintRight_toRightOf="parent" />
   </androidx.constraintlayout.widget.ConstraintLayout>

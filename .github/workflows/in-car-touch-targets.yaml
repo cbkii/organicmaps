@@ -12,10 +12,14 @@ on:
       - 'android/app/src/main/java/app/organicmaps/settings/InCarSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/settings/InCarQuickDestinationsSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
+      - 'android/app/src/main/res/layout/in_car_driving_overlay.xml'
       - 'android/app/src/main/res/layout/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/values/in_car_*.xml'
+      - 'android/tools/capture_in_car_validation.py'
+      - 'android/tools/ts18_termux_in_car_ux_capture.sh'
       - 'android/tools/verify_in_car_touch_targets.py'
+      - 'android/tools/verify_in_car_touch_targets_rail.py'
       - 'android/tools/verify_in_car_compact_chrome.py'
   pull_request:
     paths:
@@ -26,10 +30,14 @@ on:
       - 'android/app/src/main/java/app/organicmaps/settings/InCarSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/settings/InCarQuickDestinationsSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
+      - 'android/app/src/main/res/layout/in_car_driving_overlay.xml'
       - 'android/app/src/main/res/layout/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/layout-land/routing_bottom_sheet.xml'
       - 'android/app/src/main/res/values/in_car_*.xml'
+      - 'android/tools/capture_in_car_validation.py'
+      - 'android/tools/ts18_termux_in_car_ux_capture.sh'
       - 'android/tools/verify_in_car_touch_targets.py'
+      - 'android/tools/verify_in_car_touch_targets_rail.py'
       - 'android/tools/verify_in_car_compact_chrome.py'
 
 permissions:
@@ -47,8 +55,11 @@ jobs:
       - name: Verify touch-target contract
         shell: bash
         run: |
+          bash -n android/tools/ts18_termux_in_car_ux_capture.sh
           python3 -m py_compile \
+            android/tools/capture_in_car_validation.py \
             android/tools/verify_in_car_touch_targets.py \
+            android/tools/verify_in_car_touch_targets_rail.py \
             android/tools/verify_in_car_compact_chrome.py
-          python3 -X dev -W default android/tools/verify_in_car_touch_targets.py
+          python3 -X dev -W default android/tools/verify_in_car_touch_targets_rail.py
           python3 -X dev -W default android/tools/verify_in_car_compact_chrome.py

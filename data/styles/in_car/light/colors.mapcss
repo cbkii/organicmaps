@@ -12,15 +12,20 @@
 @border_country: #5E676E;
 @border_region: #6A747C;
 
-/* ROADS */
-@trunk0: #FFE0A0;
-@trunk1: #FFE0A0;
-@primary0: #FFE7B0;
-@primary1: #FFE7B0;
-@primary2: #FFE7B0;
-@secondary0: #FFF0D0;
-@residential: #FFF7E8;
-@unclassified: #FFF3DC;
+/* ROADS
+ *
+ * Keep the cool-slate base fixed: dark labels rely on its current luminance.
+ * Raise the driving-road fills instead. This strengthens both road/base and
+ * blue-route/road separation without sacrificing label/base contrast.
+ */
+@trunk0: #FFF0B0;
+@trunk1: #FFF0B0;
+@primary0: #FFF2C2;
+@primary1: #FFF2C2;
+@primary2: #FFF2C2;
+@secondary0: #FFF6D8;
+@residential: #FFFBF0;
+@unclassified: #FFF8E4;
 @pedestrian: #E1D9CF;
 @footway: #9FA8AE;
 @cycleway: #7E93A1;

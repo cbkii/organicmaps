@@ -6,64 +6,72 @@
   android:layout_width="match_parent"
   android:layout_height="wrap_content"
   android:minHeight="@dimen/in_car_runtime_row_min_height"
-  android:background="?selectableItemBackground"
   android:paddingStart="@dimen/margin_base"
   android:paddingEnd="@dimen/margin_base"
   android:paddingTop="@dimen/margin_half"
   android:paddingBottom="@dimen/margin_half">
 
+  <!-- Main text receives the remaining width after a bounded, content-sized metadata column.
+       Two useful lines are retained before ellipsis so long road/place names do not lose their
+       distinguishing suffix merely because the right column happens to be short. -->
   <TextView
     android:id="@+id/title"
     android:layout_width="0dp"
     android:layout_height="wrap_content"
+    android:layout_marginEnd="@dimen/margin_half"
+    android:ellipsize="end"
+    android:maxLines="2"
     android:textAlignment="viewStart"
     android:textAppearance="@style/MwmTextAppearance.Body1"
-    android:ellipsize="end"
-    android:maxLines="1"
-    app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintEnd_toStartOf="@id/open"
+    app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toTopOf="parent"
-    tools:text="Long destination name" />
+    tools:text="Long destination name that can use a second line" />
 
   <TextView
     android:id="@+id/open"
-    android:layout_width="@dimen/in_car_search_result_meta_width"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:minWidth="@dimen/in_car_search_result_meta_min_width"
+    android:maxWidth="@dimen/in_car_search_result_meta_max_width"
+    android:ellipsize="end"
     android:gravity="end"
     android:maxLines="1"
-    android:ellipsize="end"
     android:text="@string/closed"
     android:textAppearance="@style/MwmTextAppearance.Body3"
     app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintTop_toTopOf="@id/title" />
+    app:layout_constraintTop_toTopOf="parent" />
 
   <TextView
     android:id="@+id/description"
     android:layout_width="0dp"
     android:layout_height="wrap_content"
     android:layout_marginTop="@dimen/margin_quarter"
+    android:layout_marginEnd="@dimen/margin_half"
+    android:ellipsize="end"
     android:fontFamily="@font/organic_maps_emoji"
+    android:maxLines="2"
     android:textAlignment="viewStart"
     android:textAppearance="@style/MwmTextAppearance.Body3"
-    android:maxLines="1"
-    android:ellipsize="end"
-    app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintEnd_toStartOf="@id/distance"
+    app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toBottomOf="@id/title"
-    tools:text="Hotel • ★★★★★" />
+    tools:text="Hotel • ★★★★★ • accessible entrance" />
 
   <TextView
     android:id="@+id/distance"
-    android:layout_width="@dimen/in_car_search_result_meta_width"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:minWidth="@dimen/in_car_search_result_meta_min_width"
+    android:maxWidth="@dimen/in_car_search_result_meta_max_width"
+    android:ellipsize="end"
     android:gravity="end"
     android:maxLines="1"
-    android:ellipsize="end"
     android:textAppearance="@style/MwmTextAppearance.Body3"
     android:textColor="?colorAccent"
     app:layout_constraintEnd_toEndOf="parent"
     app:layout_constraintTop_toTopOf="@id/description"
-    tools:text="500 km" />
+    tools:text="1,250 km" />
 
   <TextView
     android:id="@+id/region"
@@ -76,7 +84,7 @@
     android:layout_width="0dp"
     android:layout_height="1dp"
     android:background="@color/in_car_search_result_band"
-    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintBottom_toBottomOf="parent" />
+    app:layout_constraintStart_toStartOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

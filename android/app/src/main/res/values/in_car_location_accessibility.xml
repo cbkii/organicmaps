@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="in_car_location_mode_finding">Finding location</string>
+  <string name="in_car_location_mode_unavailable">Location unavailable — tap to find position</string>
+  <string name="in_car_location_mode_free">Map free — tap to centre on current location</string>
+  <string name="in_car_location_mode_centred">Location centred — tap for heading-up follow</string>
+  <string name="in_car_location_mode_heading">Heading-up follow — tap to change location mode</string>
+</resources>

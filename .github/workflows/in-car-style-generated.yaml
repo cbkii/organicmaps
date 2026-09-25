@@ -15,6 +15,7 @@ on:
       - 'android/sdk/src/main/assets/drules_in_car.bin'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
+      - 'tools/ci/verify_in_car_light_glare.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
@@ -29,6 +30,7 @@ on:
       - 'android/sdk/src/main/assets/drules_in_car.bin'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
+      - 'tools/ci/verify_in_car_light_glare.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
 
@@ -57,6 +59,10 @@ jobs:
       - name: Verify source and compiled InCar light palette
         shell: bash
         run: python3 -X dev -W default tools/ci/verify_in_car_light_palette.py
+
+      - name: Verify strengthened InCar glare contract
+        shell: bash
+        run: python3 -X dev -W default tools/ci/verify_in_car_light_glare.py
 
       - name: Upload generated InCar rules
         if: always()

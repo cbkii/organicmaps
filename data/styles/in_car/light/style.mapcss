@@ -34,7 +34,6 @@ line|z12-13[highway=road][!tunnel],
 line|z12-13[highway=living_street][!tunnel]
 {opacity: 1;}
 
-
 colors
 {
   GuiText-color: #202124;

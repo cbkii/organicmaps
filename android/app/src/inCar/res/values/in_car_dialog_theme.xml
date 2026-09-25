@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- InCar-only override: all Material alert dialogs inherit automotive button targets and a
+       bounded landscape width. AppCompat fixed-width fractions cap direct alerts; runtime
+       picker/dialog helpers may further tighten this against the live freeform window bounds.
+       Normal Organic Maps flavours keep the main-source theme. -->
+  <style name="MwmTheme.AlertDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+    <item name="colorAccent">?buttonDialogTextColor</item>
+    <item name="colorPrimary">?buttonDialogTextColor</item>
+    <item name="android:background">?cardBackground</item>
+    <item name="android:textColorPrimary">?textDialogTheme</item>
+    <item name="android:textSize">@dimen/text_size_body_1</item>
+    <item name="android:windowTitleStyle">@style/MwmTheme.DialogTitleStyle</item>
+    <item name="android:windowMinWidthMajor">@fraction/in_car_compact_dialog_width_fraction</item>
+    <item name="android:windowMinWidthMinor">@fraction/in_car_compact_dialog_width_fraction</item>
+    <item name="windowFixedWidthMajor">@fraction/in_car_compact_dialog_width_fraction</item>
+    <item name="windowFixedWidthMinor">@fraction/in_car_compact_dialog_width_fraction</item>
+    <item name="buttonBarButtonStyle">@style/MwmWidget.InCar.DialogButton</item>
+  </style>
+
+  <style name="MwmWidget.InCar.DialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+    <item name="android:minWidth">@dimen/in_car_touch_target_preferred</item>
+    <item name="android:minHeight">@dimen/in_car_touch_target_preferred</item>
+    <item name="android:textSize">18sp</item>
+  </style>
+</resources>
