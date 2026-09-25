@@ -100,16 +100,29 @@ def verify_shared_resource_contract(root):
     if 'name="in_car_selection_foreground"' not in fallback_text:
         raise base.VerificationError("shared src/main InCar colour fallback is missing selection foreground")
 
-    theme = base.read_text(root / "android/app/src/inCar/res/values/in_car_dialog_theme.xml")
+    theme_path = root / "android/app/src/inCar/res/values/in_car_dialog_theme.xml"
+    theme_root = base.parse_xml(theme_path)
+    alert_styles = [style for style in theme_root.findall("style") if style.attrib.get("name") == "MwmTheme.AlertDialog"]
+    if len(alert_styles) != 1:
+        raise base.VerificationError(f"{theme_path}: expected exactly one MwmTheme.AlertDialog style")
+
+    alert_items = {}
+    for item in alert_styles[0].findall("item"):
+        name = item.attrib.get("name")
+        if name:
+            alert_items[name] = (item.text or "").strip()
+
+    expected_fraction = "@fraction/in_car_compact_dialog_width_fraction"
     for attr in ("windowFixedWidthMajor", "windowFixedWidthMinor"):
-        expected = f'<item name="{attr}">@fraction/in_car_compact_dialog_width_fraction</item>'
-        if expected not in theme:
-            raise base.VerificationError(f"InCar direct alert theme is missing AppCompat compact width cap: {attr}")
+        if alert_items.get(attr) != expected_fraction:
+            raise base.VerificationError(
+                f"{theme_path}: MwmTheme.AlertDialog must set {attr} to {expected_fraction}"
+            )
 
     for attr in ("android:windowFixedWidthMajor", "android:windowFixedWidthMinor"):
-        if f'<item name="{attr}">' in theme:
+        if attr in alert_items:
             raise base.VerificationError(
-                f"InCar direct alert theme must not use framework-private width attribute: {attr}"
+                f"{theme_path}: MwmTheme.AlertDialog must not use framework-private width attribute: {attr}"
             )
 
 
