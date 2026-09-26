@@ -1,13 +1,15 @@
 package app.organicmaps.sdk.routing;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.Keep;
 import app.organicmaps.sdk.R;
 
 /**
  * IMPORTANT : Order of enum values MUST BE the same as native CarDirection enum.
+ * Native routing code also resolves these constants by their Java field names.
  */
-public enum CarDirection
-{
+@Keep
+public enum CarDirection {
   NoTurn(R.drawable.ic_turn_straight),
   GoStraight(R.drawable.ic_turn_straight),
 

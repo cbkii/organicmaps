@@ -1,7 +1,10 @@
 package app.organicmaps.sdk.routing.roadshield;
 
-public enum RoadShieldType
-{
+import androidx.annotation.Keep;
+
+/** Native routing code resolves these enum constants by their Java field names. */
+@Keep
+public enum RoadShieldType {
   GenericWhite,
   GenericGreen,
   GenericBlue,

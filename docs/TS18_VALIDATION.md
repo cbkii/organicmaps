@@ -10,6 +10,14 @@ The InCar product targets direct-display Android devices including the Topway TS
 
 Never report the first two as the third.
 
+## Latest route-START qualification
+
+Physical TS18 validation completed on 2026-09-26 for PR #50 using the TESTING snapshot from source head `3a9f904d2c912a0e302da084b793e1f7ea39e9cc` (`OrganicMaps-InCar-TESTING-PR50-3a9f904.apk`, SHA-256 `4891a66b04d5c7e35ccfa6b135cdd3f2558cc84241330851734a25a6209ca95e`).
+
+The user-observed destination/route flow is **PASS**: route build -> START -> active navigation/guidance -> END. The release-only route-START failure is no longer reproduced and routing flow functionality is restored on the tested physical TS18 path.
+
+This result qualifies the exercised routing flow only. It does not by itself claim reboot/cold-boot, ACC sleep/wake, reverse-camera transitions or other lifecycle boundaries unless those are separately recorded as tested.
+
 ## Physical validation boundaries
 
 When a change can affect startup, rendering, navigation audio, storage, lifecycle or windowing, record the applicable boundaries explicitly:

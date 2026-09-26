@@ -18,7 +18,15 @@ on:
       - 'android/app/src/inCar/res/layout*/routing_plan_header.xml'
       - 'android/app/src/inCar/res/layout*/routing_start_button.xml'
       - 'android/app/src/inCar/res/layout*/altitude_chart_panel.xml'
+      - 'android/sdk/src/main/cpp/app/organicmaps/sdk/routing/RoutingJni.cpp'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/CarDirection.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/LaneWay.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/PedestrianDirection.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/RouteRecommendationType.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/RoutingInfo.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/roadshield/RoadShieldType.java'
       - 'android/tools/verify_in_car_layout_contracts.py'
+      - 'android/tools/verify_routing_jni_contract.py'
   pull_request:
     paths:
       - '.github/workflows/in-car-routing-contracts.yaml'
@@ -34,14 +42,22 @@ on:
       - 'android/app/src/inCar/res/layout*/routing_plan_header.xml'
       - 'android/app/src/inCar/res/layout*/routing_start_button.xml'
       - 'android/app/src/inCar/res/layout*/altitude_chart_panel.xml'
+      - 'android/sdk/src/main/cpp/app/organicmaps/sdk/routing/RoutingJni.cpp'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/CarDirection.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/LaneWay.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/PedestrianDirection.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/RouteRecommendationType.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/RoutingInfo.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/roadshield/RoadShieldType.java'
       - 'android/tools/verify_in_car_layout_contracts.py'
+      - 'android/tools/verify_routing_jni_contract.py'
 
 permissions:
   contents: read
 
 jobs:
   verify:
-    name: Verify routing control ownership and dispatch
+    name: Verify routing UI and JNI contracts
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -50,8 +66,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify routing layout and dispatch contracts
+      - name: Verify routing layout, dispatch and JNI contracts
         shell: bash
         run: |
-          python3 -m py_compile android/tools/verify_in_car_layout_contracts.py
+          python3 -m py_compile \
+            android/tools/verify_in_car_layout_contracts.py \
+            android/tools/verify_routing_jni_contract.py
           python3 -X dev -W default android/tools/verify_in_car_layout_contracts.py
+          python3 -X dev -W default android/tools/verify_routing_jni_contract.py

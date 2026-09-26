@@ -1496,6 +1496,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
                     R.string.dialog_routing_disclaimer_beware})
       builder.append(getString(resId)).append("\n\n");
 
+    final long routeRevision = RoutingController.get().getRouteRevision();
     dismissAlertDialog();
     mAlertDialog = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
                        .setTitle(R.string.dialog_routing_disclaimer_title)
@@ -1505,9 +1506,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
                        .setPositiveButton(R.string.accept,
                                           (dlg, which) -> {
                                             Config.acceptRoutingDisclaimer();
+                                            final RoutingController controller = RoutingController.get();
+                                            if (!controller.canStartRouteRevision(routeRevision))
+                                              return;
                                             closeFloatingPanels();
                                             setFullscreen(false);
-                                            RoutingController.get().start();
+                                            controller.startIfRouteRevisionMatches(routeRevision);
                                           })
                        .setOnDismissListener(dialog -> mAlertDialog = null)
                        .show();
@@ -1542,16 +1546,24 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return true;
 
     final MapObject endPoint = Objects.requireNonNull(controller.getEndPoint());
+    final long routeRevision = controller.getRouteRevision();
     final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
         .setTitle(R.string.p2p_only_from_current)
         .setMessage(R.string.p2p_reroute_from_current)
         .setCancelable(false)
         .setNegativeButton(R.string.cancel, null)
         .setPositiveButton(R.string.ok, endPoint.isMyPosition() ?
-            (dialog, which) -> controller.swapPoints() :
             (dialog, which) -> {
-              // The current location may change while this dialog is still shown on the screen.
-              controller.setStartPoint(myPosition);
+              if (controller.canStartRouteRevision(routeRevision))
+                controller.swapPoints();
+            } :
+            (dialog, which) -> {
+              if (!controller.canStartRouteRevision(routeRevision))
+                return;
+              // A fresh fix may have arrived (or the location may have disappeared) while the notice was open.
+              final MapObject currentPosition = MwmApplication.from(this).getLocationHelper().getMyPosition();
+              if (currentPosition != null)
+                controller.setStartPoint(currentPosition);
             }
         )
         .setOnDismissListener(dialog -> mAlertDialog = null);
