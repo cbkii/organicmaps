@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="pref_in_car_location_disabled_warning" translatable="false">in_car_location_disabled_warning</string>
+  <string name="pref_in_car_open_location_settings" translatable="false">in_car_open_location_settings</string>
+  <string name="in_car_location_disabled_warning_title">Show location-disabled warning</string>
+  <string name="in_car_location_disabled_warning_summary">Show a blocking warning only when Android location remains disabled after automatic recovery attempts</string>
+  <string name="in_car_open_location_settings_title">Open Android location settings</string>
+  <string name="in_car_open_location_settings_summary">Manually change Android location services</string>
+</resources>
