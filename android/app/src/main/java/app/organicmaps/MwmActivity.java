@@ -14,15 +14,21 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
@@ -45,6 +51,7 @@ import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -71,6 +78,7 @@ import app.organicmaps.intent.IntentProcessor;
 import app.organicmaps.location.LocationPromptCoordinator;
 import app.organicmaps.location.LocationPromptCoordinator.PermissionAction;
 import app.organicmaps.location.LocationPromptCoordinator.ProviderAction;
+import app.organicmaps.location.LocationSettlePolicy;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
@@ -193,6 +201,24 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private ActivityResultLauncher<String[]> mLocationPermissionRequest;
   @SuppressWarnings("NotNullFieldNotInitialized")
   private LocationPromptCoordinator mLocationPromptCoordinator;
+  private final Handler mLocationRecoveryHandler = new Handler(Looper.getMainLooper());
+  @Nullable private Runnable mLocationRecoveryCheck;
+  private int mLocationRecoveryGeneration;
+  private boolean mLocationActivityStopped = true;
+  private boolean mLocationWarningIssued;
+  private boolean mLocationSettlingExhausted;
+  private final BroadcastReceiver mLocationModeReceiver = new BroadcastReceiver()
+  {
+    @Override
+    public void onReceive(Context context, Intent intent)
+    {
+      if (LocationManager.MODE_CHANGED_ACTION.equals(intent.getAction()))
+      {
+        mLocationSettlingExhausted = false;
+        settleInCarLocation();
+      }
+    }
+  };
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   private ActivityResultLauncher<Intent> mLocationSettingsRequest;
@@ -292,7 +318,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // ProcessLifecycleOwner may move the application to the foreground before Drape exists. Its
     // location resume attempt then deliberately does nothing, so retry once native location mode
     // is available instead of waiting for another foreground transition.
-    MwmApplication.from(this).getLocationHelper().resumeLocationInForeground();
+    resumeInCarLocationIfAllowed();
 
     processIntent();
     migrateOAuthCredentials();
@@ -803,6 +829,20 @@ public class MwmActivity extends BaseMwmFragmentActivity
     case myPosition ->
     {
       Logger.i(LOCATION_TAG, "The location button pressed");
+      if (BuildConfig.IS_IN_CAR)
+      {
+        final int mode = LocationState.getMode();
+        // Only a user click while waiting explicitly turns location updates off. A restored
+        // NotFollowNoPosition mode or a provider error is not evidence of this user action.
+        if (mode == LocationState.PENDING_POSITION)
+        {
+          InCarSettingsStore.setExplicitLocationOff(this, true);
+          if (MwmApplication.from(this).getInCarDrivingViewController() != null)
+            MwmApplication.from(this).getInCarDrivingViewController().onExplicitLocationOff();
+        }
+        else if (mode == LocationState.NOT_FOLLOW_NO_POSITION)
+          InCarSettingsStore.setExplicitLocationOff(this, false);
+      }
       // Calls onMyPositionModeChanged(mode + 1).
       LocationState.nativeSwitchToNextMode();
     }
@@ -1032,7 +1072,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Warm task/window transitions do not necessarily produce an application-level foreground
     // event. This idempotent retry also runs after the map Activity and its location listeners are
     // ready, which closes the early-startup gap left by ProcessLifecycleOwner.
-    MwmApplication.from(this).getLocationHelper().resumeLocationInForeground();
+    resumeInCarLocationIfAllowed();
+    if (BuildConfig.IS_IN_CAR && LocationUtils.checkLocationPermission(this)
+        && !LocationUtils.areLocationServicesTurnedOn(this))
+      settleInCarLocation();
     logLocationPromptState("onResume", "activity foregrounded");
   }
 
@@ -1057,6 +1100,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onStart()
   {
+    mLocationActivityStopped = false;
+    if (BuildConfig.IS_IN_CAR)
+      ContextCompat.registerReceiver(this, mLocationModeReceiver,
+                                     new IntentFilter(LocationManager.MODE_CHANGED_ACTION),
+                                     ContextCompat.RECEIVER_NOT_EXPORTED);
     RoutingController.get().attach(this);
     super.onStart();
 
@@ -1072,6 +1120,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onStop()
   {
+    mLocationActivityStopped = true;
+    if (BuildConfig.IS_IN_CAR)
+      unregisterReceiver(mLocationModeReceiver);
+    cancelInCarLocationRecovery();
+    mLocationSettlingExhausted = false;
     super.onStop();
 
     Framework.nativeRemovePlacePageActivationListener(this);
@@ -1093,6 +1146,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onSafeDestroy()
   {
+    cancelInCarLocationRecovery();
     super.onSafeDestroy();
     mLocationPermissionRequest.unregister();
     mLocationPermissionRequest = null;
@@ -1726,7 +1780,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
     if (!servicesEnabled)
     {
-      onLocationDisabled();
+      if (BuildConfig.IS_IN_CAR)
+        settleInCarLocation();
+      else
+        onLocationDisabled();
       return;
     }
 
@@ -1765,6 +1822,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationUpdated(@NonNull Location location)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      cancelInCarLocationRecovery();
+      mLocationWarningIssued = false;
+      mLocationSettlingExhausted = false;
+    }
     dismissLocationErrorDialog();
 
     final RoutingController routing = RoutingController.get();
@@ -1936,6 +1999,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationResolutionRequired(@NonNull PendingIntent pendingIntent)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      onLocationDisabled();
+      return;
+    }
     final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
     final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
     final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
@@ -1999,7 +2067,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!servicesEnabled)
     {
       Logger.w(LOCATION_TAG, "Location resolution did not leave providers enabled, resultCode=" + resultCode);
-      onLocationDisabled();
+      if (BuildConfig.IS_IN_CAR)
+        settleInCarLocation();
+      else
+        onLocationDisabled();
       return;
     }
 
@@ -2014,6 +2085,14 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationDisabled()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      if (!LocationUtils.checkLocationPermission(this))
+        requestLocationPermissionIfNeeded(false, "provider callback without permission", true);
+      else
+        settleInCarLocation();
+      return;
+    }
     final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
     final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
     final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
@@ -2060,6 +2139,111 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mLocationErrorDialog = builder.show();
   }
 
+  private void resumeInCarLocationIfAllowed()
+  {
+    if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
+    {
+      MwmApplication.from(this).getLocationHelper().resumeLocationInForeground();
+      return;
+    }
+    if (!LocationUtils.areLocationServicesTurnedOn(this))
+      return;
+    final boolean recover = !InCarSettingsStore.isExplicitLocationOff(this)
+                            && (Config.isAutoStartLocationFollowAndRotateEnabled()
+                                || MwmApplication.from(this).getInCarDrivingViewController() != null
+                                   && MwmApplication.from(this).getInCarDrivingViewController().isEnabled());
+    MwmApplication.from(this).getLocationHelper().resumeLocationInForeground(recover);
+  }
+
+  private void cancelInCarLocationRecovery()
+  {
+    ++mLocationRecoveryGeneration;
+    if (mLocationRecoveryCheck != null)
+      mLocationRecoveryHandler.removeCallbacks(mLocationRecoveryCheck);
+    mLocationRecoveryCheck = null;
+  }
+
+  /** Checks Android's master switch for at most ten seconds, without polling for a GNSS fix. */
+  private void settleInCarLocation()
+  {
+    if (mLocationActivityStopped || InCarSettingsStore.isExplicitLocationOff(this))
+      return;
+    if (!LocationUtils.checkLocationPermission(this))
+    {
+      cancelInCarLocationRecovery();
+      requestLocationPermissionIfNeeded(false, "location recovery without permission", true);
+      return;
+    }
+    if (LocationUtils.areLocationServicesTurnedOn(this))
+    {
+      cancelInCarLocationRecovery();
+      mLocationWarningIssued = false;
+      mLocationSettlingExhausted = false;
+      mLocationPromptCoordinator.finishLocationSettingsTransition();
+      if (!MwmApplication.from(this).getLocationHelper().isActive())
+        restartLocationAfterAvailabilityConfirmed("Android Location recovered during settling");
+      return;
+    }
+    if (mLocationRecoveryCheck != null || mLocationSettlingExhausted)
+      return;
+
+    final int generation = ++mLocationRecoveryGeneration;
+    final long deadline = SystemClock.uptimeMillis() + LocationSettlePolicy.WINDOW_MS;
+    mLocationRecoveryCheck = new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        if (generation != mLocationRecoveryGeneration || mLocationActivityStopped)
+          return;
+        if (!LocationUtils.checkLocationPermission(MwmActivity.this))
+        {
+          cancelInCarLocationRecovery();
+          requestLocationPermissionIfNeeded(false, "location permission lost while settling", true);
+          return;
+        }
+        if (LocationUtils.areLocationServicesTurnedOn(MwmActivity.this))
+        {
+          mLocationRecoveryCheck = null;
+          settleInCarLocation();
+          return;
+        }
+        final long delay = LocationSettlePolicy.nextDelay(deadline, SystemClock.uptimeMillis());
+        if (delay > 0)
+        {
+          mLocationRecoveryHandler.postDelayed(this, delay);
+          return;
+        }
+        mLocationRecoveryCheck = null;
+        mLocationSettlingExhausted = true;
+        if (!InCarSettingsStore.showLocationDisabledWarning(MwmActivity.this)
+            || InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) || isLocationErrorDialogShowing()
+            || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
+          return;
+        mLocationWarningIssued = true;
+        showInCarLocationDisabledWarning(generation);
+      }
+    };
+    mLocationRecoveryHandler.postDelayed(mLocationRecoveryCheck, LocationSettlePolicy.INTERVAL_MS);
+  }
+
+  private void showInCarLocationDisabledWarning(int generation)
+  {
+    final Intent intent = Utils.makeSystemLocationSettingIntent(this);
+    final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
+        .setTitle(R.string.enable_location_services)
+        .setMessage(R.string.location_is_disabled_long_text)
+        .setNegativeButton(R.string.close, null)
+        .setOnDismissListener(dialog -> mLocationErrorDialog = null);
+    if (intent != null)
+      builder.setPositiveButton(R.string.location_settings, (dialog, which) -> {
+        if (generation == mLocationRecoveryGeneration && !mLocationActivityStopped
+            && LocationUtils.checkLocationPermission(this) && !LocationUtils.areLocationServicesTurnedOn(this))
+          launchLocationSettings(intent, "confirmed InCar location disabled");
+      });
+    mLocationErrorDialog = builder.show();
+  }
+
   private void restoreLocationAfterStaleUnavailableCallback()
   {
     restartLocationAfterAvailabilityConfirmed("stale provider callback");
@@ -2074,8 +2258,20 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
     }
 
+    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this))
+    {
+      mLocationPromptCoordinator.finishProviderRecoveryAttempt();
+      return;
+    }
+
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-      LocationState.nativeSwitchToNextMode();
+    {
+      if (BuildConfig.IS_IN_CAR && MwmApplication.from(this).getInCarDrivingViewController() != null
+          && MwmApplication.from(this).getInCarDrivingViewController().isEnabled())
+        MwmApplication.from(this).getInCarDrivingViewController().recenter();
+      else
+        LocationState.nativeSwitchToNextMode();
+    }
 
     // LocationHelper stops before publishing provider-unavailable callbacks. Switching native
     // mode alone is insufficient when that switch is not delivered synchronously (or the mode was

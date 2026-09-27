@@ -451,6 +451,12 @@ public class LocationHelper implements BaseLocationProvider.Listener
    */
   public void resumeLocationInForeground()
   {
+    resumeLocationInForeground(false);
+  }
+
+  /** The InCar launcher may recover a persisted camera mode that was not an explicit user stop. */
+  public void resumeLocationInForeground(boolean recoverPersistedNoPosition)
+  {
     if (isActive())
       return;
     else if (!Map.isEngineCreated())
@@ -460,7 +466,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
       Logger.d(TAG, "Engine is not created yet.");
       return;
     }
-    else if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+    else if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION && !recoverPersistedNoPosition)
     {
       Logger.i(TAG, "Location updates are stopped by the user manually.");
       return;

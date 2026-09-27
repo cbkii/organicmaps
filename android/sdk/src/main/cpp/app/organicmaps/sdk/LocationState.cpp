@@ -19,7 +19,6 @@ struct StartupCameraBridgeState
 {
   df::DrapeEngine * m_engine = nullptr;
   bool m_forceDrivingArea = false;
-  bool m_disableDrivingViewAfterLocation = false;
   std::chrono::steady_clock::time_point m_armedAt;
 };
 
@@ -39,12 +38,6 @@ void ResetStartupCameraBridge()
 
 void CancelStartupCameraBridge()
 {
-  auto const drapeEngine = GetDrapeEngine();
-  if (drapeEngine != nullptr && g_startupCameraBridge.m_engine == drapeEngine.get() &&
-      g_startupCameraBridge.m_disableDrivingViewAfterLocation)
-  {
-    drapeEngine->SetDrivingView(false /* enabled */, false /* autoReturn */, false /* recenter */);
-  }
   ResetStartupCameraBridge();
 }
 
@@ -169,9 +162,6 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
   g_framework->OnLocationUpdated(info);
   GpsTracker::Instance().OnLocationUpdated(info);
 
-  if (hasPendingStartupCamera && g_startupCameraBridge.m_disableDrivingViewAfterLocation)
-    drapeEngine->SetDrivingView(false /* enabled */, false /* autoReturn */, false /* recenter */);
-
   if (hasPendingStartupCamera || g_startupCameraBridge.m_engine != nullptr)
     ResetStartupCameraBridge();
 }
@@ -199,7 +189,7 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeShowLoc
 }
 
 JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequestFollowAndRotate(
-    JNIEnv * env, jclass clazz, jboolean forceDrivingArea, jboolean keepDrivingViewEnabled, jboolean autoReturn)
+    JNIEnv * env, jclass clazz, jboolean forceDrivingArea)
 {
   auto const drapeEngine = GetDrapeEngine();
   if (drapeEngine == nullptr || g_framework->NativeFramework()->GetRoutingManager().IsRoutingActive())
@@ -210,25 +200,14 @@ JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeRequest
 
   CancelStartupCameraBridge();
 
-  auto const mode = drapeEngine->GetMyPositionMode();
-  bool const waitingForLocation = mode == location::PendingPosition || mode == location::NotFollowNoPosition;
-
-  // Reuse the established native camera transition only as a bounded launch bridge. When ordinary Driving View is
-  // not enabled, it is disabled again after the first queued GPS update (or immediately when a position already
-  // exists), leaving FollowAndRotate as the location mode without creating a second persistent camera authority.
-  drapeEngine->SetDrivingView(true /* enabled */, keepDrivingViewEnabled ? autoReturn : false, true /* recenter */);
-
-  if (waitingForLocation)
+  // The controller already enabled persistent Driving View. This bounded bridge only frames the
+  // first live location if it arrived after the launch and before a useful pre-fix viewport existed.
+  if (forceDrivingArea)
   {
     g_startupCameraBridge.m_engine = drapeEngine.get();
     g_startupCameraBridge.m_forceDrivingArea = forceDrivingArea;
-    g_startupCameraBridge.m_disableDrivingViewAfterLocation = !keepDrivingViewEnabled;
     g_startupCameraBridge.m_armedAt = std::chrono::steady_clock::now();
-    return;
   }
-
-  if (!keepDrivingViewEnabled)
-    drapeEngine->SetDrivingView(false /* enabled */, false /* autoReturn */, false /* recenter */);
 }
 
 JNIEXPORT void Java_app_organicmaps_incar_InCarStartupCameraNative_nativeCancelPending(JNIEnv * env, jclass clazz)

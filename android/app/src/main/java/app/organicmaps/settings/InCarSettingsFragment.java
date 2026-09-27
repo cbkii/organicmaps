@@ -1,15 +1,19 @@
 package app.organicmaps.settings;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.XmlRes;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
+import androidx.preference.TwoStatePreference;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarChoiceAdapter;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.incar.InCarDialogSizing;
 import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsPlayer;
@@ -29,6 +33,17 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+
+    final TwoStatePreference warning = getPreference(getString(R.string.pref_in_car_location_disabled_warning));
+    warning.setChecked(InCarSettingsStore.showLocationDisabledWarning(requireContext()));
+    warning.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setShowLocationDisabledWarning(requireContext(), (boolean) value);
+      return true;
+    });
+    getPreference(getString(R.string.pref_in_car_open_location_settings)).setOnPreferenceClickListener(preference -> {
+      startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+      return true;
+    });
 
     // The old MANUAL option depended on a second map-facing camera button. Keep its resource entry
     // for migration/backward compatibility, but do not expose an impossible mode after that button

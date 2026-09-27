@@ -246,8 +246,11 @@
     <!-- Settings «Route» category: «Tts unavailable» subtitle. Also used as a CarToast in Android Auto when the user taps the muted voice icon. -->
     <string name="pref_tts_unavailable">Not Available</string>
     <string name="pref_map_auto_zoom">Auto zoom</string>
-    <string name="auto_follow_location_on_launch">Follow current location on launch</string>
-    <string name="auto_follow_location_on_launch_summary">Automatically start location tracking and orient the map to your direction when opened.</string>
+    <string name="auto_follow_location_on_launch">Start in Driving View</string>
+    <string name="auto_follow_location_on_launch_summary">Start the map following your location in Driving View.</string>
+    <string name="in_car_location_disabled_warning_title">Show location-disabled warning</string>
+    <string name="in_car_location_disabled_warning_summary">Warn after Android Location stays off during startup.</string>
+    <string name="in_car_open_location_settings">Open Android location settings</string>
     <string name="placepage_distance">Distance</string>
     <string name="search_show_on_map">View on map</string>
     <!-- Menu button -->

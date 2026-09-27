@@ -169,6 +169,41 @@ public class InCarDrivingViewPolicyTest
     assertEquals(InCarDrivingViewPolicy.ActivationSource.RESTORED, restored.getActivationSource());
   }
 
+  @Test
+  public void launcherSessionStartsWithoutGpsAndNeverAutoExitsAtLowSpeed()
+  {
+    final InCarDrivingViewPolicy policy = offPolicy();
+    assertEquals(InCarDrivingViewPolicy.Transition.ENABLE, policy.enableFromLaunch());
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.enableFromLaunch());
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE,
+                 policy.onSpeedSample(false, false, -1, T0, true));
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE,
+                 policy.onSpeedSample(true, true, 0, T0 + InCarDrivingViewPolicy.LOW_SPEED_EXIT_MS, true));
+    assertTrue(policy.isEnabled());
+    assertEquals(InCarDrivingViewPolicy.ActivationSource.LAUNCH, policy.getActivationSource());
+  }
+
+  @Test
+  public void fastFirstFixCannotToggleLaunchSession()
+  {
+    final InCarDrivingViewPolicy policy = offPolicy();
+    policy.enableFromLaunch();
+    final double high = InCarDrivingViewPolicy.AUTO_ENTER_SPEED_MPS + 1;
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.onSpeedSample(true, true, high, T0, true));
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.onSpeedSample(true, true, high, T0 + 200, true));
+    assertTrue(policy.isEnabled());
+  }
+
+  @Test
+  public void disabledLauncherSettingDoesNotRearmAutomaticDrivingView()
+  {
+    final InCarDrivingViewPolicy policy = offPolicy();
+    policy.enableFromLaunch();
+    assertEquals(InCarDrivingViewPolicy.Transition.DISABLE, policy.disableFromLaunch());
+    assertFalse(policy.isAutomaticRearmSuppressed());
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.disableFromLaunch());
+  }
+
   private static InCarDrivingViewPolicy offPolicy()
   {
     return new InCarDrivingViewPolicy(false, InCarDrivingViewPolicy.ActivationSource.OFF);

@@ -24,6 +24,7 @@ import app.organicmaps.incar.InCarBudgetRendering;
 import app.organicmaps.incar.InCarDrivingUi;
 import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.incar.InCarQuickDestinationsUi;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
 import app.organicmaps.sdk.Map;
@@ -31,6 +32,7 @@ import app.organicmaps.sdk.OrganicMaps;
 import app.organicmaps.sdk.display.DisplayManager;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationState;
+import app.organicmaps.sdk.location.LocationUtils;
 import app.organicmaps.sdk.location.SensorHelper;
 import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.sdk.maplayer.isolines.IsolinesManager;
@@ -300,7 +302,12 @@ public class MwmApplication extends Application implements Application.ActivityL
   {
     Logger.d(TAG);
 
-    getLocationHelper().resumeLocationInForeground();
+    if (BuildConfig.IS_IN_CAR && (!Map.isEngineCreated() || !LocationUtils.areLocationServicesTurnedOn(this)))
+      return;
+    getLocationHelper().resumeLocationInForeground(BuildConfig.IS_IN_CAR
+        && !InCarSettingsStore.isExplicitLocationOff(this)
+        && (mInCarDrivingViewController != null && mInCarDrivingViewController.isEnabled()
+            || Config.isAutoStartLocationFollowAndRotateEnabled()));
   }
 
   private void onBackground()
