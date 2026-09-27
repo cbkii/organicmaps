@@ -2089,6 +2089,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
+      // A queued provider callback may outlive onStop() and its listener removal.
+      if (mLocationActivityStopped)
+        return;
       final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
       final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
       final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
