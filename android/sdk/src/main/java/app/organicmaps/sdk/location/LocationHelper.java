@@ -314,6 +314,15 @@ public class LocationHelper implements BaseLocationProvider.Listener
     Logger.d(TAG, "provider = " + mLocationProvider.getClass().getSimpleName()
                       + " settings = " + LocationUtils.areLocationServicesTurnedOn(mContext));
 
+    // AndroidNativeProvider may have queued this callback before a manual location-mode change
+    // stopped the helper. Do not turn that stale provider event back into an app-level recovery
+    // request which could override the user's explicit location-off choice.
+    if (!isActive())
+    {
+      Logger.w(TAG, "Provider is not active");
+      return;
+    }
+
     stop();
     LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
 
