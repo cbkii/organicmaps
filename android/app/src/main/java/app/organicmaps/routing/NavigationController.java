@@ -73,8 +73,13 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
-    mTopFrame.addOnLayoutChangeListener(
-        (v, l, t, r, b, ol, ot, or, ob) -> mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight()));
+    mTopFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+      final int contentHeight = computeNavContentHeight();
+      mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
+      if (isInCarLandscape())
+        mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding)
+                                                    + contentHeight);
+    });
     final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
@@ -93,14 +98,25 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final View navBottomSheet = mFrame.findViewById(R.id.nav_bottom_sheet);
     mNextTurnContainer = mFrame.findViewById(R.id.nav_next_turn_container);
 
-    ViewCompat.setOnApplyWindowInsetsListener(mStreetFrame, BaselinePaddingInsetsListener.excludeBottom());
+    if (isInCarLandscape())
+    {
+      // The landscape InCar resource is one full-width ribbon. Apply safe drawing insets once to
+      // that owning surface so turn, street, lanes and the physical-right speed cluster move as one.
+      ViewCompat.setOnApplyWindowInsetsListener(mNextTurnContainer,
+                                                BaselinePaddingInsetsListener.excludeBottom());
+    }
+    else
+      ViewCompat.setOnApplyWindowInsetsListener(mStreetFrame, BaselinePaddingInsetsListener.excludeBottom());
 
     ViewCompat.setOnApplyWindowInsetsListener(mTopFrame, (v, windowInsets) -> {
       final Insets safeDrawing = windowInsets.getInsets(WindowInsetUtils.TYPE_SAFE_DRAWING);
       if (BuildConfig.IS_IN_CAR)
       {
-        // The InCar manoeuvre cluster is deliberately physical-right for the RHD product. Protect
-        // that physical edge from the TS18/SystemUI inset; never let locale direction mirror it.
+        if (isInCarLandscape())
+          return windowInsets;
+
+        // Portrait InCar retains the established physical-right glance cluster. Protect that edge
+        // from SystemUI without allowing locale direction to mirror it.
         mNextTurnContainer.setPadding(mNextTurnContainer.getPaddingLeft(), mNextTurnContainer.getPaddingTop(),
                                       safeDrawing.right, mNextTurnContainer.getPaddingBottom());
       }
@@ -136,12 +152,20 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     });
   }
 
-  // Height the search sheet must clear when expanded over the navigation top frame: the always
-  // shown street-name frame plus the taller of the turn/speed column or the lanes strip (the two
-  // overlap rather than stack, so take the max). The turn/speed column is only laid out below the
-  // street frame in portrait.
+  private boolean isInCarLandscape()
+  {
+    return BuildConfig.IS_IN_CAR
+        && mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+  }
+
+  // Height the search sheet and map controls must clear. InCar landscape owns all driver guidance
+  // inside one adaptive ribbon; other configurations retain the established street + floating
+  // guidance geometry.
   private int computeNavContentHeight()
   {
+    if (isInCarLandscape())
+      return UiUtils.isVisible(mNextTurnContainer) ? mNextTurnContainer.getHeight() : 0;
+
     int turnAndSpeedHeight = 0;
     if (mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)
     {
@@ -199,7 +223,9 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       mNextStreet.setText(RoadShieldUtils.createStreetTextWithShields(info.nextStreet, info.nextStreetRoadShields,
                                                                       mNextStreet.getTextSize()));
     int margin = dimen(mFrame.getContext(), R.dimen.nav_frame_padding);
-    if (hasStreet)
+    if (isInCarLandscape())
+      margin += computeNavContentHeight();
+    else if (hasStreet)
       margin += mStreetFrame.getHeight();
     mMapButtonsViewModel.setTopButtonsMarginTop(margin);
   }
