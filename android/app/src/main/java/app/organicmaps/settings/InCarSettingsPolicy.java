@@ -40,6 +40,7 @@ final class InCarSettingsPolicy
     bindDrivingViewSettings(fragment);
     bindBudgetRendering(fragment);
     bindMapAgeWarning(fragment);
+    bindLocationDisabledWarning(fragment);
     bindShowTrackRecordingButton(fragment);
     installGenericPreferenceGuardObserver(fragment);
   }
@@ -201,6 +202,27 @@ final class InCarSettingsPolicy
     switchPreference.setChecked(InCarSettingsStore.mapAgeWarningEnabled(fragment.requireContext()));
     switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
       InCarSettingsStore.setMapAgeWarningEnabled(fragment.requireContext(), (boolean) newValue);
+      return true;
+    });
+  }
+
+  private static void bindLocationDisabledWarning(@NonNull PreferenceFragmentCompat fragment)
+  {
+    @Nullable
+    final Preference preference =
+        fragment.findPreference(fragment.getString(R.string.pref_in_car_location_disabled_warning));
+    if (preference == null)
+      return;
+
+    final boolean show = showDedicatedPreference(fragment);
+    preference.setVisible(show);
+    if (!show)
+      return;
+
+    final TwoStatePreference switchPreference = (TwoStatePreference) preference;
+    switchPreference.setChecked(InCarSettingsStore.locationDisabledWarningEnabled(fragment.requireContext()));
+    switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
+      InCarSettingsStore.setLocationDisabledWarningEnabled(fragment.requireContext(), (boolean) newValue);
       return true;
     });
   }
