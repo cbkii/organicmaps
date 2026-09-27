@@ -13,6 +13,7 @@ public final class InCarSettingsStore
   private static final String KEY_AUTO_RETURN_DRIVING_VIEW = "InCarAutoReturnDrivingView";
   private static final String KEY_BUDGET_RENDERING = "InCarBudgetRendering";
   private static final String KEY_MAP_AGE_WARNING = "InCarMapAgeWarning";
+  private static final String KEY_LOCATION_DISABLED_WARNING = "InCarLocationDisabledWarning";
   private static final String KEY_DRIVING_VIEW_SESSION_ENABLED = "InCarDrivingViewSessionEnabled";
   private static final String KEY_DRIVING_VIEW_SESSION_SOURCE = "InCarDrivingViewSessionSource";
   private static final String KEY_BUDGET_SAVED_3D_BUILDINGS = "InCarBudgetSaved3dBuildings";
@@ -69,6 +70,17 @@ public final class InCarSettingsStore
   public static void setMapAgeWarningEnabled(@NonNull Context context, boolean enabled)
   {
     prefs(context).edit().putBoolean(KEY_MAP_AGE_WARNING, enabled).apply();
+  }
+
+  /** Automatic provider-disabled dialogs are intentionally opt-in for the direct-display InCar build. */
+  public static boolean locationDisabledWarningEnabled(@NonNull Context context)
+  {
+    return prefs(context).getBoolean(KEY_LOCATION_DISABLED_WARNING, false);
+  }
+
+  public static void setLocationDisabledWarningEnabled(@NonNull Context context, boolean enabled)
+  {
+    prefs(context).edit().putBoolean(KEY_LOCATION_DISABLED_WARNING, enabled).apply();
   }
 
   public static boolean restoredDrivingViewEnabled(@NonNull Context context)
