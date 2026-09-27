@@ -30,6 +30,7 @@ public final class LocationPromptCoordinator extends ViewModel
 
   private boolean mPermissionRequestPending;
   private boolean mLocationSettingsTransitionPending;
+  private boolean mProviderRecoveryPending;
   private boolean mPermissionPermanentlyDenied;
   private boolean mTrackRecordingRequested;
 
@@ -71,6 +72,7 @@ public final class LocationPromptCoordinator extends ViewModel
   {
     if (!locationPermissionGranted)
     {
+      mProviderRecoveryPending = false;
       return switch (onPermissionRequired(false, locationUiShowing))
       {
         case REQUEST_PERMISSION -> ProviderAction.REQUEST_PERMISSION;
@@ -81,7 +83,15 @@ public final class LocationPromptCoordinator extends ViewModel
 
     mPermissionPermanentlyDenied = false;
     if (locationServicesEnabled)
+    {
+      if (mProviderRecoveryPending)
+        return ProviderAction.NONE;
+
+      mProviderRecoveryPending = true;
       return ProviderAction.RESTORE_LOCATION;
+    }
+
+    mProviderRecoveryPending = false;
 
     if (locationUiShowing || mLocationSettingsTransitionPending)
       return ProviderAction.NONE;
@@ -109,6 +119,12 @@ public final class LocationPromptCoordinator extends ViewModel
     mLocationSettingsTransitionPending = false;
   }
 
+  /** Allows another provider restart after the current attempt has left the Android callback queue. */
+  public void finishProviderRecoveryAttempt()
+  {
+    mProviderRecoveryPending = false;
+  }
+
   public boolean isPermissionRequestPending()
   {
     return mPermissionRequestPending;
@@ -117,6 +133,11 @@ public final class LocationPromptCoordinator extends ViewModel
   public boolean isLocationSettingsTransitionPending()
   {
     return mLocationSettingsTransitionPending;
+  }
+
+  public boolean isProviderRecoveryPending()
+  {
+    return mProviderRecoveryPending;
   }
 
   public boolean isPermissionPermanentlyDenied()

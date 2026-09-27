@@ -124,9 +124,35 @@ public class LocationPromptCoordinatorTest
     {
       assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(true, false));
       assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
+      coordinator.finishProviderRecoveryAttempt();
       assertFalse(coordinator.isPermissionRequestPending());
       assertFalse(coordinator.isLocationSettingsTransitionPending());
     }
+  }
+
+  @Test
+  public void providerRecoveryIsSingleFlightUntilAttemptFinishes()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
+    assertTrue(coordinator.isProviderRecoveryPending());
+    assertEquals(ProviderAction.NONE, coordinator.onProviderUnavailable(true, true, false));
+
+    coordinator.finishProviderRecoveryAttempt();
+
+    assertFalse(coordinator.isProviderRecoveryPending());
+    assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
+  }
+
+  @Test
+  public void missingPermissionCancelsProviderRecoveryLease()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+
+    assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
+    assertEquals(ProviderAction.REQUEST_PERMISSION, coordinator.onProviderUnavailable(false, true, false));
+    assertFalse(coordinator.isProviderRecoveryPending());
   }
 
   @Test

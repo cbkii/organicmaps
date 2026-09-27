@@ -2069,6 +2069,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (!LocationUtils.checkLocationPermission(this) || !LocationUtils.areLocationServicesTurnedOn(this))
     {
+      mLocationPromptCoordinator.finishProviderRecoveryAttempt();
       logLocationPromptState("location-recovery", "current platform state is not ready: " + reason);
       return;
     }
@@ -2080,9 +2081,20 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // mode alone is insufficient when that switch is not delivered synchronously (or the mode was
     // already usable), so explicitly restore the provider subscription as well. The helper is
     // idempotent when a synchronous mode callback has already restarted it.
-    final LocationHelper locationHelper = MwmApplication.from(this).getLocationHelper();
-    locationHelper.restartWithNewMode();
-    logLocationPromptState("location-recovery", "provider restarted: " + reason);
+    try
+    {
+      final LocationHelper locationHelper = MwmApplication.from(this).getLocationHelper();
+      locationHelper.restartWithNewMode();
+      logLocationPromptState("location-recovery", "provider restarted: " + reason);
+    }
+    finally
+    {
+      // AndroidNativeProvider posts its no-provider callback to the next event-loop turn. Keep the
+      // recovery reserved until that queued callback has either been suppressed or the provider has
+      // started, preventing an OEM's inconsistent enabled/empty state from creating a retry loop.
+      if (!getWindow().getDecorView().post(mLocationPromptCoordinator::finishProviderRecoveryAttempt))
+        mLocationPromptCoordinator.finishProviderRecoveryAttempt();
+    }
   }
 
   private boolean requestBatterySaverPermission()
