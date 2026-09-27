@@ -1910,6 +1910,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
       if (LocationUtils.areLocationServicesTurnedOn(this))
         restartLocationAfterAvailabilityConfirmed("runtime permission granted");
+      else if (BuildConfig.IS_IN_CAR)
+        settleInCarLocation();
 
       if (mLocationPromptCoordinator.consumeTrackRecordingRequest(hasFineLocationPermission))
         startTrackRecording();
