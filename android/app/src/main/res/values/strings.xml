@@ -251,6 +251,7 @@
     <string name="in_car_location_disabled_warning_title">Show location-disabled warning</string>
     <string name="in_car_location_disabled_warning_summary">Warn after Android Location stays off during startup.</string>
     <string name="in_car_open_location_settings">Open Android location settings</string>
+    <string name="in_car_location_settings_unavailable">Android location settings unavailable</string>
     <string name="placepage_distance">Distance</string>
     <string name="search_show_on_map">View on map</string>
     <!-- Menu button -->
