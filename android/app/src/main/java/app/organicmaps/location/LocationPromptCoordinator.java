@@ -1,6 +1,19 @@
 package app.organicmaps.location;
 
+import android.app.Activity;
+import android.location.Location;
+import android.os.SystemClock;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ViewModel;
+import app.organicmaps.BuildConfig;
+import app.organicmaps.MwmActivity;
+import app.organicmaps.MwmApplication;
+import app.organicmaps.incar.InCarSettingsStore;
+import java.lang.ref.WeakReference;
 
 /**
  * Keeps Android location permission and settings UI single-flight while callers re-check the
@@ -33,6 +46,17 @@ public final class LocationPromptCoordinator extends ViewModel
   private boolean mProviderRecoveryPending;
   private boolean mPermissionPermanentlyDenied;
   private boolean mTrackRecordingRequested;
+
+  private final InCarLocationRecoveryController mInCarRecoveryController = new InCarLocationRecoveryController();
+  @Nullable
+  private WeakReference<MwmActivity> mInCarRecoveryOwner;
+  @Nullable
+  private Runnable mInCarRetryRunnable;
+  @Nullable
+  private DefaultLifecycleObserver mInCarLifecycleObserver;
+  private int mInCarRecoveryGeneration;
+  private long mInCarRecoveryStartedElapsedNanos;
+  private long mInCarRecoveryStartedWallTimeMs;
 
   /**
    * Classifies a location operation which currently requires Android runtime permission.
@@ -72,6 +96,7 @@ public final class LocationPromptCoordinator extends ViewModel
   {
     if (!locationPermissionGranted)
     {
+      cancelInCarRecovery();
       mProviderRecoveryPending = false;
       return switch (onPermissionRequired(false, locationUiShowing))
       {
@@ -84,6 +109,7 @@ public final class LocationPromptCoordinator extends ViewModel
     mPermissionPermanentlyDenied = false;
     if (locationServicesEnabled)
     {
+      cancelInCarRecovery();
       if (mProviderRecoveryPending)
         return ProviderAction.NONE;
 
@@ -96,7 +122,157 @@ public final class LocationPromptCoordinator extends ViewModel
     if (locationUiShowing || mLocationSettingsTransitionPending)
       return ProviderAction.NONE;
 
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final ProviderAction inCarAction = evaluateInCarProviderUnavailable();
+      if (inCarAction != null)
+        return inCarAction;
+    }
+
     return ProviderAction.SHOW_LOCATION_SETTINGS;
+  }
+
+  /**
+   * Gives the direct-display InCar build a bounded settling window before any blocking provider
+   * warning is allowed. Normal Organic Maps builds retain the immediate upstream decision path.
+   */
+  @Nullable
+  private ProviderAction evaluateInCarProviderUnavailable()
+  {
+    final MwmApplication app = MwmApplication.sInstance;
+    if (app == null)
+      return null;
+
+    final Activity topActivity = app.getTopActivity();
+    if (!(topActivity instanceof MwmActivity owner)
+        || !owner.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+      return null;
+
+    final MwmActivity previousOwner = mInCarRecoveryOwner == null ? null : mInCarRecoveryOwner.get();
+    if (previousOwner != owner)
+      beginInCarRecovery(owner);
+
+    final boolean warningEnabled = InCarSettingsStore.locationDisabledWarningEnabled(owner);
+    final InCarLocationRecoveryController.Action action =
+        mInCarRecoveryController.evaluate(mInCarRecoveryGeneration, SystemClock.elapsedRealtime(), true, false,
+                                          warningEnabled);
+    return switch (action)
+    {
+      case RETRY -> scheduleInCarRetry(owner) ? ProviderAction.NONE
+                                              : warningEnabled ? ProviderAction.SHOW_LOCATION_SETTINGS
+                                                               : ProviderAction.NONE;
+      case SHOW_WARNING ->
+      {
+        clearScheduledInCarRetry();
+        yield ProviderAction.SHOW_LOCATION_SETTINGS;
+      }
+      case SUPPRESS_WARNING, STALE ->
+      {
+        clearScheduledInCarRetry();
+        yield ProviderAction.NONE;
+      }
+      case RESTORE_LOCATION -> ProviderAction.RESTORE_LOCATION;
+      case REQUEST_PERMISSION -> ProviderAction.REQUEST_PERMISSION;
+    };
+  }
+
+  private void beginInCarRecovery(@NonNull MwmActivity owner)
+  {
+    cancelInCarRecovery();
+    mInCarRecoveryOwner = new WeakReference<>(owner);
+    mInCarRecoveryGeneration = mInCarRecoveryController.beginForeground();
+    mInCarRecoveryStartedElapsedNanos = SystemClock.elapsedRealtimeNanos();
+    mInCarRecoveryStartedWallTimeMs = System.currentTimeMillis();
+    mInCarLifecycleObserver = new DefaultLifecycleObserver() {
+      @Override
+      public void onStop(@NonNull LifecycleOwner lifecycleOwner)
+      {
+        cancelInCarRecoveryIfOwnedBy(owner);
+      }
+
+      @Override
+      public void onDestroy(@NonNull LifecycleOwner lifecycleOwner)
+      {
+        cancelInCarRecoveryIfOwnedBy(owner);
+      }
+    };
+    owner.getLifecycle().addObserver(mInCarLifecycleObserver);
+  }
+
+  private boolean scheduleInCarRetry(@NonNull MwmActivity owner)
+  {
+    clearScheduledInCarRetry();
+    final int generation = mInCarRecoveryGeneration;
+    final Runnable retry = () -> {
+      mInCarRetryRunnable = null;
+      final MwmActivity currentOwner = mInCarRecoveryOwner == null ? null : mInCarRecoveryOwner.get();
+      if (currentOwner != owner || generation != mInCarRecoveryGeneration
+          || !owner.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+      {
+        cancelInCarRecoveryIfOwnedBy(owner);
+        return;
+      }
+
+      if (hasFreshLocationSinceRecoveryStarted())
+      {
+        cancelInCarRecovery();
+        return;
+      }
+
+      // Re-enter the Activity's normal #53 decision path so permission, provider state and provider
+      // restart are all freshly re-evaluated instead of being cached by this settling policy.
+      owner.onLocationDisabled();
+    };
+    mInCarRetryRunnable = retry;
+    final long delayMs = mInCarRecoveryController.nextRetryDelayMs(SystemClock.elapsedRealtime());
+    if (owner.getWindow().getDecorView().postDelayed(retry, delayMs))
+      return true;
+
+    mInCarRetryRunnable = null;
+    return false;
+  }
+
+  private boolean hasFreshLocationSinceRecoveryStarted()
+  {
+    final MwmApplication app = MwmApplication.sInstance;
+    if (app == null)
+      return false;
+    final Location location = app.getLocationHelper().getSavedLocation();
+    if (location == null)
+      return false;
+
+    final long elapsedNanos = location.getElapsedRealtimeNanos();
+    return (elapsedNanos > 0L && elapsedNanos >= mInCarRecoveryStartedElapsedNanos)
+        || location.getTime() >= mInCarRecoveryStartedWallTimeMs;
+  }
+
+  private void cancelInCarRecoveryIfOwnedBy(@NonNull MwmActivity owner)
+  {
+    final MwmActivity currentOwner = mInCarRecoveryOwner == null ? null : mInCarRecoveryOwner.get();
+    if (currentOwner == owner)
+      cancelInCarRecovery();
+  }
+
+  private void clearScheduledInCarRetry()
+  {
+    final MwmActivity owner = mInCarRecoveryOwner == null ? null : mInCarRecoveryOwner.get();
+    if (owner != null && mInCarRetryRunnable != null)
+      owner.getWindow().getDecorView().removeCallbacks(mInCarRetryRunnable);
+    mInCarRetryRunnable = null;
+  }
+
+  private void cancelInCarRecovery()
+  {
+    clearScheduledInCarRetry();
+    final MwmActivity owner = mInCarRecoveryOwner == null ? null : mInCarRecoveryOwner.get();
+    if (owner != null && mInCarLifecycleObserver != null)
+      owner.getLifecycle().removeObserver(mInCarLifecycleObserver);
+    mInCarLifecycleObserver = null;
+    mInCarRecoveryOwner = null;
+    mInCarRecoveryController.endForeground();
+    mInCarRecoveryGeneration = mInCarRecoveryController.generation();
+    mInCarRecoveryStartedElapsedNanos = 0L;
+    mInCarRecoveryStartedWallTimeMs = 0L;
   }
 
   /**
@@ -171,5 +347,11 @@ public final class LocationPromptCoordinator extends ViewModel
   public boolean isTrackRecordingRequested()
   {
     return mTrackRecordingRequested;
+  }
+
+  @Override
+  protected void onCleared()
+  {
+    cancelInCarRecovery();
   }
 }
