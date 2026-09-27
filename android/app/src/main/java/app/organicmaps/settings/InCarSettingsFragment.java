@@ -1,7 +1,9 @@
 package app.organicmaps.settings;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -46,6 +48,12 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       OfflineNavigationVoicePack.setMode(requireContext(), newMode);
       updateFallbackSummary(fallback, newMode);
       TtsPlayer.setEnabled(Config.TTS.isEnabled());
+      return true;
+    });
+
+    final Preference locationSettings = getPreference(getString(R.string.pref_in_car_open_location_settings));
+    locationSettings.setOnPreferenceClickListener(preference -> {
+      startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
       return true;
     });
   }
