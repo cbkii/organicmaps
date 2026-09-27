@@ -1,19 +1,25 @@
 package app.organicmaps.settings;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.XmlRes;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
+import androidx.preference.TwoStatePreference;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarChoiceAdapter;
 import app.organicmaps.incar.InCarDialogSizing;
+import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.Config;
+import app.organicmaps.util.Utils;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +35,31 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+
+    final TwoStatePreference warning = getPreference(getString(R.string.pref_in_car_location_disabled_warning));
+    warning.setChecked(InCarSettingsStore.showLocationDisabledWarning(requireContext()));
+    warning.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setShowLocationDisabledWarning(requireContext(), (boolean) value);
+      return true;
+    });
+    getPreference(getString(R.string.pref_in_car_open_location_settings)).setOnPreferenceClickListener(preference -> {
+      final Intent intent = Utils.makeSystemLocationSettingIntent(requireContext());
+      if (intent == null)
+      {
+        Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
+        return false;
+      }
+      try
+      {
+        startActivity(intent);
+        return true;
+      }
+      catch (ActivityNotFoundException e)
+      {
+        Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
+        return false;
+      }
+    });
 
     // The old MANUAL option depended on a second map-facing camera button. Keep its resource entry
     // for migration/backward compatibility, but do not expose an impossible mode after that button

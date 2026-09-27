@@ -314,6 +314,15 @@ public class LocationHelper implements BaseLocationProvider.Listener
     Logger.d(TAG, "provider = " + mLocationProvider.getClass().getSimpleName()
                       + " settings = " + LocationUtils.areLocationServicesTurnedOn(mContext));
 
+    // AndroidNativeProvider may have queued this callback before a manual location-mode change
+    // stopped the helper. Do not turn that stale provider event back into an app-level recovery
+    // request which could override the user's explicit location-off choice.
+    if (!isActive())
+    {
+      Logger.w(TAG, "Provider is not active");
+      return;
+    }
+
     stop();
     LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
 
@@ -442,6 +451,12 @@ public class LocationHelper implements BaseLocationProvider.Listener
    */
   public void resumeLocationInForeground()
   {
+    resumeLocationInForeground(false);
+  }
+
+  /** The InCar launcher may recover a persisted camera mode that was not an explicit user stop. */
+  public void resumeLocationInForeground(boolean recoverPersistedNoPosition)
+  {
     if (isActive())
       return;
     else if (!Map.isEngineCreated())
@@ -451,7 +466,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
       Logger.d(TAG, "Engine is not created yet.");
       return;
     }
-    else if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
+    else if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION && !recoverPersistedNoPosition)
     {
       Logger.i(TAG, "Location updates are stopped by the user manually.");
       return;

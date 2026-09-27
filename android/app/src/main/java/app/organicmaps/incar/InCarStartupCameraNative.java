@@ -23,13 +23,13 @@ final class InCarStartupCameraNative
       nativeShowLocalArea(latitude, longitude, radiusMeters);
   }
 
-  static void requestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled, boolean autoReturn)
+  static void requestFollowAndRotate(boolean forceDrivingArea)
   {
     PENDING_TIMEOUT_HANDLER.removeCallbacks(CANCEL_PENDING);
     if (!Map.isEngineCreated())
       return;
 
-    nativeRequestFollowAndRotate(forceDrivingArea, keepDrivingViewEnabled, autoReturn);
+    nativeRequestFollowAndRotate(forceDrivingArea);
     PENDING_TIMEOUT_HANDLER.postDelayed(CANCEL_PENDING, PENDING_TIMEOUT_MS);
   }
 
@@ -41,7 +41,6 @@ final class InCarStartupCameraNative
   }
 
   private static native void nativeShowLocalArea(double latitude, double longitude, double radiusMeters);
-  private static native void nativeRequestFollowAndRotate(boolean forceDrivingArea, boolean keepDrivingViewEnabled,
-                                                          boolean autoReturn);
+  private static native void nativeRequestFollowAndRotate(boolean forceDrivingArea);
   private static native void nativeCancelPending();
 }

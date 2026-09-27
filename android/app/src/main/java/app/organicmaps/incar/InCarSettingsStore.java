@@ -3,6 +3,7 @@ package app.organicmaps.incar;
 import android.content.Context;
 import android.content.SharedPreferences;
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 import app.organicmaps.MwmApplication;
 
 /** Application-layer storage for preferences that only exist in the direct-display InCar flavour. */
@@ -18,8 +19,36 @@ public final class InCarSettingsStore
   private static final String KEY_BUDGET_SAVED_3D_BUILDINGS = "InCarBudgetSaved3dBuildings";
   private static final String KEY_BUDGET_HAS_SAVED_3D_BUILDINGS = "InCarBudgetHasSaved3dBuildings";
   private static final String KEY_WALKING_SESSION_ACTIVE = "InCarWalkingSessionActive";
+  private static final String KEY_EXPLICIT_LOCATION_OFF = "InCarExplicitLocationOff";
+  private static final String KEY_LOCATION_DISABLED_WARNING = "InCarLocationDisabledWarning";
 
   private InCarSettingsStore() {}
+
+  public static boolean isExplicitLocationOff(@NonNull Context context)
+  {
+    return prefs(context).getBoolean(KEY_EXPLICIT_LOCATION_OFF, false);
+  }
+
+  public static void setExplicitLocationOff(@NonNull Context context, boolean disabled)
+  {
+    prefs(context).edit().putBoolean(KEY_EXPLICIT_LOCATION_OFF, disabled).apply();
+  }
+
+  public static boolean showLocationDisabledWarning(@NonNull Context context)
+  {
+    return showLocationDisabledWarning(prefs(context));
+  }
+
+  @VisibleForTesting
+  static boolean showLocationDisabledWarning(@NonNull SharedPreferences prefs)
+  {
+    return prefs.getBoolean(KEY_LOCATION_DISABLED_WARNING, false);
+  }
+
+  public static void setShowLocationDisabledWarning(@NonNull Context context, boolean show)
+  {
+    prefs(context).edit().putBoolean(KEY_LOCATION_DISABLED_WARNING, show).apply();
+  }
 
   public static boolean showDrivingViewButton(@NonNull Context context)
   {

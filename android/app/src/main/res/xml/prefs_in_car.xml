@@ -101,6 +101,17 @@
     android:title="@string/in_car_settings_maintenance">
 
     <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_location_disabled_warning"
+      android:title="@string/in_car_location_disabled_warning_title"
+      android:summary="@string/in_car_location_disabled_warning_summary"
+      android:defaultValue="false"
+      android:persistent="false" />
+
+    <Preference
+      android:key="@string/pref_in_car_open_location_settings"
+      android:title="@string/in_car_open_location_settings" />
+
+    <SwitchPreferenceCompat
       android:key="@string/pref_in_car_map_age_warning"
       android:title="@string/in_car_map_age_warning_title"
       android:summary="@string/in_car_map_age_warning_summary"

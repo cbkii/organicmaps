@@ -95,13 +95,15 @@ public final class InCarDrivingViewController implements LocationListener
     mStartupCameraStore = new InCarStartupCameraStore(mContext);
 
     // Migrate the old Driving View settings once and project the canonical mode back onto the established
-    // Driving View keys consumed below. Normal launcher follow remains independently owned by
-    // AutoStartLocationFollowAndRotate.
+    // Driving View keys consumed below. The established AutoStartLocationFollowAndRotate key is
+    // the single launcher-start setting, including existing users' saved choice.
     InCarDrivingViewModePolicy.getMode(mContext);
 
-    final boolean restored = InCarSettingsStore.restoredDrivingViewEnabled(mContext);
     final InCarDrivingViewPolicy.ActivationSource restoredSource =
-        restored ? InCarSettingsStore.restoredDrivingViewSource(mContext) : InCarDrivingViewPolicy.ActivationSource.OFF;
+        InCarSettingsStore.restoredDrivingViewSource(mContext);
+    // A launcher session belongs to the current process/entry, not a saved user selection.
+    final boolean restored = InCarSettingsStore.restoredDrivingViewEnabled(mContext)
+                          && restoredSource != InCarDrivingViewPolicy.ActivationSource.LAUNCH;
     mPolicy = new InCarDrivingViewPolicy(restored, restoredSource);
     mPolicy.beginNewSession();
     reconcileModeWithSession();
@@ -246,6 +248,15 @@ public final class InCarDrivingViewController implements LocationListener
     publishSnapshot();
   }
 
+  /** An explicit stop at the My Position control owns location until the user turns it on again. */
+  @UiThread
+  public void onExplicitLocationOff()
+  {
+    final InCarDrivingViewPolicy.Transition transition = mPolicy.disableManually();
+    persistPolicy();
+    applyTransition(transition, false);
+  }
+
   @Override
   @UiThread
   public void onLocationUpdated(@NonNull Location location)
@@ -320,17 +331,32 @@ public final class InCarDrivingViewController implements LocationListener
     final boolean autoFollow = Config.isAutoStartLocationFollowAndRotateEnabled();
     if (!autoFollow)
     {
+      if (mPolicy.isEnabled() && mPolicy.getActivationSource() == InCarDrivingViewPolicy.ActivationSource.LAUNCH)
+      {
+        final InCarDrivingViewPolicy.Transition transition = mPolicy.disableFromLaunch();
+        persistPolicy();
+        applyTransition(transition, false);
+      }
       Logger.i(TAG, "InCar startup camera: preserve last map view because launch follow is disabled");
       return;
     }
+
+    if (InCarSettingsStore.isExplicitLocationOff(mContext))
+      return;
 
     final RoutingController routing = RoutingController.get();
     final boolean routingAuthority = InCarStartupCameraPolicy.hasRoutingCameraAuthority(
         routing.isPlanning(), routing.isBuilding(), routing.isNavigating(), routing.hasSavedRoute(),
         Framework.nativeIsRoutingActive());
+    final InCarDrivingViewPolicy.Transition transition =
+        mPolicy.isEnabled() && mPolicy.getActivationSource() != InCarDrivingViewPolicy.ActivationSource.LAUNCH
+            ? InCarDrivingViewPolicy.Transition.NONE
+            : mPolicy.enableFromLaunch();
+    // The controller, rather than the framing bridge, owns the persistent native Driving View.
     if (!InCarStartupCameraPolicy.shouldRequestFollowAndRotate(autoFollow, routingAuthority))
     {
       Logger.i(TAG, "InCar startup camera: routing retains camera authority");
+      publishSnapshot();
       return;
     }
 
@@ -359,10 +385,9 @@ public final class InCarDrivingViewController implements LocationListener
       Logger.i(TAG, "InCar startup camera: wait for live follow without pre-fix framing");
     }
 
-    final boolean keepDrivingViewEnabled = mPolicy.isEnabled();
-    InCarStartupCameraNative.requestFollowAndRotate(
-        startupMapView == StartupMapView.DRIVING_AREA, keepDrivingViewEnabled,
-        keepDrivingViewEnabled && InCarSettingsStore.autoReturnDrivingViewEnabled(mContext));
+    syncNativeState(true /* recenter */);
+    InCarStartupCameraNative.requestFollowAndRotate(startupMapView == StartupMapView.DRIVING_AREA);
+    applyTransition(transition, false);
   }
 
   private void reconcileModeWithSession()
@@ -370,7 +395,9 @@ public final class InCarDrivingViewController implements LocationListener
     final DrivingViewMode mode = InCarDrivingViewModePolicy.getMode(mContext);
     if (mode == DrivingViewMode.OFF)
     {
-      if (mPolicy.isEnabled())
+      // OFF disables later speed-based activation. A launcher session is governed by the
+      // independent Start in Driving View preference, even when automatic entry is OFF.
+      if (mPolicy.isEnabled() && mPolicy.getActivationSource() != InCarDrivingViewPolicy.ActivationSource.LAUNCH)
       {
         mPolicy.disableManually();
         persistPolicy();

@@ -83,6 +83,15 @@ public final class InCarDrivingViewPolicy
   }
 
   @NonNull
+  public Transition disableFromLaunch()
+  {
+    if (mSource != ActivationSource.LAUNCH)
+      return Transition.NONE;
+    resetSpeedEvidence();
+    return setEnabled(false, ActivationSource.OFF);
+  }
+
+  @NonNull
   public Transition disableManually()
   {
     // A manual OFF must not be undone by the next >30 km/h fix. Re-arm only after the
