@@ -146,7 +146,12 @@ public final class LocationPromptCoordinator extends ViewModel
     final Activity topActivity = app.getTopActivity();
     if (!(topActivity instanceof MwmActivity owner)
         || !owner.getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-      return null;
+    {
+      // MwmApplication only publishes getTopActivity() from onActivityResumed(). A provider failure
+      // can arrive between onStart() and onResume(), so never let that ownership race fall through
+      // to the immediate blocking settings path. MwmActivity.onResume() already retries location.
+      return ProviderAction.NONE;
+    }
 
     final MwmActivity previousOwner = mInCarRecoveryOwner == null ? null : mInCarRecoveryOwner.get();
     if (previousOwner != owner)
