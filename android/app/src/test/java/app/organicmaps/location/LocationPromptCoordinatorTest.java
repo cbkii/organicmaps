@@ -11,11 +11,11 @@ import org.junit.Test;
 public class LocationPromptCoordinatorTest
 {
   @Test
-  public void grantedAndEnabledIgnoresStaleProviderCallback()
+  public void grantedAndEnabledRestoresLocationWithoutPrompt()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
-    assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
+    assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
     assertFalse(coordinator.isPermissionRequestPending());
     assertFalse(coordinator.isLocationSettingsTransitionPending());
   }
@@ -94,14 +94,14 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
-  public void returningFromSettingsReevaluatesCurrentProviderState()
+  public void returningFromSettingsRestoresLocationWhenProviderIsReady()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
     assertTrue(coordinator.beginLocationSettingsTransition());
     coordinator.finishLocationSettingsTransition();
 
-    assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
+    assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
   }
 
   @Test
@@ -116,14 +116,14 @@ public class LocationPromptCoordinatorTest
   }
 
   @Test
-  public void repeatedReadyStateRemainsPromptFree()
+  public void repeatedReadyStateRemainsPromptFreeAndRecoverable()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
 
     for (int i = 0; i < 10; ++i)
     {
       assertEquals(PermissionAction.NONE, coordinator.onPermissionRequired(true, false));
-      assertEquals(ProviderAction.IGNORE_STALE_CALLBACK, coordinator.onProviderUnavailable(true, true, false));
+      assertEquals(ProviderAction.RESTORE_LOCATION, coordinator.onProviderUnavailable(true, true, false));
       assertFalse(coordinator.isPermissionRequestPending());
       assertFalse(coordinator.isLocationSettingsTransitionPending());
     }

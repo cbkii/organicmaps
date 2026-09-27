@@ -25,7 +25,7 @@ public final class LocationPromptCoordinator extends ViewModel
     REQUEST_PERMISSION,
     SHOW_APP_SETTINGS,
     SHOW_LOCATION_SETTINGS,
-    IGNORE_STALE_CALLBACK
+    RESTORE_LOCATION
   }
 
   private boolean mPermissionRequestPending;
@@ -81,7 +81,7 @@ public final class LocationPromptCoordinator extends ViewModel
 
     mPermissionPermanentlyDenied = false;
     if (locationServicesEnabled)
-      return ProviderAction.IGNORE_STALE_CALLBACK;
+      return ProviderAction.RESTORE_LOCATION;
 
     if (locationUiShowing || mLocationSettingsTransitionPending)
       return ProviderAction.NONE;

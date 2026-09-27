@@ -289,6 +289,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
       saveAndStopTrackRecording();
     }
 
+    // ProcessLifecycleOwner may move the application to the foreground before Drape exists. Its
+    // location resume attempt then deliberately does nothing, so retry once native location mode
+    // is available instead of waiting for another foreground transition.
+    MwmApplication.from(this).getLocationHelper().resumeLocationInForeground();
+
     processIntent();
     migrateOAuthCredentials();
   }
@@ -1024,6 +1029,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
     refreshLightStatusBar();
 
     MwmApplication.from(this).getSensorHelper().addListener(this);
+    // Warm task/window transitions do not necessarily produce an application-level foreground
+    // event. This idempotent retry also runs after the map Activity and its location listeners are
+    // ready, which closes the early-startup gap left by ProcessLifecycleOwner.
+    MwmApplication.from(this).getLocationHelper().resumeLocationInForeground();
     logLocationPromptState("onResume", "activity foregrounded");
   }
 
@@ -1723,8 +1732,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
     // Reconcile remembered denial state against the current Android permission state.
     mLocationPromptCoordinator.onPermissionRequired(true, isLocationErrorDialogShowing());
-    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-      LocationState.nativeSwitchToNextMode();
+    restartLocationAfterAvailabilityConfirmed("returned from Android location settings");
 
     if (mLocationPromptCoordinator.consumeTrackRecordingRequest(fineLocationGranted))
       startTrackRecording();
@@ -1838,8 +1846,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
       mLocationPromptCoordinator.finishPermissionRequest(true, canShowRationale);
       final boolean hasFineLocationPermission = LocationUtils.checkFineLocationPermission(this);
 
-      if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-        LocationState.nativeSwitchToNextMode();
+      if (LocationUtils.areLocationServicesTurnedOn(this))
+        restartLocationAfterAvailabilityConfirmed("runtime permission granted");
 
       if (mLocationPromptCoordinator.consumeTrackRecordingRequest(hasFineLocationPermission))
         startTrackRecording();
@@ -1937,7 +1945,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (action == ProviderAction.NONE)
       return;
 
-    if (action == ProviderAction.IGNORE_STALE_CALLBACK)
+    if (action == ProviderAction.RESTORE_LOCATION)
     {
       restoreLocationAfterStaleUnavailableCallback();
       return;
@@ -1996,8 +2004,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
 
     Logger.i(LOCATION_TAG, "Android location providers are enabled after resolution, restarting location");
-    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-      LocationState.nativeSwitchToNextMode();
+    restartLocationAfterAvailabilityConfirmed("location resolution completed");
   }
 
   /**
@@ -2016,7 +2023,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (action == ProviderAction.NONE)
       return;
 
-    if (action == ProviderAction.IGNORE_STALE_CALLBACK)
+    if (action == ProviderAction.RESTORE_LOCATION)
     {
       // LocationHelper has already stopped updates and published ERROR_GPS_OFF before this callback.
       // If Android now reports both permission and providers ready, restore normal location operation.
@@ -2055,8 +2062,27 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void restoreLocationAfterStaleUnavailableCallback()
   {
+    restartLocationAfterAvailabilityConfirmed("stale provider callback");
+  }
+
+  private void restartLocationAfterAvailabilityConfirmed(@NonNull String reason)
+  {
+    if (!LocationUtils.checkLocationPermission(this) || !LocationUtils.areLocationServicesTurnedOn(this))
+    {
+      logLocationPromptState("location-recovery", "current platform state is not ready: " + reason);
+      return;
+    }
+
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
       LocationState.nativeSwitchToNextMode();
+
+    // LocationHelper stops before publishing provider-unavailable callbacks. Switching native
+    // mode alone is insufficient when that switch is not delivered synchronously (or the mode was
+    // already usable), so explicitly restore the provider subscription as well. The helper is
+    // idempotent when a synchronous mode callback has already restarted it.
+    final LocationHelper locationHelper = MwmApplication.from(this).getLocationHelper();
+    locationHelper.restartWithNewMode();
+    logLocationPromptState("location-recovery", "provider restarted: " + reason);
   }
 
   private boolean requestBatterySaverPermission()
