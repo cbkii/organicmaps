@@ -152,7 +152,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   private boolean isInCarLandscape()
   {
     return BuildConfig.IS_IN_CAR
-&& mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+ && mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
   }
 
   private void updateNavigationHeaderMetrics()
