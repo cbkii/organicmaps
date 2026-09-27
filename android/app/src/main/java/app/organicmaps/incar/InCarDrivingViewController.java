@@ -103,7 +103,7 @@ public final class InCarDrivingViewController implements LocationListener
         InCarSettingsStore.restoredDrivingViewSource(mContext);
     // A launcher session belongs to the current process/entry, not a saved user selection.
     final boolean restored = InCarSettingsStore.restoredDrivingViewEnabled(mContext)
-                             && restoredSource != InCarDrivingViewPolicy.ActivationSource.LAUNCH;
+                          && restoredSource != InCarDrivingViewPolicy.ActivationSource.LAUNCH;
     mPolicy = new InCarDrivingViewPolicy(restored, restoredSource);
     mPolicy.beginNewSession();
     reconcileModeWithSession();
@@ -350,7 +350,8 @@ public final class InCarDrivingViewController implements LocationListener
         Framework.nativeIsRoutingActive());
     final InCarDrivingViewPolicy.Transition transition =
         mPolicy.isEnabled() && mPolicy.getActivationSource() != InCarDrivingViewPolicy.ActivationSource.LAUNCH
-            ? InCarDrivingViewPolicy.Transition.NONE : mPolicy.enableFromLaunch();
+            ? InCarDrivingViewPolicy.Transition.NONE
+            : mPolicy.enableFromLaunch();
     // The controller, rather than the framing bridge, owns the persistent native Driving View.
     if (!InCarStartupCameraPolicy.shouldRequestFollowAndRotate(autoFollow, routingAuthority))
     {

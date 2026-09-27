@@ -304,8 +304,8 @@ public class MwmApplication extends Application implements Application.ActivityL
 
     if (BuildConfig.IS_IN_CAR && (!Map.isEngineCreated() || !LocationUtils.areLocationServicesTurnedOn(this)))
       return;
-    getLocationHelper().resumeLocationInForeground(BuildConfig.IS_IN_CAR
-        && !InCarSettingsStore.isExplicitLocationOff(this)
+    getLocationHelper().resumeLocationInForeground(
+        BuildConfig.IS_IN_CAR && !InCarSettingsStore.isExplicitLocationOff(this)
         && (mInCarDrivingViewController != null && mInCarDrivingViewController.isEnabled()
             || Config.isAutoStartLocationFollowAndRotateEnabled()));
   }

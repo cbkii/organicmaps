@@ -175,8 +175,7 @@ public class InCarDrivingViewPolicyTest
     final InCarDrivingViewPolicy policy = offPolicy();
     assertEquals(InCarDrivingViewPolicy.Transition.ENABLE, policy.enableFromLaunch());
     assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.enableFromLaunch());
-    assertEquals(InCarDrivingViewPolicy.Transition.NONE,
-                 policy.onSpeedSample(false, false, -1, T0, true));
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.onSpeedSample(false, false, -1, T0, true));
     assertEquals(InCarDrivingViewPolicy.Transition.NONE,
                  policy.onSpeedSample(true, true, 0, T0 + InCarDrivingViewPolicy.LOW_SPEED_EXIT_MS, true));
     assertTrue(policy.isEnabled());

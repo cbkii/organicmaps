@@ -202,13 +202,13 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @SuppressWarnings("NotNullFieldNotInitialized")
   private LocationPromptCoordinator mLocationPromptCoordinator;
   private final Handler mLocationRecoveryHandler = new Handler(Looper.getMainLooper());
-  @Nullable private Runnable mLocationRecoveryCheck;
+  @Nullable
+  private Runnable mLocationRecoveryCheck;
   private int mLocationRecoveryGeneration;
   private boolean mLocationActivityStopped = true;
   private boolean mLocationWarningIssued;
   private boolean mLocationSettlingExhausted;
-  private final BroadcastReceiver mLocationModeReceiver = new BroadcastReceiver()
-  {
+  private final BroadcastReceiver mLocationModeReceiver = new BroadcastReceiver() {
     @Override
     public void onReceive(Context context, Intent intent)
     {
@@ -1102,8 +1102,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     mLocationActivityStopped = false;
     if (BuildConfig.IS_IN_CAR)
-      ContextCompat.registerReceiver(this, mLocationModeReceiver,
-                                     new IntentFilter(LocationManager.MODE_CHANGED_ACTION),
+      ContextCompat.registerReceiver(this, mLocationModeReceiver, new IntentFilter(LocationManager.MODE_CHANGED_ACTION),
                                      ContextCompat.RECEIVER_NOT_EXPORTED);
     RoutingController.get().attach(this);
     super.onStart();
@@ -2087,9 +2086,22 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      if (!LocationUtils.checkLocationPermission(this))
-        requestLocationPermissionIfNeeded(false, "provider callback without permission", true);
-      else
+      final boolean permissionGranted = LocationUtils.checkLocationPermission(this);
+      final boolean servicesEnabled = LocationUtils.areLocationServicesTurnedOn(this);
+      final ProviderAction action = mLocationPromptCoordinator.onProviderUnavailable(permissionGranted, servicesEnabled,
+                                                                                     isLocationErrorDialogShowing());
+      if (action == ProviderAction.REQUEST_PERMISSION)
+        launchReservedLocationPermissionRequest("provider callback without runtime permission", true);
+      else if (action == ProviderAction.SHOW_APP_SETTINGS)
+        showLocationPermissionDeniedDialog(true);
+      else if (action == ProviderAction.RESTORE_LOCATION)
+      {
+        if (InCarSettingsStore.isExplicitLocationOff(this))
+          mLocationPromptCoordinator.finishProviderRecoveryAttempt();
+        else
+          restartLocationAfterAvailabilityConfirmed("InCar provider callback with Location enabled");
+      }
+      else if (permissionGranted && !servicesEnabled)
         settleInCarLocation();
       return;
     }
@@ -2149,9 +2161,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!LocationUtils.areLocationServicesTurnedOn(this))
       return;
     final boolean recover = !InCarSettingsStore.isExplicitLocationOff(this)
-                            && (Config.isAutoStartLocationFollowAndRotateEnabled()
-                                || MwmApplication.from(this).getInCarDrivingViewController() != null
-                                   && MwmApplication.from(this).getInCarDrivingViewController().isEnabled());
+                         && (Config.isAutoStartLocationFollowAndRotateEnabled()
+                             || MwmApplication.from(this).getInCarDrivingViewController() != null
+                                    && MwmApplication.from(this).getInCarDrivingViewController().isEnabled());
     MwmApplication.from(this).getLocationHelper().resumeLocationInForeground(recover);
   }
 
@@ -2181,7 +2193,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
       mLocationSettlingExhausted = false;
       mLocationPromptCoordinator.finishLocationSettingsTransition();
       if (!MwmApplication.from(this).getLocationHelper().isActive())
-        restartLocationAfterAvailabilityConfirmed("Android Location recovered during settling");
+      {
+        final ProviderAction action =
+            mLocationPromptCoordinator.onProviderUnavailable(true, true, isLocationErrorDialogShowing());
+        if (action == ProviderAction.RESTORE_LOCATION)
+          restartLocationAfterAvailabilityConfirmed("Android Location recovered during settling");
+      }
       return;
     }
     if (mLocationRecoveryCheck != null || mLocationSettlingExhausted)
@@ -2189,8 +2206,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
     final int generation = ++mLocationRecoveryGeneration;
     final long deadline = SystemClock.uptimeMillis() + LocationSettlePolicy.WINDOW_MS;
-    mLocationRecoveryCheck = new Runnable()
-    {
+    mLocationRecoveryCheck = new Runnable() {
       @Override
       public void run()
       {
@@ -2231,10 +2247,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     final Intent intent = Utils.makeSystemLocationSettingIntent(this);
     final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
-        .setTitle(R.string.enable_location_services)
-        .setMessage(R.string.location_is_disabled_long_text)
-        .setNegativeButton(R.string.close, null)
-        .setOnDismissListener(dialog -> mLocationErrorDialog = null);
+                                                   .setTitle(R.string.enable_location_services)
+                                                   .setMessage(R.string.location_is_disabled_long_text)
+                                                   .setNegativeButton(R.string.close, null)
+                                                   .setOnDismissListener(dialog -> mLocationErrorDialog = null);
     if (intent != null)
       builder.setPositiveButton(R.string.location_settings, (dialog, which) -> {
         if (generation == mLocationRecoveryGeneration && !mLocationActivityStopped
