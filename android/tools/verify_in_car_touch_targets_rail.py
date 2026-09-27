@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the established InCar touch-target contract with the grouped camera-rail structure."""
+"""Run the established InCar touch-target contract with the grouped driver surfaces."""
 
 from __future__ import annotations
 
@@ -83,6 +83,96 @@ def verify_camera_control_rail(root):
             raise base.VerificationError(f"{overlay_layout}: Driving View button must not be duplicated in the overlay")
 
 
+def verify_navigation_ribbon(root):
+    layout = root / "android/app/src/inCar/res/layout-land/layout_nav_top.xml"
+    layout_root = base.parse_xml(layout)
+    id_attr = f"{{{base.ANDROID_NS}}}id"
+
+    ribbon = None
+    for element in layout_root.iter():
+        if element.attrib.get(id_attr) in ("@+id/nav_next_turn_container", "@id/nav_next_turn_container"):
+            ribbon = element
+            break
+    if ribbon is None:
+        raise base.VerificationError(f"{layout}: missing unified nav_next_turn_container ribbon")
+
+    expected_ribbon_attrs = {
+        (base.ANDROID_NS, "layout_width"): "0dp",
+        (base.ANDROID_NS, "minHeight"): "@dimen/in_car_nav_ribbon_min_height",
+        (base.APP_NS, "layout_constraintLeft_toLeftOf"): "parent",
+        (base.APP_NS, "layout_constraintRight_toRightOf"): "parent",
+        (base.APP_NS, "layout_constraintTop_toTopOf"): "parent",
+    }
+    for (namespace, attr), expected in expected_ribbon_attrs.items():
+        actual = ribbon.attrib.get(f"{{{namespace}}}{attr}")
+        if actual != expected:
+            raise base.VerificationError(
+                f"{layout}: navigation ribbon {attr} must be {expected}, found {actual!r}"
+            )
+
+    ribbon_ids = {
+        base.resource_id(element, id_attr)
+        for element in ribbon.iter()
+        if base.resource_id(element, id_attr) != "<no-id>"
+    }
+    required_ids = {
+        "nav_next_turn_frame",
+        "distance",
+        "nav_next_next_turn_frame",
+        "street_frame",
+        "street",
+        "lanes",
+        "nav_speed_limit",
+        "in_car_nav_speed",
+    }
+    missing = sorted(required_ids - ribbon_ids)
+    if missing:
+        raise base.VerificationError(f"{layout}: driver guidance escaped the unified ribbon: {missing}")
+
+    base.reject_text(layout, r'layout_marginTop="-40dp"', "legacy overlapping phone-style turn card")
+    base.require_layout_attr(
+        layout, "street", base.ANDROID_NS, "textSize", "@dimen/in_car_nav_instruction_text_size"
+    )
+    base.require_layout_attr(
+        layout, "distance", base.ANDROID_NS, "textSize", "@dimen/in_car_nav_distance_text_size"
+    )
+    base.require_layout_attr(
+        layout, "lanes", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_lanes_height"
+    )
+
+    values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
+    values = base.resource_values(values_path)
+    for name, expected in (
+        ("in_car_nav_ribbon_min_height", "92dp"),
+        ("in_car_nav_manoeuvre_width", "184dp"),
+        ("in_car_nav_instruction_min_height", "44dp"),
+        ("in_car_nav_lanes_height", "40dp"),
+        ("in_car_nav_instruction_text_size", "24sp"),
+        ("in_car_nav_distance_text_size", "24sp"),
+    ):
+        base.require_value(values, name, expected, values_path)
+
+    controller = root / "android/app/src/main/java/app/organicmaps/routing/NavigationController.java"
+    base.require_method_text(
+        controller,
+        "private boolean isInCarLandscape(",
+        r"BuildConfig\.IS_IN_CAR[\s\S]*?Configuration\.ORIENTATION_LANDSCAPE",
+        "InCar landscape gate",
+    )
+    base.require_method_text(
+        controller,
+        "private int computeNavContentHeight(",
+        r"isInCarLandscape\(\)[\s\S]*?mNextTurnContainer\.getHeight\(\)",
+        "unified ribbon height authority",
+    )
+    base.require_method_text(
+        controller,
+        "private void updateStreetView(",
+        r"isInCarLandscape\(\)[\s\S]*?computeNavContentHeight\(\)",
+        "map-control clearance for the whole ribbon",
+    )
+
+
 def verify_shared_resource_contract(root):
     required = (
         root / "android/app/src/main/res/layout/in_car_action_menu_item.xml",
@@ -132,6 +222,7 @@ original_verify_code = base.verify_code
 def verify_code(root):
     original_verify_code(root)
     verify_shared_resource_contract(root)
+    verify_navigation_ribbon(root)
 
 
 base.verify_camera_control_rail = verify_camera_control_rail
