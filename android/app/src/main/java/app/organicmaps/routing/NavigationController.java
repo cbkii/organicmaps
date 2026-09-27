@@ -73,13 +73,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
-    mTopFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-      final int contentHeight = computeNavContentHeight();
-      mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
-      if (isInCarLandscape())
-        mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding)
-                                                    + contentHeight);
-    });
+    mTopFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateNavigationHeaderMetrics());
     final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
@@ -97,6 +91,10 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final View navigationBarBackground = mFrame.findViewById(R.id.nav_bottom_sheet_nav_bar);
     final View navBottomSheet = mFrame.findViewById(R.id.nav_bottom_sheet);
     mNextTurnContainer = mFrame.findViewById(R.id.nav_next_turn_container);
+    mNextTurnContainer.addOnLayoutChangeListener((v, l, t, r, b, oL, oT, oR, oB) -> {
+      if (isInCarLandscape() && b - t != oB - oT)
+        updateNavigationHeaderMetrics();
+    });
 
     if (isInCarLandscape())
     {
@@ -156,6 +154,14 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   {
     return BuildConfig.IS_IN_CAR
         && mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+  }
+
+  private void updateNavigationHeaderMetrics()
+  {
+    final int contentHeight = computeNavContentHeight();
+    mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
+    if (isInCarLandscape())
+      mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding) + contentHeight);
   }
 
   // Height the search sheet and map controls must clear. InCar landscape owns all driver guidance
