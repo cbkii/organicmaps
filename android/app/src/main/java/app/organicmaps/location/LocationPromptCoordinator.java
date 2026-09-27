@@ -247,8 +247,9 @@ public final class LocationPromptCoordinator extends ViewModel
       return false;
 
     final long elapsedNanos = location.getElapsedRealtimeNanos();
-    return (elapsedNanos > 0L && elapsedNanos >= mInCarRecoveryStartedElapsedNanos)
-        || location.getTime() >= mInCarRecoveryStartedWallTimeMs;
+    if (elapsedNanos > 0L)
+      return elapsedNanos >= mInCarRecoveryStartedElapsedNanos;
+    return location.getTime() >= mInCarRecoveryStartedWallTimeMs;
   }
 
   private void cancelInCarRecoveryIfOwnedBy(@NonNull MwmActivity owner)
