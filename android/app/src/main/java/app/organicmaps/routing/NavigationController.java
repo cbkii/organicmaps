@@ -100,8 +100,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     {
       // The landscape InCar resource is one full-width ribbon. Apply safe drawing insets once to
       // that owning surface so turn, street, lanes and the physical-right speed cluster move as one.
-      ViewCompat.setOnApplyWindowInsetsListener(mNextTurnContainer,
-                                                BaselinePaddingInsetsListener.excludeBottom());
+      ViewCompat.setOnApplyWindowInsetsListener(mNextTurnContainer, BaselinePaddingInsetsListener.excludeBottom());
     }
     else
       ViewCompat.setOnApplyWindowInsetsListener(mStreetFrame, BaselinePaddingInsetsListener.excludeBottom());
@@ -153,7 +152,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   private boolean isInCarLandscape()
   {
     return BuildConfig.IS_IN_CAR
-        && mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+&& mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
   }
 
   private void updateNavigationHeaderMetrics()
@@ -161,7 +160,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final int contentHeight = computeNavContentHeight();
     mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
     if (isInCarLandscape())
-      mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding) + contentHeight);
+      mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding)
+                                                  + contentHeight);
   }
 
   // Height the search sheet and map controls must clear. InCar landscape owns all driver guidance
