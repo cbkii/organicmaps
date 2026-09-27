@@ -106,5 +106,19 @@
       android:summary="@string/in_car_map_age_warning_summary"
       android:persistent="false"
       app:singleLineTitle="false" />
+
+    <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_location_disabled_warning"
+      android:title="@string/in_car_location_disabled_warning_title"
+      android:summary="@string/in_car_location_disabled_warning_summary"
+      android:defaultValue="false"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
+    <Preference
+      android:key="@string/pref_in_car_open_location_settings"
+      android:title="@string/in_car_open_location_settings_title"
+      android:summary="@string/in_car_open_location_settings_summary"
+      app:singleLineTitle="false" />
   </androidx.preference.PreferenceCategory>
 </androidx.preference.PreferenceScreen>
