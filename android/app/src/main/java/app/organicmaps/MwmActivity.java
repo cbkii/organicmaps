@@ -1124,6 +1124,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       unregisterReceiver(mLocationModeReceiver);
     cancelInCarLocationRecovery();
     mLocationSettlingExhausted = false;
+    mLocationWarningIssued = false;
     super.onStop();
 
     Framework.nativeRemovePlacePageActivationListener(this);
@@ -2203,7 +2204,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       }
       return;
     }
-    if (mLocationRecoveryCheck != null || mLocationSettlingExhausted)
+    if (mLocationRecoveryCheck != null || mLocationSettlingExhausted || mLocationWarningIssued)
       return;
 
     final int generation = ++mLocationRecoveryGeneration;
