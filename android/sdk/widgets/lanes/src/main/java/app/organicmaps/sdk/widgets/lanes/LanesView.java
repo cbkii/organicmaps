@@ -30,6 +30,7 @@ public class LanesView extends View
     int INACTIVE_LANE_TINT_COLOR = Color.GRAY;
 
     float CORNER_RADIUS = 0.0f;
+    boolean ALIGN_TOP = false;
 
     int LANES_COUNT = 5;
   }
@@ -48,6 +49,7 @@ public class LanesView extends View
   private LanesDrawable mLanesDrawable;
   @Nullable
   private Rect mViewBounds = null;
+  private boolean mVerticalAlignmentTop;
 
   public LanesView(Context context, @Nullable AttributeSet attrs)
   {
@@ -64,6 +66,7 @@ public class LanesView extends View
           getAttrColor(data, R.styleable.LanesView_lanesInactiveLaneTintColor, DefaultValues.INACTIVE_LANE_TINT_COLOR);
       mCornerRadius =
           (int) Math.max(data.getDimension(R.styleable.LanesView_lanesCornerRadius, DefaultValues.CORNER_RADIUS), 0.0f);
+      mVerticalAlignmentTop = data.getBoolean(R.styleable.LanesView_lanesAlignTop, DefaultValues.ALIGN_TOP);
 
       if (isInEditMode())
       {
@@ -82,7 +85,10 @@ public class LanesView extends View
     if (lanes == null || lanes.length == 0)
       mLanesDrawable = null;
     else
+    {
       mLanesDrawable = new LanesDrawable(getContext(), lanes, mActiveLaneTintColor, mInactiveLaneTintColor);
+      mLanesDrawable.setVerticalAlignmentTop(mVerticalAlignmentTop);
+    }
     update();
   }
 

@@ -69,6 +69,7 @@ public class LanesDrawable extends Drawable
 
   private int mWidth;
   private int mHeight;
+  private boolean mVerticalAlignmentTop;
 
   public LanesDrawable(@NonNull final Context context, @NonNull LaneInfo[] lanes)
   {
@@ -82,6 +83,11 @@ public class LanesDrawable extends Drawable
   {
     final TintColorInfo tintColorInfo = new TintColorInfo(activeLaneTint, inactiveLaneTint);
     mLanes = createLaneDrawables(context, lanes, tintColorInfo);
+  }
+
+  public void setVerticalAlignmentTop(boolean alignTop)
+  {
+    mVerticalAlignmentTop = alignTop;
   }
 
   @Override
@@ -112,7 +118,7 @@ public class LanesDrawable extends Drawable
     mHeight = (int) heightForOneLane;
 
     float offsetX = (float) Math.abs(mWidth - width) / 2 + left;
-    float offsetY = (float) Math.abs(mHeight - height) / 2 + top;
+    float offsetY = mVerticalAlignmentTop ? top : (float) Math.abs(mHeight - height) / 2 + top;
     for (final LaneDrawable drawable : mLanes)
     {
       final Rect bounds = drawable.mDrawable.getBounds();
