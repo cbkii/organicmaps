@@ -589,8 +589,15 @@ public final class InCarQuickDestinationsUi
                   (ignored, which) -> mActivity.startActivity(new Intent(mActivity, SettingsActivity.class)))
               .create();
       dialog.setOnShowListener(ignored -> {
-        InCarDialogSizing.applyCompactWidth(mActivity, dialog);
         styleSettingsFooter(dialog.getButton(AlertDialog.BUTTON_NEUTRAL));
+        if (mNavigationMode)
+        {
+          final Integer header = mMapButtonsViewModel.getTopHeaderHeight().getValue();
+          InCarDialogSizing.applyNavigationOverflowBounds(mActivity, dialog, header == null ? 0 : header,
+                                                         mBottomButtonsHeight);
+        }
+        else
+          InCarDialogSizing.applyCompactWidth(mActivity, dialog);
       });
       dialog.show();
     }

@@ -279,6 +279,9 @@ public final class InCarDrivingUi
                            && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
                            && snapshot.hasSpeed && routingInfo != null
                            && InCarSpeedDisplayPolicy.isSpeeding(snapshot.speedMps, routingInfo.speedLimitMps);
+      if (!snapshot.navigating || snapshot.locationHealth != InCarDrivingViewController.LocationHealth.CURRENT
+          || !snapshot.hasSpeed || routingInfo == null)
+        InCarSpeedDisplayPolicy.resetSpeeding();
       navigationSpeedView.setSpeeding(warning);
     }
 

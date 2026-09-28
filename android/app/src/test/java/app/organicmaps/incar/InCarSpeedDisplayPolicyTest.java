@@ -114,10 +114,20 @@ public class InCarSpeedDisplayPolicyTest
   }
 
   @Test
-  public void zeroLimitWarnsOnlyAfterMovementStarts()
+  public void zeroLimitIsUnknownAndClearsWarning()
   {
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
     assertFalse(InCarSpeedDisplayPolicy.isSpeeding(0.0, 0.0));
-    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(0.1, 0.0));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(0.1, 0.0));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(104.0), kph(100.0)));
+  }
+
+  @Test
+  public void aChangedRoadLimitDoesNotInheritThePreviousWarning()
+  {
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(83.5), kph(80.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(84.0), kph(80.0)));
   }
 
   private static double kph(double value)

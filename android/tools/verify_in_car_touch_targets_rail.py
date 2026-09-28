@@ -207,6 +207,20 @@ def verify_navigation_quick_actions(root):
         r"InCarChoiceAdapter\.withIcons[\s\S]*?setNeutralButton\(\s*R\.string\.settings",
         "icon-labelled overflow with fixed Settings footer",
     )
+    base.require_method_text(
+        quick_ui,
+        "private void showOverflowChoice(",
+        r"styleSettingsFooter[\s\S]*?applyNavigationOverflowBounds",
+        "navigation overflow must fit between ribbon and footer",
+    )
+
+    sizing = root / "android/app/src/main/java/app/organicmaps/incar/InCarDialogSizing.java"
+    base.require_method_text(
+        sizing,
+        "public static void applyNavigationOverflowBounds(",
+        r"bottomControlsHeightPx[\s\S]*?headerHeightPx[\s\S]*?Gravity\.RIGHT \| Gravity\.BOTTOM",
+        "navigation overflow bounds and physical-right placement",
+    )
 
     adapter = root / "android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java"
     base.require_method_text(
@@ -220,7 +234,8 @@ def verify_navigation_quick_actions(root):
 def verify_speed_warning_policy(root):
     policy = root / "android/app/src/main/java/app/organicmaps/incar/InCarSpeedDisplayPolicy.java"
     text = base.read_text(policy)
-    for token in ("SPEED_WARNING_ENTER_FACTOR = 1.05", "SPEED_WARNING_CLEAR_FACTOR = 1.03", "resetSpeeding()"):
+    for token in ("SPEED_WARNING_ENTER_FACTOR = 1.05", "SPEED_WARNING_CLEAR_FACTOR = 1.03",
+                  "SPEED_BOUNDARY_TOLERANCE_MPS", "sSpeedLimitMps", "resetSpeeding()"):
         if token not in text:
             raise base.VerificationError(f"{policy}: missing authoritative overspeed policy token {token!r}")
 
