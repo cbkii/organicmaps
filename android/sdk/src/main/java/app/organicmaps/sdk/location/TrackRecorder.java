@@ -24,6 +24,18 @@ public class TrackRecorder
 
   public static native ElevationInfo nativeGetElevationInfo();
 
+  /** Save any recorded points before an explicit stop. An empty track has nothing to save. */
+  public static boolean saveAndStop()
+  {
+    nativeSetTrackRecordingStatsListener(null);
+    nativeSetAutoResumeForCurrentRecording(false);
+    final boolean saved = !nativeIsTrackRecordingEmpty();
+    if (saved)
+      nativeSaveTrackRecordingWithName("");
+    nativeStopTrackRecording();
+    return saved;
+  }
+
   public interface TrackRecordingUpdateHandler
   {
     @Keep

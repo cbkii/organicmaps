@@ -49,7 +49,8 @@ public class PlacePageTrackRecordingFragment
   public void onStart()
   {
     super.onStart();
-    TrackRecorder.nativeSetTrackRecordingStatsListener(this);
+    if (TrackRecorder.nativeIsTrackRecordingEnabled())
+      TrackRecorder.nativeSetTrackRecordingStatsListener(this);
   }
 
   @Override

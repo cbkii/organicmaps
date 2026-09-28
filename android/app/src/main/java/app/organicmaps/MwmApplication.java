@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ProcessLifecycleOwner;
@@ -155,6 +156,11 @@ public class MwmApplication extends Application implements Application.ActivityL
 
     DownloaderNotifier.createNotificationChannel(this);
     initNavigationService();
+    // State transitions also cover notification stops, arrival and routes without a service.
+    RoutingController.get().addNavigationStateListener(navigating -> {
+      if (!navigating)
+        onNavigationOrRecordingStopped();
+    });
     TrackRecordingService.createNotificationChannel(this);
 
     registerActivityLifecycleCallbacks(this);
@@ -317,6 +323,30 @@ public class MwmApplication extends Application implements Application.ActivityL
     if (!BuildConfig.IS_IN_CAR)
       OsmUploadScheduler.schedule(this);
 
+    stopLocationInBackgroundIfUnused();
+  }
+
+  /** Reassess the location lease after either background feature ends. */
+  public void onNavigationOrRecordingStopped()
+  {
+    if (!getOrganicMaps().arePlatformAndCoreInitialized())
+      return;
+
+    final boolean foreground =
+        ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
+    final boolean hasResumedActivity = getTopActivity() != null;
+    final boolean active = getLocationHelper().isActive();
+    if (LocationFeatureStopPolicy.shouldReassessBackground(foreground))
+      stopLocationInBackgroundIfUnused();
+    else if (LocationFeatureStopPolicy.shouldAdjustForegroundRate(
+                 foreground, hasResumedActivity, active, LocationUtils.checkLocationPermission(this),
+                 LocationUtils.areLocationServicesTurnedOn(this),
+                 BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this)))
+      getLocationHelper().restartWithNewMode();
+  }
+
+  private void stopLocationInBackgroundIfUnused()
+  {
     if (!BuildConfig.IS_IN_CAR && !mDisplayManager.isDeviceDisplayUsed())
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
     else if (RoutingController.get().isNavigating())

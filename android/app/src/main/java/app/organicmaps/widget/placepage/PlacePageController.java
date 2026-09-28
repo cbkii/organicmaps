@@ -602,8 +602,12 @@ public class PlacePageController
 
   void showTrackDeleteAlertDialog()
   {
-    if (mMapObject == null)
+    if (!(mMapObject instanceof Track track))
+    {
+      dismissAlertDialog();
       return;
+    }
+    final long trackId = track.getTrackId();
     dismissAlertDialog();
     mViewModel.isAlertDialogShowing = true;
     if (mAlertDialog != null)
@@ -612,13 +616,12 @@ public class PlacePageController
       return;
     }
     mAlertDialog = new MaterialAlertDialogBuilder(requireContext(), R.style.MwmTheme_AlertDialog)
-                       .setTitle(requireContext().getString(R.string.delete_track_dialog_title, mMapObject.getTitle()))
+                       .setTitle(requireContext().getString(R.string.delete_track_dialog_title, track.getTitle()))
                        .setCancelable(true)
                        .setNegativeButton(R.string.cancel, null)
                        .setPositiveButton(R.string.delete,
                                           (dialog, which) -> {
-                                            BookmarkManager.INSTANCE.deleteTrack(((Track) mMapObject).getTrackId());
-                                            close();
+                                            BookmarkManager.INSTANCE.deleteTrack(trackId);
                                           })
                        .setOnDismissListener(dialog -> dismissAlertDialog())
                        .show();
@@ -626,10 +629,9 @@ public class PlacePageController
 
   void dismissAlertDialog()
   {
-    if (mAlertDialog == null)
-      return;
-    mAlertDialog.dismiss();
     mViewModel.isAlertDialogShowing = false;
+    if (mAlertDialog != null)
+      mAlertDialog.dismiss();
   }
 
   private void onBackBtnClicked()
@@ -872,7 +874,10 @@ public class PlacePageController
         onTrackRecordingSelected();
     }
     else
+    {
+      dismissAlertDialog();
       close();
+    }
   }
 
   @Override
