@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import re
+
 import verify_in_car_touch_targets as base
 
 
@@ -145,6 +147,10 @@ def verify_navigation_ribbon(root):
     )
     base.require_layout_attr(layout, "lanes", base.ANDROID_NS, "layout_gravity", "top")
     base.require_layout_attr(layout, "lanes", base.APP_NS, "lanesAlignTop", "true")
+    lanes_drawable = root / "android/sdk/widgets/lanes/src/main/java/app/organicmaps/sdk/widgets/lanes/LanesDrawable.java"
+    fitting = base.java_method_body(lanes_drawable, "public void setBounds(")
+    if re.search(r"\bm(?:Width|Height)\s*=", fitting):
+        raise base.VerificationError(f"{lanes_drawable}: repeated lane fitting must retain intrinsic dimensions")
 
     values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
     values = base.resource_values(values_path)
