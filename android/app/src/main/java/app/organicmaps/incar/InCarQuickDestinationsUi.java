@@ -302,8 +302,8 @@ public final class InCarQuickDestinationsUi
                                  R.drawable.ic_in_car_quick_recent, R.color.in_car_quick_recent_2);
     }
 
-    private void collectNavigationFixedAction(@StringRes int labelRes, @DrawableRes int iconRes,
-                                              @ColorRes int colorRes, @NonNull Runnable click)
+    private void collectNavigationFixedAction(@StringRes int labelRes, @DrawableRes int iconRes, @ColorRes int colorRes,
+                                              @NonNull Runnable click)
     {
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
@@ -419,8 +419,8 @@ public final class InCarQuickDestinationsUi
           displayLabel.isEmpty()
               ? actionLabel
               : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
-      mOverflowActions.add(new QuickActionBinding(
-          button, description, iconRes, () -> mActivity.startLocationToPoint(destination.toMapObject())));
+      mOverflowActions.add(new QuickActionBinding(button, description, iconRes,
+                                                  () -> mActivity.startLocationToPoint(destination.toMapObject())));
     }
 
     private void renderActionLayout()
@@ -470,8 +470,8 @@ public final class InCarQuickDestinationsUi
       rendered.add(ensureMoreButton());
 
       final int actionSizeDp = pxToDp(InCarVisuals.currentQuickActionSizePx(mActivity));
-      final int gapDp = InCarQuickDestinationsLayoutPolicy.resolvedGapDp(availableHeightDp(), actionSizeDp,
-                                                                         rendered.size());
+      final int gapDp =
+          InCarQuickDestinationsLayoutPolicy.resolvedGapDp(availableHeightDp(), actionSizeDp, rendered.size());
       renderButtons(rendered, gapDp);
     }
 
@@ -580,13 +580,14 @@ public final class InCarQuickDestinationsUi
       }
 
       final InCarChoiceAdapter adapter = InCarChoiceAdapter.withIcons(mActivity, choices, icons);
-      final AlertDialog dialog = new AlertDialog.Builder(mActivity)
-                                     .setTitle(R.string.in_car_quick_more)
-                                     .setAdapter(adapter, (ignored, which) -> actions.get(which).action.run())
-                                     .setNeutralButton(R.string.settings,
-                                                       (ignored, which) -> mActivity.startActivity(
-                                                           new Intent(mActivity, SettingsActivity.class)))
-                                     .create();
+      final AlertDialog dialog =
+          new AlertDialog.Builder(mActivity)
+              .setTitle(R.string.in_car_quick_more)
+              .setAdapter(adapter, (ignored, which) -> actions.get(which).action.run())
+              .setNeutralButton(
+                  R.string.settings,
+                  (ignored, which) -> mActivity.startActivity(new Intent(mActivity, SettingsActivity.class)))
+              .create();
       dialog.setOnShowListener(ignored -> {
         InCarDialogSizing.applyCompactWidth(mActivity, dialog);
         styleSettingsFooter(dialog.getButton(AlertDialog.BUTTON_NEUTRAL));
@@ -598,7 +599,8 @@ public final class InCarQuickDestinationsUi
     {
       if (settingsButton == null)
         return;
-      settingsButton.setMinHeight(mActivity.getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height));
+      settingsButton.setMinHeight(
+          mActivity.getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height));
       Drawable icon = ContextCompat.getDrawable(mActivity, R.drawable.ic_settings);
       if (icon == null)
         return;

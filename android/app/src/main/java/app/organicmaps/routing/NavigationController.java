@@ -167,9 +167,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   private int computeNavContentHeight()
   {
     if (isInCarLandscape())
-      return UiUtils.isVisible(mNextTurnContainer)
-               ? dimen(mFrame.getContext(), R.dimen.in_car_nav_ribbon_height)
-               : 0;
+      return UiUtils.isVisible(mNextTurnContainer) ? dimen(mFrame.getContext(), R.dimen.in_car_nav_ribbon_height) : 0;
 
     int turnAndSpeedHeight = 0;
     if (mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)
@@ -347,7 +345,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
     final boolean speedLimitExceeded;
     if (BuildConfig.IS_IN_CAR)
-      speedLimitExceeded = location != null && InCarSpeedDisplayPolicy.isSpeeding(location.getSpeed(), info.speedLimitMps);
+      speedLimitExceeded =
+          location != null && InCarSpeedDisplayPolicy.isSpeeding(location.getSpeed(), info.speedLimitMps);
     else
       speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
     mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(info.speedLimitMps), speedLimitExceeded);
