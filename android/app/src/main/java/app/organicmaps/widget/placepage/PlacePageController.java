@@ -615,16 +615,14 @@ public class PlacePageController
       mAlertDialog.show();
       return;
     }
-    mAlertDialog = new MaterialAlertDialogBuilder(requireContext(), R.style.MwmTheme_AlertDialog)
-                       .setTitle(requireContext().getString(R.string.delete_track_dialog_title, track.getTitle()))
-                       .setCancelable(true)
-                       .setNegativeButton(R.string.cancel, null)
-                       .setPositiveButton(R.string.delete,
-                                          (dialog, which) -> {
-                                            BookmarkManager.INSTANCE.deleteTrack(trackId);
-                                          })
-                       .setOnDismissListener(dialog -> dismissAlertDialog())
-                       .show();
+    mAlertDialog =
+        new MaterialAlertDialogBuilder(requireContext(), R.style.MwmTheme_AlertDialog)
+            .setTitle(requireContext().getString(R.string.delete_track_dialog_title, track.getTitle()))
+            .setCancelable(true)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete, (dialog, which) -> { BookmarkManager.INSTANCE.deleteTrack(trackId); })
+            .setOnDismissListener(dialog -> dismissAlertDialog())
+            .show();
   }
 
   void dismissAlertDialog()

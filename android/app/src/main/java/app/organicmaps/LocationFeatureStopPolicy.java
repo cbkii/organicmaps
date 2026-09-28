@@ -14,7 +14,8 @@ final class LocationFeatureStopPolicy
                                             boolean permissionGranted, boolean androidLocationEnabled,
                                             boolean explicitlyOff)
   {
-    return foreground && hasResumedActivity && providerActive && permissionGranted && androidLocationEnabled
-        && !explicitlyOff;
+    if (!foreground || !hasResumedActivity || !providerActive || !permissionGranted || !androidLocationEnabled)
+      return false;
+    return !explicitlyOff;
   }
 }
