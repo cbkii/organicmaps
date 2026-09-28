@@ -144,6 +144,7 @@ def verify_navigation_ribbon(root):
         layout, "lanes", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_lanes_height"
     )
     base.require_layout_attr(layout, "lanes", base.ANDROID_NS, "layout_gravity", "top")
+    base.require_layout_attr(layout, "lanes", base.APP_NS, "lanesAlignTop", "true")
 
     values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
     values = base.resource_values(values_path)
@@ -203,7 +204,7 @@ def verify_navigation_quick_actions(root):
     base.require_method_text(
         quick_ui,
         "private void showOverflowChoice(",
-        r"InCarChoiceAdapter\.withIcons[\s\S]*?setNeutralButton\(R\.string\.settings",
+        r"InCarChoiceAdapter\.withIcons[\s\S]*?setNeutralButton\(\s*R\.string\.settings",
         "icon-labelled overflow with fixed Settings footer",
     )
 
@@ -245,9 +246,12 @@ def verify_shared_resource_contract(root):
     if missing:
         raise base.VerificationError(f"shared src/main InCar resource fallbacks missing: {missing}")
 
-    fallback_text = base.read_text(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml")
+    fallback_path = root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml"
+    fallback_text = base.read_text(fallback_path)
     if 'name="in_car_selection_foreground"' not in fallback_text:
         raise base.VerificationError("shared src/main InCar colour fallback is missing selection foreground")
+    fallback_values = base.resource_values(fallback_path)
+    base.require_value(fallback_values, "in_car_nav_ribbon_height", "112dp", fallback_path)
 
     theme_path = root / "android/app/src/inCar/res/values/in_car_dialog_theme.xml"
     theme_root = base.parse_xml(theme_path)
