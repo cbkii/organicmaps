@@ -10,18 +10,20 @@
 
   <!--
     InCar landscape uses one driver-information ribbon instead of independent floating cards.
+    The fixed envelope prevents lanes/next-next/long text from moving the map at high-workload moments.
     The existing controller IDs stay intact so routing, lanes, limits and speed keep one authority.
     Physical-edge safe-drawing insets are added to this whole ribbon by NavigationController.
   -->
   <LinearLayout
     android:id="@+id/nav_next_turn_container"
     android:layout_width="0dp"
-    android:layout_height="wrap_content"
-    android:minHeight="@dimen/in_car_nav_ribbon_min_height"
+    android:layout_height="@dimen/in_car_nav_ribbon_height"
     android:background="?cardBackground"
     android:clickable="true"
+    android:clipChildren="true"
+    android:clipToPadding="true"
     android:elevation="@dimen/nav_elevation"
-    android:gravity="center_vertical"
+    android:gravity="top"
     android:layoutDirection="ltr"
     android:orientation="horizontal"
     android:paddingLeft="@dimen/margin_half"
@@ -38,6 +40,7 @@
       android:id="@+id/nav_next_turn_frame"
       android:layout_width="@dimen/in_car_nav_manoeuvre_width"
       android:layout_height="@dimen/in_car_touch_target_preferred"
+      android:layout_gravity="top"
       android:gravity="center_vertical"
       android:orientation="horizontal">
 
@@ -45,7 +48,7 @@
         android:id="@+id/turn"
         android:layout_width="@dimen/nav_next_turn_sign"
         android:layout_height="@dimen/nav_next_turn_sign"
-        android:layout_gravity="center_vertical"
+        android:layout_gravity="top"
         android:theme="?navigationTheme"
         app:tint="?iconTint"
         tools:src="@drawable/ic_roundabout_exit_12" />
@@ -54,7 +57,7 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:gravity="center"
+        android:gravity="top|center_horizontal"
         android:orientation="vertical">
 
         <TextView
@@ -70,12 +73,12 @@
           android:textStyle="bold"
           tools:text="320 m" />
 
-        <!-- Next-next guidance stays subordinate to the immediate manoeuvre. -->
+        <!-- Next-next guidance stays subordinate and never changes the ribbon envelope. -->
         <FrameLayout
           android:id="@+id/nav_next_next_turn_frame"
           android:layout_width="@dimen/nav_next_next_turn_frame"
           android:layout_height="@dimen/nav_next_next_turn_frame"
-          android:layout_gravity="center_horizontal"
+          android:layout_gravity="top|center_horizontal"
           android:visibility="gone"
           tools:visibility="visible">
 
@@ -83,7 +86,7 @@
             android:id="@id/turn"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_gravity="center"
+            android:layout_gravity="top|center_horizontal"
             android:padding="@dimen/margin_eighth"
             app:tint="?iconTint"
             tools:src="@drawable/ic_then_left_sharp" />
@@ -91,44 +94,48 @@
       </LinearLayout>
     </LinearLayout>
 
-    <!-- Flexible centre: the road/instruction is primary; lane guidance appears only when present. -->
+    <!-- Flexible centre: instruction and lane viewport are both top-anchored inside fixed geometry. -->
     <LinearLayout
       android:layout_width="0dp"
-      android:layout_height="wrap_content"
+      android:layout_height="match_parent"
       android:layout_marginStart="@dimen/margin_base"
       android:layout_marginEnd="@dimen/margin_base"
       android:layout_weight="1"
-      android:gravity="center_vertical"
+      android:clipChildren="true"
+      android:clipToPadding="true"
+      android:gravity="top"
       android:orientation="vertical">
 
       <FrameLayout
         android:id="@+id/street_frame"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="@dimen/in_car_nav_instruction_min_height">
+        android:layout_height="@dimen/in_car_nav_instruction_height"
+        android:clipChildren="true"
+        android:clipToPadding="true">
 
         <TextView
           android:id="@+id/street"
           style="@style/MwmWidget.TextView.NavStreet"
           android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:layout_gravity="center_vertical"
+          android:layout_height="match_parent"
           android:ellipsize="end"
-          android:gravity="start|center_vertical"
+          android:gravity="start|top"
           android:includeFontPadding="false"
           android:layoutDirection="locale"
           android:maxLines="2"
-          android:minHeight="@dimen/in_car_nav_instruction_min_height"
           android:textDirection="locale"
           android:textSize="@dimen/in_car_nav_instruction_text_size"
           android:textStyle="bold"
           tools:text="Northbourne Avenue towards City / Federal Highway" />
       </FrameLayout>
 
+      <!-- Lanes render into a fixed top-anchored viewport. The custom view keeps its own aspect/fit
+           authority; clipping is bottom-biased by the parent rather than moving or growing the ribbon. -->
       <app.organicmaps.sdk.widgets.lanes.LanesView
         android:id="@+id/lanes"
         android:layout_width="match_parent"
         android:layout_height="@dimen/in_car_nav_lanes_height"
+        android:layout_gravity="top"
         android:padding="@dimen/margin_quarter"
         android:visibility="gone"
         app:lanesActiveLaneTintColor="?navLaneArrowActiveColor"
@@ -139,11 +146,12 @@
         tools:visibility="visible" />
     </LinearLayout>
 
-    <!-- Current speed and posted limit form one physical-right glance cluster. -->
+    <!-- Current speed and posted limit form one stable physical-right glance cluster. -->
     <LinearLayout
       android:layout_width="wrap_content"
       android:layout_height="@dimen/in_car_touch_target_preferred"
-      android:gravity="center_vertical"
+      android:layout_gravity="top"
+      android:gravity="top|center_horizontal"
       android:orientation="horizontal">
 
       <app.organicmaps.sdk.widgets.speedlimit.SpeedLimitView

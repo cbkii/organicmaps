@@ -98,7 +98,8 @@ def verify_navigation_ribbon(root):
 
     expected_ribbon_attrs = {
         (base.ANDROID_NS, "layout_width"): "0dp",
-        (base.ANDROID_NS, "minHeight"): "@dimen/in_car_nav_ribbon_min_height",
+        (base.ANDROID_NS, "layout_height"): "@dimen/in_car_nav_ribbon_height",
+        (base.ANDROID_NS, "gravity"): "top",
         (base.APP_NS, "layout_constraintLeft_toLeftOf"): "parent",
         (base.APP_NS, "layout_constraintRight_toRightOf"): "parent",
         (base.APP_NS, "layout_constraintTop_toTopOf"): "parent",
@@ -134,18 +135,22 @@ def verify_navigation_ribbon(root):
         layout, "street", base.ANDROID_NS, "textSize", "@dimen/in_car_nav_instruction_text_size"
     )
     base.require_layout_attr(
+        layout, "street_frame", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_instruction_height"
+    )
+    base.require_layout_attr(
         layout, "distance", base.ANDROID_NS, "textSize", "@dimen/in_car_nav_distance_text_size"
     )
     base.require_layout_attr(
         layout, "lanes", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_lanes_height"
     )
+    base.require_layout_attr(layout, "lanes", base.ANDROID_NS, "layout_gravity", "top")
 
     values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
     values = base.resource_values(values_path)
     for name, expected in (
-        ("in_car_nav_ribbon_min_height", "92dp"),
+        ("in_car_nav_ribbon_height", "112dp"),
         ("in_car_nav_manoeuvre_width", "184dp"),
-        ("in_car_nav_instruction_min_height", "44dp"),
+        ("in_car_nav_instruction_height", "48dp"),
         ("in_car_nav_lanes_height", "40dp"),
         ("in_car_nav_instruction_text_size", "24sp"),
         ("in_car_nav_distance_text_size", "24sp"),
@@ -162,14 +167,68 @@ def verify_navigation_ribbon(root):
     base.require_method_text(
         controller,
         "private int computeNavContentHeight(",
-        r"isInCarLandscape\(\)[\s\S]*?mNextTurnContainer\.getHeight\(\)",
-        "unified ribbon height authority",
+        r"isInCarLandscape\(\)[\s\S]*?R\.dimen\.in_car_nav_ribbon_height",
+        "fixed ribbon height authority",
     )
     base.require_method_text(
         controller,
         "private void updateStreetView(",
         r"isInCarLandscape\(\)[\s\S]*?computeNavContentHeight\(\)",
         "map-control clearance for the whole ribbon",
+    )
+    base.reject_text(
+        controller,
+        r"mNextTurnContainer\.addOnLayoutChangeListener",
+        "conditional ribbon child height must not drive map clearance",
+    )
+
+
+def verify_navigation_quick_actions(root):
+    nav_buttons = root / "android/app/src/inCar/res/layout/map_buttons_layout_navigation.xml"
+    base.require_layout_attr(nav_buttons, "map_buttons_inner_left", base.ANDROID_NS, "visibility", "gone")
+
+    quick_ui = root / "android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java"
+    base.require_method_text(
+        quick_ui,
+        "private void collectNavigationActions(",
+        r"in_car_quick_fuel[\s\S]*?category_toilet[\s\S]*?R\.string\.search[\s\S]*?in_car_quick_places",
+        "active-navigation Fuel/Toilets/Search/Places action contract",
+    )
+    base.require_method_text(
+        quick_ui,
+        "private void renderNavigationActionLayout(",
+        r"mDirectActions[\s\S]*?ensureMoreButton\(\)",
+        "active-navigation fixed quick rail",
+    )
+    base.require_method_text(
+        quick_ui,
+        "private void showOverflowChoice(",
+        r"InCarChoiceAdapter\.withIcons[\s\S]*?setNeutralButton\(R\.string\.settings",
+        "icon-labelled overflow with fixed Settings footer",
+    )
+
+    adapter = root / "android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java"
+    base.require_method_text(
+        adapter,
+        "public static InCarChoiceAdapter withIcons(",
+        r"iconResIds[\s\S]*?InCarChoiceAdapter",
+        "icon-aware InCar overflow rows",
+    )
+
+
+def verify_speed_warning_policy(root):
+    policy = root / "android/app/src/main/java/app/organicmaps/incar/InCarSpeedDisplayPolicy.java"
+    text = base.read_text(policy)
+    for token in ("SPEED_WARNING_ENTER_FACTOR = 1.05", "SPEED_WARNING_CLEAR_FACTOR = 1.03", "resetSpeeding()"):
+        if token not in text:
+            raise base.VerificationError(f"{policy}: missing authoritative overspeed policy token {token!r}")
+
+    controller = root / "android/app/src/main/java/app/organicmaps/routing/NavigationController.java"
+    base.require_method_text(
+        controller,
+        "private void updateSpeedLimit(",
+        r"BuildConfig\.IS_IN_CAR[\s\S]*?InCarSpeedDisplayPolicy\.isSpeeding",
+        "speed-limit sign must share the InCar overspeed authority",
     )
 
 
@@ -223,6 +282,8 @@ def verify_code(root):
     original_verify_code(root)
     verify_shared_resource_contract(root)
     verify_navigation_ribbon(root)
+    verify_navigation_quick_actions(root)
+    verify_speed_warning_policy(root)
 
 
 base.verify_camera_control_rail = verify_camera_control_rail

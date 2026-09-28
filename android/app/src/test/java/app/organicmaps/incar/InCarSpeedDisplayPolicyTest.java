@@ -5,11 +5,18 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Before;
 import org.junit.Test;
 
 public class InCarSpeedDisplayPolicyTest
 {
   private static final String UNAVAILABLE = "unavailable";
+
+  @Before
+  public void resetWarningState()
+  {
+    InCarSpeedDisplayPolicy.resetSpeeding();
+  }
 
   @Test
   public void currentSpeedDelegatesToExistingFormatter()
@@ -61,11 +68,40 @@ public class InCarSpeedDisplayPolicyTest
   }
 
   @Test
-  public void speedWarningStartsAtFivePercentAboveValidLimit()
+  public void speedWarningEntersAtOneHundredAndFivePercent()
   {
-    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(20.999, 20.0));
-    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(21.0, 20.0));
-    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(22.0, 20.0));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(41.9), kph(40.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(42.0), kph(40.0)));
+
+    InCarSpeedDisplayPolicy.resetSpeeding();
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(62.9), kph(60.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(63.0), kph(60.0)));
+
+    InCarSpeedDisplayPolicy.resetSpeeding();
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(84.0), kph(80.0)));
+
+    InCarSpeedDisplayPolicy.resetSpeeding();
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
+  }
+
+  @Test
+  public void speedWarningUsesOneHundredAndThreePercentClearHysteresis()
+  {
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(104.0), kph(100.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(103.0), kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(102.9), kph(100.0)));
+
+    InCarSpeedDisplayPolicy.resetSpeeding();
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(104.0), kph(100.0)));
+  }
+
+  @Test
+  public void invalidMeasurementClearsExistingWarning()
+  {
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(Double.NaN, kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(104.0), kph(100.0)));
   }
 
   @Test
@@ -82,5 +118,10 @@ public class InCarSpeedDisplayPolicyTest
   {
     assertFalse(InCarSpeedDisplayPolicy.isSpeeding(0.0, 0.0));
     assertTrue(InCarSpeedDisplayPolicy.isSpeeding(0.1, 0.0));
+  }
+
+  private static double kph(double value)
+  {
+    return value / 3.6;
   }
 }

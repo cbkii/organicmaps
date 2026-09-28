@@ -18,6 +18,7 @@ import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarSpeedDisplayPolicy;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Router;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
@@ -91,15 +92,12 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final View navigationBarBackground = mFrame.findViewById(R.id.nav_bottom_sheet_nav_bar);
     final View navBottomSheet = mFrame.findViewById(R.id.nav_bottom_sheet);
     mNextTurnContainer = mFrame.findViewById(R.id.nav_next_turn_container);
-    mNextTurnContainer.addOnLayoutChangeListener((v, l, t, r, b, oL, oT, oR, oB) -> {
-      if (isInCarLandscape() && b - t != oB - oT)
-        updateNavigationHeaderMetrics();
-    });
 
     if (isInCarLandscape())
     {
-      // The landscape InCar resource is one full-width ribbon. Apply safe drawing insets once to
-      // that owning surface so turn, street, lanes and the physical-right speed cluster move as one.
+      // The landscape InCar resource is one fixed-height full-width ribbon. Apply safe drawing
+      // insets once to that owning surface so turn, street, lanes and the physical-right speed
+      // cluster move as one without conditional children changing map clearance.
       ViewCompat.setOnApplyWindowInsetsListener(mNextTurnContainer, BaselinePaddingInsetsListener.excludeBottom());
     }
     else
@@ -165,12 +163,13 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   }
 
   // Height the search sheet and map controls must clear. InCar landscape owns all driver guidance
-  // inside one adaptive ribbon; other configurations retain the established street + floating
-  // guidance geometry.
+  // inside one fixed ribbon envelope; conditional lanes/next-next content must never move the map.
   private int computeNavContentHeight()
   {
     if (isInCarLandscape())
-      return UiUtils.isVisible(mNextTurnContainer) ? mNextTurnContainer.getHeight() : 0;
+      return UiUtils.isVisible(mNextTurnContainer)
+               ? dimen(mFrame.getContext(), R.dimen.in_car_nav_ribbon_height)
+               : 0;
 
     int turnAndSpeedHeight = 0;
     if (mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)
@@ -241,12 +240,18 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     if (show && !UiUtils.isVisible(mFrame))
     {
       collapseNavMenu();
+      if (BuildConfig.IS_IN_CAR)
+        InCarSpeedDisplayPolicy.resetSpeeding();
       // Seed the panel from the already-built route so it isn't empty until the first GPS fix arrives.
       update(RoutingController.get().getCachedRoutingInfo());
     }
     UiUtils.showIf(show, mFrame);
     if (!show)
+    {
       mMapButtonsViewModel.setTopHeaderHeight(0);
+      if (BuildConfig.IS_IN_CAR)
+        InCarSpeedDisplayPolicy.resetSpeeding();
+    }
   }
 
   public boolean isNavMenuCollapsed()
@@ -278,7 +283,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   @Override
   public void onDisabled()
   {
-    // mNavMenu.refreshTraffic();
+    // no op
   }
 
   @Override
@@ -340,7 +345,11 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   private void updateSpeedLimit(@NonNull RoutingInfo info)
   {
     final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
-    final boolean speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
+    final boolean speedLimitExceeded;
+    if (BuildConfig.IS_IN_CAR)
+      speedLimitExceeded = location != null && InCarSpeedDisplayPolicy.isSpeeding(location.getSpeed(), info.speedLimitMps);
+    else
+      speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
     mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(info.speedLimitMps), speedLimitExceeded);
   }
 }
