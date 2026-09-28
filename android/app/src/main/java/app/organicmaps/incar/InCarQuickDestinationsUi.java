@@ -594,7 +594,7 @@ public final class InCarQuickDestinationsUi
         {
           final Integer header = mMapButtonsViewModel.getTopHeaderHeight().getValue();
           InCarDialogSizing.applyNavigationOverflowBounds(mActivity, dialog, header == null ? 0 : header,
-                                                         mBottomButtonsHeight);
+                                                          mBottomButtonsHeight);
         }
         else
           InCarDialogSizing.applyCompactWidth(mActivity, dialog);
