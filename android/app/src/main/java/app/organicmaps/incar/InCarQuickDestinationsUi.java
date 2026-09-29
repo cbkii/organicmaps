@@ -182,6 +182,7 @@ public final class InCarQuickDestinationsUi
         if (mNavigationMode != navigationMode)
         {
           mNavigationMode = navigationMode;
+          updateBottomMargin();
           rebuildButtons();
         }
         else
@@ -464,7 +465,8 @@ public final class InCarQuickDestinationsUi
       mRenderedOverflowActions.clear();
       mRenderedOverflowActions.addAll(mOverflowActions);
 
-      final List<InCarQuickActionButton> rendered = new ArrayList<>(InCarQuickDestinationsLayoutPolicy.NAVIGATION_ACTION_COUNT);
+      final List<InCarQuickActionButton> rendered =
+          new ArrayList<>(InCarQuickDestinationsLayoutPolicy.NAVIGATION_ACTION_COUNT);
       for (QuickActionBinding action : mDirectActions)
         rendered.add(action.button);
       rendered.add(ensureMoreButton());
@@ -526,7 +528,8 @@ public final class InCarQuickDestinationsUi
       int topReserved = mSystemTopInset + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
       if (mNavigationMode)
         topReserved += navigationHeaderHeightPx();
-      final int availablePx = Math.max(1, parentHeight - topReserved - bottomMargin);
+      final int minimum = mNavigationMode ? 1 : InCarVisuals.currentQuickActionSizePx(mActivity);
+      final int availablePx = Math.max(minimum, parentHeight - topReserved - bottomMargin);
       return Math.max(1, pxToDp(availablePx));
     }
 
@@ -538,6 +541,13 @@ public final class InCarQuickDestinationsUi
       if (measured != null && measured > 0)
         return measured;
       return mActivity.getResources().getDimensionPixelSize(R.dimen.in_car_nav_ribbon_height);
+    }
+
+    private int navigationFooterHeightPx()
+    {
+      if (!mNavigationMode || mBottomButtonsHeight > 0)
+        return mBottomButtonsHeight;
+      return mActivity.getResources().getDimensionPixelSize(R.dimen.nav_menu_height);
     }
 
     private int currentActionSizePx()
@@ -628,11 +638,8 @@ public final class InCarQuickDestinationsUi
       dialog.setOnShowListener(ignored -> {
         styleSettingsFooter(dialog.getButton(AlertDialog.BUTTON_NEUTRAL));
         if (mNavigationMode)
-        {
-          final Integer header = mMapButtonsViewModel.getTopHeaderHeight().getValue();
-          InCarDialogSizing.applyNavigationOverflowBounds(mActivity, dialog, header == null ? 0 : header,
-                                                          mBottomButtonsHeight);
-        }
+          InCarDialogSizing.applyNavigationOverflowBounds(mActivity, dialog, navigationHeaderHeightPx(),
+                                                          navigationFooterHeightPx());
         else
           InCarDialogSizing.applyCompactWidth(mActivity, dialog);
       });
@@ -770,7 +777,7 @@ public final class InCarQuickDestinationsUi
       final ViewGroup.LayoutParams rawParams = mRoot.getLayoutParams();
       if (!(rawParams instanceof ViewGroup.MarginLayoutParams params))
         return;
-      final int bottom = mBottomButtonsHeight + mSystemBottomInset + dp(12);
+      final int bottom = navigationFooterHeightPx() + mSystemBottomInset + dp(12);
       if (params.bottomMargin == bottom)
       {
         scheduleActionLayout();
