@@ -2,7 +2,7 @@ package app.organicmaps.incar;
 
 import androidx.annotation.NonNull;
 
-/** Pure adapter that deliberately delegates unit conversion/formatting to Organic Maps. */
+/** Pure formatting plus the single InCar overspeed hysteresis authority. */
 public final class InCarSpeedDisplayPolicy
 {
   private static final double SPEED_WARNING_ENTER_FACTOR = 1.05;
@@ -45,13 +45,13 @@ public final class InCarSpeedDisplayPolicy
   }
 
   /**
-   * Returns the shared InCar overspeed warning state. Warning enters at 105% of a valid route
-   * speed limit and remains active until speed falls below 103%, preventing GPS jitter from
-   * repeatedly toggling the ribbon at the threshold. Unknown/invalid measurements clear state.
+   * Update only the route-limit side of the warning state. Route UI may call this frequently; the
+   * hysteresis is reset only when the actual limit changes or becomes invalid. Speed samples are
+   * deliberately owned by {@link #isSpeeding(double, double)} from the Driving View snapshot path.
    */
-  public static synchronized boolean isSpeeding(double speedMps, double speedLimitMps)
+  public static synchronized boolean updateSpeedLimit(double speedLimitMps)
   {
-    if (!isFinite(speedMps) || speedMps < 0.0 || !isFinite(speedLimitMps) || speedLimitMps <= 0.0)
+    if (!isFinite(speedLimitMps) || speedLimitMps <= 0.0)
     {
       resetSpeeding();
       return false;
@@ -61,6 +61,26 @@ public final class InCarSpeedDisplayPolicy
     {
       sSpeeding = false;
       sSpeedLimitMps = speedLimitMps;
+    }
+    return sSpeeding;
+  }
+
+  /**
+   * Returns the shared InCar overspeed warning state. Warning enters at 105% of a valid route
+   * speed limit and remains active until speed falls below 103%, preventing GPS jitter from
+   * repeatedly toggling the ribbon at the threshold. Unknown/invalid measurements clear state.
+   *
+   * This is the only method that feeds a speed sample into the hysteresis authority. The route
+   * controller updates only the current limit via {@link #updateSpeedLimit(double)} so differently
+   * timed location sources cannot advance/clear the same state machine in competing call orders.
+   */
+  public static synchronized boolean isSpeeding(double speedMps, double speedLimitMps)
+  {
+    if (!updateSpeedLimit(speedLimitMps) || !isFinite(speedMps) || speedMps < 0.0)
+    {
+      if (!isFinite(speedMps) || speedMps < 0.0)
+        resetSpeeding();
+      return false;
     }
 
     if (speedMps <= speedLimitMps)
