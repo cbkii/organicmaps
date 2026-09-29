@@ -44,7 +44,7 @@ class MapButtonsViewModel : ViewModel() {
     }
 
     fun setBottomButtonsHidden(buttonsHidden: Boolean) {
-        _bottomButtonsHidden.value = buttonsHidden
+        _bottomButtonsHidden.value = bottomButtonsHidden
     }
 
     fun setFullscreen(fullscreen: Boolean) {
@@ -52,6 +52,13 @@ class MapButtonsViewModel : ViewModel() {
     }
 
     fun setBottomButtonsHeight(height: Float) {
+        // InCar active navigation has a dedicated fixed route footer rather than the legacy map-buttons
+        // bottom frame. NavigationController publishes that real footer height; do not let the absent
+        // legacy frame overwrite it with zero while the navigation layout is active.
+        if (BuildConfig.IS_IN_CAR && _layoutMode.value == MapButtonsController.LayoutMode.navigation && height <= 0f &&
+            (_bottomButtonsHeight.value ?: 0f) > 0f) {
+            return
+        }
         _bottomButtonsHeight.value = height
     }
 
