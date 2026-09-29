@@ -342,13 +342,19 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updateSpeedLimit(@NonNull RoutingInfo info)
   {
-    final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
     final boolean speedLimitExceeded;
     if (BuildConfig.IS_IN_CAR)
-      speedLimitExceeded =
-          location != null && InCarSpeedDisplayPolicy.isSpeeding(location.getSpeed(), info.speedLimitMps);
+    {
+      // Route updates own only the current posted limit. The Driving View snapshot is the single
+      // authority that feeds speed samples into the hysteresis, avoiding competing saved-location
+      // and snapshot call order around the 103-105% band.
+      speedLimitExceeded = InCarSpeedDisplayPolicy.updateSpeedLimit(info.speedLimitMps);
+    }
     else
+    {
+      final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
       speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
+    }
     mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(info.speedLimitMps), speedLimitExceeded);
   }
 }
