@@ -545,9 +545,11 @@ public final class InCarQuickDestinationsUi
 
     private int navigationFooterHeightPx()
     {
-      if (!mNavigationMode || mBottomButtonsHeight > 0)
-        return mBottomButtonsHeight;
-      return mActivity.getResources().getDimensionPixelSize(R.dimen.nav_menu_height);
+      // The route footer has a fixed resource-backed height. The legacy map-buttons frame
+      // can report zero or another positive height and is not the navigation footer.
+      if (mNavigationMode)
+        return mActivity.getResources().getDimensionPixelSize(R.dimen.nav_menu_height);
+      return mBottomButtonsHeight;
     }
 
     private int currentActionSizePx()

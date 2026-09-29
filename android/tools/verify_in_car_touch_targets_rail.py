@@ -195,6 +195,14 @@ def verify_navigation_ribbon(root):
         "conditional ribbon child height must not drive map clearance",
     )
 
+    quick_ui = root / "android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java"
+    base.require_method_text(
+        quick_ui,
+        "private int navigationFooterHeightPx(",
+        r"if \(mNavigationMode\)[\s\S]*?R\.dimen\.nav_menu_height[\s\S]*?return mBottomButtonsHeight",
+        "navigation rail must reserve the route footer rather than a positive legacy map-buttons height",
+    )
+
     view_model = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsViewModel.kt"
     base.require_method_text(
         view_model,
