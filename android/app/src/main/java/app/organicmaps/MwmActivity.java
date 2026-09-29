@@ -278,6 +278,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
 
     Framework.nativeRestoreDownloadQueue();
+    MwmApplication.from(this).discardExpiredInCarRoute();
 
     if (RoutingController.get().isPlanning())
       restoreRoutingUI(MapButtonsController.LayoutMode.planning);
@@ -588,8 +589,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Bridge search-active state into RoutingPlanViewModel so the routing sheet hides under the search
     // bottom sheet. RoutingPlanFragment stays decoupled from SearchPageViewModel; the activity is the
     // single place that knows about both subsystems.
-    mSearchPageViewModel.getSearchEnabled().observe(
-        this, enabled -> mRoutingPlanViewModel.setIsSearchActive(Boolean.TRUE.equals(enabled)));
+    mSearchPageViewModel.getSearchEnabled().observe(this, enabled -> {
+      mRoutingPlanViewModel.setIsSearchActive(Boolean.TRUE.equals(enabled));
+      // This fork has no route map-chooser owner: every search dismissal abandons its pick.
+      if (!Boolean.TRUE.equals(enabled))
+        RoutingController.get().cancelPoiPick();
+    });
 
     // Note: You must call registerForActivityResult() before the fragment or activity is created.
     mLocationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
@@ -1063,6 +1068,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (mOnmapDownloader != null)
       mOnmapDownloader.onResume();
 
+    MwmApplication.from(this).discardExpiredInCarRoute();
     mNavigationController.refresh();
     refreshLightStatusBar();
 

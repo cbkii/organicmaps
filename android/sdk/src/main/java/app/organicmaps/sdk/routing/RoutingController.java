@@ -468,7 +468,8 @@ public class RoutingController
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    resetToPlanningStateIfNavigating();
+    if (isNavigating())
+      transitionToPlanning();
     resetPoiPickState();
   }
 
@@ -478,7 +479,8 @@ public class RoutingController
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    resetToPlanningStateIfNavigating();
+    if (isNavigating())
+      transitionToPlanning();
     resetPoiPickState();
   }
 
@@ -493,7 +495,8 @@ public class RoutingController
     build();
     if (mContainer != null)
       mContainer.onRemovedStop();
-    resetToPlanningStateIfNavigating();
+    if (isNavigating())
+      transitionToPlanning();
   }
 
   public void launchPlanning()
@@ -515,16 +518,23 @@ public class RoutingController
     if (isNavigating())
     {
       build();
-      setState(State.PREPARE);
-      cancelNavigation(false);
-      startPlanning();
-      if (mContainer != null)
-        mContainer.updateMenu();
-      if (mContainer != null)
-        mContainer.onResetToPlanningState();
+      transitionToPlanning();
       return true;
     }
     return false;
+  }
+
+  // Stop edits have already built once; this only transitions their UI and navigation service.
+  private void transitionToPlanning()
+  {
+    setState(State.PREPARE);
+    cancelNavigation(false);
+    startPlanning();
+    if (mContainer != null)
+    {
+      mContainer.updateMenu();
+      mContainer.onResetToPlanningState();
+    }
   }
 
   @NonNull
@@ -706,6 +716,11 @@ public class RoutingController
   {
     mReplaceStopIndex = index;
     isPoiPickReplaceStop = true;
+  }
+
+  public void cancelPoiPick()
+  {
+    resetPoiPickState();
   }
 
   private void finalizePendingPoiPick()

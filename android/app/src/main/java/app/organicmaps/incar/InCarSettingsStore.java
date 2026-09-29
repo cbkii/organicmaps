@@ -22,7 +22,20 @@ public final class InCarSettingsStore
   private static final String KEY_EXPLICIT_LOCATION_OFF = "InCarExplicitLocationOff";
   private static final String KEY_LOCATION_DISABLED_WARNING = "InCarLocationDisabledWarning";
 
+  private static final String KEY_ROUTE_RESUME_MINUTES = "InCarRouteResumeMinutes";
+
   private InCarSettingsStore() {}
+
+  public static int routeResumeMinutes(@NonNull Context context)
+  {
+    return InCarRouteResumePolicy.normaliseMinutes(
+        prefs(context).getInt(KEY_ROUTE_RESUME_MINUTES, InCarRouteResumePolicy.DEFAULT_MINUTES));
+  }
+
+  public static void setRouteResumeMinutes(@NonNull Context context, int minutes)
+  {
+    prefs(context).edit().putInt(KEY_ROUTE_RESUME_MINUTES, InCarRouteResumePolicy.normaliseMinutes(minutes)).apply();
+  }
 
   public static boolean isExplicitLocationOff(@NonNull Context context)
   {

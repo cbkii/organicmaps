@@ -25,6 +25,7 @@ import app.organicmaps.incar.InCarBudgetRendering;
 import app.organicmaps.incar.InCarDrivingUi;
 import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.incar.InCarQuickDestinationsUi;
+import app.organicmaps.incar.InCarRouteResumeController;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
@@ -62,6 +63,9 @@ public class MwmApplication extends Application implements Application.ActivityL
 
   @Nullable
   private InCarDrivingViewController mInCarDrivingViewController;
+
+  @Nullable
+  private InCarRouteResumeController mInCarRouteResumeController;
 
   @Nullable
   private WeakReference<Activity> mTopActivity;
@@ -154,6 +158,9 @@ public class MwmApplication extends Application implements Application.ActivityL
       }
     }
 
+    if (BuildConfig.IS_IN_CAR)
+      mInCarRouteResumeController = new InCarRouteResumeController(this);
+
     DownloaderNotifier.createNotificationChannel(this);
     initNavigationService();
     // State transitions also cover notification stops, arrival and routes without a service.
@@ -219,6 +226,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     mTopActivity = new WeakReference<>(activity);
     if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
     {
+      mInCarRouteResumeController.onForeground();
       InCarVisuals.applyAndObserve(mapActivity);
       InCarQuickDestinationsUi.attach(mapActivity);
       runInCarDrivingViewController("map activity resume", controller -> {
@@ -234,6 +242,8 @@ public class MwmApplication extends Application implements Application.ActivityL
   public void onActivityPaused(@NonNull Activity activity)
   {
     Logger.d(TAG, "activity = " + activity);
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity)
+      mInCarRouteResumeController.onBackground();
     mTopActivity = null;
   }
 
@@ -302,6 +312,12 @@ public class MwmApplication extends Application implements Application.ActivityL
     Logger.d(TAG, "activity = " + activity);
     if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
       InCarDrivingUi.release(mapActivity);
+  }
+
+  public void discardExpiredInCarRoute()
+  {
+    if (mInCarRouteResumeController != null)
+      mInCarRouteResumeController.discardExpiredRoute();
   }
 
   private void onForeground()
