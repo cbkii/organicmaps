@@ -44,7 +44,7 @@ class MapButtonsViewModel : ViewModel() {
     }
 
     fun setBottomButtonsHidden(buttonsHidden: Boolean) {
-        _bottomButtonsHidden.value = bottomButtonsHidden
+        _bottomButtonsHidden.value = buttonsHidden
     }
 
     fun setFullscreen(fullscreen: Boolean) {
