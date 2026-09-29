@@ -158,8 +158,14 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final int contentHeight = computeNavContentHeight();
     mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
     if (isInCarLandscape())
+    {
+      // The active InCar footer is owned by NavMenu, not MapButtonsController's legacy bottom frame.
+      // Publish its fixed resource-backed height so Quick Destinations and its More dialog always
+      // reserve the real END/progress row even when the legacy frame reports zero.
+      mMapButtonsViewModel.setBottomButtonsHeight(dimen(mFrame.getContext(), R.dimen.nav_menu_height));
       mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding)
                                                   + contentHeight);
+    }
   }
 
   // Height the search sheet and map controls must clear. InCar landscape owns all driver guidance
@@ -213,6 +219,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       updateVehicle(info);
 
     updateStreetView(info);
+    updateNavigationHeaderMetrics();
     mNavMenu.update(info);
   }
 
@@ -244,7 +251,9 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       update(RoutingController.get().getCachedRoutingInfo());
     }
     UiUtils.showIf(show, mFrame);
-    if (!show)
+    if (show)
+      updateNavigationHeaderMetrics();
+    else
     {
       mMapButtonsViewModel.setTopHeaderHeight(0);
       if (BuildConfig.IS_IN_CAR)
