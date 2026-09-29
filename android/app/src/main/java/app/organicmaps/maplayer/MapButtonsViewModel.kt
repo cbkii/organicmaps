@@ -57,8 +57,8 @@ class MapButtonsViewModel : ViewModel() {
         // legacy frame overwrite it with zero while the navigation layout is active.
         if (
             BuildConfig.IS_IN_CAR &&
-                _layoutMode.value == MapButtonsController.LayoutMode.navigation &&
-                height <= 0f
+            _layoutMode.value == MapButtonsController.LayoutMode.navigation &&
+            height <= 0f
         ) {
             if ((_bottomButtonsHeight.value ?: 0f) > 0f) return
         }
