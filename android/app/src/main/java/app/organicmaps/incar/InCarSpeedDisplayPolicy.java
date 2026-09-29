@@ -76,10 +76,10 @@ public final class InCarSpeedDisplayPolicy
    */
   public static synchronized boolean isSpeeding(double speedMps, double speedLimitMps)
   {
-    if (!updateSpeedLimit(speedLimitMps) || !isFinite(speedMps) || speedMps < 0.0)
+    updateSpeedLimit(speedLimitMps);
+    if (!isFinite(speedMps) || speedMps < 0.0 || !isFinite(speedLimitMps) || speedLimitMps <= 0.0)
     {
-      if (!isFinite(speedMps) || speedMps < 0.0)
-        resetSpeeding();
+      resetSpeeding();
       return false;
     }
 
