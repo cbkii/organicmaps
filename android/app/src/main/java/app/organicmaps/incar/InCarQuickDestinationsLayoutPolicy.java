@@ -15,6 +15,7 @@ public final class InCarQuickDestinationsLayoutPolicy
   public static final int PREFERRED_ACTION_GAP_DP = 6;
   public static final int MIN_ACTION_GAP_DP = 4;
   public static final int SAFE_TOP_GAP_DP = 12;
+  public static final int NAVIGATION_ACTION_COUNT = 4;
 
   private InCarQuickDestinationsLayoutPolicy() {}
 
@@ -50,6 +51,16 @@ public final class InCarQuickDestinationsLayoutPolicy
     final int availableForGaps = Math.max(0, availableHeightDp - actions * size);
     final int fittedGap = availableForGaps / (actions - 1);
     return Math.max(MIN_ACTION_GAP_DP, Math.min(PREFERRED_ACTION_GAP_DP, fittedGap));
+  }
+
+  @VisibleForTesting
+  static int navigationActionSizeDp(int availableHeightDp)
+  {
+    if (requiredHeightDp(NAVIGATION_ACTION_COUNT, PREFERRED_ACTION_SIZE_DP, MIN_ACTION_GAP_DP) <= availableHeightDp)
+      return PREFERRED_ACTION_SIZE_DP;
+    if (requiredHeightDp(NAVIGATION_ACTION_COUNT, MIN_ACTION_SIZE_DP, MIN_ACTION_GAP_DP) <= availableHeightDp)
+      return MIN_ACTION_SIZE_DP;
+    return EXTRA_COMPACT_ACTION_SIZE_DP;
   }
 
   @VisibleForTesting
