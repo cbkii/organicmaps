@@ -35,6 +35,8 @@ def main() -> int:
     try:
         show = method_body(text, "void showTrackDeleteAlertDialog()")
         dismiss = method_body(text, "void dismissAlertDialog()")
+        changed = method_body(text, "public void onChanged(@Nullable MapObject mapObject)")
+        destroyed = method_body(text, "public void onDestroyView()")
     except ValueError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -61,6 +63,15 @@ def main() -> int:
     dismiss_call = dismiss.find("alertDialog.dismiss();")
     if clear < 0 or dismiss_call < 0 or clear > dismiss_call:
         errors.append("dismissAlertDialog must clear the retained dialog before dismissing the old instance")
+
+    # A new selection invalidates any outstanding confirmation. The same track can keep
+    # its current dialog, while view destruction always dismisses it.
+    if "previousTrack.getTrackId() == newTrack.getTrackId()" not in changed or "if (!sameTrack)\n      dismissAlertDialog();" not in changed:
+        errors.append("Place Page selection must dismiss a confirmation when track identity changes")
+    if "mAlertDialog = null;" in changed or "showTrackDeleteAlertDialog();" in changed:
+        errors.append("Place Page updates must not orphan or recreate an existing confirmation")
+    if "dismissAlertDialog();" not in destroyed:
+        errors.append("Place Page view destruction must dismiss its confirmation")
 
     if errors:
         print("Place Page track-delete dialog verification FAILED:", file=sys.stderr)

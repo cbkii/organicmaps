@@ -851,6 +851,12 @@ public class PlacePageController
     final boolean showBackButton =
         (intent != null
          && (Factory.isStartedForApiResult(intent) || !TextUtils.isEmpty(Framework.nativeGetParsedBackUrl())));
+    // A confirmation belongs to the track that opened it. A Place Page update for another
+    // object must dismiss that dialog before replacing the selection.
+    final boolean sameTrack = mMapObject instanceof Track previousTrack && mapObject instanceof Track newTrack
+                           && previousTrack.getTrackId() == newTrack.getTrackId();
+    if (!sameTrack)
+      dismissAlertDialog();
     mMapObject = mapObject;
     if (mapObject != null)
     {
@@ -866,9 +872,6 @@ public class PlacePageController
       // Place page will automatically open when the bottom sheet content is loaded so we can compute the peek height
       createPlacePageFragments();
       updateButtons(mapObject, showBackButton, !(mMapObject.isMyPosition() || mMapObject.isTrackRecording()));
-      mAlertDialog = null;
-      if (mViewModel.isAlertDialogShowing)
-        showTrackDeleteAlertDialog();
       if (mMapObject.isTrackRecording())
         onTrackRecordingSelected();
     }
@@ -898,6 +901,8 @@ public class PlacePageController
   @Override
   public void onDestroyView()
   {
+    // Never leave a confirmation attached to an old view/controller after recreation.
+    dismissAlertDialog();
     mHostWindowReflowPending = false;
     ++mHostWindowReflowGeneration;
     if (mPlacePage != null && mPendingHostWindowReflow != null)
