@@ -117,12 +117,20 @@ public final class InCarDialogSizing
     return Math.min(available, Math.max(minPx, Math.min(maxPx, proportional)));
   }
 
+  @VisibleForTesting
+  static int measuredOrFallback(int measuredPx, int fallbackPx)
+  {
+    return measuredPx > 0 ? measuredPx : fallbackPx;
+  }
+
   @NonNull
   private static int[] usableWindowSize(@NonNull Activity activity)
   {
-    int width = activity.getResources().getDisplayMetrics().widthPixels;
-    int height = activity.getResources().getDisplayMetrics().heightPixels;
-    final WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(activity.getWindow().getDecorView());
+    final View decor = activity.getWindow().getDecorView();
+    final Resources resources = activity.getResources();
+    int width = measuredOrFallback(decor.getWidth(), resources.getDisplayMetrics().widthPixels);
+    int height = measuredOrFallback(decor.getHeight(), resources.getDisplayMetrics().heightPixels);
+    final WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(decor);
     if (insets != null)
     {
       final Insets safe =
