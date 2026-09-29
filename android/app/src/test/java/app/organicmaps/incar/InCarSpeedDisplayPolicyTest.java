@@ -97,6 +97,30 @@ public class InCarSpeedDisplayPolicyTest
   }
 
   @Test
+  public void routeLimitRefreshCannotCompeteWithSpeedHysteresis()
+  {
+    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
+
+    // Interleaved route-info refreshes for the same limit read the established state but do not
+    // feed a second speed sample or reset the 103-105% hysteresis band.
+    assertTrue(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(104.0), kph(100.0)));
+    assertTrue(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(102.9), kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100.0)));
+  }
+
+  @Test
+  public void routeLimitChangeClearsBeforeNextSpeedSample()
+  {
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
+    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(83.9), kph(80.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(84.0), kph(80.0)));
+  }
+
+  @Test
   public void invalidMeasurementClearsExistingWarning()
   {
     assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
