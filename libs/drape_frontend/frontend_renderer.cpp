@@ -1887,10 +1887,9 @@ void FrontendRenderer::RenderFrame()
 #if defined(OMIM_OS_DESKTOP)
     EmitGraphicsReady();
 #endif
-    // Process a message or wait for a message.
-    // IsRenderingEnabled() can return false in case of rendering disabling and we must prevent
-    // possibility of infinity waiting in ProcessSingleMessage.
-    ProcessSingleMessage(IsRenderingEnabled());
+    // Process a message, or park until one arrives. SetRenderingEnabled(false) and CloseQueue() both
+    // cancel the wait, and the cancellation is sticky, so this cannot block indefinitely.
+    ProcessSingleMessage();
     m_frameData.m_forceFullRedrawNextFrame = true;
     m_frameData.m_timer.Reset();
     m_frameData.m_inactiveFramesCounter = 0;
@@ -2600,8 +2599,10 @@ void FrontendRenderer::AddUserEvent(drape_ptr<UserEvent> && event)
     return;
 #endif
   m_userEventStream.AddEvent(std::move(event));
-  if (IsInInfinityWaiting())
-    CancelMessageWaiting();
+  // User events bypass the message queue, so a renderer parked in a blocking PopMessage() after a few
+  // idle frames would not see this one. CancelWait() is sticky, so the wake-up also lands when the event
+  // arrives just before the renderer starts waiting.
+  CancelMessageWaiting();
 }
 
 void FrontendRenderer::PositionChanged(m2::PointD const & position, bool hasPosition)

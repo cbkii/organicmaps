@@ -12,6 +12,8 @@ import app.organicmaps.sdk.bookmarks.data.MapObject;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.util.concurrency.UiThread;
 import app.organicmaps.sdk.util.log.Logger;
+import java.util.ArrayList;
+import java.util.List;
 
 @androidx.annotation.UiThread
 public class RoutingController
@@ -57,6 +59,18 @@ public class RoutingController
      * */
     default void updateBuildProgress(@IntRange(from = 0, to = 100) int progress, Router router) {}
     default void onStartRouteBuilding() {}
+  }
+
+  public interface NavigationStateListener
+  {
+    void onNavigationStateChanged(boolean navigating);
+  }
+
+  private final List<NavigationStateListener> mNavigationStateListeners = new ArrayList<>();
+
+  public void addNavigationStateListener(@NonNull NavigationStateListener listener)
+  {
+    mNavigationStateListeners.add(listener);
   }
 
   // A disclaimer may outlive the route whose START tap opened it. Invalidate its
@@ -218,7 +232,12 @@ public class RoutingController
   private void setState(State newState)
   {
     Logger.d(TAG, "[S] State: " + mState + " -> " + newState + ", BuildState: " + mBuildState);
+    final boolean navigationChanged = (mState == State.NAVIGATION) != (newState == State.NAVIGATION);
     mState = newState;
+
+    if (navigationChanged)
+      for (NavigationStateListener listener : mNavigationStateListeners)
+        listener.onNavigationStateChanged(newState == State.NAVIGATION);
 
     if (mContainer != null)
       mContainer.updateMenu();
@@ -449,7 +468,8 @@ public class RoutingController
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    resetToPlanningStateIfNavigating();
+    if (isNavigating())
+      transitionToPlanning();
     resetPoiPickState();
   }
 
@@ -459,7 +479,8 @@ public class RoutingController
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    resetToPlanningStateIfNavigating();
+    if (isNavigating())
+      transitionToPlanning();
     resetPoiPickState();
   }
 
@@ -474,7 +495,8 @@ public class RoutingController
     build();
     if (mContainer != null)
       mContainer.onRemovedStop();
-    resetToPlanningStateIfNavigating();
+    if (isNavigating())
+      transitionToPlanning();
   }
 
   public void launchPlanning()
@@ -496,16 +518,23 @@ public class RoutingController
     if (isNavigating())
     {
       build();
-      setState(State.PREPARE);
-      cancelNavigation(false);
-      startPlanning();
-      if (mContainer != null)
-        mContainer.updateMenu();
-      if (mContainer != null)
-        mContainer.onResetToPlanningState();
+      transitionToPlanning();
       return true;
     }
     return false;
+  }
+
+  // Stop edits have already built once; this only transitions their UI and navigation service.
+  private void transitionToPlanning()
+  {
+    setState(State.PREPARE);
+    cancelNavigation(false);
+    startPlanning();
+    if (mContainer != null)
+    {
+      mContainer.updateMenu();
+      mContainer.onResetToPlanningState();
+    }
   }
 
   @NonNull
@@ -687,6 +716,11 @@ public class RoutingController
   {
     mReplaceStopIndex = index;
     isPoiPickReplaceStop = true;
+  }
+
+  public void cancelPoiPick()
+  {
+    resetPoiPickState();
   }
 
   private void finalizePendingPoiPick()

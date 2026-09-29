@@ -42,11 +42,13 @@ public class LanesDrawable extends Drawable
   private static class LaneDrawable
   {
     private final Drawable mDrawable;
+    private final boolean mActive;
 
     private LaneDrawable(@NonNull final Context context, @NonNull LaneInfo laneInfo, int horizontalOffset,
                          TintColorInfo colorInfo)
     {
       final boolean isActive = laneInfo.mActiveLaneWay != LaneWay.None;
+      mActive = isActive;
       @DrawableRes
       final int turnRes = isActive ? laneInfo.mActiveLaneWay.mTurnRes : laneInfo.mLaneWays[0].mTurnRes;
       mDrawable = Objects.requireNonNull(AppCompatResources.getDrawable(context, turnRes));
@@ -83,6 +85,13 @@ public class LanesDrawable extends Drawable
   {
     final TintColorInfo tintColorInfo = new TintColorInfo(activeLaneTint, inactiveLaneTint);
     mLanes = createLaneDrawables(context, lanes, tintColorInfo);
+  }
+
+  public void setLaneColors(@ColorInt int active, @ColorInt int inactive)
+  {
+    for (LaneDrawable lane : mLanes)
+      lane.mDrawable.setTint(lane.mActive ? active : inactive);
+    invalidateSelf();
   }
 
   public void setVerticalAlignmentTop(boolean alignTop)

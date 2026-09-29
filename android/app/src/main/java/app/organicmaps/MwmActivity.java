@@ -278,6 +278,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
 
     Framework.nativeRestoreDownloadQueue();
+    MwmApplication.from(this).discardExpiredInCarRoute();
 
     if (RoutingController.get().isPlanning())
       restoreRoutingUI(MapButtonsController.LayoutMode.planning);
@@ -577,6 +578,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mPlacePageViewModel = new ViewModelProvider(this).get(PlacePageViewModel.class);
     mSearchPageViewModel = new ViewModelProvider(this).get(SearchPageViewModel.class);
     mMapButtonsViewModel = new ViewModelProvider(this).get(MapButtonsViewModel.class);
+    TrackRecordingService.isRecording().observe(this, recording -> {
+      if (!recording && Boolean.TRUE.equals(mMapButtonsViewModel.getTrackRecorderState().getValue()))
+        stopTrackRecording();
+    });
     mLocationPromptCoordinator = new ViewModelProvider(this).get(LocationPromptCoordinator.class);
     // We don't need to manually handle removing the observers it follows the activity lifecycle
     mMapButtonsViewModel.getBottomButtonsHeight().observe(this, this::onMapBottomButtonsHeightChange);
@@ -584,8 +589,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Bridge search-active state into RoutingPlanViewModel so the routing sheet hides under the search
     // bottom sheet. RoutingPlanFragment stays decoupled from SearchPageViewModel; the activity is the
     // single place that knows about both subsystems.
-    mSearchPageViewModel.getSearchEnabled().observe(
-        this, enabled -> mRoutingPlanViewModel.setIsSearchActive(Boolean.TRUE.equals(enabled)));
+    mSearchPageViewModel.getSearchEnabled().observe(this, enabled -> {
+      mRoutingPlanViewModel.setIsSearchActive(Boolean.TRUE.equals(enabled));
+      // This fork has no route map-chooser owner: every search dismissal abandons its pick.
+      if (!Boolean.TRUE.equals(enabled))
+        RoutingController.get().cancelPoiPick();
+    });
 
     // Note: You must call registerForActivityResult() before the fragment or activity is created.
     mLocationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
@@ -1037,12 +1046,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
     logLocationPromptState("onNewIntent", "warm intent received; location UI unchanged");
     if (mMapController.isRenderingActive())
       processIntent();
-    if (intent.getAction() != null && intent.getAction().equals(TrackRecordingService.STOP_TRACK_RECORDING))
-    {
-      // closes the bottom sheet in case it is opened to deal with updates of track recording status in bottom sheet.
-      closeBottomSheet(MAIN_MENU_ID);
-      toggleTrackRecordingPP();
-    }
   }
 
   @CallSuper
@@ -1065,6 +1068,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (mOnmapDownloader != null)
       mOnmapDownloader.onResume();
 
+    MwmApplication.from(this).discardExpiredInCarRoute();
     mNavigationController.refresh();
     refreshLightStatusBar();
 
@@ -2500,8 +2504,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
       final int offsetX = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).right;
       updateCompassOffset(offsetY, offsetX);
     }
-    TrackRecordingService.stopService(getApplicationContext());
     mMapButtonsViewModel.setTrackRecorderState(false);
+    TrackRecordingService.stopService(getApplicationContext());
+    closeBottomSheet(MAIN_MENU_ID);
     if (mPlacePageViewModel.getMapObject().getValue() != null
         && mPlacePageViewModel.getMapObject().getValue().isTrackRecording())
       closePlacePage();
@@ -2509,11 +2514,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void saveAndStopTrackRecording()
   {
-    // we are detaching the listener before saving the track to stop getting updates and fetching data from wrong
-    // mapObject
-    TrackRecorder.nativeSetTrackRecordingStatsListener(null);
-    if (!TrackRecorder.nativeIsTrackRecordingEmpty())
-      TrackRecorder.nativeSaveTrackRecordingWithName("");
+    TrackRecorder.saveAndStop();
     stopTrackRecording();
   }
 

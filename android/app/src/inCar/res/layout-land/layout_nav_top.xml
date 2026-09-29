@@ -8,165 +8,153 @@
   android:layout_height="match_parent"
   tools:showIn="@layout/layout_nav">
 
-  <!--
-    InCar landscape uses one driver-information ribbon instead of independent floating cards.
-    The fixed envelope prevents lanes/next-next/long text from moving the map at high-workload moments.
-    The existing controller IDs stay intact so routing, lanes, limits and speed keep one authority.
-    Physical-edge safe-drawing insets are added to this whole ribbon by NavigationController.
-  -->
+  <!-- One stable row: NOW + road, one central lanes/THEN area, physical-right speed. -->
   <LinearLayout
     android:id="@+id/nav_next_turn_container"
     android:layout_width="0dp"
     android:layout_height="@dimen/in_car_nav_ribbon_height"
-    android:background="?cardBackground"
+    android:background="@color/bg_cards"
     android:clickable="true"
     android:clipChildren="true"
     android:clipToPadding="true"
     android:elevation="@dimen/nav_elevation"
-    android:gravity="top"
+    android:gravity="center_vertical"
     android:layoutDirection="ltr"
     android:orientation="horizontal"
-    android:paddingLeft="@dimen/margin_half"
-    android:paddingTop="@dimen/margin_half"
-    android:paddingRight="@dimen/margin_half"
-    android:paddingBottom="@dimen/margin_half"
+    android:paddingLeft="4dp"
+    android:paddingTop="4dp"
+    android:paddingRight="4dp"
+    android:paddingBottom="4dp"
     app:layout_constraintLeft_toLeftOf="parent"
     app:layout_constraintRight_toRightOf="parent"
     app:layout_constraintTop_toTopOf="parent"
     tools:ignore="RtlHardcoded">
 
-    <!-- Immediate manoeuvre: large turn glyph plus glanceable distance. -->
     <LinearLayout
       android:id="@+id/nav_next_turn_frame"
       android:layout_width="@dimen/in_car_nav_manoeuvre_width"
-      android:layout_height="@dimen/in_car_touch_target_preferred"
-      android:layout_gravity="top"
+      android:layout_height="match_parent"
       android:gravity="center_vertical"
       android:orientation="horizontal">
-
       <ImageView
         android:id="@+id/turn"
-        android:layout_width="@dimen/nav_next_turn_sign"
-        android:layout_height="@dimen/nav_next_turn_sign"
-        android:layout_gravity="top"
-        android:theme="?navigationTheme"
-        app:tint="?iconTint"
+        android:layout_width="72dp"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        app:tint="@color/in_car_nav_foreground"
         tools:src="@drawable/ic_roundabout_exit_12" />
-
       <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:gravity="top|center_horizontal"
+        android:gravity="center_vertical"
         android:orientation="vertical">
-
+        <TextView
+          android:id="@+id/in_car_nav_now"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:includeFontPadding="false"
+          android:text="@string/in_car_nav_now"
+          android:textColor="@color/in_car_nav_foreground"
+          android:textSize="14sp" />
         <TextView
           android:id="@+id/distance"
-          style="@style/MwmWidget.TextView.NavNextTurn"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
           android:ellipsize="end"
-          android:gravity="center"
           android:includeFontPadding="false"
           android:maxLines="1"
+          android:textColor="@color/in_car_nav_foreground"
           android:textSize="@dimen/in_car_nav_distance_text_size"
           android:textStyle="bold"
           tools:text="320 m" />
-
-        <!-- Next-next guidance stays subordinate and never changes the ribbon envelope. -->
-        <FrameLayout
-          android:id="@+id/nav_next_next_turn_frame"
-          android:layout_width="@dimen/nav_next_next_turn_frame"
-          android:layout_height="@dimen/nav_next_next_turn_frame"
-          android:layout_gravity="top|center_horizontal"
-          android:visibility="gone"
-          tools:visibility="visible">
-
-          <ImageView
-            android:id="@id/turn"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_gravity="top|center_horizontal"
-            android:padding="@dimen/margin_eighth"
-            app:tint="?iconTint"
-            tools:src="@drawable/ic_then_left_sharp" />
-        </FrameLayout>
       </LinearLayout>
     </LinearLayout>
 
-    <!-- Flexible centre: instruction and lane viewport are both top-anchored inside fixed geometry. -->
-    <LinearLayout
+    <FrameLayout
+      android:id="@+id/street_frame"
+      android:layout_width="0dp"
+      android:layout_height="@dimen/in_car_nav_instruction_height"
+      android:layout_marginLeft="8dp"
+      android:layout_marginRight="8dp"
+      android:layout_weight="2"
+      tools:ignore="RtlHardcoded">
+      <TextView
+        android:id="@+id/street"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:ellipsize="end"
+        android:gravity="start|center_vertical"
+        android:includeFontPadding="false"
+        android:layoutDirection="locale"
+        android:maxLines="2"
+        android:textDirection="locale"
+        android:textColor="@color/in_car_nav_foreground"
+        android:textSize="@dimen/in_car_nav_instruction_text_size"
+        android:textStyle="bold"
+        tools:text="Northbourne Avenue towards City" />
+    </FrameLayout>
+
+    <!-- Lanes occupy this entire group; THEN is only shown when no lanes compete with it. -->
+    <FrameLayout
+      android:id="@+id/in_car_nav_guidance_group"
       android:layout_width="0dp"
       android:layout_height="match_parent"
-      android:layout_marginStart="@dimen/margin_base"
-      android:layout_marginEnd="@dimen/margin_base"
+      android:layout_marginRight="8dp"
       android:layout_weight="1"
-      android:clipChildren="true"
-      android:clipToPadding="true"
-      android:gravity="top"
-      android:orientation="vertical">
-
-      <FrameLayout
-        android:id="@+id/street_frame"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/in_car_nav_instruction_height"
-        android:clipChildren="true"
-        android:clipToPadding="true">
-
-        <TextView
-          android:id="@+id/street"
-          style="@style/MwmWidget.TextView.NavStreet"
-          android:layout_width="match_parent"
-          android:layout_height="match_parent"
-          android:ellipsize="end"
-          android:gravity="start|top"
-          android:includeFontPadding="false"
-          android:layoutDirection="locale"
-          android:maxLines="2"
-          android:textDirection="locale"
-          android:textSize="@dimen/in_car_nav_instruction_text_size"
-          android:textStyle="bold"
-          tools:text="Northbourne Avenue towards City / Federal Highway" />
-      </FrameLayout>
-
-      <!-- Lane glyphs proportionally fit this fixed viewport and pin to its top edge when width is
-           the limiting dimension, preserving the critical upper geometry without moving the ribbon. -->
+      tools:ignore="RtlHardcoded">
       <app.organicmaps.sdk.widgets.lanes.LanesView
         android:id="@+id/lanes"
         android:layout_width="match_parent"
         android:layout_height="@dimen/in_car_nav_lanes_height"
         android:layout_gravity="top"
-        android:padding="@dimen/margin_quarter"
         android:visibility="gone"
-        app:lanesActiveLaneTintColor="?navLaneArrowActiveColor"
+        app:lanesActiveLaneTintColor="@color/base_accent"
         app:lanesAlignTop="true"
-        app:lanesBackgroundColor="?navLanesBackgroundColor"
-        app:lanesCornerRadius="@dimen/margin_quarter"
-        app:lanesEditModeLanesCount="8"
-        app:lanesInactiveLaneTintColor="?navLaneArrowInactiveColor"
+        app:lanesBackgroundColor="@android:color/transparent"
+        app:lanesInactiveLaneTintColor="@color/in_car_nav_secondary"
         tools:visibility="visible" />
-    </LinearLayout>
+      <LinearLayout
+        android:id="@+id/nav_next_next_turn_frame"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:visibility="gone">
+        <TextView
+          android:id="@+id/in_car_nav_then"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/in_car_nav_then"
+          android:textColor="@color/in_car_nav_secondary"
+          android:textSize="14sp" />
+        <ImageView
+          android:id="@id/turn"
+          android:layout_width="56dp"
+          android:layout_height="56dp"
+          android:scaleType="fitCenter"
+          app:tint="@color/in_car_nav_foreground"
+          tools:src="@drawable/ic_then_left_sharp" />
+      </LinearLayout>
+    </FrameLayout>
 
-    <!-- Current speed and posted limit form one stable physical-right glance cluster. -->
     <LinearLayout
       android:layout_width="wrap_content"
-      android:layout_height="@dimen/in_car_touch_target_preferred"
-      android:layout_gravity="top"
-      android:gravity="top|center_horizontal"
+      android:layout_height="match_parent"
+      android:gravity="center_vertical"
       android:orientation="horizontal">
-
       <app.organicmaps.sdk.widgets.speedlimit.SpeedLimitView
         android:id="@+id/nav_speed_limit"
         style="@style/MwmWidget.SpeedLimit"
         android:layout_width="60dp"
         android:layout_height="60dp"
-        android:layout_marginEnd="@dimen/margin_half" />
-
+        android:layout_marginRight="4dp"
+        tools:ignore="RtlHardcoded" />
       <include
         android:id="@+id/in_car_nav_speed"
         layout="@layout/in_car_nav_speed"
-        android:layout_width="@dimen/in_car_touch_target_preferred"
-        android:layout_height="@dimen/in_car_touch_target_preferred" />
+        android:layout_width="72dp"
+        android:layout_height="72dp" />
     </LinearLayout>
   </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

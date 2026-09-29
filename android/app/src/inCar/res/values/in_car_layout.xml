@@ -14,12 +14,12 @@
   <dimen name="routing_toolbar_cell_height">@dimen/in_car_touch_target_preferred</dimen>
 
   <!-- Landscape active navigation: one stable driver-information ribbon envelope. -->
-  <dimen name="in_car_nav_ribbon_height">112dp</dimen>
-  <dimen name="in_car_nav_manoeuvre_width">184dp</dimen>
-  <dimen name="in_car_nav_instruction_height">48dp</dimen>
-  <dimen name="in_car_nav_lanes_height">40dp</dimen>
+  <dimen name="in_car_nav_ribbon_height">80dp</dimen>
+  <dimen name="in_car_nav_manoeuvre_width">192dp</dimen>
+  <dimen name="in_car_nav_instruction_height">72dp</dimen>
+  <dimen name="in_car_nav_lanes_height">72dp</dimen>
   <dimen name="in_car_nav_instruction_text_size">24sp</dimen>
-  <dimen name="in_car_nav_distance_text_size">24sp</dimen>
+  <dimen name="in_car_nav_distance_text_size">30sp</dimen>
 
   <!-- Active navigation uses one 76dp footer row; progress is overlaid inside that row. -->
   <dimen name="nav_menu_height">@dimen/in_car_touch_target_preferred</dimen>

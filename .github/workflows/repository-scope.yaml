@@ -22,3 +22,6 @@ jobs:
 
       - name: Verify Android-only repository scope
         run: python3 tools/ci/verify_android_repo_scope.py
+
+      - name: Verify track-delete confirmation identity
+        run: python3 tools/ci/verify_place_page_delete_dialog.py

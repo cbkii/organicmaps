@@ -73,4 +73,6 @@
   <color name="routing_bottom_button_tint">@color/in_car_surface_base</color>
   <color name="routing_bottom_manage_route_background">@color/in_car_surface_base</color>
   <color name="routing_bottom_button_bg">@color/in_car_surface_base</color>
+  <color name="in_car_nav_foreground">#FF202124</color>
+  <color name="in_car_nav_secondary">#FF5F6368</color>
 </resources>

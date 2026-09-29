@@ -101,7 +101,7 @@ def verify_navigation_ribbon(root):
     expected_ribbon_attrs = {
         (base.ANDROID_NS, "layout_width"): "0dp",
         (base.ANDROID_NS, "layout_height"): "@dimen/in_car_nav_ribbon_height",
-        (base.ANDROID_NS, "gravity"): "top",
+        (base.ANDROID_NS, "gravity"): "center_vertical",
         (base.APP_NS, "layout_constraintLeft_toLeftOf"): "parent",
         (base.APP_NS, "layout_constraintRight_toRightOf"): "parent",
         (base.APP_NS, "layout_constraintTop_toTopOf"): "parent",
@@ -155,12 +155,12 @@ def verify_navigation_ribbon(root):
     values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
     values = base.resource_values(values_path)
     for name, expected in (
-        ("in_car_nav_ribbon_height", "112dp"),
-        ("in_car_nav_manoeuvre_width", "184dp"),
-        ("in_car_nav_instruction_height", "48dp"),
-        ("in_car_nav_lanes_height", "40dp"),
+        ("in_car_nav_ribbon_height", "80dp"),
+        ("in_car_nav_manoeuvre_width", "192dp"),
+        ("in_car_nav_instruction_height", "72dp"),
+        ("in_car_nav_lanes_height", "72dp"),
         ("in_car_nav_instruction_text_size", "24sp"),
-        ("in_car_nav_distance_text_size", "24sp"),
+        ("in_car_nav_distance_text_size", "30sp"),
     ):
         base.require_value(values, name, expected, values_path)
 
@@ -305,7 +305,7 @@ def verify_shared_resource_contract(root):
     if 'name="in_car_selection_foreground"' not in fallback_text:
         raise base.VerificationError("shared src/main InCar colour fallback is missing selection foreground")
     fallback_values = base.resource_values(fallback_path)
-    base.require_value(fallback_values, "in_car_nav_ribbon_height", "112dp", fallback_path)
+    base.require_value(fallback_values, "in_car_nav_ribbon_height", "80dp", fallback_path)
 
     theme_path = root / "android/app/src/inCar/res/values/in_car_dialog_theme.xml"
     theme_root = base.parse_xml(theme_path)

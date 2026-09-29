@@ -602,34 +602,35 @@ public class PlacePageController
 
   void showTrackDeleteAlertDialog()
   {
-    if (mMapObject == null)
-      return;
-    dismissAlertDialog();
-    mViewModel.isAlertDialogShowing = true;
-    if (mAlertDialog != null)
+    if (!(mMapObject instanceof Track track))
     {
-      mAlertDialog.show();
+      dismissAlertDialog();
       return;
     }
-    mAlertDialog = new MaterialAlertDialogBuilder(requireContext(), R.style.MwmTheme_AlertDialog)
-                       .setTitle(requireContext().getString(R.string.delete_track_dialog_title, mMapObject.getTitle()))
-                       .setCancelable(true)
-                       .setNegativeButton(R.string.cancel, null)
-                       .setPositiveButton(R.string.delete,
-                                          (dialog, which) -> {
-                                            BookmarkManager.INSTANCE.deleteTrack(((Track) mMapObject).getTrackId());
-                                            close();
-                                          })
-                       .setOnDismissListener(dialog -> dismissAlertDialog())
-                       .show();
+    final long trackId = track.getTrackId();
+    dismissAlertDialog();
+    mViewModel.isAlertDialogShowing = true;
+    mAlertDialog =
+        new MaterialAlertDialogBuilder(requireContext(), R.style.MwmTheme_AlertDialog)
+            .setTitle(requireContext().getString(R.string.delete_track_dialog_title, track.getTitle()))
+            .setCancelable(true)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete, (dialog, which) -> BookmarkManager.INSTANCE.deleteTrack(trackId))
+            .setOnDismissListener(dialog -> {
+              mViewModel.isAlertDialogShowing = false;
+              if (mAlertDialog == dialog)
+                mAlertDialog = null;
+            })
+            .show();
   }
 
   void dismissAlertDialog()
   {
-    if (mAlertDialog == null)
-      return;
-    mAlertDialog.dismiss();
     mViewModel.isAlertDialogShowing = false;
+    final Dialog alertDialog = mAlertDialog;
+    mAlertDialog = null;
+    if (alertDialog != null)
+      alertDialog.dismiss();
   }
 
   private void onBackBtnClicked()
@@ -672,10 +673,6 @@ public class PlacePageController
 
   private void commitRoutePoint(@NonNull RouteMarkType type, @NonNull MapObject point)
   {
-    // Close search up front: dismissing this place page (via close() below, or via the route build's
-    // native place-page deactivation when both endpoints are set) resurfaces the still-enabled search
-    // sheet hidden behind it over the route plan card.
-    ((MwmActivity) requireActivity()).forceCloseSearchFragment();
     final RoutingController controller = RoutingController.get();
     switch (type)
     {
@@ -683,6 +680,8 @@ public class PlacePageController
     case Finish -> controller.setEndPoint(point);
     case Intermediate -> throw new AssertionError("Intermediate points are committed via addStop, not here");
     }
+    // Apply the pick before search dismissal clears its identity.
+    ((MwmActivity) requireActivity()).forceCloseSearchFragment();
     close();
   }
 
@@ -850,6 +849,12 @@ public class PlacePageController
     final boolean showBackButton =
         (intent != null
          && (Factory.isStartedForApiResult(intent) || !TextUtils.isEmpty(Framework.nativeGetParsedBackUrl())));
+    // A confirmation belongs to the track that opened it. A Place Page update for another
+    // object must dismiss that dialog before replacing the selection.
+    final boolean sameTrack = mMapObject instanceof Track previousTrack && mapObject instanceof Track newTrack
+                           && previousTrack.getTrackId() == newTrack.getTrackId();
+    if (!sameTrack)
+      dismissAlertDialog();
     mMapObject = mapObject;
     if (mapObject != null)
     {
@@ -865,14 +870,14 @@ public class PlacePageController
       // Place page will automatically open when the bottom sheet content is loaded so we can compute the peek height
       createPlacePageFragments();
       updateButtons(mapObject, showBackButton, !(mMapObject.isMyPosition() || mMapObject.isTrackRecording()));
-      mAlertDialog = null;
-      if (mViewModel.isAlertDialogShowing)
-        showTrackDeleteAlertDialog();
       if (mMapObject.isTrackRecording())
         onTrackRecordingSelected();
     }
     else
+    {
+      dismissAlertDialog();
       close();
+    }
   }
 
   @Override
@@ -894,6 +899,8 @@ public class PlacePageController
   @Override
   public void onDestroyView()
   {
+    // Never leave a confirmation attached to an old view/controller after recreation.
+    dismissAlertDialog();
     mHostWindowReflowPending = false;
     ++mHostWindowReflowGeneration;
     if (mPlacePage != null && mPendingHostWindowReflow != null)

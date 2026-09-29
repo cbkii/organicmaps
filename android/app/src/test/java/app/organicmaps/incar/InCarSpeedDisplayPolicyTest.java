@@ -112,11 +112,12 @@ public class InCarSpeedDisplayPolicyTest
   }
 
   @Test
-  public void routeLimitChangeClearsBeforeNextSpeedSample()
+  public void routeLimitChangeRecomputesUsingLatestSpeedSample()
   {
     assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
-    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80.0)));
-    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(83.9), kph(80.0)));
+    assertTrue(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80.0)));
+    assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(83.9), kph(80.0)));
+    assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(82.3), kph(80.0)));
     assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(84.0), kph(80.0)));
   }
 
@@ -152,6 +153,40 @@ public class InCarSpeedDisplayPolicyTest
     assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(105.0), kph(100.0)));
     assertFalse(InCarSpeedDisplayPolicy.isSpeeding(kph(83.5), kph(80.0)));
     assertTrue(InCarSpeedDisplayPolicy.isSpeeding(kph(84.0), kph(80.0)));
+  }
+
+  @Test
+  public void liveDisplayedLimitWorksRegardlessOfWhichInputArrivesFirst()
+  {
+    assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(92)));
+    assertTrue(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80)));
+    assertTrue(InCarSpeedDisplayPolicy.warningActive());
+    assertEquals(1.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
+    InCarSpeedDisplayPolicy.resetSpeeding();
+    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80)));
+    assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(92)));
+    assertEquals(1.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
+    // The same speed with a newly displayed 100 km/h limit immediately clears the surface.
+    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100)));
+  }
+
+  @Test
+  public void tintProgressionAndStaleSamplesUseOneState()
+  {
+    InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100));
+    assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(104.9)));
+    assertEquals(0.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
+    assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(105)));
+    assertEquals(0.88f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
+    InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(107.5));
+    assertEquals(0.94f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
+    InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(110));
+    assertEquals(1.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
+    assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(103)));
+    assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(102.9)));
+    InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(110));
+    assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(Double.NaN));
+    assertEquals(0.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
   }
 
   private static double kph(double value)

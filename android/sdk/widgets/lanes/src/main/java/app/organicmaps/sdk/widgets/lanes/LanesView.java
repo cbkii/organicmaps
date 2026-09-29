@@ -38,9 +38,9 @@ public class LanesView extends View
   private final int mCornerRadius;
 
   @ColorInt
-  private final int mActiveLaneTintColor;
+  private int mActiveLaneTintColor;
   @ColorInt
-  private final int mInactiveLaneTintColor;
+  private int mInactiveLaneTintColor;
 
   @NonNull
   private final Paint mBackgroundPaint;
@@ -78,6 +78,17 @@ public class LanesView extends View
 
     mBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     mBackgroundPaint.setColor(backgroundColor);
+  }
+
+  public void setLaneColors(@ColorInt int active, @ColorInt int inactive)
+  {
+    if (mActiveLaneTintColor == active && mInactiveLaneTintColor == inactive)
+      return;
+    mActiveLaneTintColor = active;
+    mInactiveLaneTintColor = inactive;
+    if (mLanesDrawable != null)
+      mLanesDrawable.setLaneColors(active, inactive);
+    invalidate();
   }
 
   public void setLanes(@Nullable LaneInfo[] lanes)

@@ -17,6 +17,7 @@ import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -215,6 +216,11 @@ final class RoutingBottomMenuController
               final RoutingController controller = RoutingController.get();
               if (controller.getStartPoint() == null || controller.getEndPoint() == null)
                 return;
+              if (Framework.nativeIsRoutePointsLimitReached())
+              {
+                Toast.makeText(mContext, R.string.routing_stops_limit_reached, Toast.LENGTH_SHORT).show();
+                return;
+              }
               controller.waitForPoiPick(RouteMarkType.Intermediate);
               openSearchForRoutePick();
             }

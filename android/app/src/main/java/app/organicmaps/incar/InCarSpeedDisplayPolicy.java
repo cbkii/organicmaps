@@ -44,60 +44,67 @@ public final class InCarSpeedDisplayPolicy
     return formatted.toString();
   }
 
-  /**
-   * Update only the route-limit side of the warning state. Route UI may call this frequently; the
-   * hysteresis is reset only when the actual limit changes or becomes invalid. Speed samples are
-   * deliberately owned by {@link #isSpeeding(double, double)} from the Driving View snapshot path.
-   */
+  private static double sCurrentSpeedMps = Double.NaN;
+
+  /** The exact limit rendered by NavigationController; recompute using the latest speed. */
   public static synchronized boolean updateSpeedLimit(double speedLimitMps)
   {
-    if (!isFinite(speedLimitMps) || speedLimitMps <= 0.0)
-    {
-      resetSpeeding();
-      return false;
-    }
-
     if (Double.compare(sSpeedLimitMps, speedLimitMps) != 0)
+      sSpeeding = false;
+    sSpeedLimitMps = speedLimitMps;
+    return evaluate();
+  }
+
+  /** The Driving View snapshot is the sole current-speed input, including its stale/no-speed state. */
+  public static synchronized boolean updateCurrentSpeed(double speedMps)
+  {
+    sCurrentSpeedMps = speedMps;
+    return evaluate();
+  }
+
+  public static synchronized boolean isSpeeding(double speedMps, double speedLimitMps)
+  {
+    sCurrentSpeedMps = speedMps;
+    return updateSpeedLimit(speedLimitMps);
+  }
+
+  private static boolean evaluate()
+  {
+    if (!isFinite(sCurrentSpeedMps) || sCurrentSpeedMps < 0.0 || !isFinite(sSpeedLimitMps)
+        || sSpeedLimitMps <= 0.0)
     {
       sSpeeding = false;
-      sSpeedLimitMps = speedLimitMps;
+      return false;
     }
+    final double factor = sSpeeding ? SPEED_WARNING_CLEAR_FACTOR : SPEED_WARNING_ENTER_FACTOR;
+    sSpeeding = sCurrentSpeedMps + SPEED_BOUNDARY_TOLERANCE_MPS >= sSpeedLimitMps * factor;
     return sSpeeding;
   }
 
-  /**
-   * Returns the shared InCar overspeed warning state. Warning enters at 105% of a valid route
-   * speed limit and remains active until speed falls below 103%, preventing GPS jitter from
-   * repeatedly toggling the ribbon at the threshold. Unknown/invalid measurements clear state.
-   *
-   * This is the only method that feeds a speed sample into the hysteresis authority. The route
-   * controller updates only the current limit via {@link #updateSpeedLimit(double)} so differently
-   * timed location sources cannot advance/clear the same state machine in competing call orders.
-   */
-  public static synchronized boolean isSpeeding(double speedMps, double speedLimitMps)
+  public static synchronized double currentLimitMps()
   {
-    updateSpeedLimit(speedLimitMps);
-    if (!isFinite(speedMps) || speedMps < 0.0 || !isFinite(speedLimitMps) || speedLimitMps <= 0.0)
-    {
-      resetSpeeding();
-      return false;
-    }
+    return sSpeedLimitMps;
+  }
 
-    if (speedMps <= speedLimitMps)
-    {
-      sSpeeding = false;
-      return false;
-    }
-
-    final double thresholdFactor = sSpeeding ? SPEED_WARNING_CLEAR_FACTOR : SPEED_WARNING_ENTER_FACTOR;
-    sSpeeding = speedMps + SPEED_BOUNDARY_TOLERANCE_MPS >= speedLimitMps * thresholdFactor;
+  public static synchronized boolean warningActive()
+  {
     return sSpeeding;
+  }
+
+  /** A visibly red surface at entry, solid warning red at 110%; no animation or flashing. */
+  public static synchronized float warningStrength()
+  {
+    if (!sSpeeding)
+      return 0.0f;
+    final double progress = Math.max(0.0, Math.min(1.0, (sCurrentSpeedMps / sSpeedLimitMps - 1.05) / 0.05));
+    return (float) (0.88 + 0.12 * progress);
   }
 
   public static synchronized void resetSpeeding()
   {
     sSpeeding = false;
     sSpeedLimitMps = Double.NaN;
+    sCurrentSpeedMps = Double.NaN;
   }
 
   private static boolean isFinite(double value)
