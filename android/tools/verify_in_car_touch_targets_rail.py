@@ -179,6 +179,12 @@ def verify_navigation_ribbon(root):
     )
     base.require_method_text(
         controller,
+        "private void updateNavigationHeaderMetrics(",
+        r"R\.dimen\.nav_menu_height",
+        "fixed active-navigation footer height authority",
+    )
+    base.require_method_text(
+        controller,
         "private void updateStreetView(",
         r"isInCarLandscape\(\)[\s\S]*?computeNavContentHeight\(\)",
         "map-control clearance for the whole ribbon",
@@ -187,6 +193,14 @@ def verify_navigation_ribbon(root):
         controller,
         r"mNextTurnContainer\.addOnLayoutChangeListener",
         "conditional ribbon child height must not drive map clearance",
+    )
+
+    view_model = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsViewModel.kt"
+    base.require_method_text(
+        view_model,
+        "fun setBottomButtonsHeight(",
+        r"BuildConfig\.IS_IN_CAR[\s\S]*?LayoutMode\.navigation[\s\S]*?height <= 0f",
+        "legacy map-buttons zero height must not erase the active InCar footer clearance",
     )
 
 
@@ -227,6 +241,12 @@ def verify_navigation_quick_actions(root):
         r"bottomControlsHeightPx[\s\S]*?headerHeightPx[\s\S]*?Gravity\.RIGHT \| Gravity\.BOTTOM",
         "navigation overflow bounds and physical-right placement",
     )
+    base.require_method_text(
+        sizing,
+        "private static int[] usableWindowSize(",
+        r"getDecorView\(\)[\s\S]*?decor\.getWidth\(\)[\s\S]*?decor\.getHeight\(\)",
+        "dialog sizing must prefer the measured current task window",
+    )
 
     adapter = root / "android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java"
     base.require_method_text(
@@ -241,7 +261,7 @@ def verify_speed_warning_policy(root):
     policy = root / "android/app/src/main/java/app/organicmaps/incar/InCarSpeedDisplayPolicy.java"
     text = base.read_text(policy)
     for token in ("SPEED_WARNING_ENTER_FACTOR = 1.05", "SPEED_WARNING_CLEAR_FACTOR = 1.03",
-                  "SPEED_BOUNDARY_TOLERANCE_MPS", "sSpeedLimitMps", "resetSpeeding()"):
+                  "SPEED_BOUNDARY_TOLERANCE_MPS", "sSpeedLimitMps", "updateSpeedLimit(", "resetSpeeding()"):
         if token not in text:
             raise base.VerificationError(f"{policy}: missing authoritative overspeed policy token {token!r}")
 
@@ -249,8 +269,13 @@ def verify_speed_warning_policy(root):
     base.require_method_text(
         controller,
         "private void updateSpeedLimit(",
-        r"BuildConfig\.IS_IN_CAR[\s\S]*?InCarSpeedDisplayPolicy\.isSpeeding",
-        "speed-limit sign must share the InCar overspeed authority",
+        r"BuildConfig\.IS_IN_CAR[\s\S]*?InCarSpeedDisplayPolicy\.updateSpeedLimit",
+        "speed-limit sign must update only the shared InCar limit authority",
+    )
+    base.reject_text(
+        controller,
+        r"BuildConfig\.IS_IN_CAR[\s\S]{0,350}InCarSpeedDisplayPolicy\.isSpeeding",
+        "route controller must not feed a competing speed sample into the overspeed hysteresis",
     )
 
 
