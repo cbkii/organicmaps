@@ -49,6 +49,20 @@ public class InCarQuickDestinationsLayoutPolicyTest
   }
 
   @Test
+  public void navigationRailStepsDownOnlyWhenFourActionsNoLongerFit()
+  {
+    final int preferredRequired =
+        InCarQuickDestinationsLayoutPolicy.requiredHeightDp(4, 76, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+    final int compactRequired =
+        InCarQuickDestinationsLayoutPolicy.requiredHeightDp(4, 69, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+
+    assertEquals(76, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(preferredRequired));
+    assertEquals(69, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(preferredRequired - 1));
+    assertEquals(69, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(compactRequired));
+    assertEquals(55, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(compactRequired - 1));
+  }
+
+  @Test
   public void constrainedHeightKeepsHomeAndWorkBeforeOverflow()
   {
     final int directActions = 4;
