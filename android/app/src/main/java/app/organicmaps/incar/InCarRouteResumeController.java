@@ -85,10 +85,9 @@ public final class InCarRouteResumeController implements LocationListener
     if (!routing.isNavigating() && !routing.hasSavedRoute())
       return;
     final SharedPreferences prefs = prefs();
-    if (!InCarRouteResumePolicy.isExpired(prefs.getLong(WALL, 0), prefs.getLong(ELAPSED, -1),
-                                        prefs.getInt(BOOT, -1), System.currentTimeMillis(),
-                                        SystemClock.elapsedRealtime(), bootCount(mApplication),
-                                        InCarSettingsStore.routeResumeMinutes(mApplication)))
+    if (!InCarRouteResumePolicy.isExpired(prefs.getLong(WALL, 0), prefs.getLong(ELAPSED, -1), prefs.getInt(BOOT, -1),
+                                          System.currentTimeMillis(), SystemClock.elapsedRealtime(),
+                                          bootCount(mApplication), InCarSettingsStore.routeResumeMinutes(mApplication)))
       return;
     Logger.i(TAG, "Discarding route after navigation inactivity");
     if (routing.isNavigating())
@@ -126,8 +125,12 @@ public final class InCarRouteResumeController implements LocationListener
 
   private void recordActivity()
   {
-    prefs().edit().putLong(WALL, System.currentTimeMillis()).putLong(ELAPSED, SystemClock.elapsedRealtime())
-        .putInt(BOOT, bootCount(mApplication)).apply();
+    prefs()
+        .edit()
+        .putLong(WALL, System.currentTimeMillis())
+        .putLong(ELAPSED, SystemClock.elapsedRealtime())
+        .putInt(BOOT, bootCount(mApplication))
+        .apply();
   }
 
   private SharedPreferences prefs()
@@ -138,6 +141,7 @@ public final class InCarRouteResumeController implements LocationListener
   private static int bootCount(@NonNull Context context)
   {
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-        ? Settings.Global.getInt(context.getContentResolver(), Settings.Global.BOOT_COUNT, -1) : -1;
+      ? Settings.Global.getInt(context.getContentResolver(), Settings.Global.BOOT_COUNT, -1)
+      : -1;
   }
 }
