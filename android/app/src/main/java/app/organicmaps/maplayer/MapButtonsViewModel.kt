@@ -55,17 +55,14 @@ class MapButtonsViewModel : ViewModel() {
         // InCar active navigation has a dedicated fixed route footer rather than the legacy map-buttons
         // bottom frame. NavigationController publishes that real footer height; do not let the absent
         // legacy frame overwrite it with zero while the navigation layout is active.
-        if (shouldPreserveInCarNavigationFooter(height)) {
-            return
+        if (
+            BuildConfig.IS_IN_CAR &&
+                _layoutMode.value == MapButtonsController.LayoutMode.navigation &&
+                height <= 0f
+        ) {
+            if ((_bottomButtonsHeight.value ?: 0f) > 0f) return
         }
         _bottomButtonsHeight.value = height
-    }
-
-    private fun shouldPreserveInCarNavigationFooter(height: Float): Boolean {
-        if (!BuildConfig.IS_IN_CAR) return false
-        if (_layoutMode.value != MapButtonsController.LayoutMode.navigation) return false
-        if (height > 0f) return false
-        return (_bottomButtonsHeight.value ?: 0f) > 0f
     }
 
     fun setTopButtonsMarginTop(margin: Int) {
