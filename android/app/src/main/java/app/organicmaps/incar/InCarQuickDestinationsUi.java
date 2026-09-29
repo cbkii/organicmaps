@@ -432,7 +432,7 @@ public final class InCarQuickDestinationsUi
         return;
       }
 
-      final int actionSizeDp = pxToDp(InCarVisuals.currentQuickActionSizePx(mActivity));
+      final int actionSizeDp = pxToDp(currentActionSizePx());
       final int availableHeightDp = availableHeightDp();
       final int capacity = InCarQuickDestinationsLayoutPolicy.maxVisibleActions(
           availableHeightDp, actionSizeDp, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
@@ -464,12 +464,12 @@ public final class InCarQuickDestinationsUi
       mRenderedOverflowActions.clear();
       mRenderedOverflowActions.addAll(mOverflowActions);
 
-      final List<InCarQuickActionButton> rendered = new ArrayList<>(4);
+      final List<InCarQuickActionButton> rendered = new ArrayList<>(InCarQuickDestinationsLayoutPolicy.NAVIGATION_ACTION_COUNT);
       for (QuickActionBinding action : mDirectActions)
         rendered.add(action.button);
       rendered.add(ensureMoreButton());
 
-      final int actionSizeDp = pxToDp(InCarVisuals.currentQuickActionSizePx(mActivity));
+      final int actionSizeDp = pxToDp(currentActionSizePx());
       final int gapDp =
           InCarQuickDestinationsLayoutPolicy.resolvedGapDp(availableHeightDp(), actionSizeDp, rendered.size());
       renderButtons(rendered, gapDp);
@@ -516,16 +516,53 @@ public final class InCarQuickDestinationsUi
     {
       int parentHeight = mAnchorParent == null ? 0 : mAnchorParent.getHeight();
       if (parentHeight <= 0)
+        parentHeight = mActivity.getWindow().getDecorView().getHeight();
+      if (parentHeight <= 0)
         parentHeight = mActivity.getResources().getDisplayMetrics().heightPixels;
 
       int bottomMargin = 0;
       if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
         bottomMargin = Math.max(0, params.bottomMargin);
-      final int minimum = InCarVisuals.currentQuickActionSizePx(mActivity);
-      final int availablePx =
-          Math.max(minimum, parentHeight - mSystemTopInset - dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP)
-                                - bottomMargin);
+      int topReserved = mSystemTopInset + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
+      if (mNavigationMode)
+        topReserved += navigationHeaderHeightPx();
+      final int availablePx = Math.max(1, parentHeight - topReserved - bottomMargin);
       return Math.max(1, pxToDp(availablePx));
+    }
+
+    private int navigationHeaderHeightPx()
+    {
+      if (!mNavigationMode)
+        return 0;
+      final Integer measured = mMapButtonsViewModel.getTopHeaderHeight().getValue();
+      if (measured != null && measured > 0)
+        return measured;
+      return mActivity.getResources().getDimensionPixelSize(R.dimen.in_car_nav_ribbon_height);
+    }
+
+    private int currentActionSizePx()
+    {
+      final int profileSize = InCarVisuals.currentQuickActionSizePx(mActivity);
+      if (!mNavigationMode)
+        return profileSize;
+      final int fittedDp = InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(availableHeightDp());
+      return Math.min(profileSize, dp(fittedDp));
+    }
+
+    private int currentActionIconSizePx()
+    {
+      if (!mNavigationMode)
+        return InCarVisuals.currentQuickActionIconSizePx(mActivity);
+
+      final Resources resources = mActivity.getResources();
+      final int actionSize = currentActionSizePx();
+      final int extraCompact = resources.getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact);
+      if (actionSize <= extraCompact)
+        return resources.getDimensionPixelSize(R.dimen.in_car_extra_compact_map_button_icon_size);
+      final int compact = resources.getDimensionPixelSize(R.dimen.in_car_touch_target_min);
+      if (actionSize <= compact)
+        return resources.getDimensionPixelSize(R.dimen.in_car_compact_map_button_icon_size);
+      return InCarVisuals.currentQuickActionIconSizePx(mActivity);
     }
 
     @NonNull
@@ -533,8 +570,8 @@ public final class InCarQuickDestinationsUi
     {
       final InCarQuickActionButton button = new InCarQuickActionButton(mActivity);
       resizeButton(button);
-      final int actionSize = InCarVisuals.currentQuickActionSizePx(mActivity);
-      final int iconSize = InCarVisuals.currentQuickActionIconSizePx(mActivity);
+      final int actionSize = currentActionSizePx();
+      final int iconSize = currentActionIconSizePx();
       final int iconPadding = Math.max(0, (actionSize - iconSize) / 2);
       button.setAppearance(iconRes, ContextCompat.getColor(mActivity, colorRes), quickForegroundColor(),
                            dp(InCarQuickDestinationsLayoutPolicy.ACTION_CORNER_RADIUS_DP), iconPadding);
@@ -554,8 +591,8 @@ public final class InCarQuickDestinationsUi
 
     private void resizeButton(@NonNull InCarQuickActionButton button)
     {
-      final int size = InCarVisuals.currentQuickActionSizePx(mActivity);
-      final int iconSize = InCarVisuals.currentQuickActionIconSizePx(mActivity);
+      final int size = currentActionSizePx();
+      final int iconSize = currentActionIconSizePx();
       final int iconPadding = Math.max(0, (size - iconSize) / 2);
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
@@ -681,7 +718,7 @@ public final class InCarQuickDestinationsUi
     private void setBottomGap(@NonNull View button, int gapDp)
     {
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
-      final int size = InCarVisuals.currentQuickActionSizePx(mActivity);
+      final int size = currentActionSizePx();
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
                                                  ? layoutParams
                                                  : new LinearLayout.LayoutParams(size, size);
