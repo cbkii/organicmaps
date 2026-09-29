@@ -24,7 +24,9 @@ import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
+import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.sdk.util.log.Logger;
+import app.organicmaps.sdk.widgets.speedlimit.SpeedLimitView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import java.lang.ref.WeakReference;
@@ -48,6 +50,8 @@ public final class InCarDrivingUi
     @Nullable
     final TextView navigationSpeed;
     @Nullable
+    final SpeedLimitView navigationSpeedLimit;
+    @Nullable
     FloatingActionButton drivingView;
     @Nullable
     FloatingActionButton zoomIn;
@@ -63,12 +67,14 @@ public final class InCarDrivingUi
     final InCarDrivingViewController controller;
     String lastSpeedText;
 
-    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed, @Nullable View help,
+    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed,
+            @Nullable SpeedLimitView navigationSpeedLimit, @Nullable View help,
             @NonNull InCarDrivingViewController controller)
     {
       this.overlay = overlay;
       this.speed = speed;
       this.navigationSpeed = navigationSpeed;
+      this.navigationSpeedLimit = navigationSpeedLimit;
       this.help = help;
       this.controller = controller;
     }
@@ -113,8 +119,9 @@ public final class InCarDrivingUi
       }
 
       final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
+      final SpeedLimitView navigationSpeedLimit = activity.findViewById(R.id.nav_speed_limit);
       final View help = activity.findViewById(R.id.help_button);
-      binding = new Binding(overlay, speed, navigationSpeed, help, controller);
+      binding = new Binding(overlay, speed, navigationSpeed, navigationSpeedLimit, help, controller);
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       applyInsets(activity, binding);
@@ -283,6 +290,8 @@ public final class InCarDrivingUi
           || !snapshot.hasSpeed || routingInfo == null)
         InCarSpeedDisplayPolicy.resetSpeeding();
       navigationSpeedView.setSpeeding(warning);
+      if (binding.navigationSpeedLimit != null && routingInfo != null)
+        binding.navigationSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(routingInfo.speedLimitMps), warning);
     }
 
     applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
