@@ -192,7 +192,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     {
       final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) mNextTurnContainer.getLayoutParams();
       return UiUtils.isVisible(mNextTurnContainer)
-        ? dimen(mFrame.getContext(), R.dimen.in_car_nav_ribbon_height) + params.topMargin : 0;
+        ? dimen(mFrame.getContext(), R.dimen.in_car_nav_ribbon_height) + params.topMargin
+        : 0;
     }
 
     int turnAndSpeedHeight = 0;

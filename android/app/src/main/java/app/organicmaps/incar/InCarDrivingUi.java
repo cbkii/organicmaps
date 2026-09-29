@@ -329,7 +329,8 @@ public final class InCarDrivingUi
       navigationSpeedView.setSpeeding(warning);
       if (binding.navigationSpeedLimit != null)
         binding.navigationSpeedLimit.setSpeedLimit(
-            StringUtils.nativeFormatSpeed(Double.isNaN(binding.currentSpeedLimitMps) ? -1.0 : binding.currentSpeedLimitMps),
+            StringUtils.nativeFormatSpeed(Double.isNaN(binding.currentSpeedLimitMps) ? -1.0
+                                                                                     : binding.currentSpeedLimitMps),
             warning);
       renderRibbon(activity, warning, InCarSpeedDisplayPolicy.warningStrength());
     }

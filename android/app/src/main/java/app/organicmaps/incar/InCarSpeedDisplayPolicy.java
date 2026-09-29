@@ -70,8 +70,7 @@ public final class InCarSpeedDisplayPolicy
 
   private static boolean evaluate()
   {
-    if (!isFinite(sCurrentSpeedMps) || sCurrentSpeedMps < 0.0 || !isFinite(sSpeedLimitMps)
-        || sSpeedLimitMps <= 0.0)
+    if (!isFinite(sCurrentSpeedMps) || sCurrentSpeedMps < 0.0 || !isFinite(sSpeedLimitMps) || sSpeedLimitMps <= 0.0)
     {
       sSpeeding = false;
       return false;
