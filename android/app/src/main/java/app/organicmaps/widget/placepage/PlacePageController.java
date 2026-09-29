@@ -610,26 +610,27 @@ public class PlacePageController
     final long trackId = track.getTrackId();
     dismissAlertDialog();
     mViewModel.isAlertDialogShowing = true;
-    if (mAlertDialog != null)
-    {
-      mAlertDialog.show();
-      return;
-    }
     mAlertDialog =
         new MaterialAlertDialogBuilder(requireContext(), R.style.MwmTheme_AlertDialog)
             .setTitle(requireContext().getString(R.string.delete_track_dialog_title, track.getTitle()))
             .setCancelable(true)
             .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.delete, (dialog, which) -> { BookmarkManager.INSTANCE.deleteTrack(trackId); })
-            .setOnDismissListener(dialog -> dismissAlertDialog())
+            .setPositiveButton(R.string.delete, (dialog, which) -> BookmarkManager.INSTANCE.deleteTrack(trackId))
+            .setOnDismissListener(dialog -> {
+              mViewModel.isAlertDialogShowing = false;
+              if (mAlertDialog == dialog)
+                mAlertDialog = null;
+            })
             .show();
   }
 
   void dismissAlertDialog()
   {
     mViewModel.isAlertDialogShowing = false;
-    if (mAlertDialog != null)
-      mAlertDialog.dismiss();
+    final Dialog alertDialog = mAlertDialog;
+    mAlertDialog = null;
+    if (alertDialog != null)
+      alertDialog.dismiss();
   }
 
   private void onBackBtnClicked()
