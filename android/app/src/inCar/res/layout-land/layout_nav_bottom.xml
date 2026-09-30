@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:id="@+id/nav_bottom_frame"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="vertical">
+
+  <FrameLayout
+    android:id="@+id/line_frame"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/in_car_touch_target_preferred"
+    android:clickable="false"
+    android:focusable="false">
+
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:gravity="center_vertical|right"
+      android:layoutDirection="ltr"
+      android:orientation="horizontal">
+
+      <include
+        layout="@layout/layout_nav_bottom_numbers"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1" />
+
+      <ImageView
+        android:id="@+id/nav_more"
+        android:layout_width="@dimen/nav_button_height"
+        android:layout_height="@dimen/nav_button_height"
+        android:background="?selectableItemBackgroundBorderless"
+        android:contentDescription="@string/in_car_navigation_more"
+        android:padding="@dimen/margin_base"
+        android:scaleType="centerInside"
+        app:srcCompat="@drawable/ic_more"
+        app:tint="?iconTint" />
+
+      <Button
+        android:id="@+id/stop"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/in_car_nav_end_height"
+        android:layout_marginTop="@dimen/in_car_nav_end_outer_gap"
+        android:layout_marginBottom="@dimen/in_car_nav_end_outer_gap"
+        android:layout_marginStart="@dimen/nav_bottom_gap"
+        android:layout_marginRight="@dimen/in_car_nav_end_outer_gap"
+        android:background="@drawable/in_car_navigation_end"
+        android:backgroundTint="@null"
+        app:backgroundTint="@null"
+        android:includeFontPadding="false"
+        android:gravity="center"
+        android:minHeight="@dimen/in_car_touch_target_min"
+        android:fontFamily="@string/robotoMedium"
+        android:minWidth="@dimen/in_car_nav_stop_min_width"
+        android:padding="@dimen/margin_base"
+        android:text="@string/in_car_end_navigation"
+        android:textAppearance="@style/MwmTextAppearance.Button"
+        android:textColor="@android:color/white" />
+    </LinearLayout>
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+      android:id="@+id/navigation_progress"
+      style="@style/Widget.MaterialComponents.LinearProgressIndicator"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/nav_progress"
+      android:layout_gravity="bottom"
+      android:minHeight="0dp"
+      app:indicatorColor="?colorAccent"
+      app:trackCornerRadius="@dimen/nav_progress_head"
+      app:trackThickness="@dimen/nav_progress"
+      app:trackColor="@color/bg_routing_progress" />
+  </FrameLayout>
+
+  <!-- Keep the existing NavMenu authority IDs without exposing a second InCar row. -->
+  <LinearLayout
+    android:id="@+id/content_frame"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:orientation="horizontal"
+    android:visibility="gone">
+
+    <ImageView
+      android:id="@+id/tts_volume"
+      android:layout_width="1dp"
+      android:layout_height="1dp"
+      app:srcCompat="@drawable/ic_voice_on" />
+
+    <ImageView
+      android:id="@+id/settings"
+      android:layout_width="1dp"
+      android:layout_height="1dp"
+      app:srcCompat="@drawable/ic_menu_settings" />
+  </LinearLayout>
+</LinearLayout>

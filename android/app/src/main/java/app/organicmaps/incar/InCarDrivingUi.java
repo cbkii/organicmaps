@@ -1,7 +1,6 @@
 package app.organicmaps.incar;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -183,21 +182,24 @@ public final class InCarDrivingUi
     final int normal = ContextCompat.getColor(activity, R.color.bg_cards);
     final int red = ContextCompat.getColor(activity, R.color.in_car_nav_warning);
     ribbon.setBackgroundColor(warning ? ColorUtils.blendARGB(normal, red, strength) : normal);
-    final int foreground = warning ? Color.WHITE : ContextCompat.getColor(activity, R.color.in_car_nav_foreground);
-    final int secondary = warning ? Color.WHITE : ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
-    for (int id : new int[] {R.id.distance, R.id.street, R.id.in_car_nav_now, R.id.in_car_nav_then})
+    final int foreground = ContextCompat.getColor(activity, R.color.in_car_nav_foreground);
+    final int secondary = ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
+    for (int id : new int[] {R.id.distance, R.id.street, R.id.in_car_nav_now, R.id.in_car_nav_next,
+                             R.id.in_car_nav_guidance_label})
     {
       final TextView text = ribbon.findViewById(id);
       if (text != null)
-        text.setTextColor(id == R.id.in_car_nav_then ? secondary : foreground);
+        text.setTextColor(foreground);
     }
     final View immediate = ribbon.findViewById(R.id.nav_next_turn_frame);
     final View then = ribbon.findViewById(R.id.nav_next_next_turn_frame);
     ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
     ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
     final LanesView lanes = ribbon.findViewById(R.id.lanes);
-    lanes.setLaneColors(warning ? Color.WHITE : ContextCompat.getColor(activity, R.color.base_accent),
-                        warning ? ColorUtils.setAlphaComponent(Color.WHITE, 180) : secondary);
+    // Half-strength day warnings are light red: keep dark guidance rather than forcing white.
+    // In warning state, use the same high-contrast theme foreground for the active lane.
+    lanes.setLaneColors(warning ? foreground : ContextCompat.getColor(activity, R.color.base_accent),
+                        warning ? ColorUtils.setAlphaComponent(foreground, 180) : secondary);
   }
 
   public static void refresh(@NonNull MwmActivity activity)

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import re
 
+import verify_in_car_contrast as contrast
+
 import verify_in_car_touch_targets as base
 
 
@@ -145,8 +147,7 @@ def verify_navigation_ribbon(root):
     base.require_layout_attr(
         layout, "lanes", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_lanes_height"
     )
-    base.require_layout_attr(layout, "lanes", base.ANDROID_NS, "layout_gravity", "top")
-    base.require_layout_attr(layout, "lanes", base.APP_NS, "lanesAlignTop", "true")
+    base.require_layout_attr(layout, "lanes", base.ANDROID_NS, "layout_gravity", "center_vertical")
     lanes_drawable = root / "android/sdk/widgets/lanes/src/main/java/app/organicmaps/sdk/widgets/lanes/LanesDrawable.java"
     fitting = base.java_method_body(lanes_drawable, "public void setBounds(")
     if re.search(r"\bm(?:Width|Height)\s*=", fitting):
@@ -156,10 +157,10 @@ def verify_navigation_ribbon(root):
     values = base.resource_values(values_path)
     for name, expected in (
         ("in_car_nav_ribbon_height", "80dp"),
-        ("in_car_nav_manoeuvre_width", "192dp"),
+        ("in_car_nav_manoeuvre_width", "196dp"),
         ("in_car_nav_instruction_height", "72dp"),
         ("in_car_nav_lanes_height", "72dp"),
-        ("in_car_nav_instruction_text_size", "24sp"),
+        ("in_car_nav_instruction_text_size", "29sp"),
         ("in_car_nav_distance_text_size", "30sp"),
     ):
         base.require_value(values, name, expected, values_path)
@@ -210,6 +211,101 @@ def verify_navigation_ribbon(root):
         r"BuildConfig\.IS_IN_CAR[\s\S]*?LayoutMode\.navigation[\s\S]*?height <= 0f",
         "legacy map-buttons zero height must not erase the active InCar footer clearance",
     )
+
+
+def verify_navigation_refinements(root):
+    layout = root / "android/app/src/inCar/res/layout-land/layout_nav_top.xml"
+    parsed = base.parse_xml(layout)
+    android = lambda name: f"{{{base.ANDROID_NS}}}{name}"
+    by_id = {base.resource_id(e, android("id")): e for e in parsed.iter()}
+    values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
+    values = base.resource_values(values_path)
+    strings = {e.attrib["name"]: e.text for e in base.parse_xml(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml").findall("string")}
+    for stage in ("now", "next", "after", "lanes"):
+        base.require_value(strings, f"in_car_nav_{stage}", stage.upper(), layout)
+    for view, label in (("in_car_nav_now", "now"), ("in_car_nav_next", "next"),
+                        ("in_car_nav_guidance_label", "after")):
+        base.require_layout_attr(layout, view, base.ANDROID_NS, "text", f"@string/in_car_nav_{label}")
+        base.require_layout_attr(layout, view, base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_label_height")
+    base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "alpha", "0.90")
+    base.require_layout_attr(layout, "nav_next_next_turn_frame", base.ANDROID_NS, "alpha", "0.80")
+    base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "alpha", "0.80")
+    base.require_layout_attr(layout, "nav_next_turn_container", base.ANDROID_NS, "layoutDirection", "ltr")
+    base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_width", "0dp")
+    base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_weight", "1")
+    now = float(values["in_car_nav_now_icon_size"][:-2])
+    after = float(values["in_car_nav_after_icon_size"][:-2])
+    distance = float(values["in_car_nav_distance_text_size"][:-2])
+    road = float(values["in_car_nav_instruction_text_size"][:-2])
+    if not (now == 72 and 0.92 <= after / now < 1 and 0.95 <= road / distance < 1):
+        raise base.VerificationError("navigation hierarchy must use only modest optical size steps")
+    base.require_value(values, "in_car_nav_icon_gap", "12dp", values_path)
+    for element in parsed.iter("ImageView"):
+        if base.resource_id(element, android("id")) == "turn":
+            for edge in ("Left", "Right"):
+                if element.attrib.get(android(f"layout_margin{edge}")) != "@dimen/in_car_nav_icon_gap":
+                    raise base.VerificationError("manoeuvre icons need 12dp on both horizontal edges")
+            if any(android(f"layout_margin{edge}") in element.attrib for edge in ("Top", "Bottom")):
+                raise base.VerificationError("manoeuvre icons must not consume extra vertical margins")
+    ribbon = by_id["nav_next_turn_container"]
+    if base.resource_id(list(ribbon)[-1][-1], android("id")) != "in_car_nav_speed":
+        raise base.VerificationError("speed must remain in the last physical-right ribbon section")
+    controller = root / "android/app/src/main/java/app/organicmaps/routing/NavigationController.java"
+    base.require_method_text(controller, "private void updateGuidanceLabel(",
+                             r"hasLanes \? R\.string\.in_car_nav_lanes : R\.string\.in_car_nav_after",
+                             "LANES caption must replace AFTER")
+    base.require_method_text(controller, "private void updateVehicle(",
+                             r"showNextNextTurn = info\.hasNextNextTurn\(\) && \(!isInCarLandscape\(\) \|\| !hasLanes\)",
+                             "complete lanes must take precedence over AFTER")
+
+    footer = root / "android/app/src/inCar/res/layout-land/layout_nav_bottom.xml"
+    for edge in ("Top", "Bottom", "Right"):
+        base.require_layout_attr(footer, "stop", base.ANDROID_NS, f"layout_margin{edge}",
+                                 "@dimen/in_car_nav_end_outer_gap")
+    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "background", "@drawable/in_car_navigation_end")
+    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "textColor", "@android:color/white")
+    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "padding", "@dimen/margin_base")
+    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_min")
+    height = float(values["in_car_nav_end_height"][:-2])
+    gap = float(values["in_car_nav_end_outer_gap"][:-2])
+    if height < 69 or height + 2 * gap != 76:
+        raise base.VerificationError("END touch target and equal inset must fit the 76dp footer")
+    drawable = base.parse_xml(root / "android/app/src/inCar/res/drawable/in_car_navigation_end.xml")
+    if drawable.find(".//solid").attrib.get(android("color")) != "#FF000000":
+        raise base.VerificationError("END must have a true-black fill")
+
+    owner = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java"
+    base.require_method_text(owner, "static boolean shouldSuppressLegacyButton(",
+                             r"inCar && mode == LayoutMode\.navigation.*MapButtons\.search.*MapButtons\.bookmarks",
+                             "only duplicate legacy controls must be suppressed in InCar navigation")
+    for path, method in ((owner, "public void showButton("),
+                         (root / "android/app/src/main/java/app/organicmaps/maplayer/SearchWheel.java", "public void show(")):
+        for token in ("setClickable(!suppressed)", "setFocusable(!suppressed)",
+                      "IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS"):
+            base.require_method_text(path, method, re.escape(token), "hidden duplicates must leave all input traversal")
+    wheel = root / "android/app/src/main/java/app/organicmaps/maplayer/SearchWheel.java"
+    base.require_method_text(wheel, "private void refreshSearchVisibility(", r"isSuppressed\(\)[\s\S]*?show\(false\)",
+                             "search refresh must honour duplicate suppression")
+
+
+def verify_warning_foreground_contrast(root):
+    fallbacks = contrast.read_colors(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml")
+    for night in (False, True):
+        palette = {**fallbacks, **contrast.build_palette(root, night)}
+        normal = contrast.resolve_color("bg_cards", palette)
+        red = contrast.resolve_color("in_car_nav_warning", palette)
+        foreground = contrast.resolve_color("in_car_nav_foreground", palette)
+        for strength in (0.44, 0.47, 0.50):
+            background = contrast.composite(contrast.Rgba(red.red, red.green, red.blue, strength), normal)
+            for stage, alpha in (("NOW", 1.0), ("NEXT", 0.90), ("AFTER", 0.80)):
+                faded = contrast.Rgba(foreground.red, foreground.green, foreground.blue, alpha)
+                ratio = contrast.contrast_ratio(faded, background)
+                if ratio < 4.5:
+                    raise base.VerificationError(f"{stage} warning foreground contrast is only {ratio:.2f}:1")
+    renderer = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
+    body = base.java_method_body(renderer, "private static void renderRibbon(")
+    if "Color.WHITE" in body:
+        raise base.VerificationError("half-strength warning must retain theme-appropriate foregrounds")
 
 
 def verify_navigation_quick_actions(root):
@@ -340,6 +436,8 @@ def verify_code(root):
     original_verify_code(root)
     verify_shared_resource_contract(root)
     verify_navigation_ribbon(root)
+    verify_navigation_refinements(root)
+    verify_warning_foreground_contrast(root)
     verify_navigation_quick_actions(root)
     verify_speed_warning_policy(root)
 

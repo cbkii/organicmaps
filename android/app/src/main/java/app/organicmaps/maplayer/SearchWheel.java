@@ -13,6 +13,7 @@ import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.search.SearchEngine;
@@ -130,8 +131,31 @@ public class SearchWheel implements View.OnClickListener
     return true;
   }
 
+  private boolean isSuppressed()
+  {
+    return MapButtonsController.shouldSuppressLegacyButton(BuildConfig.IS_IN_CAR,
+                                                          mMapButtonsViewModel.getLayoutMode().getValue(),
+                                                          MapButtonsController.MapButtons.search);
+  }
+
   public void show(boolean show)
   {
+    final boolean suppressed = isSuppressed();
+    if (suppressed)
+    {
+      show = false;
+      mIsExpanded = false;
+      UiThread.cancelDelayedTasks(mCloseRunnable);
+      if (mTouchInterceptor != null)
+        UiUtils.hide(mTouchInterceptor);
+    }
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mSearchButton.setClickable(!suppressed);
+      mSearchButton.setFocusable(!suppressed);
+      mSearchButton.setImportantForAccessibility(suppressed ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                                                          : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+    }
     UiUtils.showIf(show, mSearchButton);
     if (initSearchLayout())
       UiUtils.showIf(show && mIsExpanded, mSearchLayout);
@@ -196,6 +220,12 @@ public class SearchWheel implements View.OnClickListener
 
   private void refreshSearchVisibility()
   {
+    // Animation completion and query changes must not resurrect the hidden legacy wheel.
+    if (isSuppressed())
+    {
+      show(false);
+      return;
+    }
     if (initSearchLayout())
     {
       for (SearchOption searchOption : SearchOption.values())
@@ -228,6 +258,8 @@ public class SearchWheel implements View.OnClickListener
   @Override
   public void onClick(View v)
   {
+    if (isSuppressed())
+      return;
     final int id = v.getId();
     if (id == R.id.btn_search)
       onSearchButtonClick(v);

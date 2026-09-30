@@ -220,8 +220,19 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       mNextNextTurnImage.setImageResource(info.nextCarDirection.getTurnRes());
 
     mLanesView.setLanes(info.lanes);
+    updateGuidanceLabel(hasLanes, showNextNextTurn);
 
     updateSpeedLimit(info);
+  }
+
+  private void updateGuidanceLabel(boolean hasLanes, boolean hasAfter)
+  {
+    if (!isInCarLandscape())
+      return;
+    final TextView label = mTopFrame.findViewById(R.id.in_car_nav_guidance_label);
+    label.setText(hasLanes ? R.string.in_car_nav_lanes : R.string.in_car_nav_after);
+    // Preserve the stable section width without suggesting an unavailable future instruction.
+    UiUtils.visibleIf(hasLanes || hasAfter, label);
   }
 
   private void updatePedestrian(@NonNull RoutingInfo info)
@@ -242,6 +253,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       {
         mLanesView.setLanes(null);
         UiUtils.hide(mNextNextTurnFrame);
+        updateGuidanceLabel(false, false);
         updateSpeedLimit(info);
       }
     }

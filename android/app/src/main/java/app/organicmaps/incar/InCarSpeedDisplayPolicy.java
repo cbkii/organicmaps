@@ -90,13 +90,13 @@ public final class InCarSpeedDisplayPolicy
     return sSpeeding;
   }
 
-  /** A visibly red surface at entry, solid warning red at 110%; no animation or flashing. */
+  /** Half-strength red tint at entry, capped at 50% by 110%; no animation or flashing. */
   public static synchronized float warningStrength()
   {
     if (!sSpeeding)
       return 0.0f;
     final double progress = Math.max(0.0, Math.min(1.0, (sCurrentSpeedMps / sSpeedLimitMps - 1.05) / 0.05));
-    return (float) (0.88 + 0.12 * progress);
+    return (float) (0.44 + 0.06 * progress);
   }
 
   public static synchronized void resetSpeeding()

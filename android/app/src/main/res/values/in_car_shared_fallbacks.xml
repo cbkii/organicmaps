@@ -9,8 +9,11 @@
   <color name="in_car_nav_secondary">@color/icon_tint_light</color>
   <color name="in_car_nav_warning">#FFB3261E</color>
   <string name="in_car_nav_now">NOW</string>
-  <string name="in_car_nav_then">THEN</string>
+  <string name="in_car_nav_next">NEXT</string>
+  <string name="in_car_nav_after">AFTER</string>
+  <string name="in_car_nav_lanes">LANES</string>
   <item name="in_car_nav_now" type="id" />
-  <item name="in_car_nav_then" type="id" />
+  <item name="in_car_nav_next" type="id" />
+  <item name="in_car_nav_guidance_label" type="id" />
   <item name="in_car_nav_guidance_group" type="id" />
 </resources>

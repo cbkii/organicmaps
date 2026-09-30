@@ -189,6 +189,11 @@ public class MapButtonsController extends Fragment
       mButtonsMap.put(MapButtons.trackRecordingStatus, mTrackRecordingStatusButton);
     showButton(BuildConfig.IS_IN_CAR && InCarSettingsStore.isShowTrackRecordingButton(activity),
                MapButtons.trackRecordingStatus);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      showButton(true, MapButtons.search);
+      showButton(true, MapButtons.bookmarks);
+    }
     return mFrame;
   }
 
@@ -199,12 +204,29 @@ public class MapButtonsController extends Fragment
       UiUtils.showIf(!hide, mBottomButtonsFrame);
   }
 
+  // The quick rail owns Search/Places in active InCar navigation; planning and normal Android
+  // retain their original map controls. Use the layout contract, not transient native route state.
+  static boolean shouldSuppressLegacyButton(boolean inCar, @Nullable LayoutMode mode, MapButtons button)
+  {
+    return inCar && mode == LayoutMode.navigation && (button == MapButtons.search || button == MapButtons.bookmarks);
+  }
+
   public void showButton(boolean show, MapButtons button)
   {
     // TODO(AB): Why do we need this check? Isn't it better to crash and fix the wrong logic ASAP?
     final View buttonView = mButtonsMap.get(button);
     if (buttonView == null)
       return;
+    if (BuildConfig.IS_IN_CAR && (button == MapButtons.search || button == MapButtons.bookmarks))
+    {
+      final boolean suppressed = shouldSuppressLegacyButton(BuildConfig.IS_IN_CAR,
+                                                            mMapButtonsViewModel.getLayoutMode().getValue(), button);
+      buttonView.setClickable(!suppressed);
+      buttonView.setFocusable(!suppressed);
+      buttonView.setImportantForAccessibility(suppressed ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                                                        : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+      show = show && !suppressed;
+    }
     switch (button)
     {
     case zoom: UiUtils.showIf(show && Config.showZoomButtons(), buttonView); break;
@@ -495,6 +517,11 @@ public class MapButtonsController extends Fragment
     mMapButtonsViewModel.getSearchOption().observe(viewLifecycleOwner, mSearchOptionObserver);
     mMapButtonsViewModel.getTrackRecorderState().observe(viewLifecycleOwner, mTrackRecorderObserver);
     mMapButtonsViewModel.getTopButtonsMarginTop().observe(viewLifecycleOwner, mTopButtonMarginObserver);
+    if (BuildConfig.IS_IN_CAR)
+      mMapButtonsViewModel.getLayoutMode().observe(viewLifecycleOwner, ignored -> {
+        showButton(true, MapButtons.search);
+        showButton(true, MapButtons.bookmarks);
+      });
   }
 
   @Override

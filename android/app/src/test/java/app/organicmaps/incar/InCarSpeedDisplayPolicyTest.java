@@ -161,11 +161,11 @@ public class InCarSpeedDisplayPolicyTest
     assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(92)));
     assertTrue(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80)));
     assertTrue(InCarSpeedDisplayPolicy.warningActive());
-    assertEquals(1.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
+    assertEquals(0.50f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
     InCarSpeedDisplayPolicy.resetSpeeding();
     assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(80)));
     assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(92)));
-    assertEquals(1.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
+    assertEquals(0.50f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
     // The same speed with a newly displayed 100 km/h limit immediately clears the surface.
     assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100)));
   }
@@ -177,15 +177,32 @@ public class InCarSpeedDisplayPolicyTest
     assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(104.9)));
     assertEquals(0.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
     assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(105)));
-    assertEquals(0.88f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
+    assertEquals(0.44f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
     InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(107.5));
-    assertEquals(0.94f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
+    assertEquals(0.47f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
     InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(110));
-    assertEquals(1.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
+    assertEquals(0.50f, InCarSpeedDisplayPolicy.warningStrength(), 0.00001f);
     assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(103)));
     assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(102.9)));
     InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(110));
     assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(Double.NaN));
+    assertEquals(0.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
+  }
+
+  @Test
+  public void halfStrengthProgressionIsMonotonicAndBounded()
+  {
+    InCarSpeedDisplayPolicy.updateSpeedLimit(kph(100));
+    float previous = 0.44f;
+    for (double speed = 105; speed <= 120; speed += 0.25)
+    {
+      assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(kph(speed)));
+      final float strength = InCarSpeedDisplayPolicy.warningStrength();
+      assertTrue(strength + 0.00001f >= previous);
+      assertTrue(strength <= 0.50f);
+      previous = strength;
+    }
+    assertFalse(InCarSpeedDisplayPolicy.updateSpeedLimit(-1));
     assertEquals(0.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
   }
 
