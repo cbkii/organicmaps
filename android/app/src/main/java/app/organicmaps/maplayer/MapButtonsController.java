@@ -219,12 +219,12 @@ public class MapButtonsController extends Fragment
       return;
     if (BuildConfig.IS_IN_CAR && (button == MapButtons.search || button == MapButtons.bookmarks))
     {
-      final boolean suppressed = shouldSuppressLegacyButton(BuildConfig.IS_IN_CAR,
-                                                            mMapButtonsViewModel.getLayoutMode().getValue(), button);
+      final boolean suppressed =
+          shouldSuppressLegacyButton(BuildConfig.IS_IN_CAR, mMapButtonsViewModel.getLayoutMode().getValue(), button);
       buttonView.setClickable(!suppressed);
       buttonView.setFocusable(!suppressed);
       buttonView.setImportantForAccessibility(suppressed ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-                                                        : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+                                                         : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
       show = show && !suppressed;
     }
     switch (button)

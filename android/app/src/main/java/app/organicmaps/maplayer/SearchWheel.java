@@ -133,9 +133,8 @@ public class SearchWheel implements View.OnClickListener
 
   private boolean isSuppressed()
   {
-    return MapButtonsController.shouldSuppressLegacyButton(BuildConfig.IS_IN_CAR,
-                                                          mMapButtonsViewModel.getLayoutMode().getValue(),
-                                                          MapButtonsController.MapButtons.search);
+    return MapButtonsController.shouldSuppressLegacyButton(
+        BuildConfig.IS_IN_CAR, mMapButtonsViewModel.getLayoutMode().getValue(), MapButtonsController.MapButtons.search);
   }
 
   public void show(boolean show)
@@ -154,7 +153,7 @@ public class SearchWheel implements View.OnClickListener
       mSearchButton.setClickable(!suppressed);
       mSearchButton.setFocusable(!suppressed);
       mSearchButton.setImportantForAccessibility(suppressed ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-                                                          : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+                                                            : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
     }
     UiUtils.showIf(show, mSearchButton);
     if (initSearchLayout())

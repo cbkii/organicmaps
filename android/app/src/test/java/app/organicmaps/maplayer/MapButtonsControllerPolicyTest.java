@@ -12,20 +12,20 @@ public class MapButtonsControllerPolicyTest
   {
     for (MapButtonsController.MapButtons button : MapButtonsController.MapButtons.values())
     {
-      final boolean duplicate = button == MapButtonsController.MapButtons.search
-                             || button == MapButtonsController.MapButtons.bookmarks;
+      final boolean duplicate =
+          button == MapButtonsController.MapButtons.search || button == MapButtonsController.MapButtons.bookmarks;
       if (duplicate)
-        assertTrue(MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.navigation,
-                                                                   button));
+        assertTrue(
+            MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.navigation, button));
       else
-        assertFalse(MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.navigation,
-                                                                    button));
-      assertFalse(MapButtonsController.shouldSuppressLegacyButton(false, MapButtonsController.LayoutMode.navigation,
-                                                                  button));
-      assertFalse(MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.planning,
-                                                                  button));
-      assertFalse(MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.regular,
-                                                                  button));
+        assertFalse(
+            MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.navigation, button));
+      assertFalse(
+          MapButtonsController.shouldSuppressLegacyButton(false, MapButtonsController.LayoutMode.navigation, button));
+      assertFalse(
+          MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.planning, button));
+      assertFalse(
+          MapButtonsController.shouldSuppressLegacyButton(true, MapButtonsController.LayoutMode.regular, button));
     }
   }
 }
