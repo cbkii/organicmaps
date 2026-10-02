@@ -25,3 +25,6 @@ jobs:
 
       - name: Verify track-delete confirmation identity
         run: python3 tools/ci/verify_place_page_delete_dialog.py
+
+      - name: Verify default arrow texture fallback
+        run: python3 tools/ci/verify_default_arrow_texture.py
