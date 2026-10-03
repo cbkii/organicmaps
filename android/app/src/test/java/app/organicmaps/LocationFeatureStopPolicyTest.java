@@ -12,7 +12,7 @@ public class LocationFeatureStopPolicyTest
   {
     assertTrue(LocationFeatureStopPolicy.shouldReassessBackground(false));
     assertFalse(LocationFeatureStopPolicy.shouldReassessBackground(true));
-    assertFalse(LocationFeatureStopPolicy.shouldAdjustForegroundRate(false, false, true, true, true, false));
+    assertFalse(LocationFeatureStopPolicy.shouldAdjustForegroundRate(false, true, true, true, true, false));
   }
 
   @Test

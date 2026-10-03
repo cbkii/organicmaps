@@ -483,7 +483,10 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
         BuildConfig.IS_IN_CAR ? BottomSheetBehavior.STATE_COLLAPSED
                               : state.getInt(TAG + "_bottom_sheet_state", BottomSheetBehavior.STATE_COLLAPSED));
     if (mRoutingBottomMenuController != null)
+    {
       mRoutingBottomMenuController.restoreRoutingPanelState(state);
+      mRoutingBottomMenuController.updateSaveButton();
+    }
     updateBadgeCount(RoutingOptions.getActiveRoadTypes().size());
   }
 
