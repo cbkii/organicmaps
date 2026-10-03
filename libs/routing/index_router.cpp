@@ -1054,6 +1054,8 @@ RouterResultCode IndexRouter::CalculateSubrouteLeapsOnlyMode(Checkpoints const &
     size_t constexpr kMaxVertices = 15;
     uint64_t constexpr kTimeoutMilliS = 30 * 1000;
     base::Timer timer;
+    params.m_shouldStopSearch = [&routes, &timer]
+    { return !routes.empty() && timer.ElapsedMilliseconds() > kTimeoutMilliS; };
 
     using AlgoT = AStarAlgorithm<Vertex, Edge, Weight>;
     auto const result = AlgoT().FindPathBidirectionalEx(params, [&](RoutingResultT && route)

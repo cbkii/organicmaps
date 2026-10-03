@@ -72,7 +72,7 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     final List<CharSequence> expiryValues = new ArrayList<>();
     for (int minutes = 5; minutes <= 90; minutes += 5)
     {
-      expiryLabels.add(getString(R.string.in_car_route_resume_minutes, minutes));
+      expiryLabels.add(getString(R.string.in_car_route_resume_minutes, minutes, getString(R.string.minute)));
       expiryValues.add(Integer.toString(minutes));
     }
     expiry.setEntries(expiryLabels.toArray(new CharSequence[0]));

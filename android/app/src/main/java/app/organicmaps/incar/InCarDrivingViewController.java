@@ -348,6 +348,12 @@ public final class InCarDrivingViewController implements LocationListener
       mMetadataHandler.postDelayed(mExpireMetadata,
                                    (RoadSpeedLimitInfo.MAX_AGE_NANOS - (now - observed) + 999_999L) / 1_000_000L);
     }
+    else
+    {
+      invalidateSpeedLimits();
+      InCarSpeedDisplayPolicy.resetSpeeding();
+      mLocationHealth = LocationHealth.STALE;
+    }
     publishSnapshot();
   }
 

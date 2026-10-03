@@ -925,6 +925,6 @@
     <string name="voice_search">Voice search</string>
   <string name="in_car_route_resume_title">Resume navigation after inactivity</string>
   <string name="in_car_route_resume_description">Discard the previous route after this period without navigation activity.</string>
-  <string name="in_car_route_resume_minutes">%1$d minutes</string>
+  <string name="in_car_route_resume_minutes">%1$d %2$s</string>
   <string name="routing_stops_limit_reached">The route has reached its stop limit.</string>
 </resources>

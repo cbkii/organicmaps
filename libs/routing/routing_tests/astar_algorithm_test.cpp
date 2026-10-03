@@ -89,6 +89,37 @@ UNIT_TEST(AStarAlgorithm_BidirectionalMultipleRoutesAfterQueueExhaustion)
   TEST_EQUAL(routes, (set<vector<unsigned>>{{0, 1, 4}, {0, 2, 3, 4}}), ());
 }
 
+UNIT_TEST(AStarAlgorithm_BidirectionalBoundStopsExpansionWithoutAnotherMeeting)
+{
+  UndirectedGraph graph;
+  graph.AddEdge(0, 1, 1);
+  graph.AddEdge(1, 4, 1);
+  // A large dead-end frontier remains after the first route. The bound must run without another emission.
+  for (unsigned vertex = 10; vertex < 1000; ++vertex)
+    graph.AddEdge(0, vertex, 100);
+
+  Algorithm algo;
+  Algorithm::ParamsForTests<> params(graph, 0u /* startVertex */, 4u /* finishVertex */);
+  unsigned emitted = 0;
+  bool stopped = false;
+  params.m_shouldStopSearch = [&]
+  {
+    if (emitted == 0)
+      return false;
+    stopped = true;
+    return true;
+  };
+  auto const result = algo.FindPathBidirectionalEx(params, [&](RoutingResult<unsigned, double> && route)
+  {
+    ++emitted;
+    TEST_EQUAL(route.m_path, (vector<unsigned>{0, 1, 4}), ());
+    return false;
+  });
+  TEST_EQUAL(result, Algorithm::Result::OK, ());
+  TEST_GREATER(emitted, 0, ());
+  TEST(stopped, ());
+}
+
 UNIT_TEST(AStarAlgorithm_CheckLength)
 {
   UndirectedGraph graph;
