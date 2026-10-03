@@ -26,7 +26,7 @@ public final class InCarSpeedDisplayPolicy
 
   /** Route guidance wins, including explicit unrestricted; road fallback is posted, fresh metadata only. */
   public static double selectSpeedLimit(double routeLimitMps, @Nullable RoadSpeedLimitInfo road,
-                                       boolean currentNativeObservation, long nowNanos)
+                                        boolean currentNativeObservation, long nowNanos)
   {
     if (!currentNativeObservation)
       return -1.0;

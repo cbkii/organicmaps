@@ -25,7 +25,8 @@ public class InCarRoadSpeedLimitTest
   {
     assertEquals(ROAD.speedLimitMps, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, true, NOW), 0.0);
     assertEquals(ROAD.speedLimitMps, InCarSpeedDisplayPolicy.selectSpeedLimit(Double.NaN, ROAD, true, NOW), 0.0);
-    assertEquals(0, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, new RoadSpeedLimitInfo(0, OBSERVED, 42), true, NOW), 0.0);
+    assertEquals(0, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, new RoadSpeedLimitInfo(0, OBSERVED, 42), true, NOW),
+                 0.0);
   }
 
   @Test
@@ -33,11 +34,12 @@ public class InCarRoadSpeedLimitTest
   {
     assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, null, true, NOW), 0.0);
     assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(20, ROAD, false, NOW), 0.0);
-    assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, true, OBSERVED + RoadSpeedLimitInfo.MAX_AGE_NANOS), 0.0);
+    assertEquals(
+        -1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, true, OBSERVED + RoadSpeedLimitInfo.MAX_AGE_NANOS), 0.0);
     for (RoadSpeedLimitInfo invalid : new RoadSpeedLimitInfo[] {
-        new RoadSpeedLimitInfo(-1, OBSERVED, 42), new RoadSpeedLimitInfo(Double.NaN, OBSERVED, 42),
-        new RoadSpeedLimitInfo(Double.POSITIVE_INFINITY, OBSERVED, 42), new RoadSpeedLimitInfo(20, OBSERVED, 0),
-        new RoadSpeedLimitInfo(20, 0, 42), new RoadSpeedLimitInfo(20, NOW + 1, 42)})
+             new RoadSpeedLimitInfo(-1, OBSERVED, 42), new RoadSpeedLimitInfo(Double.NaN, OBSERVED, 42),
+             new RoadSpeedLimitInfo(Double.POSITIVE_INFINITY, OBSERVED, 42), new RoadSpeedLimitInfo(20, OBSERVED, 0),
+             new RoadSpeedLimitInfo(20, 0, 42), new RoadSpeedLimitInfo(20, NOW + 1, 42)})
       assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, invalid, true, NOW), 0.0);
   }
 

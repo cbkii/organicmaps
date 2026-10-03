@@ -4,9 +4,9 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
-import android.os.SystemClock;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
@@ -23,8 +23,8 @@ import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationListener;
 import app.organicmaps.sdk.location.LocationState;
-import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoadSpeedLimitInfo;
+import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.util.Config;
 import app.organicmaps.sdk.util.log.Logger;
 
@@ -100,7 +100,8 @@ public final class InCarDrivingViewController implements LocationListener
   private RoadSpeedLimitInfo mRoadSpeedLimit;
   private long mNativeObservationNanos;
   private final Handler mMetadataHandler = new Handler(Looper.getMainLooper());
-  private final Runnable mExpireMetadata = () -> {
+  private final Runnable mExpireMetadata = () ->
+  {
     clearRoadMetadata();
     publishSnapshot();
   };
@@ -328,7 +329,7 @@ public final class InCarDrivingViewController implements LocationListener
         mRoadSpeedLimit = road;
       // Handler uptime can pause during sleep; publishSnapshot also checks elapsed realtime on resume.
       mMetadataHandler.postDelayed(mExpireMetadata,
-                                  (RoadSpeedLimitInfo.MAX_AGE_NANOS - (now - observed) + 999_999L) / 1_000_000L);
+                                   (RoadSpeedLimitInfo.MAX_AGE_NANOS - (now - observed) + 999_999L) / 1_000_000L);
     }
     publishSnapshot();
   }
@@ -553,8 +554,8 @@ public final class InCarDrivingViewController implements LocationListener
     final double speedMps = hasCurrentSpeed ? mLastLocation.getSpeed() : Double.NaN;
     final long now = SystemClock.elapsedRealtimeNanos();
     final boolean currentNativeObservation = canAccessNativeState && mLocationHealth == LocationHealth.CURRENT
-        && mNativeObservationNanos > 0 && now >= mNativeObservationNanos
-        && now - mNativeObservationNanos < RoadSpeedLimitInfo.MAX_AGE_NANOS;
+                                          && mNativeObservationNanos > 0 && now >= mNativeObservationNanos
+                                          && now - mNativeObservationNanos < RoadSpeedLimitInfo.MAX_AGE_NANOS;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, navigating, mLocationHealth, hasCurrentSpeed,
                                     speedMps, mPolicy.getActivationSource(),
                                     currentNativeObservation ? mRoadSpeedLimit : null, currentNativeObservation));

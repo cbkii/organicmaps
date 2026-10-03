@@ -20,8 +20,8 @@ struct CurrentRoadSpeedLimit
   bool IsFresh(Clock::time_point now) const
   {
     return std::isfinite(m_speedLimitMps) && m_speedLimitMps >= 0.0 && m_roadToken != 0 &&
-           std::isfinite(m_observationMonotonicSeconds) && m_observationMonotonicSeconds > 0.0 &&
-           now >= m_observedAt && now - m_observedAt < kMaxAge;
+           std::isfinite(m_observationMonotonicSeconds) && m_observationMonotonicSeconds > 0.0 && now >= m_observedAt &&
+           now - m_observedAt < kMaxAge;
   }
 };
 }  // namespace routing

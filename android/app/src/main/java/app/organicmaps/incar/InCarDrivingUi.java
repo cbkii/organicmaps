@@ -192,14 +192,14 @@ public final class InCarDrivingUi
     final int immediateBackground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
     final int immediateForeground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
     immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB(immediateBackground, red, strength)
-                                             : immediateBackground);
+                                              : immediateBackground);
     for (int id : new int[] {R.id.distance, R.id.street})
       ((TextView) immediateGroup.findViewById(id)).setTextColor(immediateForeground);
     ((TextView) ribbon.findViewById(R.id.in_car_nav_guidance_label)).setTextColor(foreground);
     final View immediate = ribbon.findViewById(R.id.nav_next_turn_frame);
     final View then = ribbon.findViewById(R.id.nav_next_next_turn_frame);
     ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
-                                    ColorStateList.valueOf(immediateForeground));
+                                     ColorStateList.valueOf(immediateForeground));
     ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
     final LanesView lanes = ribbon.findViewById(R.id.lanes);
     // Half-strength day warnings are light red: keep dark guidance rather than forcing white.
@@ -328,9 +328,9 @@ public final class InCarDrivingUi
 
     if (!snapshot.navigating)
       binding.currentRouteSpeedLimitMps = -1.0;
-    final double displayedLimit = InCarSpeedDisplayPolicy.selectSpeedLimit(
-        binding.currentRouteSpeedLimitMps, snapshot.roadSpeedLimit, snapshot.currentNativeObservation,
-        SystemClock.elapsedRealtimeNanos());
+    final double displayedLimit =
+        InCarSpeedDisplayPolicy.selectSpeedLimit(binding.currentRouteSpeedLimitMps, snapshot.roadSpeedLimit,
+                                                 snapshot.currentNativeObservation, SystemClock.elapsedRealtimeNanos());
     InCarSpeedDisplayPolicy.updateSpeedLimit(displayedLimit);
     final boolean current = snapshot.currentNativeObservation
                          && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
@@ -341,7 +341,7 @@ public final class InCarDrivingUi
     if (binding.navigationSpeedLimit != null)
       binding.navigationSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
     final boolean showRoadLimit = !snapshot.navigating && displayedLimit >= 0.0
-                              && ((snapshot.enabled && snapshot.following) || (current && snapshot.speedMps > 0.0));
+                               && ((snapshot.enabled && snapshot.following) || (current && snapshot.speedMps > 0.0));
     binding.roadSpeedLimit.setVisibility(showRoadLimit ? View.VISIBLE : View.GONE);
     if (showRoadLimit)
       binding.roadSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);

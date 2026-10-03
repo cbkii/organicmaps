@@ -1344,8 +1344,8 @@ JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGetCurrentRoadSpeedLi
   static jclass const clazz = jni::GetGlobalClassRef(env, "app/organicmaps/sdk/routing/RoadSpeedLimitInfo");
   static jmethodID const constructor = jni::GetConstructorID(env, clazz, "(DJJ)V");
   return env->NewObject(clazz, constructor, info->m_speedLimitMps,
-                       static_cast<jlong>(info->m_observationMonotonicSeconds * 1.0e9),
-                       static_cast<jlong>(info->m_roadToken));
+                        static_cast<jlong>(info->m_observationMonotonicSeconds * 1.0e9),
+                        static_cast<jlong>(info->m_roadToken));
 }
 
 JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGetRouteAltitudeData(JNIEnv * env, jclass)

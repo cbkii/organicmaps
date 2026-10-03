@@ -839,8 +839,8 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
       m_freeDrivingRoadMatcher.GetState() == free_driving_snap::MatchState::Road && m_freeDrivingProjectionSeeded)
   {
     m_currentRoadSpeedLimit = {m_router->GetFreeDrivingRoadSpeedLimit(m_freeDrivingProjection.m_edge),
-                              rawLocation.m_monotonicTimestamp, CandidateToken(m_freeDrivingProjection.m_edge),
-                              CurrentRoadSpeedLimit::Clock::now()};
+                               rawLocation.m_monotonicTimestamp, CandidateToken(m_freeDrivingProjection.m_edge),
+                               CurrentRoadSpeedLimit::Clock::now()};
   }
 
   bool const persistenceDue =

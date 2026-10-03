@@ -21,7 +21,7 @@ public final class RoadSpeedLimitInfo
   public boolean isFresh(long nowNanos)
   {
     return Double.isFinite(speedLimitMps) && speedLimitMps >= 0.0 && roadToken != 0 && observationTimeNanos > 0
-        && nowNanos >= observationTimeNanos && nowNanos - observationTimeNanos < MAX_AGE_NANOS;
+ && nowNanos >= observationTimeNanos && nowNanos - observationTimeNanos < MAX_AGE_NANOS;
   }
 
   public boolean isFromObservation(long timeNanos)

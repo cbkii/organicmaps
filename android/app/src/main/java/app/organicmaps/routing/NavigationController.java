@@ -410,7 +410,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
       speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
     }
-    final double displayedLimit = BuildConfig.IS_IN_CAR ? InCarSpeedDisplayPolicy.currentLimitMps() : info.speedLimitMps;
+    final double displayedLimit =
+        BuildConfig.IS_IN_CAR ? InCarSpeedDisplayPolicy.currentLimitMps() : info.speedLimitMps;
     mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), speedLimitExceeded);
   }
 }

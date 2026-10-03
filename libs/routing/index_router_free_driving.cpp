@@ -208,8 +208,8 @@ double IndexRouter::GetFreeDrivingRoadSpeedLimit(Edge const & edge)
 
     // GetMaxspeed reads the feature's saved tag. GetDefaultSpeed/model speed is deliberately excluded.
     auto const maxspeed = speeds->GetMaxspeed(id.m_index);
-    auto const speed = maxspeed.GetCurrentSpeed(m_currentTimeGetter ? m_currentTimeGetter() : std::time(nullptr),
-                                               edge.IsForward());
+    auto const speed =
+        maxspeed.GetCurrentSpeed(m_currentTimeGetter ? m_currentTimeGetter() : std::time(nullptr), edge.IsForward());
     if (speed.IsNumeric())
       return measurement_utils::KmphToMps(measurement_utils::ToSpeedKmPH(speed.GetSpeed(), speed.GetUnits()));
     return speed.GetSpeed() == kNoneMaxSpeed ? 0.0 : -1.0;
