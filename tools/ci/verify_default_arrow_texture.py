@@ -2,11 +2,28 @@
 """Pin the default 3D-arrow texture fallback without inventing a packaged asset."""
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXTURE_MANAGER = (ROOT / "libs/drape/texture_manager.cpp").read_text(encoding="utf-8")
 ARROW3D = (ROOT / "libs/drape_frontend/arrow3d.cpp").read_text(encoding="utf-8")
 STATIC_TEXTURE = (ROOT / "libs/drape/static_texture.hpp").read_text(encoding="utf-8")
+
+# Mask literals, rather than deleting them: a stray string is still executable syntax and
+# must not turn into an acceptable default return. Raw strings may contain quotes/braces.
+CPP_NON_CODE = re.compile(
+    r"//[^\n]*|/\*[\s\S]*?\*/"
+    r'|(?:u8|u|U|L)?R"(?P<delimiter>[^()\s\\]{0,16})\([\s\S]*?\)(?P=delimiter)"'
+    r'|"(?:\\[\s\S]|[^"\\])*"'
+    r"|'(?:\\[\s\S]|[^'\\])*'"
+)
+
+
+def executable_source(source: str) -> str:
+    return CPP_NON_CODE.sub(
+        lambda match: " " if match.group().startswith(("//", "/*")) else "__cpp_literal__",
+        source,
+    )
 
 
 def require(condition: bool, message: str) -> None:
@@ -38,49 +55,43 @@ def extract_braced_block(source: str, anchor: str, label: str) -> str:
     raise SystemExit(f"ERROR: {label} closing brace is missing")
 
 
-def main() -> int:
+def verify_sources(texture_manager: str, arrow3d: str, static_texture: str) -> None:
     create_arrow = extract_between(
-        TEXTURE_MANAGER,
+        executable_source(texture_manager),
         "drape_ptr<Texture> CreateArrowTexture",
         "class SimpleTexturePool",
         "CreateArrowTexture / SimpleTexturePool",
     )
-    custom_path = extract_braced_block(
-        create_arrow,
-        "if (!texturePath.empty())",
-        "non-empty custom arrow texture path",
+    body = extract_braced_block(create_arrow, "drape_ptr<Texture> CreateArrowTexture", "CreateArrowTexture")
+    # Pin the complete executable body, not a sentinel mention anywhere in the region.
+    # This also rejects loaders/early returns outside the non-empty-path branch.
+    contract = re.fullmatch(
+        r"\s*if\s*\(\s*!texturePath\.empty\(\)\s*\)\s*\{"
+        r"\s*return\s+make_unique_dp<StaticTexture>\(\s*context\s*,\s*texturePath\s*,"
+        r"\s*useDefaultResourceFolder\s*\?\s*StaticTexture::kDefaultResource\s*:\s*std::string\(\)\s*,"
+        r"\s*dp::TextureFormat::RGBA8\s*,\s*textureAllocator\s*,\s*true\s*\)\s*;\s*\}"
+        r"\s*return\s+make_unique_dp<StaticTexture>\(\)\s*;\s*",
+        body,
     )
-    loader = "make_unique_dp<StaticTexture>(context, texturePath"
-
+    require(contract is not None,
+            "CreateArrowTexture must load an optional custom texture exactly once inside the non-empty-path "
+            "branch, then return only the unloaded sentinel on the default path")
     require(
-        custom_path.count(loader) == 1 and create_arrow.count(loader) == 1,
-        "custom arrow texture loading must occur exactly once and remain inside the non-empty texturePath branch",
-    )
-    require(
-        "return make_unique_dp<StaticTexture>();" in create_arrow,
-        "the empty/default arrow-texture path must use an unloaded sentinel",
-    )
-    require(
-        "return make_unique_dp<StaticTexture>();" not in custom_path,
-        "the unloaded sentinel must remain the default path, outside the custom-path branch",
-    )
-    require(
-        'make_unique_dp<StaticTexture>(context, "arrow-texture.png"' not in create_arrow,
-        "the default path must not probe the APK for known-absent arrow-texture.png",
-    )
-    require(
-        "bool m_isLoadingCorrect = false;" in STATIC_TEXTURE,
+        "bool m_isLoadingCorrect = false;" in executable_source(static_texture),
         "the unloaded StaticTexture sentinel must report loading failure",
     )
     require(
-        "arrowTexture->IsLoadingCorrect() && !texCoords.empty()" in ARROW3D,
+        "arrowTexture->IsLoadingCorrect() && !texCoords.empty()" in executable_source(arrow3d),
         "Arrow3d must gate texturing on successful texture loading",
     )
     require(
-        "data.m_arrowMeshTexturingEnabled = false;" in ARROW3D,
+        "data.m_arrowMeshTexturingEnabled = false;" in executable_source(arrow3d),
         "Arrow3d must preserve the untextured mesh fallback",
     )
 
+
+def main() -> int:
+    verify_sources(TEXTURE_MANAGER, ARROW3D, STATIC_TEXTURE)
     print("Default arrow texture fallback verification PASSED")
     return 0
 

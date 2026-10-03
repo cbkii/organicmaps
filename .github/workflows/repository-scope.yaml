@@ -27,4 +27,6 @@ jobs:
         run: python3 tools/ci/verify_place_page_delete_dialog.py
 
       - name: Verify default arrow texture fallback
-        run: python3 tools/ci/verify_default_arrow_texture.py
+        run: |
+          python3 tools/ci/verify_default_arrow_texture.py
+          python3 tools/ci/test_verify_default_arrow_texture.py
