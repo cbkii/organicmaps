@@ -78,7 +78,6 @@ public final class CarSensorsManager
     if (mIsCarLocationUsed)
       mIsCarLocationUsed = mCarSensors.addCarHardwareLocationListener(CarSensors.UPDATE_RATE_FASTEST, executor,
                                                                       mOnCarLocationDataAvailableListener);
-
   }
 
   public void onStop()
