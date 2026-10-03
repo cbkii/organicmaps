@@ -15,7 +15,12 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import app.organicmaps.BuildConfig;
+import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
+import app.organicmaps.maplayer.MapButtonsController;
+import app.organicmaps.sdk.Map;
+import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.util.ThemeUtils;
 import app.organicmaps.util.UiUtils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -26,6 +31,9 @@ import java.util.Objects;
 
 public class MenuBottomSheetFragment extends BottomSheetDialogFragment
 {
+  private static final String MAIN_MENU_ID = "MAIN_MENU_BOTTOM_SHEET";
+  private static final String ADVANCED_MENU_ID = "ADVANCED_MENU_BOTTOM_SHEET";
+
   @Nullable
   private ArrayList<MenuBottomSheetItem> mMenuBottomSheetItems;
   @Nullable
@@ -143,27 +151,74 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
         bottomSheetInterface = (MenuBottomSheetInterface) parentActivity;
     }
 
-    if (bottomSheetInterface != null)
+    String id = null;
+    if (getArguments() != null)
+      id = getArguments().getString("id");
+
+    if (id != null && !id.isEmpty())
     {
-      if (getArguments() != null)
+      if (bottomSheetInterface != null)
+        mMenuBottomSheetItems = bottomSheetInterface.getMenuBottomSheetItems(id);
+      else if (bottomSheetInterfaceWithHeader != null)
       {
-        String id = getArguments().getString("id");
-        if (id != null && !id.isEmpty())
-          mMenuBottomSheetItems = bottomSheetInterface.getMenuBottomSheetItems(id);
+        mMenuBottomSheetItems = bottomSheetInterfaceWithHeader.getMenuBottomSheetItems(id);
+        mHeaderFragment = bottomSheetInterfaceWithHeader.getMenuBottomSheetFragment(id);
+      }
+      adaptInCarMenu(id);
+    }
+  }
+
+  private void adaptInCarMenu(@NonNull String id)
+  {
+    if (!BuildConfig.IS_IN_CAR || mMenuBottomSheetItems == null)
+      return;
+
+    if (ADVANCED_MENU_ID.equals(id))
+    {
+      mMenuBottomSheetItems.removeIf(item
+                                     -> item.iconRes == R.drawable.ic_track_recording_off
+                                            || item.iconRes == R.drawable.ic_track_recording_on);
+      return;
+    }
+
+    if (!MAIN_MENU_ID.equals(id))
+      return;
+
+    // The Activity still builds the normal/shared menu model. InCar owns only this presentation
+    // adaptation: one top-level binary recording command, never a second map-facing control.
+    mMenuBottomSheetItems.removeIf(
+        item -> item.iconRes == R.drawable.ic_track_recording_off || item.iconRes == R.drawable.ic_track_recording_on);
+    final boolean recording = Map.isEngineCreated() && TrackRecorder.nativeIsTrackRecordingEnabled();
+    final MenuBottomSheetItem trackRecording = MenuBottomSheetItem.checkable(
+        R.string.track_recording_title, R.drawable.ic_track_recording_off, recording, this::toggleInCarTrackRecording);
+
+    int insertAt = mMenuBottomSheetItems.size();
+    for (int i = 0; i < mMenuBottomSheetItems.size(); ++i)
+    {
+      if (mMenuBottomSheetItems.get(i).titleRes == R.string.settings)
+      {
+        insertAt = i;
+        break;
       }
     }
-    else if (bottomSheetInterfaceWithHeader != null)
+    mMenuBottomSheetItems.add(insertAt, trackRecording);
+
+    for (MenuBottomSheetItem item : mMenuBottomSheetItems)
     {
-      if (getArguments() != null)
-      {
-        String id = getArguments().getString("id");
-        if (id != null && !id.isEmpty())
-        {
-          mMenuBottomSheetItems = bottomSheetInterfaceWithHeader.getMenuBottomSheetItems(id);
-          mHeaderFragment = bottomSheetInterfaceWithHeader.getMenuBottomSheetFragment(id);
-        }
-      }
+      if (item.iconRes == 0)
+        throw new IllegalStateException("Every top-level InCar menu row requires an icon");
     }
+  }
+
+  private void toggleInCarTrackRecording()
+  {
+    if (!(requireActivity() instanceof MwmActivity activity) || !Map.isEngineCreated())
+      return;
+
+    if (TrackRecorder.nativeIsTrackRecordingEnabled())
+      activity.onTrackRecordingSaved();
+    else
+      activity.onMapButtonClick(MapButtonsController.MapButtons.trackRecordingStatus);
   }
 
   public interface MenuBottomSheetInterfaceWithHeader

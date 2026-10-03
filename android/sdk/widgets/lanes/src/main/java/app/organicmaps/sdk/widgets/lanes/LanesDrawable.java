@@ -42,11 +42,13 @@ public class LanesDrawable extends Drawable
   private static class LaneDrawable
   {
     private final Drawable mDrawable;
+    private final boolean mActive;
 
     private LaneDrawable(@NonNull final Context context, @NonNull LaneInfo laneInfo, int horizontalOffset,
                          TintColorInfo colorInfo)
     {
       final boolean isActive = laneInfo.mActiveLaneWay != LaneWay.None;
+      mActive = isActive;
       @DrawableRes
       final int turnRes = isActive ? laneInfo.mActiveLaneWay.mTurnRes : laneInfo.mLaneWays[0].mTurnRes;
       mDrawable = Objects.requireNonNull(AppCompatResources.getDrawable(context, turnRes));
@@ -69,6 +71,7 @@ public class LanesDrawable extends Drawable
 
   private int mWidth;
   private int mHeight;
+  private boolean mVerticalAlignmentTop;
 
   public LanesDrawable(@NonNull final Context context, @NonNull LaneInfo[] lanes)
   {
@@ -82,6 +85,18 @@ public class LanesDrawable extends Drawable
   {
     final TintColorInfo tintColorInfo = new TintColorInfo(activeLaneTint, inactiveLaneTint);
     mLanes = createLaneDrawables(context, lanes, tintColorInfo);
+  }
+
+  public void setLaneColors(@ColorInt int active, @ColorInt int inactive)
+  {
+    for (LaneDrawable lane : mLanes)
+      lane.mDrawable.setTint(lane.mActive ? active : inactive);
+    invalidateSelf();
+  }
+
+  public void setVerticalAlignmentTop(boolean alignTop)
+  {
+    mVerticalAlignmentTop = alignTop;
   }
 
   @Override
@@ -107,12 +122,12 @@ public class LanesDrawable extends Drawable
 
     final float widthForOneLane = ((float) mWidth / mLanes.length) * ratio;
     final float heightForOneLane = mHeight * ratio;
+    // Keep mWidth/mHeight at the original drawable size. setBounds() is called on every draw;
+    // treating a previous fitted size as the new intrinsic size makes lane glyphs drift on redraw.
+    final float renderedWidth = widthForOneLane * mLanes.length;
 
-    mWidth = (int) (widthForOneLane * mLanes.length);
-    mHeight = (int) heightForOneLane;
-
-    float offsetX = (float) Math.abs(mWidth - width) / 2 + left;
-    float offsetY = (float) Math.abs(mHeight - height) / 2 + top;
+    float offsetX = (width - renderedWidth) / 2 + left;
+    float offsetY = mVerticalAlignmentTop ? top : (height - heightForOneLane) / 2 + top;
     for (final LaneDrawable drawable : mLanes)
     {
       final Rect bounds = drawable.mDrawable.getBounds();

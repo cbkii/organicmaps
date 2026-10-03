@@ -84,11 +84,33 @@ def enum_constants(source: str, enum_name: str) -> tuple[str, ...]:
     return tuple(constants)
 
 
+def has_current_road_constructor(source: str) -> bool:
+    identifier = r"[A-Za-z_$][A-Za-z0-9_$]*"
+    parameter = lambda kind: rf"(?:final\s+)?{kind}\s+{identifier}"
+    return re.search(
+        rf"public\s+RoadSpeedLimitInfo\s*\(\s*{parameter('double')}\s*,\s*"
+        rf"{parameter('long')}\s*,\s*{parameter('long')}\s*\)", source) is not None
+
+
 def verify_sources() -> None:
     routing_jni = ROUTING_JNI.read_text(encoding="utf-8")
     routing_info = ROUTING_INFO.read_text(encoding="utf-8")
     if not re.search(r"@Keep\s+@SuppressWarnings\(\"unused\"\)\s+public final class RoutingInfo", routing_info):
         fail("RoutingInfo must remain @Keep because JNI constructs it by class and constructor signature")
+
+    road_info = (REPO_ROOT / "android/sdk/src/main/java/app/organicmaps/sdk/routing/RoadSpeedLimitInfo.java").read_text()
+    framework_java = (REPO_ROOT / "android/sdk/src/main/java/app/organicmaps/sdk/Framework.java").read_text()
+    framework_jni = (REPO_ROOT / "android/sdk/src/main/cpp/app/organicmaps/sdk/Framework.cpp").read_text()
+    if not re.search(r"@Keep\s+public final class RoadSpeedLimitInfo", road_info):
+        fail("RoadSpeedLimitInfo and its JNI constructor must survive shrinking")
+    if not has_current_road_constructor(road_info):
+        fail("RoadSpeedLimitInfo constructor drifted from (DJJ)V")
+    if "native RoadSpeedLimitInfo nativeGetCurrentRoadSpeedLimit();" not in framework_java:
+        fail("Framework current-road native declaration is missing")
+    for required in ('jni::GetConstructorID(env, clazz, "(DJJ)V")',
+                     '{"nativeGetCurrentRoadSpeedLimit", "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;"'):
+        if required not in framework_jni:
+            fail("Framework current-road JNI constructor/registration drifted")
 
     for enum_name, contract in CONTRACTS.items():
         path = contract["path"]
@@ -179,17 +201,73 @@ def dex_static_fields(data: bytes) -> set[tuple[str, str]]:
     return defined
 
 
+def dex_defined_methods(data: bytes) -> set[tuple[str, str, str]]:
+    """Read method definitions, not merely references, so removed constructors cannot satisfy the contract."""
+    strings = dex_strings(data)
+    type_size, type_offset = struct.unpack_from("<II", data, 0x40)
+    proto_size, proto_offset = struct.unpack_from("<II", data, 0x48)
+    method_size, method_offset = struct.unpack_from("<II", data, 0x58)
+    class_size, class_offset = struct.unpack_from("<II", data, 0x60)
+    types = [strings[struct.unpack_from("<I", data, type_offset + i * 4)[0]] for i in range(type_size)]
+    protos = []
+    for i in range(proto_size):
+        _shorty, result, params = struct.unpack_from("<III", data, proto_offset + i * 12)
+        arguments = ""
+        if params:
+            count, = struct.unpack_from("<I", data, params)
+            arguments = "".join(types[struct.unpack_from("<H", data, params + 4 + j * 2)[0]] for j in range(count))
+        protos.append("(" + arguments + ")" + types[result])
+    methods = []
+    for i in range(method_size):
+        owner, proto, name = struct.unpack_from("<HHI", data, method_offset + i * 8)
+        methods.append((types[owner], strings[name], protos[proto]))
+    defined = set()
+    for i in range(class_size):
+        owner, _access, _super, _interfaces, _source, _annotations, class_data, _values = struct.unpack_from(
+            "<IIIIIIII", data, class_offset + i * 32)
+        if not class_data:
+            continue
+        cursor = class_data
+        counts = []
+        for _ in range(4):
+            count, cursor = read_uleb128(data, cursor)
+            counts.append(count)
+        for _ in range(counts[0] + counts[1]):
+            _diff, cursor = read_uleb128(data, cursor)
+            _flags, cursor = read_uleb128(data, cursor)
+        for count in counts[2:]:
+            index = 0
+            for _ in range(count):
+                diff, cursor = read_uleb128(data, cursor)
+                _flags, cursor = read_uleb128(data, cursor)
+                _code, cursor = read_uleb128(data, cursor)
+                index += diff
+                if index >= len(methods) or methods[index][0] != types[owner]:
+                    fail("Malformed DEX defined method index/owner")
+                defined.add(methods[index])
+    return defined
+
+
 def verify_apk(apk: Path) -> None:
     if not apk.is_file():
         fail(f"APK not found: {apk}")
 
     defined: set[tuple[str, str]] = set()
+    defined_methods: set[tuple[str, str, str]] = set()
     with zipfile.ZipFile(apk) as archive:
         dex_names = sorted(name for name in archive.namelist() if re.fullmatch(r"classes(?:\d+)?\.dex", name))
         if not dex_names:
             fail(f"{apk}: no classes*.dex entries found")
         for dex_name in dex_names:
-            defined.update(dex_static_fields(archive.read(dex_name)))
+            dex = archive.read(dex_name)
+            defined.update(dex_static_fields(dex))
+            defined_methods.update(dex_defined_methods(dex))
+
+    for method in (("Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;", "<init>", "(DJJ)V"),
+                   ("Lapp/organicmaps/sdk/Framework;", "nativeGetCurrentRoadSpeedLimit",
+                    "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;")):
+        if method not in defined_methods:
+            fail(f"Post-R8 APK is missing JNI method definition: {method}")
 
     missing: list[str] = []
     for enum_name, contract in CONTRACTS.items():

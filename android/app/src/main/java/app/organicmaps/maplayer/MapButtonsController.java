@@ -189,6 +189,11 @@ public class MapButtonsController extends Fragment
       mButtonsMap.put(MapButtons.trackRecordingStatus, mTrackRecordingStatusButton);
     showButton(BuildConfig.IS_IN_CAR && InCarSettingsStore.isShowTrackRecordingButton(activity),
                MapButtons.trackRecordingStatus);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      showButton(true, MapButtons.search);
+      showButton(true, MapButtons.bookmarks);
+    }
     return mFrame;
   }
 
@@ -199,12 +204,29 @@ public class MapButtonsController extends Fragment
       UiUtils.showIf(!hide, mBottomButtonsFrame);
   }
 
+  // The quick rail owns Search/Places in active InCar navigation; planning and normal Android
+  // retain their original map controls. Use the layout contract, not transient native route state.
+  static boolean shouldSuppressLegacyButton(boolean inCar, @Nullable LayoutMode mode, MapButtons button)
+  {
+    return inCar && mode == LayoutMode.navigation && (button == MapButtons.search || button == MapButtons.bookmarks);
+  }
+
   public void showButton(boolean show, MapButtons button)
   {
     // TODO(AB): Why do we need this check? Isn't it better to crash and fix the wrong logic ASAP?
     final View buttonView = mButtonsMap.get(button);
     if (buttonView == null)
       return;
+    if (BuildConfig.IS_IN_CAR && (button == MapButtons.search || button == MapButtons.bookmarks))
+    {
+      final boolean suppressed =
+          shouldSuppressLegacyButton(BuildConfig.IS_IN_CAR, mMapButtonsViewModel.getLayoutMode().getValue(), button);
+      buttonView.setClickable(!suppressed);
+      buttonView.setFocusable(!suppressed);
+      buttonView.setImportantForAccessibility(suppressed ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                                                         : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+      show = show && !suppressed;
+    }
     switch (button)
     {
     case zoom: UiUtils.showIf(show && Config.showZoomButtons(), buttonView); break;
@@ -468,6 +490,19 @@ public class MapButtonsController extends Fragment
   }
 
   @Override
+  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
+  {
+    super.onViewCreated(view, savedInstanceState);
+    // FragmentStateManager requests insets for the frame before onViewCreated(), but the dispatch
+    // itself only happens on the next layout pass — so a listener attached here still receives it.
+    // Attaching in onResume() is too late: the dispatch has already run and nothing re-requests
+    // insets for an already attached view, leaving the padding at zero.
+    ViewCompat.setOnApplyWindowInsetsListener(
+        view, WindowInsetUtils.PaddingInsetsListener.allSides(WindowInsetsCompat.Type.systemBars()
+                                                              | WindowInsetsCompat.Type.displayCutout()));
+  }
+
+  @Override
   public void onStart()
   {
     super.onStart();
@@ -482,6 +517,11 @@ public class MapButtonsController extends Fragment
     mMapButtonsViewModel.getSearchOption().observe(viewLifecycleOwner, mSearchOptionObserver);
     mMapButtonsViewModel.getTrackRecorderState().observe(viewLifecycleOwner, mTrackRecorderObserver);
     mMapButtonsViewModel.getTopButtonsMarginTop().observe(viewLifecycleOwner, mTopButtonMarginObserver);
+    if (BuildConfig.IS_IN_CAR)
+      mMapButtonsViewModel.getLayoutMode().observe(viewLifecycleOwner, ignored -> {
+        showButton(true, MapButtons.search);
+        showButton(true, MapButtons.bookmarks);
+      });
   }
 
   @Override
@@ -494,19 +534,9 @@ public class MapButtonsController extends Fragment
     mTrackRecorderObserver.onChanged(TrackRecorder.nativeIsTrackRecordingEnabled());
     updateLayerButton();
     updateHelpButtonIcon();
-    ViewCompat.setOnApplyWindowInsetsListener(
-        mFrame, WindowInsetUtils.PaddingInsetsListener.allSides(WindowInsetsCompat.Type.systemBars()
-                                                                | WindowInsetsCompat.Type.displayCutout()));
-    // Fixes insets on older Androids and with a search opened via API on all Androids.
+    // A returning launcher/search window may already have focus; keep the old Android fallback.
     if (mFrame.hasWindowFocus())
       ViewCompat.requestApplyInsets(mFrame);
-  }
-
-  @Override
-  public void onPause()
-  {
-    ViewCompat.setOnApplyWindowInsetsListener(mFrame, null);
-    super.onPause();
   }
 
   @Override

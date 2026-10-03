@@ -52,3 +52,7 @@ The CI InCar lane additionally runs the retained SDK connected tests, creates an
 Other retained flavours and Wear may be compiled manually when a change affects those compatibility surfaces, but they are not required publication or release CI lanes for this fork.
 
 An emulator validates Android behaviour only. Physical TS18 launch, windowing, audio and vehicle lifecycle claims require separate device evidence.
+
+## Dedicated automotive product
+
+The InCar application is a dedicated vehicle product. Intentional automotive UI and lifecycle divergence is supported; implement selected requirements in the owning controllers and resources. Preserve Android 10, runtime window bounds and one native routing authority. Upstream mobile UI conformity is not an acceptance requirement.

@@ -8,6 +8,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import app.organicmaps.R;
 import app.organicmaps.sdk.location.TrackRecorder;
@@ -54,7 +55,7 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
     }
     else
       iv.setImageResource(item.iconRes);
-    viewHolder.getContainer().setOnClickListener((v) -> onMenuItemClick(item));
+
     viewHolder.getTitleTextView().setText(item.titleRes);
     TextView badge = viewHolder.getBadgeTextView();
     if (item.badgeCount > 0)
@@ -63,11 +64,30 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
       badge.setVisibility(View.VISIBLE);
     }
     else
-    {
       badge.setVisibility(View.GONE);
+
+    final SwitchCompat toggle = viewHolder.getToggle();
+    toggle.setOnCheckedChangeListener(null);
+    if (item.checkable)
+    {
+      toggle.setVisibility(View.VISIBLE);
+      toggle.setChecked(item.checked);
+      toggle.setOnCheckedChangeListener((button, checked) -> {
+        if (checked != item.checked)
+          onMenuItemClick(item);
+      });
+      viewHolder.getContainer().setOnClickListener(v -> toggle.setChecked(!toggle.isChecked()));
+    }
+    else
+    {
+      toggle.setVisibility(View.GONE);
+      viewHolder.getContainer().setOnClickListener(v -> onMenuItemClick(item));
     }
 
-    if (item.iconRes == R.drawable.ic_track_recording_off && TrackRecorder.nativeIsTrackRecordingEnabled())
+    // Preserve the established mobile menu presentation. InCar checkable rows keep a stable title/icon
+    // and expose actual recorder state through their trailing ON/OFF switch instead.
+    if (!item.checkable && item.iconRes == R.drawable.ic_track_recording_off
+        && TrackRecorder.nativeIsTrackRecordingEnabled())
     {
       iv.setImageResource(R.drawable.ic_track_recording_on);
       iv.setImageTintMode(null);
@@ -89,6 +109,7 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
     private final ImageView iconImageView;
     private final TextView titleTextView;
     private final TextView badgeTextView;
+    private final SwitchCompat toggle;
 
     public ViewHolder(View view)
     {
@@ -97,6 +118,7 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
       iconImageView = view.findViewById(R.id.bottom_sheet_menu_item_icon);
       titleTextView = view.findViewById(R.id.bottom_sheet_menu_item_text);
       badgeTextView = view.findViewById(R.id.bottom_sheet_menu_item_badge);
+      toggle = view.findViewById(R.id.bottom_sheet_menu_item_switch);
     }
 
     public ImageView getIconImageView()
@@ -112,6 +134,11 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
     public TextView getBadgeTextView()
     {
       return badgeTextView;
+    }
+
+    public SwitchCompat getToggle()
+    {
+      return toggle;
     }
 
     public LinearLayout getContainer()

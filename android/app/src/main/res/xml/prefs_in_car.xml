@@ -73,14 +73,18 @@
       android:summary="@string/in_car_budget_rendering_summary"
       android:persistent="false"
       app:singleLineTitle="false" />
+  </androidx.preference.PreferenceCategory>
 
-    <SwitchPreferenceCompat
-      android:key="@string/pref_in_car_show_track_recording_button"
-      android:title="@string/in_car_show_track_recording_button_title"
-      android:summary="@string/in_car_show_track_recording_button_summary"
-      android:defaultValue="true"
-      android:persistent="false"
-      app:singleLineTitle="false" />
+  <androidx.preference.PreferenceCategory
+    android:title="@string/in_car_route_resume_title">
+
+  <ListPreference
+    android:key="in_car_route_resume_minutes"
+    android:title="@string/in_car_route_resume_title"
+    android:dialogTitle="@string/in_car_route_resume_description"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
   </androidx.preference.PreferenceCategory>
 
   <androidx.preference.PreferenceCategory

@@ -5,6 +5,7 @@
     <attr name="lanesInactiveLaneTintColor" format="color" />
     <attr name="lanesBackgroundColor" format="color" />
     <attr name="lanesCornerRadius" format="dimension" />
+    <attr name="lanesAlignTop" format="boolean" />
     <!-- These values are used only in edit mode -->
     <attr name="lanesEditModeLanesCount" format="integer" />
   </declare-styleable>
