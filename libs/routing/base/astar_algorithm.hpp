@@ -585,7 +585,7 @@ typename AStarAlgorithm<Vertex, Edge, Weight>::Result AStarAlgorithm<Vertex, Edg
     if (periodicCancellable.IsCancelled())
       return Result::Cancelled;
 
-    if (steps % 128 == 1 && params.m_shouldStopSearch && params.m_shouldStopSearch())
+    if (foundAnyPathEver && steps % 128 == 1 && params.m_shouldStopSearch && params.m_shouldStopSearch())
       break;
 
     if (steps % kQueueSwitchPeriod == 0)
