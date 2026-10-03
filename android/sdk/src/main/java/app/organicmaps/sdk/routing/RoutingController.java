@@ -64,13 +64,28 @@ public class RoutingController
   public interface NavigationStateListener
   {
     void onNavigationStateChanged(boolean navigating);
+
+    default void onPlanningRouteReady() {}
   }
 
   private final List<NavigationStateListener> mNavigationStateListeners = new ArrayList<>();
 
   public void addNavigationStateListener(@NonNull NavigationStateListener listener)
   {
-    mNavigationStateListeners.add(listener);
+    if (!mNavigationStateListeners.contains(listener))
+      mNavigationStateListeners.add(listener);
+  }
+
+  public void removeNavigationStateListener(@NonNull NavigationStateListener listener)
+  {
+    mNavigationStateListeners.remove(listener);
+  }
+
+  private void notifyPlanningRouteReady()
+  {
+    if (isPlanning() && isBuilt())
+      for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
+        listener.onPlanningRouteReady();
   }
 
   // A disclaimer may outlive the route whose START tap opened it. Invalidate its
@@ -237,7 +252,7 @@ public class RoutingController
     mState = newState;
 
     if (navigationChanged)
-      for (NavigationStateListener listener : mNavigationStateListeners)
+      for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
         listener.onNavigationStateChanged(newState == State.NAVIGATION);
 
     if (mContainer != null)
@@ -254,6 +269,7 @@ public class RoutingController
       final MapObject startPoint = getStartPoint();
       if (startPoint == null || !startPoint.isMyPosition())
         Framework.nativeDisableFollowing();
+      notifyPlanningRouteReady();
     }
 
     if (mContainer != null)
@@ -372,7 +388,10 @@ public class RoutingController
   public void saveRoute()
   {
     if (isNavigating() || (isPlanning() && isBuilt()))
+    {
+      notifyPlanningRouteReady();
       Framework.nativeSaveRoutePoints();
+    }
     else if (isPlanning())
       // A restart must not bring back an earlier route of this planning.
       Framework.nativeDeleteSavedRoutePoints();
@@ -472,22 +491,22 @@ public class RoutingController
   {
     RouteMarkType type = mWaitingPoiPickType != null ? mWaitingPoiPickType : RouteMarkType.Intermediate;
     replaceRoutePoint(type, mapObject, mReplaceStopIndex);
+    if (isNavigating())
+      transitionToPlanning();
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    if (isNavigating())
-      transitionToPlanning();
     resetPoiPickState();
   }
 
   public void addStop(@NonNull MapObject mapObject)
   {
     addRoutePoint(RouteMarkType.Intermediate, mapObject);
+    if (isNavigating())
+      transitionToPlanning();
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    if (isNavigating())
-      transitionToPlanning();
     resetPoiPickState();
   }
 
@@ -499,11 +518,11 @@ public class RoutingController
 
     applyRemovingIntermediatePointsTransaction();
     Framework.nativeRemoveRoutePoint(info.mMarkType, info.mIntermediateIndex);
+    if (isNavigating())
+      transitionToPlanning();
     build();
     if (mContainer != null)
       mContainer.onRemovedStop();
-    if (isNavigating())
-      transitionToPlanning();
   }
 
   public void launchPlanning()
@@ -524,16 +543,17 @@ public class RoutingController
   {
     if (isNavigating())
     {
-      build();
       transitionToPlanning();
+      build();
       return true;
     }
     return false;
   }
 
-  // Stop edits have already built once; this only transitions their UI and navigation service.
+  // Leave routed following before the one rebuild so planning can calculate fresh alternatives.
   private void transitionToPlanning()
   {
+    Framework.nativeDisableFollowing();
     setState(State.PREPARE);
     cancelNavigation(false);
     startPlanning();

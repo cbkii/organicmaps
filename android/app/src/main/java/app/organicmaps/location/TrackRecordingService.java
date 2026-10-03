@@ -115,9 +115,18 @@ public class TrackRecordingService extends Service implements LocationListener
   @RequiresPermission(value = ACCESS_FINE_LOCATION)
   private static void startServiceInternal(@NonNull Context context)
   {
-    sIsRecording.setValue(true);
-    MwmApplication.from(context).getLocationHelper().restartWithNewMode();
-    ContextCompat.startForegroundService(context, new Intent(context, TrackRecordingService.class));
+    try
+    {
+      ContextCompat.startForegroundService(context, new Intent(context, TrackRecordingService.class));
+    }
+    catch (RuntimeException exception)
+    {
+      Logger.e(TAG, "Can't start track recording service: " + exception);
+      if (TrackRecorder.nativeIsTrackRecordingEnabled())
+        TrackRecorder.nativeStopTrackRecording();
+      sIsRecording.setValue(false);
+      MwmApplication.from(context).onNavigationOrRecordingStopped();
+    }
   }
 
   public static void createNotificationChannel(@NonNull Context context)
@@ -272,6 +281,7 @@ public class TrackRecordingService extends Service implements LocationListener
       ServiceCompat.startForeground(this, TrackRecordingService.TRACK_REC_NOTIFICATION_ID,
                                     getNotificationBuilder(this).build(), 0);
 
+    sIsRecording.setValue(true);
     final LocationHelper locationHelper = MwmApplication.from(this).getLocationHelper();
 
     // Subscribe to location updates. This call is idempotent.

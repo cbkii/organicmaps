@@ -89,6 +89,24 @@ class DefaultArrowTextureTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "ERROR:"):
             verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D, changed)
 
+    def test_cpp_literal_masking_preserves_executable_brace_structure(self) -> None:
+        for literal in ('"fake } { return true; //"', "'}'",
+                        'R"check(fake } { " return true;)check"'):
+            with self.subTest(literal=literal):
+                source = "void sample() { auto ignored = " + literal + "; return; }"
+                masked = verifier.executable_source(source)
+                self.assertEqual("void sample() { auto ignored = __cpp_literal__; return; }", masked)
+                self.assertEqual(" auto ignored = __cpp_literal__; return; ",
+                                 verifier.extract_braced_block(masked, "void sample()", "sample"))
+
+    def test_commented_loading_member_cannot_mask_a_successful_sentinel(self) -> None:
+        changed = verifier.STATIC_TEXTURE.replace(
+            "bool m_isLoadingCorrect = false;",
+            "// bool m_isLoadingCorrect = false;\n  bool m_isLoadingCorrect = true;", 1)
+        self.assertNotEqual(verifier.STATIC_TEXTURE, changed)
+        with self.assertRaisesRegex(SystemExit, "ERROR:"):
+            verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D, changed)
+
     def test_header_cannot_mark_unloaded_sentinel_successful(self) -> None:
         changed = verifier.STATIC_TEXTURE.replace("bool m_isLoadingCorrect = false;",
                                                   "bool m_isLoadingCorrect = true;", 1)

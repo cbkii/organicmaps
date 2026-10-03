@@ -154,7 +154,7 @@ TRouteResult CalculateRoute(IRouterComponents const & routerComponents, m2::Poin
   RoutesResult res("mapsme", 0 /* routes id */);
   RouterResultCode result =
       routerComponents.GetRouter().CalculateRoute(Checkpoints(startPoint, finalPoint), startDirection,
-                                                  false /* adjust */, true /* needAlternatives */, delegate, res);
+                                                  false /* adjust */, false /* needAlternatives */, delegate, res);
   routerComponents.GetRouter().SetGuides({});
   return TRouteResult(PromoteActive(res), result);
 }
@@ -167,7 +167,7 @@ TRouteResult CalculateRoute(IRouterComponents const & routerComponents, Checkpoi
   routerComponents.GetRouter().SetGuides(std::move(guides));
   RouterResultCode result =
       routerComponents.GetRouter().CalculateRoute(checkpoints, m2::PointD::Zero() /* startDirection */,
-                                                  false /* adjust */, true /* needAlternatives */, delegate, res);
+                                                  false /* adjust */, false /* needAlternatives */, delegate, res);
   routerComponents.GetRouter().SetGuides({});
   return TRouteResult(PromoteActive(res), result);
 }

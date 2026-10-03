@@ -20,6 +20,7 @@ public class RoutingControllerPoiPickTest
     {
       controller.waitForPoiPick(type);
       assertTrue(controller.isWaitingPoiPick());
+      assertEquals(type, controller.getWaitingPoiPickType());
       controller.replaceStopPoiPick(2);
       assertTrue(controller.isPoiPickReplaceStop());
       assertEquals(2, replacementIndex.getInt(controller));
