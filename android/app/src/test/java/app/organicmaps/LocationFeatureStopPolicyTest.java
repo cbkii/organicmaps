@@ -16,6 +16,15 @@ public class LocationFeatureStopPolicyTest
   }
 
   @Test
+  public void explicitOffStopsAnAlreadyRunningForegroundProvider()
+  {
+    assertTrue(LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(true, true, true));
+    assertFalse(LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(true, false, true));
+    assertFalse(LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(true, true, false));
+    assertFalse(LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(false, true, true));
+  }
+
+  @Test
   public void foregroundStopOnlyAdjustsRunningProviderInResumedActivity()
   {
     assertTrue(LocationFeatureStopPolicy.shouldAdjustForegroundRate(true, true, true, true, true, false));

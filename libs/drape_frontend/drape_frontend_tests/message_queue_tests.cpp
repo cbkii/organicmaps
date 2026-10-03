@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <future>
+#include <thread>
 
 namespace message_queue_tests
 {
@@ -35,6 +36,17 @@ drape_ptr<df::Message> WaitForResult(df::MessageQueue & queue, std::future<drape
     queue.CancelWait();
   TEST(status == std::future_status::ready, ());
   return result.get();
+}
+
+void AwaitWaiting(df::MessageQueue & queue)
+{
+  auto const deadline = std::chrono::steady_clock::now() + 2s;
+  while (!queue.IsWaiting() && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::sleep_for(1ms);
+  bool const waiting = queue.IsWaiting();
+  if (!waiting)
+    queue.CancelWait();
+  TEST(waiting, ("consumer did not enter its blocking wait"));
 }
 
 UNIT_TEST(MessageQueue_CancelBeforeWait)
@@ -84,6 +96,7 @@ UNIT_TEST(MessageQueue_CancelRacingWithWait)
     return queue.PopMessage(true);
   });
   started.get_future().wait();
+  AwaitWaiting(queue);
   queue.CancelWait();
 
   TEST(WaitForResult(queue, result) == nullptr, ());
@@ -99,6 +112,7 @@ UNIT_TEST(MessageQueue_PushRacingWithWait)
     return queue.PopMessage(true);
   });
   started.get_future().wait();
+  AwaitWaiting(queue);
   queue.PushMessage(make_unique_dp<df::Message>(), df::MessagePriority::Normal);
 
   TEST(WaitForResult(queue, result) != nullptr, ());

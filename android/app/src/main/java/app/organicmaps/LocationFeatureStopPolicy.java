@@ -10,6 +10,11 @@ final class LocationFeatureStopPolicy
     return !foreground;
   }
 
+  static boolean shouldStopExplicitlyOffProvider(boolean foreground, boolean providerActive, boolean explicitlyOff)
+  {
+    return foreground && providerActive && explicitlyOff;
+  }
+
   static boolean shouldAdjustForegroundRate(boolean foreground, boolean hasResumedActivity, boolean providerActive,
                                             boolean permissionGranted, boolean androidLocationEnabled,
                                             boolean explicitlyOff)
