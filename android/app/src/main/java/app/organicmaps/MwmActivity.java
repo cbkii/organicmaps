@@ -579,8 +579,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mSearchPageViewModel = new ViewModelProvider(this).get(SearchPageViewModel.class);
     mMapButtonsViewModel = new ViewModelProvider(this).get(MapButtonsViewModel.class);
     TrackRecordingService.isRecording().observe(this, recording -> {
-      if (!recording && Boolean.TRUE.equals(mMapButtonsViewModel.getTrackRecorderState().getValue()))
-        stopTrackRecording();
+      if (Boolean.TRUE.equals(recording))
+        mMapButtonsViewModel.setTrackRecorderState(true);
+      else if (Boolean.TRUE.equals(mMapButtonsViewModel.getTrackRecorderState().getValue()))
+        updateStoppedTrackRecordingUi();
     });
     mLocationPromptCoordinator = new ViewModelProvider(this).get(LocationPromptCoordinator.class);
     // We don't need to manually handle removing the observers it follows the activity lifecycle
@@ -2506,11 +2508,18 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
     Toast.makeText(this, R.string.track_recording, Toast.LENGTH_SHORT).show();
     TrackRecordingService.startForegroundService(getApplicationContext());
-    mMapButtonsViewModel.setTrackRecorderState(true);
+    mMapButtonsViewModel.setTrackRecorderState(TrackRecorder.nativeIsTrackRecordingEnabled());
     return true;
   }
 
   private void stopTrackRecording()
+  {
+    // Only an explicit user action may disarm recording auto-resume consent.
+    TrackRecordingService.stopService(getApplicationContext());
+    updateStoppedTrackRecordingUi();
+  }
+
+  private void updateStoppedTrackRecordingUi()
   {
     if (mCurrentWindowInsets != null)
     {
@@ -2519,7 +2528,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
       updateCompassOffset(offsetY, offsetX);
     }
     mMapButtonsViewModel.setTrackRecorderState(false);
-    TrackRecordingService.stopService(getApplicationContext());
     closeBottomSheet(MAIN_MENU_ID);
     if (mPlacePageViewModel.getMapObject().getValue() != null
         && mPlacePageViewModel.getMapObject().getValue().isTrackRecording())

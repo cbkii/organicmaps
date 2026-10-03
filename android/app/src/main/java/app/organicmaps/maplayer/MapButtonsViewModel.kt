@@ -57,7 +57,6 @@ class MapButtonsViewModel : ViewModel() {
         // bottom frame. NavigationController publishes that real footer height; do not let the absent
         // legacy frame overwrite it with zero while the navigation layout is active.
         if (
-            BuildConfig.IS_IN_CAR &&
             navigationFooterOwnsHeight &&
             _layoutMode.value == MapButtonsController.LayoutMode.navigation &&
             height <= 0f

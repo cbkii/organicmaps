@@ -53,8 +53,8 @@ public final class InCarDialogSizing
     {
       decor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
         @Override
-        public void onLayoutChange(View view, int left, int top, int right, int bottom,
-                                   int oldLeft, int oldTop, int oldRight, int oldBottom)
+        public void onLayoutChange(View view, int left, int top, int right, int bottom, int oldLeft, int oldTop,
+                                   int oldRight, int oldBottom)
         {
           final int height = bottom - top;
           if (height <= 0)

@@ -208,7 +208,7 @@ def verify_navigation_ribbon(root):
     base.require_method_text(
         view_model,
         "fun setBottomButtonsHeight(",
-        r"BuildConfig\.IS_IN_CAR[\s\S]*?LayoutMode\.navigation[\s\S]*?height <= 0f",
+        r"navigationFooterOwnsHeight[\s\S]*?LayoutMode\.navigation[\s\S]*?height <= 0f",
         "legacy map-buttons zero height must not erase the active InCar footer clearance",
     )
 
@@ -259,7 +259,9 @@ def verify_navigation_refinements(root):
             if any(android(f"layout_margin{edge}") in element.attrib for edge in ("Top", "Bottom")):
                 raise base.VerificationError("manoeuvre icons must not consume extra vertical margins")
     ribbon = by_id["nav_next_turn_container"]
-    if base.resource_id(list(ribbon)[-1][-1], android("id")) != "in_car_nav_speed":
+    sections = list(ribbon)
+    if not sections or not any(base.resource_id(element, android("id")) == "in_car_nav_speed"
+                               for element in sections[-1].iter()):
         raise base.VerificationError("speed must remain in the last physical-right ribbon section")
     controller = root / "android/app/src/main/java/app/organicmaps/routing/NavigationController.java"
     base.require_method_text(controller, "private void updateGuidanceLabel(",

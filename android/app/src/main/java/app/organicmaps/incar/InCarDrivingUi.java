@@ -349,9 +349,8 @@ public final class InCarDrivingUi
         binding.currentRouteSpeedLimitMps = route.speedLimitMps;
     }
     final double routeLimit = snapshot.routeLimitAvailable ? binding.currentRouteSpeedLimitMps : -1.0;
-    final double displayedLimit =
-        InCarSpeedDisplayPolicy.selectSpeedLimit(routeLimit, snapshot.roadSpeedLimit,
-                                                 snapshot.currentNativeObservation, SystemClock.elapsedRealtimeNanos());
+    final double displayedLimit = InCarSpeedDisplayPolicy.selectSpeedLimit(
+        routeLimit, snapshot.roadSpeedLimit, snapshot.currentNativeObservation, SystemClock.elapsedRealtimeNanos());
     InCarSpeedDisplayPolicy.updateSpeedLimit(displayedLimit);
     final boolean current = snapshot.currentNativeObservation
                          && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
@@ -360,8 +359,9 @@ public final class InCarDrivingUi
     if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
       navigationSpeedView.setSpeeding(warning);
     final String limitDescription = displayedLimit > 0
-        ? activity.getString(R.string.in_car_road_speed_limit_content_description,
-                             Framework.nativeFormatSpeed(displayedLimit)) : null;
+                                      ? activity.getString(R.string.in_car_road_speed_limit_content_description,
+                                                           Framework.nativeFormatSpeed(displayedLimit))
+                                      : null;
     if (binding.navigationSpeedLimit != null)
     {
       binding.navigationSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);

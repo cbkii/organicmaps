@@ -908,18 +908,22 @@ public final class InCarVisuals
     final Button stop = root.findViewById(R.id.stop);
     if (stop == null)
       return;
-    final boolean fixedInCarEnd = BuildConfig.IS_IN_CAR
+    final boolean fixedInCarEnd =
+        BuildConfig.IS_IN_CAR
         && activity.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
     final int buttonHeight = fixedInCarEnd
-        ? activity.getResources().getDimensionPixelSize(R.dimen.in_car_nav_end_height)
-        : selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_button_height, R.dimen.in_car_nav_button_height,
-                      R.dimen.in_car_compact_nav_button_height, R.dimen.in_car_extra_compact_nav_button_height);
+                               ? activity.getResources().getDimensionPixelSize(R.dimen.in_car_nav_end_height)
+                               : selectDimen(activity, enabled, controlSizeTier, R.dimen.nav_button_height,
+                                             R.dimen.in_car_nav_button_height, R.dimen.in_car_compact_nav_button_height,
+                                             R.dimen.in_car_extra_compact_nav_button_height);
     final int stopMinWidth =
         selectDimen(activity, enabled, controlSizeTier, R.dimen.start_button_width, R.dimen.in_car_nav_stop_min_width,
                     R.dimen.in_car_compact_nav_stop_min_width, R.dimen.in_car_extra_compact_nav_stop_min_width);
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
-    stop.setMinWidth(fixedInCarEnd ? Math.max(stopMinWidth, activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min)) : stopMinWidth);
+    stop.setMinWidth(fixedInCarEnd ? Math.max(stopMinWidth, activity.getResources().getDimensionPixelSize(
+                                                                R.dimen.in_car_touch_target_min))
+                                   : stopMinWidth);
     root.requestLayout();
   }
 

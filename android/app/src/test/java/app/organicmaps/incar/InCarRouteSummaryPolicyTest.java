@@ -22,6 +22,15 @@ public class InCarRouteSummaryPolicyTest
   }
 
   @Test
+  public void minuteAndHourBoundaries()
+  {
+    assertEquals("0\u00a0min", duration(59));
+    assertEquals("1\u00a0min", duration(60));
+    assertEquals("59\u00a0min", duration(3599));
+    assertEquals("1\u00a0h 0\u00a0min", duration(3600));
+  }
+
+  @Test
   public void signedIntDurationHasBoundedDayHourRepresentation()
   {
     assertEquals("47\u00a0h 59\u00a0min", duration(48 * 3600 - 1));

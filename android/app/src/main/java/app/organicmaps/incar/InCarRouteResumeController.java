@@ -10,6 +10,8 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import androidx.annotation.NonNull;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.ProcessLifecycleOwner;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.routing.NavigationService;
 import app.organicmaps.sdk.location.LocationListener;
@@ -26,6 +28,7 @@ public final class InCarRouteResumeController implements LocationListener
   private final MwmApplication mApplication;
   private final Handler mHandler = new Handler(Looper.getMainLooper());
   private boolean mForeground;
+  private long mLastLeaseObservationNanos;
   private final Runnable mHeartbeat = new Runnable() {
     @Override
     public void run()
@@ -44,17 +47,32 @@ public final class InCarRouteResumeController implements LocationListener
   public InCarRouteResumeController(@NonNull MwmApplication application)
   {
     mApplication = application;
+    mForeground = ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
+    final Location savedLocation = application.getLocationHelper().getSavedLocation();
+    if (savedLocation != null)
+      mLastLeaseObservationNanos = savedLocation.getElapsedRealtimeNanos();
     application.getLocationHelper().addListener(this);
-    RoutingController.get().addNavigationStateListener(navigating -> {
-      mHandler.removeCallbacks(mHeartbeat);
-      if (navigating)
+    RoutingController.get().addNavigationStateListener(new RoutingController.NavigationStateListener() {
+      @Override
+      public void onNavigationStateChanged(boolean navigating)
       {
-        recordActivity();
-        if (mForeground)
-          mHandler.postDelayed(mHeartbeat, InCarRouteResumePolicy.HEARTBEAT_MS);
+        mHandler.removeCallbacks(mHeartbeat);
+        if (navigating)
+        {
+          recordActivity();
+          if (mForeground)
+            mHandler.postDelayed(mHeartbeat, InCarRouteResumePolicy.HEARTBEAT_MS);
+        }
+        else
+          prefs().edit().remove(WALL).remove(ELAPSED).remove(BOOT).apply();
       }
-      else
-        prefs().edit().remove(WALL).remove(ELAPSED).remove(BOOT).apply();
+
+      @Override
+      public void onPlanningRouteReady()
+      {
+        if (mForeground && isInteractive())
+          recordActivity();
+      }
     });
   }
 
@@ -103,13 +121,25 @@ public final class InCarRouteResumeController implements LocationListener
   @Override
   public void onLocationUpdated(@NonNull Location location)
   {
-    if (!RoutingController.get().isNavigating())
+    // Only confirmed native observations may renew the lease.
+  }
+
+  @Override
+  public void onLocationUpdatedNative(@NonNull Location location)
+  {
+    final long observed = location.getElapsedRealtimeNanos();
+    if (observed <= 0 || observed == mLastLeaseObservationNanos)
       return;
-    discardExpiredRoute();
-    // A cached fix must not prolong a sleeping/background journey.
+    mLastLeaseObservationNanos = observed;
+    final RoutingController routing = RoutingController.get();
+    if (!routing.isNavigating() && !(mForeground && routing.isPlanning() && routing.isBuilt()))
+      return;
+    if (routing.isNavigating())
+      discardExpiredRoute();
+    // Replayed fixes and noninteractive delivery must not prolong a sleeping journey.
     final long ageNs = SystemClock.elapsedRealtimeNanos() - location.getElapsedRealtimeNanos();
-    if (RoutingController.get().isNavigating() && isInteractive() && ageNs >= 0
-        && ageNs <= InCarRouteResumePolicy.HEARTBEAT_MS * 1_000_000L)
+    if ((routing.isNavigating() || (mForeground && routing.isPlanning() && routing.isBuilt())) && isInteractive()
+        && ageNs >= 0 && ageNs <= InCarRouteResumePolicy.HEARTBEAT_MS * 1_000_000L)
     {
       final long now = SystemClock.elapsedRealtime();
       if (now - prefs().getLong(ELAPSED, -1) >= InCarRouteResumePolicy.HEARTBEAT_MS)

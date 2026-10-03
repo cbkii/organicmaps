@@ -25,8 +25,8 @@ public class InCarRoadSpeedLimitTest
   {
     assertEquals(20, InCarSpeedDisplayPolicy.selectSpeedLimit(20, ROAD, false, NOW), 0.0);
     assertEquals(0, InCarSpeedDisplayPolicy.selectSpeedLimit(0, null, false, NOW), 0.0);
-    assertEquals(20, InCarSpeedDisplayPolicy.selectSpeedLimit(
-        20, ROAD, true, OBSERVED + RoadSpeedLimitInfo.MAX_AGE_NANOS), 0.0);
+    assertEquals(
+        20, InCarSpeedDisplayPolicy.selectSpeedLimit(20, ROAD, true, OBSERVED + RoadSpeedLimitInfo.MAX_AGE_NANOS), 0.0);
   }
 
   @Test

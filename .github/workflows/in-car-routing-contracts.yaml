@@ -27,6 +27,10 @@ on:
       - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/roadshield/RoadShieldType.java'
       - 'android/tools/verify_in_car_layout_contracts.py'
       - 'android/tools/verify_routing_jni_contract.py'
+      - 'android/tools/tests/test_current_road_jni_dex.py'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/RoadSpeedLimitInfo.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/Framework.java'
+      - 'android/sdk/src/main/cpp/app/organicmaps/sdk/Framework.cpp'
   pull_request:
     paths:
       - '.github/workflows/in-car-routing-contracts.yaml'
@@ -51,6 +55,10 @@ on:
       - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/roadshield/RoadShieldType.java'
       - 'android/tools/verify_in_car_layout_contracts.py'
       - 'android/tools/verify_routing_jni_contract.py'
+      - 'android/tools/tests/test_current_road_jni_dex.py'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/routing/RoadSpeedLimitInfo.java'
+      - 'android/sdk/src/main/java/app/organicmaps/sdk/Framework.java'
+      - 'android/sdk/src/main/cpp/app/organicmaps/sdk/Framework.cpp'
 
 permissions:
   contents: read
@@ -74,3 +82,4 @@ jobs:
             android/tools/verify_routing_jni_contract.py
           python3 -X dev -W default android/tools/verify_in_car_layout_contracts.py
           python3 -X dev -W default android/tools/verify_routing_jni_contract.py
+          python3 -m unittest discover -s android/tools/tests -p test_current_road_jni_dex.py
