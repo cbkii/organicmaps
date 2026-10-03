@@ -432,6 +432,21 @@ Route MakeRoute(vector<m2::PointD> const & path, vector<Segment> const & segment
   return r;
 }
 
+UNIT_TEST(RouteBase_ForEachPointWithoutSubroutes)
+{
+  Route route;
+  vector<RouteSegment> segments;
+  GetTestRouteSegments(kTestGeometry, kTestTurns, kTestNames, {}, segments);
+  route.SetRouteSegments(std::move(segments));
+
+  size_t visited = 0;
+  route.ForEachPoint([&visited](geometry::PointWithAltitude const &) { ++visited; });
+  TEST_EQUAL(visited, 0, ());
+  Route empty;
+  empty.ForEachPoint([&visited](geometry::PointWithAltitude const &) { ++visited; });
+  TEST_EQUAL(visited, 0, ());
+}
+
 UNIT_TEST(RouteBase_PromoteWithLeadingEmptySubroute)
 {
   m2::PointD const oldStart = {0, 0};

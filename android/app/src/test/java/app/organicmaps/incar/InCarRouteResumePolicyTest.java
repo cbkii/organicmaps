@@ -16,6 +16,14 @@ public class InCarRouteResumePolicyTest
   }
 
   @Test
+  public void sameBootElapsedEvidenceDoesNotRequireAPositiveWallClock()
+  {
+    assertFalse(InCarRouteResumePolicy.isExpired(0, 10_000, 7, 0, 309_999, 7, 5));
+    assertTrue(InCarRouteResumePolicy.isExpired(0, 10_000, 7, 0, 310_000, 7, 5));
+    assertTrue(InCarRouteResumePolicy.isExpired(0, 10_000, 7, 100, 10, 8, 5));
+  }
+
+  @Test
   public void rebootUsesWallTimeAndLegacyOrFutureTimestampsExpire()
   {
     assertFalse(InCarRouteResumePolicy.isExpired(1_000_000, 10_000, 7, 1_299_999, 10, 8, 5));
