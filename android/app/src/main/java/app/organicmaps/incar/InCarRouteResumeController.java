@@ -138,9 +138,8 @@ public final class InCarRouteResumeController implements LocationListener
       discardExpiredRoute();
     // Replayed fixes and noninteractive delivery must not prolong a sleeping journey.
     final long ageNs = SystemClock.elapsedRealtimeNanos() - location.getElapsedRealtimeNanos();
-    if ((routing.isNavigating() || (mForeground && routing.isPlanning() && routing.isBuilt()))
-        && isInteractive() && ageNs >= 0
-        && ageNs <= InCarRouteResumePolicy.HEARTBEAT_MS * 1_000_000L)
+    if ((routing.isNavigating() || (mForeground && routing.isPlanning() && routing.isBuilt())) && isInteractive()
+        && ageNs >= 0 && ageNs <= InCarRouteResumePolicy.HEARTBEAT_MS * 1_000_000L)
     {
       final long now = SystemClock.elapsedRealtime();
       if (now - prefs().getLong(ELAPSED, -1) >= InCarRouteResumePolicy.HEARTBEAT_MS)
