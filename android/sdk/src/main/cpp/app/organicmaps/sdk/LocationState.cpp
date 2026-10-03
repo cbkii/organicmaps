@@ -10,10 +10,12 @@
 #include "geometry/mercator.hpp"
 
 #include <chrono>
+#include <cmath>
 
 namespace
 {
 auto constexpr kStartupCameraBridgeLifetime = std::chrono::seconds(10);
+auto constexpr kCurrentPositionLifetime = std::chrono::seconds(10);
 
 struct StartupCameraBridgeState
 {
@@ -22,7 +24,16 @@ struct StartupCameraBridgeState
   std::chrono::steady_clock::time_point m_armedAt;
 };
 
+struct CurrentPositionState
+{
+  m2::PointD m_position = m2::PointD::Zero();
+  std::chrono::steady_clock::time_point m_receivedAt;
+  bool m_valid = false;
+  bool m_recenterPending = false;
+};
+
 StartupCameraBridgeState g_startupCameraBridge;
+CurrentPositionState g_currentPosition;
 
 auto GetDrapeEngine()
 {
@@ -46,6 +57,30 @@ bool HasCurrentStartupCameraBridge(df::DrapeEngine * engine)
   if (engine == nullptr || g_startupCameraBridge.m_engine != engine)
     return false;
   return std::chrono::steady_clock::now() - g_startupCameraBridge.m_armedAt <= kStartupCameraBridgeLifetime;
+}
+
+bool IsValidProviderPosition(double lat, double lon)
+{
+  return std::isfinite(lat) && std::isfinite(lon) && lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0;
+}
+
+bool HasFreshCurrentPosition()
+{
+  return g_currentPosition.m_valid &&
+         std::chrono::steady_clock::now() - g_currentPosition.m_receivedAt <= kCurrentPositionLifetime;
+}
+
+bool RecenterToCurrentPosition()
+{
+  auto const drapeEngine = GetDrapeEngine();
+  if (drapeEngine == nullptr || !HasFreshCurrentPosition())
+    return false;
+
+  // This is deliberately a camera-centre event, not a My Position mode transition. SetCenterEvent
+  // preserves the current screen angle and never calls ChangeMyPositionModeMessage/NextMode().
+  drapeEngine->SetModelViewCenter(g_currentPosition.m_position, df::kDoNotChangeZoom, true /* isAnim */,
+                                  true /* trackVisibleViewport */);
+  return true;
 }
 
 void ShowLocalArea(double lat, double lon, double radiusMeters)
@@ -76,6 +111,22 @@ static void LocationStateModeChanged(location::EMyPositionMode mode, std::shared
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSwitchToNextMode(JNIEnv * env, jclass clazz)
 {
   g_framework->SwitchMyPositionNextMode();
+}
+
+// public static boolean nativeRecenterToCurrentPosition();
+JNIEXPORT jboolean Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition(JNIEnv *, jclass)
+{
+  // A direct user recenter owns the camera over the bounded startup bridge. If no current fix is
+  // available, remember only one request and satisfy it from the next valid provider observation.
+  CancelStartupCameraBridge();
+  if (RecenterToCurrentPosition())
+  {
+    g_currentPosition.m_recenterPending = false;
+    return JNI_TRUE;
+  }
+
+  g_currentPosition.m_recenterPending = true;
+  return JNI_FALSE;
 }
 
 // private static int nativeGetMode();
@@ -161,6 +212,15 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
 
   g_framework->OnLocationUpdated(info);
   GpsTracker::Instance().OnLocationUpdated(info);
+
+  if (IsValidProviderPosition(lat, lon))
+  {
+    g_currentPosition.m_position = mercator::FromLatLon(lat, lon);
+    g_currentPosition.m_receivedAt = std::chrono::steady_clock::now();
+    g_currentPosition.m_valid = true;
+    if (g_currentPosition.m_recenterPending && RecenterToCurrentPosition())
+      g_currentPosition.m_recenterPending = false;
+  }
 
   if (hasPendingStartupCamera || g_startupCameraBridge.m_engine != nullptr)
     ResetStartupCameraBridge();

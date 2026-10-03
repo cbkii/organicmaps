@@ -40,6 +40,15 @@ public final class LocationState
   // public static final int ERROR_TIMEOUT = 4; // Unused on Android (only used on Qt)
 
   public static native void nativeSwitchToNextMode();
+
+  /**
+   * Recentres on a fresh provider observation without changing the native My Position mode.
+   * If no fresh observation exists yet, exactly one recenter is kept pending for the next valid fix.
+   *
+   * @return true when a fresh position was available and the recenter was dispatched immediately.
+   */
+  public static native boolean nativeRecenterToCurrentPosition();
+
   @Value
   private static native int nativeGetMode();
 

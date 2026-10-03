@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Shared symbols referenced from src/main Java but presented only by the InCar menu adaptation. -->
+  <string name="in_car_switch_on">ON</string>
+  <string name="in_car_switch_off">OFF</string>
+</resources>
