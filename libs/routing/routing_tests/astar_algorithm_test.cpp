@@ -98,14 +98,21 @@ UNIT_TEST(AStarAlgorithm_BidirectionalBoundStopsExpansionWithoutAnotherMeeting)
   for (unsigned vertex = 10; vertex < 1000; ++vertex)
     graph.AddEdge(0, vertex, 100);
 
+  unsigned expansions = 0;
+  unsigned expansionsAtStop = 0;
+  auto visitor = [&](auto const &, auto const &) { ++expansions; };
+  base::Cancellable cancellable;
   Algorithm algo;
-  Algorithm::ParamsForTests<> params(graph, 0u /* startVertex */, 4u /* finishVertex */);
+  Algorithm::Params<decltype(visitor)> params(graph, 0u /* startVertex */, 4u /* finishVertex */, cancellable,
+                                             std::move(visitor));
   unsigned emitted = 0;
   bool stopped = false;
   params.m_shouldStopSearch = [&]
   {
     if (emitted == 0)
       return false;
+    if (!stopped)
+      expansionsAtStop = expansions;
     stopped = true;
     return true;
   };
@@ -118,6 +125,21 @@ UNIT_TEST(AStarAlgorithm_BidirectionalBoundStopsExpansionWithoutAnotherMeeting)
   TEST_EQUAL(result, Algorithm::Result::OK, ());
   TEST_GREATER(emitted, 0, ());
   TEST(stopped, ());
+  TEST_EQUAL(expansions, expansionsAtStop, ());
+  TEST_LESS(expansions, 500, ());
+}
+
+UNIT_TEST(AStarAlgorithm_BidirectionalBoundCannotPreventFirstResult)
+{
+  UndirectedGraph graph;
+  graph.AddEdge(0, 1, 1);
+  graph.AddEdge(1, 4, 1);
+  Algorithm algo;
+  Algorithm::ParamsForTests<> params(graph, 0u /* startVertex */, 4u /* finishVertex */);
+  params.m_shouldStopSearch = [] { return true; };
+  RoutingResult<unsigned, double> route;
+  TEST_EQUAL(algo.FindPathBidirectional(params, route), Algorithm::Result::OK, ());
+  TEST_EQUAL(route.m_path, (vector<unsigned>{0, 1, 4}), ());
 }
 
 UNIT_TEST(AStarAlgorithm_CheckLength)
