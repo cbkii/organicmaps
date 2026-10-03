@@ -104,7 +104,7 @@ UNIT_TEST(AStarAlgorithm_BidirectionalBoundStopsExpansionWithoutAnotherMeeting)
   base::Cancellable cancellable;
   Algorithm algo;
   Algorithm::Params<decltype(visitor)> params(graph, 0u /* startVertex */, 4u /* finishVertex */, cancellable,
-                                             std::move(visitor));
+                                              std::move(visitor));
   unsigned emitted = 0;
   bool stopped = false;
   params.m_shouldStopSearch = [&]
