@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ProcessLifecycleOwner;
@@ -24,6 +25,7 @@ import app.organicmaps.incar.InCarBudgetRendering;
 import app.organicmaps.incar.InCarDrivingUi;
 import app.organicmaps.incar.InCarDrivingViewController;
 import app.organicmaps.incar.InCarQuickDestinationsUi;
+import app.organicmaps.incar.InCarRouteResumeController;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.location.TrackRecordingService;
 import app.organicmaps.routing.NavigationService;
@@ -61,6 +63,9 @@ public class MwmApplication extends Application implements Application.ActivityL
 
   @Nullable
   private InCarDrivingViewController mInCarDrivingViewController;
+
+  @Nullable
+  private InCarRouteResumeController mInCarRouteResumeController;
 
   @Nullable
   private WeakReference<Activity> mTopActivity;
@@ -153,8 +158,16 @@ public class MwmApplication extends Application implements Application.ActivityL
       }
     }
 
+    if (BuildConfig.IS_IN_CAR)
+      mInCarRouteResumeController = new InCarRouteResumeController(this);
+
     DownloaderNotifier.createNotificationChannel(this);
     initNavigationService();
+    // State transitions also cover notification stops, arrival and routes without a service.
+    RoutingController.get().addNavigationStateListener(navigating -> {
+      if (!navigating)
+        onNavigationOrRecordingStopped();
+    });
     TrackRecordingService.createNotificationChannel(this);
 
     registerActivityLifecycleCallbacks(this);
@@ -213,6 +226,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     mTopActivity = new WeakReference<>(activity);
     if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity mapActivity)
     {
+      mInCarRouteResumeController.onForeground();
       InCarVisuals.applyAndObserve(mapActivity);
       InCarQuickDestinationsUi.attach(mapActivity);
       runInCarDrivingViewController("map activity resume", controller -> {
@@ -228,6 +242,8 @@ public class MwmApplication extends Application implements Application.ActivityL
   public void onActivityPaused(@NonNull Activity activity)
   {
     Logger.d(TAG, "activity = " + activity);
+    if (BuildConfig.IS_IN_CAR && activity instanceof MwmActivity)
+      mInCarRouteResumeController.onBackground();
     mTopActivity = null;
   }
 
@@ -298,6 +314,12 @@ public class MwmApplication extends Application implements Application.ActivityL
       InCarDrivingUi.release(mapActivity);
   }
 
+  public void discardExpiredInCarRoute()
+  {
+    if (mInCarRouteResumeController != null)
+      mInCarRouteResumeController.discardExpiredRoute();
+  }
+
   private void onForeground()
   {
     Logger.d(TAG);
@@ -317,6 +339,35 @@ public class MwmApplication extends Application implements Application.ActivityL
     if (!BuildConfig.IS_IN_CAR)
       OsmUploadScheduler.schedule(this);
 
+    stopLocationInBackgroundIfUnused();
+  }
+
+  /** Reassess the location lease after either background feature ends. */
+  public void onNavigationOrRecordingStopped()
+  {
+    if (!getOrganicMaps().arePlatformAndCoreInitialized())
+      return;
+
+    if (RoutingController.get().isNavigating() || TrackRecorder.nativeIsTrackRecordingEnabled())
+      return;
+
+    final boolean foreground =
+        ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
+    final boolean hasResumedActivity = getTopActivity() != null;
+    final boolean active = getLocationHelper().isActive();
+    final boolean explicitlyOff = BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this);
+    if (LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(foreground, active, explicitlyOff))
+      getLocationHelper().stop();
+    else if (LocationFeatureStopPolicy.shouldReassessBackground(foreground))
+      stopLocationInBackgroundIfUnused();
+    else if (LocationFeatureStopPolicy.shouldAdjustForegroundRate(
+                 foreground, hasResumedActivity, active, LocationUtils.checkLocationPermission(this),
+                 LocationUtils.areLocationServicesTurnedOn(this), explicitlyOff))
+      getLocationHelper().restartWithNewMode();
+  }
+
+  private void stopLocationInBackgroundIfUnused()
+  {
     if (!BuildConfig.IS_IN_CAR && !mDisplayManager.isDeviceDisplayUsed())
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
     else if (RoutingController.get().isNavigating())

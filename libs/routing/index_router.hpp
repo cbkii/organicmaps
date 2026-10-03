@@ -81,7 +81,7 @@ public:
 
   void SetGuides(GuidesTracks && guides) override;
   RouterResultCode CalculateRoute(Checkpoints const & checkpoints, m2::PointD const & startDirection,
-                                  bool adjustToPrevRoute, RouterDelegate const & delegate,
+                                  bool adjustToPrevRoute, bool needAlternatives, RouterDelegate const & delegate,
                                   RoutesResult & result) override;
 
   bool FindClosestProjectionToRoad(m2::PointD const & point, m2::PointD const & direction, double radius,
@@ -312,6 +312,9 @@ private:
   /// A major refactoring is needed, but IndexRouer becomes stateless (is a plus).
   std::unique_ptr<SegmentedRoute> m_lastAltRoute;
   std::unique_ptr<FakeEdgesContainer> m_lastAltFakeEdges;
+  // Non-transit strategy of the route variant the user follows, flipped by SwapAltRouteToActive and reset by
+  // ClearState. Adjustments and full rebuilds use it, see issue #13205.
+  EdgeEstimator::Strategy m_activeStrategy = EdgeEstimator::Strategy::Normal;
 
   // If a ckeckpoint is near to the guide track we need to build route through this track.
   GuidesConnections m_guides;
