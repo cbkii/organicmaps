@@ -19,12 +19,18 @@ import org.mockito.MockedStatic;
 
 public class RoutingControllerPlanningLeaseTest
 {
-  private static void setState(RoutingController controller, RoutingController.State state)
+  private static void setState(RoutingController controller, String state)
       throws ReflectiveOperationException
   {
     final Field field = RoutingController.class.getDeclaredField("mState");
     field.setAccessible(true);
-    field.set(controller, state);
+    for (Object candidate : field.getType().getEnumConstants())
+      if (candidate.toString().equals(state))
+      {
+        field.set(controller, candidate);
+        return;
+      }
+    throw new AssertionError("Unknown routing state " + state);
   }
 
   @Test
@@ -35,7 +41,7 @@ public class RoutingControllerPlanningLeaseTest
     final RoutingController.NavigationStateListener listener = mock(RoutingController.NavigationStateListener.class);
     controller.addNavigationStateListener(listener);
     controller.addNavigationStateListener(listener);
-    setState(controller, RoutingController.State.PREPARE);
+    setState(controller, "PREPARE");
     final Method setBuildState = RoutingController.class.getDeclaredMethod("setBuildState",
                                                                           RoutingController.BuildState.class);
     setBuildState.setAccessible(true);
@@ -58,7 +64,7 @@ public class RoutingControllerPlanningLeaseTest
     final RoutingController controller = new RoutingController();
     final RoutingController.NavigationStateListener listener = mock(RoutingController.NavigationStateListener.class);
     controller.addNavigationStateListener(listener);
-    setState(controller, RoutingController.State.PREPARE);
+    setState(controller, "PREPARE");
     try (MockedStatic<Framework> framework = mockStatic(Framework.class))
     {
       controller.saveRoute();
@@ -71,7 +77,7 @@ public class RoutingControllerPlanningLeaseTest
   public void returningToPlanningDisablesFollowingBeforeExactlyOneBuild() throws ReflectiveOperationException
   {
     final RoutingController controller = new RoutingController();
-    setState(controller, RoutingController.State.NAVIGATION);
+    setState(controller, "NAVIGATION");
     final List<String> events = new ArrayList<>();
     try (MockedStatic<Framework> framework = mockStatic(Framework.class);
          MockedStatic<Logger> ignored = mockStatic(Logger.class))
