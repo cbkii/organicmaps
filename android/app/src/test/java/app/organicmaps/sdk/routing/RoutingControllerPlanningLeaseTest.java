@@ -19,8 +19,7 @@ import org.mockito.MockedStatic;
 
 public class RoutingControllerPlanningLeaseTest
 {
-  private static void setState(RoutingController controller, String state)
-      throws ReflectiveOperationException
+  private static void setState(RoutingController controller, String state) throws ReflectiveOperationException
   {
     final Field field = RoutingController.class.getDeclaredField("mState");
     field.setAccessible(true);
@@ -42,8 +41,8 @@ public class RoutingControllerPlanningLeaseTest
     controller.addNavigationStateListener(listener);
     controller.addNavigationStateListener(listener);
     setState(controller, "PREPARE");
-    final Method setBuildState = RoutingController.class.getDeclaredMethod("setBuildState",
-                                                                          RoutingController.BuildState.class);
+    final Method setBuildState =
+        RoutingController.class.getDeclaredMethod("setBuildState", RoutingController.BuildState.class);
     setBuildState.setAccessible(true);
     try (MockedStatic<Framework> framework = mockStatic(Framework.class);
          MockedStatic<Logger> ignored = mockStatic(Logger.class))
@@ -82,8 +81,14 @@ public class RoutingControllerPlanningLeaseTest
     try (MockedStatic<Framework> framework = mockStatic(Framework.class);
          MockedStatic<Logger> ignored = mockStatic(Logger.class))
     {
-      framework.when(Framework::nativeDisableFollowing).thenAnswer(invocation -> { events.add("disable"); return null; });
-      framework.when(Framework::nativeBuildRoute).thenAnswer(invocation -> { events.add("build"); return null; });
+      framework.when(Framework::nativeDisableFollowing).thenAnswer(invocation -> {
+        events.add("disable");
+        return null;
+      });
+      framework.when(Framework::nativeBuildRoute).thenAnswer(invocation -> {
+        events.add("build");
+        return null;
+      });
       assertTrue(controller.resetToPlanningStateIfNavigating());
       assertEquals(List.of("disable", "build"), events);
       framework.verify(Framework::nativeBuildRoute);
