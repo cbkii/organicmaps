@@ -14,18 +14,59 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(f"ERROR: {message}")
 
 
+def extract_between(source: str, start_anchor: str, end_anchor: str, label: str) -> str:
+    start = source.find(start_anchor)
+    end = source.find(end_anchor, start + len(start_anchor)) if start >= 0 else -1
+    require(start >= 0 and end > start, f"{label} anchors missing or reordered")
+    return source[start:end]
+
+
+def extract_braced_block(source: str, anchor: str, label: str) -> str:
+    start = source.find(anchor)
+    require(start >= 0, f"{label} guard is missing")
+    opening = source.find("{", start + len(anchor))
+    require(opening >= 0, f"{label} opening brace is missing")
+    depth = 0
+    for index in range(opening, len(source)):
+        char = source[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening + 1:index]
+    raise SystemExit(f"ERROR: {label} closing brace is missing")
+
+
 def main() -> int:
-    create_arrow = TEXTURE_MANAGER.split("drape_ptr<Texture> CreateArrowTexture", 1)[1].split(
-        "class SimpleTexturePool", 1
-    )[0]
+    create_arrow = extract_between(
+        TEXTURE_MANAGER,
+        "drape_ptr<Texture> CreateArrowTexture",
+        "class SimpleTexturePool",
+        "CreateArrowTexture / SimpleTexturePool",
+    )
+    custom_path = extract_braced_block(
+        create_arrow,
+        "if (!texturePath.empty())",
+        "non-empty custom arrow texture path",
+    )
 
     require(
-        "make_unique_dp<StaticTexture>(context, texturePath" in create_arrow,
-        "custom arrow texture paths must still use StaticTexture loading",
+        "make_unique_dp<StaticTexture>(context, texturePath" in custom_path,
+        "custom arrow texture loading must remain inside the non-empty texturePath branch",
+    )
+    require(
+        "make_unique_dp<StaticTexture>(context, texturePath" not in create_arrow[len(custom_path):]
+        or "if (!texturePath.empty())" in create_arrow,
+        "custom arrow texture loading must stay guarded by a non-empty texturePath",
     )
     require(
         "return make_unique_dp<StaticTexture>();" in create_arrow,
         "the empty/default arrow-texture path must use an unloaded sentinel",
+    )
+    require(
+        "return make_unique_dp<StaticTexture>();" not in custom_path,
+        "the unloaded sentinel must remain the default path, outside the custom-path branch",
     )
     require(
         'make_unique_dp<StaticTexture>(context, "arrow-texture.png"' not in create_arrow,
