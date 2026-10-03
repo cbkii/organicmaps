@@ -119,6 +119,12 @@ public final class InCarRouteResumeController implements LocationListener
   }
 
   @Override
+  public void onLocationUpdated(@NonNull Location location)
+  {
+    // Only confirmed native observations may renew the lease.
+  }
+
+  @Override
   public void onLocationUpdatedNative(@NonNull Location location)
   {
     final long observed = location.getElapsedRealtimeNanos();
