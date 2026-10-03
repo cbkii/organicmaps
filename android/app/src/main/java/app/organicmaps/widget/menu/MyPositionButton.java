@@ -131,8 +131,7 @@ public class MyPositionButton
     mButton.setImageDrawable(image);
     // Preserve the InCar resource-defined automotive icon size; unlike the mobile mode renderer,
     // this stable command has no mode-dependent geometry.
-    ImageViewCompat.setImageTintList(mButton,
-                                     ColorStateList.valueOf(ThemeUtils.getColor(context, R.attr.iconTint)));
+    ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, R.attr.iconTint)));
     mButton.setContentDescription(context.getString(R.string.core_my_position));
     mButton.clearAnimation();
     mButton.setPadding(0, 0, 0, 0);

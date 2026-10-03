@@ -175,8 +175,9 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
 
     if (ADVANCED_MENU_ID.equals(id))
     {
-      mMenuBottomSheetItems.removeIf(item -> item.iconRes == R.drawable.ic_track_recording_off
-                                                || item.iconRes == R.drawable.ic_track_recording_on);
+      mMenuBottomSheetItems.removeIf(item
+                                     -> item.iconRes == R.drawable.ic_track_recording_off
+                                            || item.iconRes == R.drawable.ic_track_recording_on);
       return;
     }
 
@@ -185,12 +186,11 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
 
     // The Activity still builds the normal/shared menu model. InCar owns only this presentation
     // adaptation: one top-level binary recording command, never a second map-facing control.
-    mMenuBottomSheetItems.removeIf(item -> item.iconRes == R.drawable.ic_track_recording_off
-                                              || item.iconRes == R.drawable.ic_track_recording_on);
+    mMenuBottomSheetItems.removeIf(
+        item -> item.iconRes == R.drawable.ic_track_recording_off || item.iconRes == R.drawable.ic_track_recording_on);
     final boolean recording = Map.isEngineCreated() && TrackRecorder.nativeIsTrackRecordingEnabled();
-    final MenuBottomSheetItem trackRecording =
-        MenuBottomSheetItem.checkable(R.string.track_recording_title, R.drawable.ic_track_recording_off, recording,
-                                      this::toggleInCarTrackRecording);
+    final MenuBottomSheetItem trackRecording = MenuBottomSheetItem.checkable(
+        R.string.track_recording_title, R.drawable.ic_track_recording_off, recording, this::toggleInCarTrackRecording);
 
     int insertAt = mMenuBottomSheetItems.size();
     for (int i = 0; i < mMenuBottomSheetItems.size(); ++i)
