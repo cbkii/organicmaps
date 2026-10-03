@@ -66,6 +66,11 @@ public class RoutingController
     void onNavigationStateChanged(boolean navigating);
 
     default void onPlanningRouteReady() {}
+
+    default void onPlanningRouteSaved()
+    {
+      onPlanningRouteReady();
+    }
   }
 
   private final List<NavigationStateListener> mNavigationStateListeners = new ArrayList<>();
@@ -387,14 +392,15 @@ public class RoutingController
 
   public void saveRoute()
   {
-    if (isNavigating() || (isPlanning() && isBuilt()))
+    if (isNavigating() || isPlanning())
     {
-      notifyPlanningRouteReady();
+      if (isPlanning() && (isBuilt() || (getStartPoint() != null && getEndPoint() != null)))
+        for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
+          listener.onPlanningRouteSaved();
+      // Native saves the current edited marks and deletes invalid/incomplete points itself.
+      // A building route must survive process death without restoring its previous destination.
       Framework.nativeSaveRoutePoints();
     }
-    else if (isPlanning())
-      // A restart must not bring back an earlier route of this planning.
-      Framework.nativeDeleteSavedRoutePoints();
   }
 
   public void deleteSavedRoute()

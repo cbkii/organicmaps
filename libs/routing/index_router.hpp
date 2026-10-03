@@ -312,7 +312,7 @@ private:
   /// A major refactoring is needed, but IndexRouer becomes stateless (is a plus).
   std::unique_ptr<SegmentedRoute> m_lastAltRoute;
   std::unique_ptr<FakeEdgesContainer> m_lastAltFakeEdges;
-  // Strategy of the route variant the user follows, flipped by SwapAltRouteToActive and reset by
+  // Non-transit strategy of the route variant the user follows, flipped by SwapAltRouteToActive and reset by
   // ClearState. Adjustments and full rebuilds use it, see issue #13205.
   EdgeEstimator::Strategy m_activeStrategy = EdgeEstimator::Strategy::Normal;
 

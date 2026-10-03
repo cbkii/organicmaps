@@ -83,6 +83,8 @@ public:
     // Used for AdjustRoute.
     base::Cancellable const & m_cancellable;
     std::function<bool(Weight, Weight)> m_badReducedWeight = [](Weight, Weight) { return true; };
+    // Optional bound for additional bidirectional results, polled during frontier expansion.
+    std::function<bool()> m_shouldStopSearch;
   };
 
   // |LengthChecker| callback used to check path length from start/finish to the edge (including the
@@ -582,6 +584,9 @@ typename AStarAlgorithm<Vertex, Edge, Weight>::Result AStarAlgorithm<Vertex, Edg
 
     if (periodicCancellable.IsCancelled())
       return Result::Cancelled;
+
+    if (steps % 128 == 1 && params.m_shouldStopSearch && params.m_shouldStopSearch())
+      break;
 
     if (steps % kQueueSwitchPeriod == 0)
       std::swap(cur, nxt);
