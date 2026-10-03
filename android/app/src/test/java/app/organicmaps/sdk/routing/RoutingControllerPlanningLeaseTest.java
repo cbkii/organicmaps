@@ -2,19 +2,18 @@ package app.organicmaps.sdk.routing;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.log.Logger;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.Test;
+import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 
 public class RoutingControllerPlanningLeaseTest
@@ -36,7 +35,8 @@ public class RoutingControllerPlanningLeaseTest
   public void builtAndSavedPlanningRouteNotifyLeaseOwnerAndRemovalStopsNotifications()
       throws ReflectiveOperationException
   {
-    final RoutingController controller = new RoutingController();
+    final RoutingController.RouteCommands commands = mock(RoutingController.RouteCommands.class);
+    final RoutingController controller = new RoutingController(commands);
     final RoutingController.NavigationStateListener listener = mock(RoutingController.NavigationStateListener.class);
     controller.addNavigationStateListener(listener);
     controller.addNavigationStateListener(listener);
@@ -44,14 +44,13 @@ public class RoutingControllerPlanningLeaseTest
     final Method setBuildState =
         RoutingController.class.getDeclaredMethod("setBuildState", RoutingController.BuildState.class);
     setBuildState.setAccessible(true);
-    try (MockedStatic<Framework> framework = mockStatic(Framework.class);
-         MockedStatic<Logger> ignored = mockStatic(Logger.class))
+    try (MockedStatic<Logger> ignored = mockStatic(Logger.class))
     {
       setBuildState.invoke(controller, RoutingController.BuildState.BUILT);
       controller.saveRoute();
       verify(listener).onPlanningRouteReady();
       verify(listener).onPlanningRouteSaved();
-      framework.verify(Framework::nativeSaveRoutePoints);
+      verify(commands).saveRoutePoints();
       controller.removeNavigationStateListener(listener);
       controller.saveRoute();
       verify(listener).onPlanningRouteReady();
@@ -62,54 +61,50 @@ public class RoutingControllerPlanningLeaseTest
   @Test
   public void incompletePlanningRouteCannotRenewLease() throws ReflectiveOperationException
   {
-    final RoutingController controller = new RoutingController();
+    final RoutingController.RouteCommands commands = mock(RoutingController.RouteCommands.class);
+    final RoutingController controller = new RoutingController(commands);
     final RoutingController.NavigationStateListener listener = mock(RoutingController.NavigationStateListener.class);
     controller.addNavigationStateListener(listener);
     setState(controller, "PREPARE");
-    try (MockedStatic<Framework> framework = mockStatic(Framework.class))
-    {
-      controller.saveRoute();
-      verify(listener, never()).onPlanningRouteReady();
-      framework.verify(Framework::nativeSaveRoutePoints);
-    }
+    controller.saveRoute();
+    verify(listener, never()).onPlanningRouteReady();
+    verify(listener, never()).onPlanningRouteSaved();
+    verify(commands).saveRoutePoints();
   }
 
   @Test
-  public void buildingPlanningRoutePersistsCurrentPoints() throws ReflectiveOperationException
+  public void buildingPlanningRoutePersistsCurrentPointsAndNotifiesLeaseOwner() throws ReflectiveOperationException
   {
-    final RoutingController controller = new RoutingController();
+    final RoutingController.RouteCommands commands = mock(RoutingController.RouteCommands.class);
+    final RoutingController controller = new RoutingController(commands);
+    final RoutingController.NavigationStateListener listener = mock(RoutingController.NavigationStateListener.class);
+    controller.addNavigationStateListener(listener);
     setState(controller, "PREPARE");
     final Field buildState = RoutingController.class.getDeclaredField("mBuildState");
     buildState.setAccessible(true);
     buildState.set(controller, RoutingController.BuildState.BUILDING);
-    try (MockedStatic<Framework> framework = mockStatic(Framework.class))
-    {
-      controller.saveRoute();
-      framework.verify(Framework::nativeSaveRoutePoints);
-      framework.verify(Framework::nativeDeleteSavedRoutePoints, never());
-    }
+    when(commands.hasCompleteRoutePoints()).thenReturn(true);
+    controller.saveRoute();
+    verify(commands).saveRoutePoints();
+    verify(listener).onPlanningRouteSaved();
+    verify(listener, never()).onPlanningRouteReady();
   }
 
   @Test
   public void returningToPlanningDisablesFollowingBeforeExactlyOneBuild() throws ReflectiveOperationException
   {
-    final RoutingController controller = new RoutingController();
+    final RoutingController.RouteCommands commands = mock(RoutingController.RouteCommands.class);
+    final RoutingController controller = new RoutingController(commands);
     setState(controller, "NAVIGATION");
-    final List<String> events = new ArrayList<>();
-    try (MockedStatic<Framework> framework = mockStatic(Framework.class);
-         MockedStatic<Logger> ignored = mockStatic(Logger.class))
+    try (MockedStatic<Logger> ignored = mockStatic(Logger.class))
     {
-      framework.when(Framework::nativeDisableFollowing).thenAnswer(invocation -> {
-        events.add("disable");
-        return null;
-      });
-      framework.when(Framework::nativeBuildRoute).thenAnswer(invocation -> {
-        events.add("build");
-        return null;
-      });
       assertTrue(controller.resetToPlanningStateIfNavigating());
-      assertEquals(List.of("disable", "build"), events);
-      framework.verify(Framework::nativeBuildRoute);
+      final InOrder order = inOrder(commands);
+      order.verify(commands).disableFollowing();
+      order.verify(commands).removeRoute();
+      order.verify(commands).buildRoute();
+      order.verifyNoMoreInteractions();
+      assertEquals(RoutingController.BuildState.BUILDING, controller.getBuildState());
     }
   }
 }

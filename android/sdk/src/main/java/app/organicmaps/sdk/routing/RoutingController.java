@@ -20,6 +20,66 @@ public class RoutingController
 {
   private static final String TAG = RoutingController.class.getSimpleName();
 
+  interface RouteCommands
+  {
+    void disableFollowing();
+    void removeRoute();
+    void buildRoute();
+    void saveRoutePoints();
+    @Nullable MapObject getStartPoint();
+    boolean hasCompleteRoutePoints();
+  }
+
+  private final RouteCommands mRouteCommands;
+
+  public RoutingController()
+  {
+    this(null);
+  }
+
+  RoutingController(@Nullable RouteCommands commands)
+  {
+    mRouteCommands = commands != null ? commands : new RouteCommands() {
+      @Override
+      public void disableFollowing()
+      {
+        Framework.nativeDisableFollowing();
+      }
+
+      @Override
+      public void removeRoute()
+      {
+        Framework.nativeRemoveRoute();
+      }
+
+      @Override
+      public void buildRoute()
+      {
+        Framework.nativeBuildRoute();
+      }
+
+      @Override
+      public void saveRoutePoints()
+      {
+        Framework.nativeSaveRoutePoints();
+      }
+
+      @Override
+      public MapObject getStartPoint()
+      {
+        return RoutingController.this.getStartPoint();
+      }
+
+      @Override
+      public boolean hasCompleteRoutePoints()
+      {
+        return RoutingController.this.getStartPoint() != null && RoutingController.this.getEndPoint() != null;
+      }
+    };
+  }
+
+
+
   private enum State
   {
     NONE,
@@ -271,9 +331,9 @@ public class RoutingController
 
     if (mBuildState == BuildState.BUILT)
     {
-      final MapObject startPoint = getStartPoint();
+      final MapObject startPoint = mRouteCommands.getStartPoint();
       if (startPoint == null || !startPoint.isMyPosition())
-        Framework.nativeDisableFollowing();
+        mRouteCommands.disableFollowing();
       notifyPlanningRouteReady();
     }
 
@@ -354,7 +414,7 @@ public class RoutingController
   private void build()
   {
     mRouteStartGate.invalidate();
-    Framework.nativeRemoveRoute();
+    mRouteCommands.removeRoute();
 
     Logger.d(TAG, "build");
     mLastBuildProgress = 0;
@@ -366,7 +426,7 @@ public class RoutingController
 
     updatePlan();
 
-    Framework.nativeBuildRoute();
+    mRouteCommands.buildRoute();
   }
 
   public void restoreRoute()
@@ -394,12 +454,12 @@ public class RoutingController
   {
     if (isNavigating() || isPlanning())
     {
-      if (isPlanning() && (isBuilt() || (getStartPoint() != null && getEndPoint() != null)))
+      if (isPlanning() && (isBuilt() || mRouteCommands.hasCompleteRoutePoints()))
         for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
           listener.onPlanningRouteSaved();
       // Native saves the current edited marks and deletes invalid/incomplete points itself.
       // A building route must survive process death without restoring its previous destination.
-      Framework.nativeSaveRoutePoints();
+      mRouteCommands.saveRoutePoints();
     }
   }
 
@@ -559,7 +619,7 @@ public class RoutingController
   // Leave routed following before the one rebuild so planning can calculate fresh alternatives.
   private void transitionToPlanning()
   {
-    Framework.nativeDisableFollowing();
+    mRouteCommands.disableFollowing();
     setState(State.PREPARE);
     cancelNavigation(false);
     startPlanning();
