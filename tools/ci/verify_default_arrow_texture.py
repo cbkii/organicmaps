@@ -50,15 +50,11 @@ def main() -> int:
         "if (!texturePath.empty())",
         "non-empty custom arrow texture path",
     )
+    loader = "make_unique_dp<StaticTexture>(context, texturePath"
 
     require(
-        "make_unique_dp<StaticTexture>(context, texturePath" in custom_path,
-        "custom arrow texture loading must remain inside the non-empty texturePath branch",
-    )
-    require(
-        "make_unique_dp<StaticTexture>(context, texturePath" not in create_arrow[len(custom_path):]
-        or "if (!texturePath.empty())" in create_arrow,
-        "custom arrow texture loading must stay guarded by a non-empty texturePath",
+        custom_path.count(loader) == 1 and create_arrow.count(loader) == 1,
+        "custom arrow texture loading must occur exactly once and remain inside the non-empty texturePath branch",
     )
     require(
         "return make_unique_dp<StaticTexture>();" in create_arrow,
