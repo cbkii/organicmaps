@@ -149,7 +149,7 @@
             android:layout_marginRight="@dimen/in_car_nav_icon_gap"
             android:scaleType="fitCenter"
             app:tint="@color/in_car_nav_foreground"
-            tools:src="@drawable/ic_then_left_sharp" />
+            tools:src="@drawable/ic_roundabout_exit_12" />
         </FrameLayout>
       </FrameLayout>
     </LinearLayout>

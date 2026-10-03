@@ -10,6 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.os.ConfigurationCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import app.organicmaps.BuildConfig;
@@ -251,7 +252,8 @@ public class NavMenu implements DefaultLifecycleObserver
     {
       mTimeMinuteValue.setText(InCarRouteSummaryPolicy.duration(
           seconds, mActivity.getString(R.string.minute), mActivity.getString(R.string.hour),
-          mActivity.getString(R.string.day), mActivity.getResources().getConfiguration().getLocales().get(0)));
+          mActivity.getString(R.string.day),
+          ConfigurationCompat.getLocales(mActivity.getResources().getConfiguration()).get(0)));
       return;
     }
     final long hours = TimeUnit.SECONDS.toHours(seconds);
