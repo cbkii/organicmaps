@@ -84,6 +84,11 @@ def verify_sources(texture_manager: str, arrow3d: str, static_texture: str,
         re.search(r"bool\s+m_isLoadingCorrect\s*=\s*false\s*;", sentinel_header) is not None,
         "the unloaded StaticTexture sentinel must report loading failure",
     )
+    require(
+        re.search(r"bool\s+IsLoadingCorrect\(\)\s*const\s*\{\s*return\s+m_isLoadingCorrect\s*;\s*\}",
+                  sentinel_header) is not None,
+        "StaticTexture must report its actual loading state",
+    )
     constructor = extract_between(
         executable_source(STATIC_TEXTURE_CPP if static_texture_cpp is None else static_texture_cpp),
         "StaticTexture::StaticTexture()", "StaticTexture::StaticTexture(ref_ptr", "StaticTexture constructors")

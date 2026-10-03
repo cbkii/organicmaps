@@ -158,7 +158,8 @@ public class PlaceScreen extends BaseMapScreen implements OnBackPressedCallback.
     if (mMapObject == null)
     {
       if (mRoutingController.isErrorEncountered())
-        builder.addRow(new Row.Builder().setTitle(getCarContext().getString(R.string.unable_to_calc_alert_title)).build());
+        builder.addRow(
+            new Row.Builder().setTitle(getCarContext().getString(R.string.unable_to_calc_alert_title)).build());
       else
         builder.setLoading(true);
       return builder.build();

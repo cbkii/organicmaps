@@ -21,6 +21,10 @@ class TrackDeleteContractTest(unittest.TestCase):
         changed = changed.replace("dismissAlertDialog ( );", "dismissAlertDialog();")
         self.assertNotEqual(self.source, changed)
         self.assertEqual([], verifier.verify_sources(changed))
+        braced = self.source.replace("if (!sameTrack)\n      dismissAlertDialog();",
+                                    "if (!sameTrack) { dismissAlertDialog(); }")
+        self.assertNotEqual(self.source, braced)
+        self.assertEqual([], verifier.verify_sources(braced))
 
     def test_mutations_reject_wrong_track_or_lifecycle(self):
         mutations = (

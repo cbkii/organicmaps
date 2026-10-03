@@ -83,6 +83,12 @@ class DefaultArrowTextureTest(unittest.TestCase):
                     verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D,
                                             verifier.STATIC_TEXTURE, changed)
 
+    def test_loading_getter_cannot_report_success_for_an_unloaded_sentinel(self) -> None:
+        changed = verifier.STATIC_TEXTURE.replace("return m_isLoadingCorrect;", "return true;", 1)
+        self.assertNotEqual(verifier.STATIC_TEXTURE, changed)
+        with self.assertRaisesRegex(SystemExit, "ERROR:"):
+            verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D, changed)
+
     def test_header_cannot_mark_unloaded_sentinel_successful(self) -> None:
         changed = verifier.STATIC_TEXTURE.replace("bool m_isLoadingCorrect = false;",
                                                   "bool m_isLoadingCorrect = true;", 1)

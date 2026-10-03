@@ -362,8 +362,7 @@ public class MwmApplication extends Application implements Application.ActivityL
       stopLocationInBackgroundIfUnused();
     else if (LocationFeatureStopPolicy.shouldAdjustForegroundRate(
                  foreground, hasResumedActivity, active, LocationUtils.checkLocationPermission(this),
-                 LocationUtils.areLocationServicesTurnedOn(this),
-                 explicitlyOff))
+                 LocationUtils.areLocationServicesTurnedOn(this), explicitlyOff))
       getLocationHelper().restartWithNewMode();
   }
 

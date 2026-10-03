@@ -69,7 +69,7 @@ def verify_sources(text: str) -> list[str]:
     # A new selection invalidates any outstanding confirmation. The same track can keep
     # its current dialog, while view destruction always dismisses it.
     if (re.search(r"previousTrack\.getTrackId\(\)\s*==\s*newTrack\.getTrackId\(\)", changed) is None
-            or re.search(r"if\s*\(\s*!sameTrack\s*\)\s*dismissAlertDialog\(\)\s*;", changed) is None):
+            or re.search(r"if\s*\(\s*!sameTrack\s*\)\s*(?:\{\s*dismissAlertDialog\(\)\s*;\s*\}|dismissAlertDialog\(\)\s*;)", changed) is None):
         errors.append("Place Page selection must dismiss a confirmation when track identity changes")
     if "mAlertDialog = null;" in changed or "showTrackDeleteAlertDialog();" in changed:
         errors.append("Place Page updates must not orphan or recreate an existing confirmation")
