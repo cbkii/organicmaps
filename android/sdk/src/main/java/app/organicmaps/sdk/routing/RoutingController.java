@@ -26,7 +26,8 @@ public class RoutingController
     void removeRoute();
     void buildRoute();
     void saveRoutePoints();
-    @Nullable MapObject getStartPoint();
+    @Nullable
+    MapObject getStartPoint();
     boolean hasCompleteRoutePoints();
   }
 
@@ -77,8 +78,6 @@ public class RoutingController
       }
     };
   }
-
-
 
   private enum State
   {
