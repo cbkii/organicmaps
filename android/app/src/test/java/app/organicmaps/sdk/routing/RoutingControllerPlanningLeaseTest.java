@@ -49,11 +49,13 @@ public class RoutingControllerPlanningLeaseTest
     {
       setBuildState.invoke(controller, RoutingController.BuildState.BUILT);
       controller.saveRoute();
-      verify(listener, times(2)).onPlanningRouteReady();
+      verify(listener).onPlanningRouteReady();
+      verify(listener).onPlanningRouteSaved();
       framework.verify(Framework::nativeSaveRoutePoints);
       controller.removeNavigationStateListener(listener);
       controller.saveRoute();
-      verify(listener, times(2)).onPlanningRouteReady();
+      verify(listener).onPlanningRouteReady();
+      verify(listener).onPlanningRouteSaved();
     }
   }
 
@@ -68,7 +70,23 @@ public class RoutingControllerPlanningLeaseTest
     {
       controller.saveRoute();
       verify(listener, never()).onPlanningRouteReady();
-      framework.verify(Framework::nativeDeleteSavedRoutePoints);
+      framework.verify(Framework::nativeSaveRoutePoints);
+    }
+  }
+
+  @Test
+  public void buildingPlanningRoutePersistsCurrentPoints() throws ReflectiveOperationException
+  {
+    final RoutingController controller = new RoutingController();
+    setState(controller, "PREPARE");
+    final Field buildState = RoutingController.class.getDeclaredField("mBuildState");
+    buildState.setAccessible(true);
+    buildState.set(controller, RoutingController.BuildState.BUILDING);
+    try (MockedStatic<Framework> framework = mockStatic(Framework.class))
+    {
+      controller.saveRoute();
+      framework.verify(Framework::nativeSaveRoutePoints);
+      framework.verify(Framework::nativeDeleteSavedRoutePoints, never());
     }
   }
 
