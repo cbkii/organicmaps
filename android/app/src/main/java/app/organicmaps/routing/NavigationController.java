@@ -171,14 +171,23 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updateNavigationHeaderMetrics()
   {
+    final boolean activeNavigation = UiUtils.isVisible(mFrame) && RoutingController.get().isNavigating();
+    if (BuildConfig.IS_IN_CAR && !activeNavigation)
+    {
+      mMapButtonsViewModel.setTopHeaderHeight(0);
+      mMapButtonsViewModel.setNavigationFooterHeight(0);
+      return;
+    }
     final int contentHeight = computeNavContentHeight();
     mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Both InCar orientations have a fixed NavMenu footer. Its explicit owner protects
+      // this clearance from legacy zero-height callbacks only while navigation is visible.
+      mMapButtonsViewModel.setNavigationFooterHeight(dimen(mFrame.getContext(), R.dimen.nav_menu_height));
+    }
     if (isInCarLandscape())
     {
-      // The active InCar footer is owned by NavMenu, not MapButtonsController's legacy bottom frame.
-      // Publish its fixed resource-backed height so Quick Destinations and its More dialog always
-      // reserve the real END/progress row even when the legacy frame reports zero.
-      mMapButtonsViewModel.setBottomButtonsHeight(dimen(mFrame.getContext(), R.dimen.nav_menu_height));
       mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding)
                                                   + contentHeight);
     }
@@ -301,7 +310,10 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     {
       mMapButtonsViewModel.setTopHeaderHeight(0);
       if (BuildConfig.IS_IN_CAR)
+      {
+        mMapButtonsViewModel.setNavigationFooterHeight(0);
         InCarSpeedDisplayPolicy.resetSpeeding();
+      }
     }
   }
 

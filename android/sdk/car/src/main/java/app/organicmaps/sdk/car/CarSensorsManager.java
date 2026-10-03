@@ -60,6 +60,9 @@ public final class CarSensorsManager
   @RequiresPermission(ACCESS_FINE_LOCATION)
   public void onStart()
   {
+    if (mIsActive)
+      return;
+    mIsActive = true;
     final Executor executor = ContextCompat.getMainExecutor(mCarContext);
 
     if (mIsCarCompassUsed)
@@ -75,8 +78,6 @@ public final class CarSensorsManager
     if (mIsCarLocationUsed)
       mIsCarLocationUsed = mCarSensors.addCarHardwareLocationListener(CarSensors.UPDATE_RATE_FASTEST, executor,
                                                                       mOnCarLocationDataAvailableListener);
-
-    mIsActive = true;
   }
 
   public void onStop()
@@ -94,7 +95,7 @@ public final class CarSensorsManager
 
   private void onCarCompassDataAvailable(@NonNull final Compass compass)
   {
-    if (!mIsActive)
+    if (!mIsActive || !mIsCarCompassUsed)
       return;
 
     final CarValue<List<Float>> data = compass.getOrientations();
@@ -103,10 +104,10 @@ public final class CarSensorsManager
     else if (data.getStatus() == CarValue.STATUS_SUCCESS)
     {
       final List<Float> orientations = compass.getOrientations().getValue();
-      if (orientations == null)
+      if (orientations == null || orientations.isEmpty() || orientations.get(0) == null)
         return;
       final float azimuth = orientations.get(0);
-      if (Float.isNaN(azimuth))
+      if (Float.isNaN(azimuth) || Float.isInfinite(azimuth))
         return;
       Map.onCompassUpdated(Math.toRadians(azimuth), true);
     }
@@ -114,12 +115,14 @@ public final class CarSensorsManager
 
   private void onCompassUpdated(double north)
   {
+    if (!mIsActive || mIsCarCompassUsed || Double.isNaN(north) || Double.isInfinite(north))
+      return;
     Map.onCompassUpdated(north, true);
   }
 
   private void onCarLocationDataAvailable(@NonNull final CarHardwareLocation hardwareLocation)
   {
-    if (!mIsActive)
+    if (!mIsActive || !mIsCarLocationUsed)
       return;
 
     final CarValue<Location> location = hardwareLocation.getLocation();

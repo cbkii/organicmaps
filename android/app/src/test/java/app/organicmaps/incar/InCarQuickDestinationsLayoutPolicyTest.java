@@ -91,4 +91,22 @@ public class InCarQuickDestinationsLayoutPolicyTest
     assertEquals(4, visibleDirect);
     assertFalse(InCarQuickDestinationsLayoutPolicy.shouldShowMore(4, directActions, visibleDirect, 0));
   }
+    @Test
+    public void shortNavigationWindowsMoveHiddenActionsToMoreAndNeverOverlap() {
+        for (int available = 0; available < 232; ++available) {
+            final int size = InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(available);
+            final int capacity = InCarQuickDestinationsLayoutPolicy.maxVisibleActions(
+                    available, size, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+            final int direct = InCarQuickDestinationsLayoutPolicy.directActionCountForCapacity(capacity, 3, 4);
+            final boolean more = InCarQuickDestinationsLayoutPolicy.shouldShowMore(capacity, 3, direct, 4 + 3 - direct);
+            final int count = direct + (more ? 1 : 0);
+            final int gap = InCarQuickDestinationsLayoutPolicy.resolvedGapDp(available, size, count);
+            assertTrue(InCarQuickDestinationsLayoutPolicy.requiredHeightDp(count, size, gap) <= available);
+            if (available < InCarQuickDestinationsLayoutPolicy.EXTRA_COMPACT_ACTION_SIZE_DP)
+                assertEquals(0, count);
+            else
+                assertTrue(more);
+        }
+    }
+
 }

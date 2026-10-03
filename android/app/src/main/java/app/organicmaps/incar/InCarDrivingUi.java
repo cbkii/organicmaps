@@ -25,6 +25,8 @@ import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
+import app.organicmaps.sdk.routing.RoutingController;
+import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.sdk.util.log.Logger;
 import app.organicmaps.sdk.widgets.lanes.LanesView;
@@ -129,6 +131,14 @@ public final class InCarDrivingUi
       final SpeedLimitView navigationSpeedLimit = activity.findViewById(R.id.nav_speed_limit);
       final View help = activity.findViewById(R.id.help_button);
       binding = new Binding(overlay, speed, navigationSpeed, navigationSpeedLimit, help, controller);
+      final InCarDrivingViewController.Snapshot initial = controller.getSnapshot().getValue();
+      if (initial != null && initial.routeLimitAvailable && app.organicmaps.sdk.Map.isEngineCreated()
+          && RoutingController.get().isNavigating())
+      {
+        final RoutingInfo route = Framework.nativeGetRouteFollowingInfo();
+        if (route != null)
+          binding.currentRouteSpeedLimitMps = route.speedLimitMps;
+      }
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       applyInsets(activity, binding);
@@ -172,7 +182,10 @@ public final class InCarDrivingUi
   {
     final Binding binding = getBinding(activity);
     if (binding == null)
+    {
+      InCarSpeedDisplayPolicy.updateSpeedLimit(speedLimitMps);
       return;
+    }
     binding.currentRouteSpeedLimitMps = speedLimitMps;
     render(activity, binding, binding.controller.getSnapshot().getValue());
   }
@@ -328,8 +341,16 @@ public final class InCarDrivingUi
 
     if (!snapshot.navigating)
       binding.currentRouteSpeedLimitMps = -1.0;
+    if (snapshot.navigating && snapshot.routeLimitAvailable && snapshot.currentNativeObservation
+        && app.organicmaps.sdk.Map.isEngineCreated())
+    {
+      final RoutingInfo route = Framework.nativeGetRouteFollowingInfo();
+      if (route != null)
+        binding.currentRouteSpeedLimitMps = route.speedLimitMps;
+    }
+    final double routeLimit = snapshot.routeLimitAvailable ? binding.currentRouteSpeedLimitMps : -1.0;
     final double displayedLimit =
-        InCarSpeedDisplayPolicy.selectSpeedLimit(binding.currentRouteSpeedLimitMps, snapshot.roadSpeedLimit,
+        InCarSpeedDisplayPolicy.selectSpeedLimit(routeLimit, snapshot.roadSpeedLimit,
                                                  snapshot.currentNativeObservation, SystemClock.elapsedRealtimeNanos());
     InCarSpeedDisplayPolicy.updateSpeedLimit(displayedLimit);
     final boolean current = snapshot.currentNativeObservation
@@ -338,11 +359,18 @@ public final class InCarDrivingUi
     final boolean warning = InCarSpeedDisplayPolicy.updateCurrentSpeed(current ? snapshot.speedMps : Double.NaN);
     if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
       navigationSpeedView.setSpeeding(warning);
+    final String limitDescription = displayedLimit > 0
+        ? activity.getString(R.string.in_car_road_speed_limit_content_description,
+                             Framework.nativeFormatSpeed(displayedLimit)) : null;
     if (binding.navigationSpeedLimit != null)
+    {
       binding.navigationSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
-    final boolean showRoadLimit = !snapshot.navigating && displayedLimit >= 0.0
+      binding.navigationSpeedLimit.setContentDescription(limitDescription);
+    }
+    final boolean showRoadLimit = !snapshot.navigating && displayedLimit > 0.0
                                && ((snapshot.enabled && snapshot.following) || (current && snapshot.speedMps > 0.0));
     binding.roadSpeedLimit.setVisibility(showRoadLimit ? View.VISIBLE : View.GONE);
+    binding.roadSpeedLimit.setContentDescription(showRoadLimit ? limitDescription : null);
     if (showRoadLimit)
       binding.roadSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
     renderRibbon(activity, snapshot.navigating && warning, InCarSpeedDisplayPolicy.warningStrength());

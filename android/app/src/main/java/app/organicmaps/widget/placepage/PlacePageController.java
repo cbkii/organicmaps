@@ -615,7 +615,13 @@ public class PlacePageController
             .setTitle(requireContext().getString(R.string.delete_track_dialog_title, track.getTitle()))
             .setCancelable(true)
             .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.delete, (dialog, which) -> BookmarkManager.INSTANCE.deleteTrack(trackId))
+            .setPositiveButton(R.string.delete,
+                               (dialog, which) -> {
+                                 BookmarkManager.INSTANCE.deleteTrack(trackId);
+                                 // Deletion may synchronously change the selection; never close a different Place Page.
+                                 if (mMapObject instanceof Track currentTrack && currentTrack.getTrackId() == trackId)
+                                   close();
+                               })
             .setOnDismissListener(dialog -> {
               mViewModel.isAlertDialogShowing = false;
               if (mAlertDialog == dialog)

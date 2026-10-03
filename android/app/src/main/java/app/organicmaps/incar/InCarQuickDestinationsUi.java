@@ -462,18 +462,25 @@ public final class InCarQuickDestinationsUi
 
     private void renderNavigationActionLayout()
     {
+      final int available = availableHeightDp();
+      final int actionSizeDp = pxToDp(currentActionSizePx());
+      final int capacity = InCarQuickDestinationsLayoutPolicy.maxVisibleActions(
+          available, actionSizeDp, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+      final int visibleDirectCount = InCarQuickDestinationsLayoutPolicy.directActionCountForCapacity(
+          capacity, mDirectActions.size(), mOverflowActions.size());
       mRenderedOverflowActions.clear();
+      for (int i = visibleDirectCount; i < mDirectActions.size(); ++i)
+        mRenderedOverflowActions.add(mDirectActions.get(i));
       mRenderedOverflowActions.addAll(mOverflowActions);
 
-      final List<InCarQuickActionButton> rendered =
-          new ArrayList<>(InCarQuickDestinationsLayoutPolicy.NAVIGATION_ACTION_COUNT);
-      for (QuickActionBinding action : mDirectActions)
-        rendered.add(action.button);
-      rendered.add(ensureMoreButton());
-
-      final int actionSizeDp = pxToDp(currentActionSizePx());
+      final List<InCarQuickActionButton> rendered = new ArrayList<>(capacity);
+      for (int i = 0; i < visibleDirectCount; ++i)
+        rendered.add(mDirectActions.get(i).button);
+      if (InCarQuickDestinationsLayoutPolicy.shouldShowMore(
+              capacity, mDirectActions.size(), visibleDirectCount, mRenderedOverflowActions.size()))
+        rendered.add(ensureMoreButton());
       final int gapDp =
-          InCarQuickDestinationsLayoutPolicy.resolvedGapDp(availableHeightDp(), actionSizeDp, rendered.size());
+          InCarQuickDestinationsLayoutPolicy.resolvedGapDp(available, actionSizeDp, rendered.size());
       renderButtons(rendered, gapDp);
     }
 
@@ -488,6 +495,7 @@ public final class InCarQuickDestinationsUi
       }
       mRoot.bringToFront();
       updateRootBounds();
+      renderVisibility();
     }
 
     @NonNull
@@ -755,8 +763,8 @@ public final class InCarQuickDestinationsUi
 
     private void renderVisibility()
     {
-      final boolean visible =
-          InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
+      final boolean visible = mContainer.getChildCount() > 0
+          && InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
       mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 

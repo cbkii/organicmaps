@@ -223,8 +223,13 @@ def verify_navigation_refinements(root):
     strings = {e.attrib["name"]: e.text for e in base.parse_xml(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml").findall("string")}
     for stage in ("after", "lanes"):
         base.require_value(strings, f"in_car_nav_{stage}", stage.upper(), layout)
+    for element in parsed.iter():
+        text = element.attrib.get(android("text"), "").strip()
+        resolved = strings.get(text.removeprefix("@string/"), text) if text.startswith("@string/") else text
+        if text in ("@string/in_car_nav_now", "@string/in_car_nav_next") or resolved.upper() in ("NOW", "NEXT"):
+            raise base.VerificationError("immediate guidance must not retain NOW/NEXT captions")
     if "in_car_nav_now" in by_id or "in_car_nav_next" in by_id:
-        raise base.VerificationError("immediate guidance must not retain NOW/NEXT captions")
+        raise base.VerificationError("immediate guidance must not retain NOW/NEXT caption ids")
     base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "text", "@string/in_car_nav_after")
     base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_label_height")
     base.require_value(values, "in_car_nav_guidance_label_width", "60dp", values_path)

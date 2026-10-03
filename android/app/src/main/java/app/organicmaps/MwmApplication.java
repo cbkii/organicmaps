@@ -348,16 +348,21 @@ public class MwmApplication extends Application implements Application.ActivityL
     if (!getOrganicMaps().arePlatformAndCoreInitialized())
       return;
 
+    if (RoutingController.get().isNavigating() || TrackRecorder.nativeIsTrackRecordingEnabled())
+      return;
+
     final boolean foreground =
         ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
     final boolean hasResumedActivity = getTopActivity() != null;
     final boolean active = getLocationHelper().isActive();
-    if (LocationFeatureStopPolicy.shouldReassessBackground(foreground))
+    final boolean explicitlyOff = BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this);
+    if (LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(foreground, active, explicitlyOff))
+      getLocationHelper().stop();
+    else if (LocationFeatureStopPolicy.shouldReassessBackground(foreground))
       stopLocationInBackgroundIfUnused();
     else if (LocationFeatureStopPolicy.shouldAdjustForegroundRate(
                  foreground, hasResumedActivity, active, LocationUtils.checkLocationPermission(this),
-                 LocationUtils.areLocationServicesTurnedOn(this),
-                 BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this)))
+                 LocationUtils.areLocationServicesTurnedOn(this), explicitlyOff))
       getLocationHelper().restartWithNewMode();
   }
 

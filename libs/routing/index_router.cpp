@@ -332,6 +332,7 @@ IndexRouter::IndexRouter(VehicleType vehicleType, bool loadAltitudes,
   , m_loadAltitudes(loadAltitudes)
   , m_name("astar-bidirectional-" + ToString(m_vehicleType))
   , m_dataSource(dataSource, numMwmIds)
+  , m_freeDrivingSpeedDataSource(dataSource)
   , m_vehicleModelFactory(CreateVehicleModelFactory(m_vehicleType, countryParentNameGetterFn))
   , m_countryFileFn(countryFileFn)
   , m_countryRectFn(countryRectFn)
@@ -365,7 +366,10 @@ std::unique_ptr<WorldGraph> IndexRouter::MakeSingleMwmWorldGraph()
 
 void IndexRouter::ClearRouteCalculationState()
 {
-  m_freeDrivingMaxspeeds.Clear();
+  {
+    std::lock_guard<std::mutex> lock(m_freeDrivingMaxspeedsMutex);
+    m_freeDrivingMaxspeeds.Clear();
+  }
   m_roadGraph.ClearState();
   m_directionsEngine->Clear();
   m_dataSource.FreeHandles();

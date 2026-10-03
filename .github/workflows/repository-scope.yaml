@@ -24,7 +24,9 @@ jobs:
         run: python3 tools/ci/verify_android_repo_scope.py
 
       - name: Verify track-delete confirmation identity
-        run: python3 tools/ci/verify_place_page_delete_dialog.py
+        run: |
+          python3 tools/ci/verify_place_page_delete_dialog.py
+          python3 tools/ci/test_verify_place_page_delete_dialog.py
 
       - name: Test current-road metadata freshness policy
         run: |

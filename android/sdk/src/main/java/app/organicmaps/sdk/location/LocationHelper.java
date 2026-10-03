@@ -56,6 +56,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
 
   @Nullable
   private Location mSavedLocation;
+  private long mLastNativeObservationNanos;
   private MapObject mMyPosition;
   @NonNull
   private final LocationProviderFactory mLocationProviderFactory = new LocationProviderFactory();
@@ -168,6 +169,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     mHandler.removeCallbacks(mLocationTimeoutRunnable);
     mHandler.postDelayed(mLocationTimeoutRunnable, LOCATION_UPDATE_TIMEOUT_MS); // Reset the timeout.
 
+    mLastNativeObservationNanos = 0;
     mListenersIterator.rewind();
     while (mListenersIterator.hasNext())
       mListenersIterator.next().onLocationUpdated(mSavedLocation);
@@ -178,6 +180,9 @@ public class LocationHelper implements BaseLocationProvider.Listener
     if (mInFirstRun)
     {
       Logger.d(TAG, "Location update is obtained and must be ignored, because the app is in a first run mode");
+      mListenersIterator.rewind();
+      while (mListenersIterator.hasNext())
+        mListenersIterator.next().onLocationNativeUpdateSkipped(mSavedLocation);
       return;
     }
 
@@ -190,6 +195,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
                                         altitude != null ? altitude.accuracy() : -1, speed != null ? speed.speed() : -1,
                                         speed != null ? speed.accuracy() : -1, bearing != null ? bearing.bearing() : -1,
                                         bearing != null ? bearing.accuracy() : -1);
+    mLastNativeObservationNanos = mSavedLocation.getElapsedRealtimeNanos();
     // Existing pre-native listeners retain their ordering. Metadata consumers get a separate completed boundary.
     mListenersIterator.rewind();
     while (mListenersIterator.hasNext())
@@ -206,6 +212,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     }
 
     Logger.d(TAG);
+    mLastNativeObservationNanos = 0;
     mListenersIterator.rewind();
     while (mListenersIterator.hasNext())
       mListenersIterator.next().onLocationUpdateTimeout();
@@ -349,8 +356,11 @@ public class LocationHelper implements BaseLocationProvider.Listener
     if (mSavedLocation != null)
     {
       listener.onLocationUpdated(mSavedLocation);
-      if (!mInFirstRun)
+      if (!mInFirstRun && mLastNativeObservationNanos > 0
+          && mSavedLocation.getElapsedRealtimeNanos() == mLastNativeObservationNanos)
         listener.onLocationUpdatedNative(mSavedLocation);
+      else
+        listener.onLocationNativeUpdateSkipped(mSavedLocation);
     }
   }
 
@@ -438,6 +448,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
    */
   public void stop()
   {
+    mLastNativeObservationNanos = 0;
     if (!isActive())
     {
       Logger.d(TAG, "Already stopped");
@@ -535,6 +546,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
   public void onEnteredIntoFirstRun()
   {
     Logger.i(TAG);
+    mLastNativeObservationNanos = 0;
     mInFirstRun = true;
   }
 

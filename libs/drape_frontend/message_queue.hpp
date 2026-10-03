@@ -24,6 +24,8 @@ public:
   void PushMessage(drape_ptr<Message> && message, MessagePriority priority);
   // Interrupts the current or the next PopMessage(true). A PopMessage(false) leaves it pending.
   void CancelWait();
+  // Diagnostic observation under the queue mutex; true only while the consumer is waiting.
+  bool IsWaiting() const;
   void Clear();
 
   using FilterMessageFn = std::function<bool(ref_ptr<Message>)>;
@@ -44,6 +46,7 @@ private:
   // Makes a cancellation observable even if it precedes PopMessage(). Consumed by every
   // PopMessage(true), including one that returns a queued message without waiting.
   bool m_cancelPending = false;
+  bool m_isWaiting = false;
   using TMessageNode = std::pair<drape_ptr<Message>, MessagePriority>;
   std::deque<TMessageNode> m_messages;
   std::deque<drape_ptr<Message>> m_lowPriorityMessages;

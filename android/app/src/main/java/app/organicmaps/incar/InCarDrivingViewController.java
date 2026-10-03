@@ -55,12 +55,13 @@ public final class InCarDrivingViewController implements LocationListener
     @Nullable
     public final RoadSpeedLimitInfo roadSpeedLimit;
     public final boolean currentNativeObservation;
+    public final boolean routeLimitAvailable;
     @NonNull
     public final InCarDrivingViewPolicy.ActivationSource activationSource;
 
     Snapshot(boolean enabled, boolean following, boolean navigating, @NonNull LocationHealth locationHealth,
              boolean hasSpeed, double speedMps, @NonNull InCarDrivingViewPolicy.ActivationSource activationSource,
-             @Nullable RoadSpeedLimitInfo roadSpeedLimit, boolean currentNativeObservation)
+             @Nullable RoadSpeedLimitInfo roadSpeedLimit, boolean currentNativeObservation, boolean routeLimitAvailable)
     {
       this.enabled = enabled;
       this.following = following;
@@ -70,6 +71,7 @@ public final class InCarDrivingViewController implements LocationListener
       this.speedMps = speedMps;
       this.roadSpeedLimit = roadSpeedLimit;
       this.currentNativeObservation = currentNativeObservation;
+      this.routeLimitAvailable = routeLimitAvailable;
       this.activationSource = activationSource;
     }
   }
@@ -100,6 +102,7 @@ public final class InCarDrivingViewController implements LocationListener
   private RoadSpeedLimitInfo mRoadSpeedLimit;
   private long mNativeObservationNanos;
   private boolean mAwaitingNativeObservation;
+  private boolean mRouteLimitInvalidated;
   private final Handler mMetadataHandler = new Handler(Looper.getMainLooper());
   private final Runnable mExpireMetadata = () ->
   {
@@ -177,7 +180,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onRenderingDetached()
   {
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     mLifecycle.onRenderingDetached();
     mNativeStateApplied = false;
     publishSnapshot();
@@ -206,7 +209,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onSettingsChanged()
   {
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     reconcileModeWithSession();
     syncNativeState(false /* recenter */);
     publishSnapshot();
@@ -222,7 +225,12 @@ public final class InCarDrivingViewController implements LocationListener
     final boolean navigating = RoutingController.get().isNavigating();
     final boolean navigationJustEnded = mWasNavigating && !navigating;
     if (mWasNavigating != navigating)
-      clearRoadMetadata();
+    {
+      invalidateSpeedLimits();
+      // A newly started route can expose its own known limit before road metadata exists.
+      if (navigating)
+        mRouteLimitInvalidated = false;
+    }
     mWasNavigating = navigating;
 
     if (navigationJustEnded && mPolicy.isEnabled())
@@ -238,7 +246,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onDrivingViewButtonPressed()
   {
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     if (InCarDrivingViewModePolicy.getMode(mContext) == DrivingViewMode.OFF)
       return;
 
@@ -266,7 +274,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void recenter()
   {
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     if (!mPolicy.isEnabled())
       return;
     syncNativeState(true /* recenter */);
@@ -277,7 +285,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onExplicitLocationOff()
   {
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     final InCarDrivingViewPolicy.Transition transition = mPolicy.disableManually();
     persistPolicy();
     applyTransition(transition, false);
@@ -328,6 +336,7 @@ public final class InCarDrivingViewController implements LocationListener
         && mLifecycle.canAccessNativeState() && Map.isEngineCreated() && observed > 0 && now >= observed
         && now - observed < RoadSpeedLimitInfo.MAX_AGE_NANOS)
     {
+      mRouteLimitInvalidated = false;
       mNativeObservationNanos = observed;
       final RoadSpeedLimitInfo road = Framework.nativeGetCurrentRoadSpeedLimit();
       if (road != null && road.isFromObservation(observed) && road.isFresh(now))
@@ -337,6 +346,22 @@ public final class InCarDrivingViewController implements LocationListener
                                    (RoadSpeedLimitInfo.MAX_AGE_NANOS - (now - observed) + 999_999L) / 1_000_000L);
     }
     publishSnapshot();
+  }
+
+  @Override
+  @UiThread
+  public void onLocationNativeUpdateSkipped(@NonNull Location location)
+  {
+    mAwaitingNativeObservation = false;
+    invalidateSpeedLimits();
+    mLocationHealth = LocationHealth.UNAVAILABLE;
+    publishSnapshot();
+  }
+
+  private void invalidateSpeedLimits()
+  {
+    mRouteLimitInvalidated = true;
+    clearRoadMetadata();
   }
 
   private void clearRoadMetadata()
@@ -351,7 +376,7 @@ public final class InCarDrivingViewController implements LocationListener
   public void onLocationUpdateTimeout()
   {
     mAwaitingNativeObservation = false;
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     mLocationHealth = LocationHealth.STALE;
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
                           InCarSettingsStore.automaticDrivingViewEnabled(mContext));
@@ -363,7 +388,7 @@ public final class InCarDrivingViewController implements LocationListener
   public void onLocationDisabled()
   {
     mAwaitingNativeObservation = false;
-    clearRoadMetadata();
+    invalidateSpeedLimits();
     mLocationHealth = LocationHealth.UNAVAILABLE;
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
                           InCarSettingsStore.automaticDrivingViewEnabled(mContext));
@@ -488,7 +513,7 @@ public final class InCarDrivingViewController implements LocationListener
     else if (transition == InCarDrivingViewLifecycle.Transition.DETACH)
     {
       mAwaitingNativeObservation = false;
-      clearRoadMetadata();
+      invalidateSpeedLimits();
       mLocationHelper.removeListener(this);
       mNativeStateApplied = false;
       // A detached controller no longer owns a live location lease, so do not present its last sample as current.
@@ -570,6 +595,7 @@ public final class InCarDrivingViewController implements LocationListener
                                           && now - mNativeObservationNanos < RoadSpeedLimitInfo.MAX_AGE_NANOS;
     mSnapshot.setValue(new Snapshot(mPolicy.isEnabled(), following, navigating, mLocationHealth, hasCurrentSpeed,
                                     speedMps, mPolicy.getActivationSource(),
-                                    currentNativeObservation ? mRoadSpeedLimit : null, currentNativeObservation));
+                                    currentNativeObservation ? mRoadSpeedLimit : null, currentNativeObservation,
+                                    canAccessNativeState && navigating && !mRouteLimitInvalidated));
   }
 }

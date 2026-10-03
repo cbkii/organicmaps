@@ -28,10 +28,10 @@ public final class InCarSpeedDisplayPolicy
   public static double selectSpeedLimit(double routeLimitMps, @Nullable RoadSpeedLimitInfo road,
                                         boolean currentNativeObservation, long nowNanos)
   {
-    if (!currentNativeObservation)
-      return -1.0;
     if (isFinite(routeLimitMps) && routeLimitMps >= 0.0)
       return routeLimitMps;
+    if (!currentNativeObservation)
+      return -1.0;
     return road != null && road.isFresh(nowNanos) ? road.speedLimitMps : -1.0;
   }
 

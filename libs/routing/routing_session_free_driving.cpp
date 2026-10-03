@@ -422,8 +422,8 @@ void RoutingSession::SetFreeDrivingAreaContextProvider(FreeDrivingAreaContextPro
 
 void RoutingSession::ResetFreeDrivingRoadGraphMatch()
 {
-  m_currentRoadSpeedLimit = {};
   CHECK_THREAD_CHECKER(m_threadChecker, ());
+  m_currentRoadSpeedLimit = {};
   m_freeDrivingPositionAccumulator.Clear();
   m_freeDrivingMotionEstimator.Reset();
   m_freeDrivingLastMotionEvidence = {};

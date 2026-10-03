@@ -4,16 +4,14 @@
        normal variants; the inCar source-set overlay supplies automotive-specific presentation. -->
   <color name="in_car_selection_foreground">@color/base_accent</color>
   <dimen name="in_car_nav_ribbon_height">80dp</dimen>
+  <dimen name="in_car_nav_end_height">70dp</dimen>
   <string name="in_car_quick_places">Places</string>
   <color name="in_car_nav_foreground">@color/icon_tint</color>
   <color name="in_car_nav_secondary">@color/icon_tint_light</color>
   <color name="in_car_nav_warning">#FFB3261E</color>
-  <string name="in_car_nav_now">NOW</string>
-  <string name="in_car_nav_next">NEXT</string>
   <string name="in_car_nav_after">AFTER</string>
+  <string name="in_car_road_speed_limit_content_description">Speed limit %1$s</string>
   <string name="in_car_nav_lanes">LANES</string>
-  <item name="in_car_nav_now" type="id" />
-  <item name="in_car_nav_next" type="id" />
   <item name="in_car_nav_guidance_label" type="id" />
   <item name="in_car_nav_guidance_group" type="id" />
   <color name="in_car_nav_immediate_background">#FF161A1D</color>

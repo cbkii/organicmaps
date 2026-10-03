@@ -9,7 +9,9 @@ drape_ptr<Message> MessageQueue::PopMessage(bool waitForMessage)
   std::unique_lock<std::mutex> lock(m_mutex);
   if (waitForMessage)
   {
+    m_isWaiting = true;
     m_condition.wait(lock, [this] { return m_cancelPending || !m_messages.empty() || !m_lowPriorityMessages.empty(); });
+    m_isWaiting = false;
     m_cancelPending = false;
   }
 
@@ -130,6 +132,12 @@ size_t MessageQueue::GetSize() const
   return m_messages.size() + m_lowPriorityMessages.size();
 }
 #endif
+
+bool MessageQueue::IsWaiting() const
+{
+  std::lock_guard<std::mutex> lock(m_mutex);
+  return m_isWaiting;
+}
 
 void MessageQueue::CancelWait()
 {

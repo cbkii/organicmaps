@@ -197,12 +197,20 @@ double IndexRouter::GetFreeDrivingRoadSpeedLimit(Edge const & edge)
   if (!edge.HasRealPart() || !id.m_mwmId.IsAlive())
     return -1.0;
 
+  // Route calculation runs outside AsyncRouter's guard. Its cleanup and this UI-side
+  // cache lookup must use the same lock, and must not share the worker's handle cache.
+  std::lock_guard<std::mutex> lock(m_freeDrivingMaxspeedsMutex);
   try
   {
     bool found = false;
     auto & speeds = m_freeDrivingMaxspeeds.Find(id.m_mwmId, found);
     if (!found)
-      speeds = LoadMaxspeeds(m_dataSource.GetHandle(id.m_mwmId));
+    {
+      auto handle = m_freeDrivingSpeedDataSource.GetMwmHandleById(id.m_mwmId);
+      if (!handle.IsAlive())
+        return -1.0;
+      speeds = LoadMaxspeeds(handle);
+    }
     if (!speeds)
       return -1.0;
 

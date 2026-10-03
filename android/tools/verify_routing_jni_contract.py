@@ -84,6 +84,14 @@ def enum_constants(source: str, enum_name: str) -> tuple[str, ...]:
     return tuple(constants)
 
 
+def has_current_road_constructor(source: str) -> bool:
+    identifier = r"[A-Za-z_$][A-Za-z0-9_$]*"
+    parameter = lambda kind: rf"(?:final\s+)?{kind}\s+{identifier}"
+    return re.search(
+        rf"public\s+RoadSpeedLimitInfo\s*\(\s*{parameter('double')}\s*,\s*"
+        rf"{parameter('long')}\s*,\s*{parameter('long')}\s*\)", source) is not None
+
+
 def verify_sources() -> None:
     routing_jni = ROUTING_JNI.read_text(encoding="utf-8")
     routing_info = ROUTING_INFO.read_text(encoding="utf-8")
@@ -95,7 +103,7 @@ def verify_sources() -> None:
     framework_jni = (REPO_ROOT / "android/sdk/src/main/cpp/app/organicmaps/sdk/Framework.cpp").read_text()
     if not re.search(r"@Keep\s+public final class RoadSpeedLimitInfo", road_info):
         fail("RoadSpeedLimitInfo and its JNI constructor must survive shrinking")
-    if not re.search(r"public RoadSpeedLimitInfo\(double speedLimitMps, long observationTimeNanos, long roadToken\)", road_info):
+    if not has_current_road_constructor(road_info):
         fail("RoadSpeedLimitInfo constructor drifted from (DJJ)V")
     if "native RoadSpeedLimitInfo nativeGetCurrentRoadSpeedLimit();" not in framework_java:
         fail("Framework current-road native declaration is missing")

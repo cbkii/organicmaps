@@ -11,7 +11,7 @@ ROAD = "Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;"
 
 
 def dex(define=True, double_argument=True):
-    strings = [ROAD, "D", "J", "V", "<init>", "V"]
+    strings = [ROAD, "D", "J", "V", "<init>", "VDJJ" if double_argument else "VJJJ"]
     data = bytearray(0x70)
     data[:8] = b"dex\n035\0"
     string_offset = len(data)
@@ -43,6 +43,15 @@ def dex(define=True, double_argument=True):
 
 
 class CurrentRoadJniDexTest(unittest.TestCase):
+    def test_java_constructor_contract_accepts_renamed_parameters(self):
+        self.assertTrue(JNI.has_current_road_constructor(
+            "public RoadSpeedLimitInfo( double posted, final long observed, long identity ) {}"))
+        self.assertFalse(JNI.has_current_road_constructor(
+            "public RoadSpeedLimitInfo(long posted, long observed, long identity) {}"))
+        self.assertFalse(JNI.has_current_road_constructor(
+            "public RoadSpeedLimitInfo(double posted, double observed, long identity) {}"))
+
+
     def test_defined_constructor_has_exact_double_long_long_signature(self):
         self.assertIn((ROAD, "<init>", "(DJJ)V"), JNI.dex_defined_methods(dex()))
 

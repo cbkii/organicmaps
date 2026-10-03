@@ -17,13 +17,17 @@ public final class InCarRouteResumePolicy
                                   int boot, int minutes)
   {
     // Legacy routes have no activity evidence. Do not give them a new lease at launch.
-    if (lastWallMs <= 0 || lastElapsedMs < 0)
+    if (lastElapsedMs < 0)
       return true;
     final long age;
     if (boot >= 0 && boot == lastBoot)
       age = elapsedMs - lastElapsedMs;
     else
+    {
+      if (lastWallMs <= 0)
+        return true;
       age = wallMs - lastWallMs;
+    }
     // A backwards clock/reboot without a reliable time cannot prove a recent journey.
     return age < 0 || age >= normaliseMinutes(minutes) * 60_000L;
   }

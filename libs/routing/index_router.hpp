@@ -29,6 +29,7 @@
 #include "base/lru_cache.hpp"
 
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <vector>
@@ -296,6 +297,7 @@ private:
   bool m_loadAltitudes;
   std::string const m_name;
   MwmDataSource m_dataSource;
+  DataSource & m_freeDrivingSpeedDataSource;
   std::shared_ptr<VehicleModelFactoryInterface> m_vehicleModelFactory;
 
   TCountryFileFn const m_countryFileFn;
@@ -304,6 +306,7 @@ private:
   std::shared_ptr<m4::Tree<NumMwmId>> m_numMwmTree;
   std::shared_ptr<TrafficStash> m_trafficStash;
   FeaturesRoadGraphBase m_roadGraph;
+  std::mutex m_freeDrivingMaxspeedsMutex;
   LruCache<MwmSet::MwmId, std::unique_ptr<Maxspeeds>> m_freeDrivingMaxspeeds{2};
 
   std::shared_ptr<EdgeEstimator> m_estimator;

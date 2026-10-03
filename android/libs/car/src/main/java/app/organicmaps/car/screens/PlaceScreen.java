@@ -155,6 +155,16 @@ public class PlaceScreen extends BaseMapScreen implements OnBackPressedCallback.
     final Pane.Builder builder = new Pane.Builder();
     final RoutingInfo routingInfo = Framework.nativeGetRouteFollowingInfo();
 
+    if (mMapObject == null)
+    {
+      if (mRoutingController.isErrorEncountered())
+        builder.addRow(
+            new Row.Builder().setTitle(getCarContext().getString(R.string.unable_to_calc_alert_title)).build());
+      else
+        builder.setLoading(true);
+      return builder.build();
+    }
+
     if (routingInfo == null && !mRoutingController.isErrorEncountered())
     {
       builder.setLoading(true);
@@ -313,7 +323,7 @@ public class PlaceScreen extends BaseMapScreen implements OnBackPressedCallback.
   {
     // Saved route points are loaded after this screen is created.
     if (mMapObject == null)
-      mMapObject = Objects.requireNonNull(mRoutingController.getEndPoint());
+      mMapObject = mRoutingController.getEndPoint();
     if (ResultCodesHelper.isDownloadable(lastResultCode, lastMissingMaps.length))
       getScreenManager().pushForResult(
           new DownloadMapsScreenBuilder(getCarContext(), getOrganicMapsContext())

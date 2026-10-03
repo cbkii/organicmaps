@@ -21,6 +21,15 @@ public class InCarRoadSpeedLimitTest
   }
 
   @Test
+  public void validRouteLimitIsIndependentOfRoadObservationFreshness()
+  {
+    assertEquals(20, InCarSpeedDisplayPolicy.selectSpeedLimit(20, ROAD, false, NOW), 0.0);
+    assertEquals(0, InCarSpeedDisplayPolicy.selectSpeedLimit(0, null, false, NOW), 0.0);
+    assertEquals(20, InCarSpeedDisplayPolicy.selectSpeedLimit(
+        20, ROAD, true, OBSERVED + RoadSpeedLimitInfo.MAX_AGE_NANOS), 0.0);
+  }
+
+  @Test
   public void unknownRouteAndNonRouteUseFreshRoadWithoutSpeedThreshold()
   {
     assertEquals(ROAD.speedLimitMps, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, true, NOW), 0.0);
@@ -33,7 +42,7 @@ public class InCarRoadSpeedLimitTest
   public void missingChangedOrStaleRoadIsUnknown()
   {
     assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, null, true, NOW), 0.0);
-    assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(20, ROAD, false, NOW), 0.0);
+    assertEquals(-1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, false, NOW), 0.0);
     assertEquals(
         -1, InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, true, OBSERVED + RoadSpeedLimitInfo.MAX_AGE_NANOS), 0.0);
     for (RoadSpeedLimitInfo invalid : new RoadSpeedLimitInfo[] {

@@ -3,6 +3,10 @@
 #include <cassert>
 #include <limits>
 
+#ifdef NDEBUG
+#error "Current-road policy checks require enabled assertions"
+#endif
+
 int main()
 {
   using Info = routing::CurrentRoadSpeedLimit;

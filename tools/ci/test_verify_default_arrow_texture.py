@@ -57,6 +57,45 @@ class DefaultArrowTextureTest(unittest.TestCase):
         self.verify(verifier.TEXTURE_MANAGER.replace(
             self.sentinel, f"/* {{ }} {self.sentinel} */\n{self.sentinel}", 1))
 
+    def test_unloaded_branch_must_disable_texturing(self) -> None:
+        mutations = (
+            ("data.m_arrowMeshTexturingEnabled = true;", "data.m_arrowMeshTexturingEnabled = false;"),
+            ("data.m_arrowMeshTexturingEnabled = false;", "data.m_arrowMeshTexturingEnabled = true;"),
+            ("arrowTexture->IsLoadingCorrect() && !texCoords.empty()", "!texCoords.empty()"),
+        )
+        for original, replacement in mutations:
+            with self.subTest(original=original):
+                changed = verifier.ARROW3D.replace(original, replacement, 1)
+                self.assertNotEqual(verifier.ARROW3D, changed)
+                with self.assertRaisesRegex(SystemExit, "ERROR:"):
+                    verifier.verify_sources(verifier.TEXTURE_MANAGER, changed, verifier.STATIC_TEXTURE)
+
+    def test_default_constructor_cannot_load_or_report_success(self) -> None:
+        original = "StaticTexture::StaticTexture() : m_info(make_unique_dp<StaticResourceInfo>()) {}"
+        for replacement in (
+            "StaticTexture::StaticTexture() : m_info(make_unique_dp<StaticResourceInfo>()), m_isLoadingCorrect(true) {}",
+            "StaticTexture::StaticTexture() : m_info(make_unique_dp<StaticResourceInfo>()) { m_isLoadingCorrect = true; }",
+        ):
+            with self.subTest(replacement=replacement):
+                changed = verifier.STATIC_TEXTURE_CPP.replace(original, replacement, 1)
+                self.assertNotEqual(verifier.STATIC_TEXTURE_CPP, changed)
+                with self.assertRaisesRegex(SystemExit, "ERROR:"):
+                    verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D,
+                                            verifier.STATIC_TEXTURE, changed)
+
+    def test_loading_getter_cannot_report_success_for_an_unloaded_sentinel(self) -> None:
+        changed = verifier.STATIC_TEXTURE.replace("return m_isLoadingCorrect;", "return true;", 1)
+        self.assertNotEqual(verifier.STATIC_TEXTURE, changed)
+        with self.assertRaisesRegex(SystemExit, "ERROR:"):
+            verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D, changed)
+
+    def test_header_cannot_mark_unloaded_sentinel_successful(self) -> None:
+        changed = verifier.STATIC_TEXTURE.replace("bool m_isLoadingCorrect = false;",
+                                                  "bool m_isLoadingCorrect = true;", 1)
+        self.assertNotEqual(verifier.STATIC_TEXTURE, changed)
+        with self.assertRaisesRegex(SystemExit, "ERROR:"):
+            verifier.verify_sources(verifier.TEXTURE_MANAGER, verifier.ARROW3D, changed)
+
 
 if __name__ == "__main__":
     unittest.main()

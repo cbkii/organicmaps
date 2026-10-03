@@ -17,6 +17,7 @@ class MapButtonsViewModel : ViewModel() {
     private val _fullscreen = MutableLiveData(false)
     val fullscreen: LiveData<Boolean> = _fullscreen
 
+    private var navigationFooterOwnsHeight = false
     private val _bottomButtonsHeight = MutableLiveData(0f)
     val bottomButtonsHeight: LiveData<Float> = _bottomButtonsHeight
 
@@ -57,12 +58,18 @@ class MapButtonsViewModel : ViewModel() {
         // legacy frame overwrite it with zero while the navigation layout is active.
         if (
             BuildConfig.IS_IN_CAR &&
+            navigationFooterOwnsHeight &&
             _layoutMode.value == MapButtonsController.LayoutMode.navigation &&
             height <= 0f
         ) {
             if ((_bottomButtonsHeight.value ?: 0f) > 0f) return
         }
         _bottomButtonsHeight.value = height
+    }
+
+    fun setNavigationFooterHeight(height: Float) {
+        navigationFooterOwnsHeight = BuildConfig.IS_IN_CAR && height > 0f
+        _bottomButtonsHeight.value = height.coerceAtLeast(0f)
     }
 
     fun setTopButtonsMarginTop(margin: Int) {
@@ -74,6 +81,9 @@ class MapButtonsViewModel : ViewModel() {
     }
 
     fun setLayoutMode(layoutMode: MapButtonsController.LayoutMode) {
+        if (layoutMode != MapButtonsController.LayoutMode.navigation && navigationFooterOwnsHeight) {
+            setNavigationFooterHeight(0f)
+        }
         _layoutMode.value = layoutMode
     }
 

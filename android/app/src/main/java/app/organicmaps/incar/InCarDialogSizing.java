@@ -41,10 +41,30 @@ public final class InCarDialogSizing
 
     final int gap = activity.getResources().getDimensionPixelSize(R.dimen.margin_half);
     final int bottom = Math.max(0, bottomControlsHeightPx) + gap;
+    // The two gaps reserve space below the ribbon and above the footer.
     final int maximumHeight = Math.max(1, usableWindowSize(activity)[1] - Math.max(0, headerHeightPx) - bottom - gap);
-    final int measuredHeight = window.getDecorView().getHeight();
-    if (measuredHeight > maximumHeight)
-      window.setLayout(window.getAttributes().width, maximumHeight);
+    final View decor = window.getDecorView();
+    if (decor.getHeight() > 0)
+    {
+      if (decor.getHeight() > maximumHeight)
+        window.setLayout(window.getAttributes().width, maximumHeight);
+    }
+    else
+    {
+      decor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+        @Override
+        public void onLayoutChange(View view, int left, int top, int right, int bottom,
+                                   int oldLeft, int oldTop, int oldRight, int oldBottom)
+        {
+          final int height = bottom - top;
+          if (height <= 0)
+            return;
+          view.removeOnLayoutChangeListener(this);
+          if (height > maximumHeight)
+            window.setLayout(window.getAttributes().width, maximumHeight);
+        }
+      });
+    }
 
     final WindowManager.LayoutParams attributes = window.getAttributes();
     attributes.gravity = Gravity.RIGHT | Gravity.BOTTOM;

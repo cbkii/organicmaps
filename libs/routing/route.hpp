@@ -373,7 +373,7 @@ public:
   template <class FnT>
   void ForEachPoint(FnT && fn) const
   {
-    if (m_routeSegments.empty())
+    if (m_routeSegments.empty() || m_subrouteAttrs.empty())
       return;
 
     fn(GetFirstNonEmptySubroute().GetStart());
