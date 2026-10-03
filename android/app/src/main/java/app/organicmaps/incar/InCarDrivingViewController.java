@@ -99,6 +99,7 @@ public final class InCarDrivingViewController implements LocationListener
   @Nullable
   private RoadSpeedLimitInfo mRoadSpeedLimit;
   private long mNativeObservationNanos;
+  private boolean mAwaitingNativeObservation;
   private final Handler mMetadataHandler = new Handler(Looper.getMainLooper());
   private final Runnable mExpireMetadata = () ->
   {
@@ -237,6 +238,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onDrivingViewButtonPressed()
   {
+    clearRoadMetadata();
     if (InCarDrivingViewModePolicy.getMode(mContext) == DrivingViewMode.OFF)
       return;
 
@@ -264,6 +266,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void recenter()
   {
+    clearRoadMetadata();
     if (!mPolicy.isEnabled())
       return;
     syncNativeState(true /* recenter */);
@@ -284,6 +287,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onLocationUpdated(@NonNull Location location)
   {
+    mAwaitingNativeObservation = true;
     clearRoadMetadata();
     mStartupCameraStore.recordAcceptedLocation(location);
     mLastLocation = location;
@@ -316,6 +320,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onLocationUpdatedNative(@NonNull Location location)
   {
+    mAwaitingNativeObservation = false;
     clearRoadMetadata();
     final long observed = location.getElapsedRealtimeNanos();
     final long now = SystemClock.elapsedRealtimeNanos();
@@ -345,6 +350,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onLocationUpdateTimeout()
   {
+    mAwaitingNativeObservation = false;
     clearRoadMetadata();
     mLocationHealth = LocationHealth.STALE;
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
@@ -356,6 +362,7 @@ public final class InCarDrivingViewController implements LocationListener
   @UiThread
   public void onLocationDisabled()
   {
+    mAwaitingNativeObservation = false;
     clearRoadMetadata();
     mLocationHealth = LocationHealth.UNAVAILABLE;
     mPolicy.onSpeedSample(false /* locationCurrent */, false /* hasSpeed */, -1.0, SystemClock.elapsedRealtime(),
@@ -480,6 +487,7 @@ public final class InCarDrivingViewController implements LocationListener
     }
     else if (transition == InCarDrivingViewLifecycle.Transition.DETACH)
     {
+      mAwaitingNativeObservation = false;
       clearRoadMetadata();
       mLocationHelper.removeListener(this);
       mNativeStateApplied = false;
@@ -546,6 +554,10 @@ public final class InCarDrivingViewController implements LocationListener
 
   private void publishSnapshot()
   {
+    // A provider callback is completed synchronously by LocationHelper's post-native notification.
+    // Publishing a transient unknown here would reset overspeed hysteresis at every fix.
+    if (mAwaitingNativeObservation)
+      return;
     final boolean hasCurrentSpeed = mLocationHealth == LocationHealth.CURRENT && mLastLocation != null
                                  && mLastLocation.hasSpeed() && mLastLocation.getSpeed() >= 0.0f;
     final boolean canAccessNativeState = mLifecycle.canAccessNativeState() && Map.isEngineCreated();

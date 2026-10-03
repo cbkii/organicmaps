@@ -44,6 +44,19 @@ public class InCarRoadSpeedLimitTest
   }
 
   @Test
+  public void consecutiveCompletedObservationsKeepOverspeedHysteresis()
+  {
+    InCarSpeedDisplayPolicy.resetSpeeding();
+    InCarSpeedDisplayPolicy.updateSpeedLimit(InCarSpeedDisplayPolicy.selectSpeedLimit(-1, ROAD, true, NOW));
+    assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(ROAD.speedLimitMps * 1.05));
+    final RoadSpeedLimitInfo next = new RoadSpeedLimitInfo(ROAD.speedLimitMps, NOW, ROAD.roadToken);
+    InCarSpeedDisplayPolicy.updateSpeedLimit(InCarSpeedDisplayPolicy.selectSpeedLimit(-1, next, true, NOW + 1));
+    assertTrue(InCarSpeedDisplayPolicy.updateCurrentSpeed(ROAD.speedLimitMps * 1.04));
+    assertFalse(InCarSpeedDisplayPolicy.updateCurrentSpeed(ROAD.speedLimitMps * 1.02));
+    InCarSpeedDisplayPolicy.resetSpeeding();
+  }
+
+  @Test
   public void completedNativeResultMustBelongToSameProviderObservation()
   {
     assertTrue(ROAD.isFromObservation(OBSERVED + 20));
