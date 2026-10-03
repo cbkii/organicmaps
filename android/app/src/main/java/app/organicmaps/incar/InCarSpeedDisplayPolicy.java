@@ -1,6 +1,8 @@
 package app.organicmaps.incar;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import app.organicmaps.sdk.routing.RoadSpeedLimitInfo;
 
 /** Pure formatting plus the single InCar overspeed hysteresis authority. */
 public final class InCarSpeedDisplayPolicy
@@ -21,6 +23,17 @@ public final class InCarSpeedDisplayPolicy
   }
 
   private InCarSpeedDisplayPolicy() {}
+
+  /** Route guidance wins, including explicit unrestricted; road fallback is posted, fresh metadata only. */
+  public static double selectSpeedLimit(double routeLimitMps, @Nullable RoadSpeedLimitInfo road,
+                                       boolean currentNativeObservation, long nowNanos)
+  {
+    if (!currentNativeObservation)
+      return -1.0;
+    if (isFinite(routeLimitMps) && routeLimitMps >= 0.0)
+      return routeLimitMps;
+    return road != null && road.isFresh(nowNanos) ? road.speedLimitMps : -1.0;
+  }
 
   @NonNull
   public static String format(@NonNull InCarDrivingViewController.LocationHealth health, boolean hasSpeed,

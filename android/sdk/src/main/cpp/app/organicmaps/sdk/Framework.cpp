@@ -1331,6 +1331,23 @@ JNIEXPORT jobjectArray Java_app_organicmaps_sdk_Framework_nativeGetRouteJunction
   return routing_jni::CreateJunctionInfoArray(env, result);
 }
 
+JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGetCurrentRoadSpeedLimit(JNIEnv * env, jclass)
+{
+  if (!g_framework)
+    return nullptr;
+  auto & manager = frm()->GetRoutingManager();
+  if (manager.GetRouter() != routing::RouterType::Vehicle)
+    return nullptr;
+  auto const info = manager.RoutingSession().GetCurrentRoadSpeedLimit();
+  if (!info)
+    return nullptr;
+  static jclass const clazz = jni::GetGlobalClassRef(env, "app/organicmaps/sdk/routing/RoadSpeedLimitInfo");
+  static jmethodID const constructor = jni::GetConstructorID(env, clazz, "(DJJ)V");
+  return env->NewObject(clazz, constructor, info->m_speedLimitMps,
+                       static_cast<jlong>(info->m_observationMonotonicSeconds * 1.0e9),
+                       static_cast<jlong>(info->m_roadToken));
+}
+
 JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGetRouteAltitudeData(JNIEnv * env, jclass)
 {
   ElevationInfo ei;
@@ -1919,6 +1936,8 @@ namespace
 JNINativeMethod const frameworkMethods[] = {
     {"nativeGetRouteFollowingInfo", "()Lapp/organicmaps/sdk/routing/RoutingInfo;",
      reinterpret_cast<void *>(&Java_app_organicmaps_sdk_Framework_nativeGetRouteFollowingInfo)},
+    {"nativeGetCurrentRoadSpeedLimit", "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;",
+     reinterpret_cast<void *>(&Java_app_organicmaps_sdk_Framework_nativeGetCurrentRoadSpeedLimit)},
 };
 }
 

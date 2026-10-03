@@ -8,6 +8,9 @@ public interface LocationListener
 {
   void onLocationUpdated(@NonNull Location location);
 
+  /** Called after this provider observation has reached native routing/map metadata. Cached replays may be stale. */
+  default void onLocationUpdatedNative(@NonNull Location location) {}
+
   default void onLocationUpdateTimeout()
   {
     // No op.

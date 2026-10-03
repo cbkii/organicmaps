@@ -365,6 +365,7 @@ std::unique_ptr<WorldGraph> IndexRouter::MakeSingleMwmWorldGraph()
 
 void IndexRouter::ClearRouteCalculationState()
 {
+  m_freeDrivingMaxspeeds.Clear();
   m_roadGraph.ClearState();
   m_directionsEngine->Clear();
   m_dataSource.FreeHandles();

@@ -124,6 +124,9 @@ public:
     return false;
   }
 
+  // Only explicitly saved maxspeed data for this directed edge, never a routing weight/default speed.
+  virtual double GetFreeDrivingRoadSpeedLimit(Edge const & edge) { return -1.0; }
+
   /// Returns true only when |to| is an immediate outgoing graph continuation from |from|.
   virtual bool AreRoadEdgesConnected(Edge const & from, Edge const & to) const
   {

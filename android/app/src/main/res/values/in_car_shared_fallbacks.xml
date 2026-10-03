@@ -16,4 +16,7 @@
   <item name="in_car_nav_next" type="id" />
   <item name="in_car_nav_guidance_label" type="id" />
   <item name="in_car_nav_guidance_group" type="id" />
+  <color name="in_car_nav_immediate_background">#FF161A1D</color>
+  <color name="in_car_nav_immediate_foreground">#FFF1F3F4</color>
+  <item name="in_car_nav_immediate_group" type="id" />
 </resources>

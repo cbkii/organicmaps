@@ -26,7 +26,7 @@
   <dimen name="in_car_nav_icon_gap">12dp</dimen>
   <dimen name="in_car_nav_section_gap">8dp</dimen>
   <dimen name="in_car_nav_label_height">18dp</dimen>
-  <dimen name="in_car_nav_guidance_label_width">48dp</dimen>
+  <dimen name="in_car_nav_guidance_label_width">60dp</dimen>
   <dimen name="in_car_nav_guidance_width">156dp</dimen>
   <!-- 76 - 2*3 = 70dp: above the 69dp InCar minimum, with equal three-edge spacing. -->
   <dimen name="in_car_nav_end_outer_gap">3dp</dimen>

@@ -221,15 +221,21 @@ def verify_navigation_refinements(root):
     values_path = root / "android/app/src/inCar/res/values/in_car_layout.xml"
     values = base.resource_values(values_path)
     strings = {e.attrib["name"]: e.text for e in base.parse_xml(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml").findall("string")}
-    for stage in ("now", "next", "after", "lanes"):
+    for stage in ("after", "lanes"):
         base.require_value(strings, f"in_car_nav_{stage}", stage.upper(), layout)
-    for view, label in (("in_car_nav_now", "now"), ("in_car_nav_next", "next"),
-                        ("in_car_nav_guidance_label", "after")):
-        base.require_layout_attr(layout, view, base.ANDROID_NS, "text", f"@string/in_car_nav_{label}")
-        base.require_layout_attr(layout, view, base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_label_height")
-    base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "alpha", "0.90")
-    base.require_layout_attr(layout, "nav_next_next_turn_frame", base.ANDROID_NS, "alpha", "0.80")
-    base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "alpha", "0.80")
+    if "in_car_nav_now" in by_id or "in_car_nav_next" in by_id:
+        raise base.VerificationError("immediate guidance must not retain NOW/NEXT captions")
+    base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "text", "@string/in_car_nav_after")
+    base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_label_height")
+    base.require_value(values, "in_car_nav_guidance_label_width", "60dp", values_path)
+    group = by_id["in_car_nav_immediate_group"]
+    if not {"nav_next_turn_frame", "street_frame"}.issubset({base.resource_id(e, android("id")) for e in list(group)}):
+        raise base.VerificationError("manoeuvre and road must share one immediate guidance group")
+    base.require_layout_attr(layout, "in_car_nav_immediate_group", base.ANDROID_NS, "background", "@color/in_car_nav_immediate_background")
+    if android("alpha") in by_id["street_frame"].attrib:
+        raise base.VerificationError("immediate road must retain full foreground strength")
+    for view in ("nav_next_next_turn_frame", "in_car_nav_guidance_label"):
+        base.require_layout_attr(layout, view, base.ANDROID_NS, "alpha", "0.70")
     base.require_layout_attr(layout, "nav_next_turn_container", base.ANDROID_NS, "layoutDirection", "ltr")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_width", "0dp")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_weight", "1")
@@ -254,6 +260,9 @@ def verify_navigation_refinements(root):
     base.require_method_text(controller, "private void updateGuidanceLabel(",
                              r"hasLanes \? R\.string\.in_car_nav_lanes : R\.string\.in_car_nav_after",
                              "LANES caption must replace AFTER")
+    base.require_method_text(controller, "private void updateGuidanceLabel(",
+                             r"label\.setAlpha\(hasLanes \? 1\.0f : 0\.70f\)",
+                             "LANES must reset AFTER alpha in both directions")
     base.require_method_text(controller, "private void updateVehicle(",
                              r"showNextNextTurn = info\.hasNextNextTurn\(\) && \(!isInCarLandscape\(\) \|\| !hasLanes\)",
                              "complete lanes must take precedence over AFTER")
@@ -295,15 +304,21 @@ def verify_warning_foreground_contrast(root):
         normal = contrast.resolve_color("bg_cards", palette)
         red = contrast.resolve_color("in_car_nav_warning", palette)
         foreground = contrast.resolve_color("in_car_nav_foreground", palette)
-        for strength in (0.44, 0.47, 0.50):
-            background = contrast.composite(contrast.Rgba(red.red, red.green, red.blue, strength), normal)
-            for stage, alpha in (("NOW", 1.0), ("NEXT", 0.90), ("AFTER", 0.80)):
-                faded = contrast.Rgba(foreground.red, foreground.green, foreground.blue, alpha)
+        immediate = contrast.resolve_color("in_car_nav_immediate_background", palette)
+        light = contrast.resolve_color("in_car_nav_immediate_foreground", palette)
+        for strength in (0.0, 0.44, 0.47, 0.50):
+            for stage, normal_background, ink, alpha in (("IMMEDIATE", immediate, light, 1.0),
+                                                        ("AFTER", normal, foreground, 0.70),
+                                                        ("LANES", normal, foreground, 1.0)):
+                background = contrast.composite(contrast.Rgba(red.red, red.green, red.blue, strength), normal_background)
+                faded = contrast.Rgba(ink.red, ink.green, ink.blue, alpha)
                 ratio = contrast.contrast_ratio(faded, background)
                 if ratio < 4.5:
                     raise base.VerificationError(f"{stage} warning foreground contrast is only {ratio:.2f}:1")
     renderer = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
     body = base.java_method_body(renderer, "private static void renderRibbon(")
+    if "immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB" not in body:
+        raise base.VerificationError("near-black immediate group must participate in warning blending")
     if "Color.WHITE" in body:
         raise base.VerificationError("half-strength warning must retain theme-appropriate foregrounds")
 
@@ -373,7 +388,7 @@ def verify_speed_warning_policy(root):
     base.require_method_text(
         controller,
         "private void updateSpeedLimit(",
-        r"BuildConfig\.IS_IN_CAR[\s\S]*?InCarSpeedDisplayPolicy\.updateSpeedLimit",
+        r"BuildConfig\.IS_IN_CAR[\s\S]*?InCarDrivingUi\.updateNavigationSpeedLimit",
         "speed-limit sign must update only the shared InCar limit authority",
     )
     base.reject_text(

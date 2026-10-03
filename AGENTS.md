@@ -2,7 +2,7 @@
 
 ## Product scope
 
-This repository is an Android-focused derivative of Organic Maps. Treat the retained product as:
+This repository is a dedicated automotive Android fork of Organic Maps. Intentional vehicle UI, routing presentation and head-unit lifecycle divergence is supported. Implement requirements in their owning code/resources; upstream UI conformity or speculative reversion is not an acceptance gate. Treat the retained product as:
 
 1. Android application/modules under `android/`;
 2. JNI/NDK bridge and Android native build configuration;

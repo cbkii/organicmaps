@@ -1834,6 +1834,20 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
     dismissLocationErrorDialog();
 
+    if (!BuildConfig.IS_IN_CAR)
+      updateNavigationFromLocation();
+  }
+
+  @Override
+  @UiThread
+  public void onLocationUpdatedNative(@NonNull Location location)
+  {
+    if (BuildConfig.IS_IN_CAR)
+      updateNavigationFromLocation();
+  }
+
+  private void updateNavigationFromLocation()
+  {
     final RoutingController routing = RoutingController.get();
     if (!routing.isNavigating())
       return;

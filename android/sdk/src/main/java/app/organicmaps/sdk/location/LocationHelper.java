@@ -190,6 +190,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
                                         altitude != null ? altitude.accuracy() : -1, speed != null ? speed.speed() : -1,
                                         speed != null ? speed.accuracy() : -1, bearing != null ? bearing.bearing() : -1,
                                         bearing != null ? bearing.accuracy() : -1);
+    // Existing pre-native listeners retain their ordering. Metadata consumers get a separate completed boundary.
+    mListenersIterator.rewind();
+    while (mListenersIterator.hasNext())
+      mListenersIterator.next().onLocationUpdatedNative(mSavedLocation);
   }
 
   private void notifyLocationUpdateTimeout()
@@ -343,7 +347,11 @@ public class LocationHelper implements BaseLocationProvider.Listener
 
     mListeners.addObserver(listener);
     if (mSavedLocation != null)
+    {
       listener.onLocationUpdated(mSavedLocation);
+      if (!mInFirstRun)
+        listener.onLocationUpdatedNative(mSavedLocation);
+    }
   }
 
   /**

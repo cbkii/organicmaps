@@ -231,6 +231,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       return;
     final TextView label = mTopFrame.findViewById(R.id.in_car_nav_guidance_label);
     label.setText(hasLanes ? R.string.in_car_nav_lanes : R.string.in_car_nav_after);
+    label.setAlpha(hasLanes ? 1.0f : 0.70f);
+    mNextNextTurnFrame.setAlpha(0.70f);
     // Preserve the stable section width without suggesting an unavailable future instruction.
     UiUtils.visibleIf(hasLanes || hasAfter, label);
   }
@@ -399,7 +401,6 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       // Route updates own only the current posted limit. The Driving View snapshot is the single
       // authority that feeds speed samples into the hysteresis, avoiding competing saved-location
       // and snapshot call order around the 103-105% band.
-      InCarSpeedDisplayPolicy.updateSpeedLimit(info.speedLimitMps);
       if (mActivity instanceof MwmActivity mapActivity)
         InCarDrivingUi.updateNavigationSpeedLimit(mapActivity, info.speedLimitMps);
       speedLimitExceeded = InCarSpeedDisplayPolicy.warningActive();
@@ -409,6 +410,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
       speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
     }
-    mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(info.speedLimitMps), speedLimitExceeded);
+    final double displayedLimit = BuildConfig.IS_IN_CAR ? InCarSpeedDisplayPolicy.currentLimitMps() : info.speedLimitMps;
+    mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), speedLimitExceeded);
   }
 }

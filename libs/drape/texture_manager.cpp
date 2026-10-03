@@ -87,11 +87,10 @@ drape_ptr<Texture> CreateArrowTexture(ref_ptr<dp::GraphicsContext> context,
                                          dp::TextureFormat::RGBA8, textureAllocator, true /* allowOptional */);
   }
 
-  // There is no "arrow-texture.png".
-  // BackendRenderer::m_arrow3dPreloadedData mesh is used by default.
-  /// @todo Texture arrow is still present in case if somebody wants to use it?
-  return make_unique_dp<StaticTexture>(context, "arrow-texture.png", StaticTexture::kDefaultResource,
-                                       dp::TextureFormat::RGBA8, textureAllocator, true /* allowOptional */);
+  // The default 3D arrow is mesh-only: there is intentionally no "arrow-texture.png".
+  // Keep a non-null unloaded texture sentinel so Arrow3d can take its established untextured
+  // fallback without probing the APK for a resource that is known not to exist.
+  return make_unique_dp<StaticTexture>();
 }
 
 class SimpleTexturePool : public TexturePool

@@ -10,20 +10,34 @@
   android:focusable="false"
   android:visibility="gone">
 
-  <TextView
-    android:id="@+id/in_car_speed"
+  <LinearLayout
+    android:id="@+id/in_car_driving_speed_cluster"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_gravity="top|center_horizontal"
-    android:minWidth="104dp"
-    android:gravity="center"
-    android:background="@drawable/in_car_speed_background"
-    android:paddingStart="14dp"
-    android:paddingTop="7dp"
-    android:paddingEnd="14dp"
-    android:paddingBottom="7dp"
-    android:text="--"
-    android:textColor="?iconTint"
-    android:textSize="24sp"
-    android:textStyle="bold" />
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+    <app.organicmaps.sdk.widgets.speedlimit.SpeedLimitView
+      android:id="@+id/in_car_road_speed_limit"
+      style="@style/MwmWidget.SpeedLimit"
+      android:layout_width="60dp"
+      android:layout_height="60dp"
+      android:layout_marginEnd="8dp"
+      android:visibility="gone" />
+    <TextView
+      android:id="@+id/in_car_speed"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:minWidth="104dp"
+      android:gravity="center"
+      android:background="@drawable/in_car_speed_background"
+      android:paddingStart="14dp"
+      android:paddingTop="7dp"
+      android:paddingEnd="14dp"
+      android:paddingBottom="7dp"
+      android:text="--"
+      android:textColor="?iconTint"
+      android:textSize="24sp"
+      android:textStyle="bold" />
+  </LinearLayout>
 </FrameLayout>
