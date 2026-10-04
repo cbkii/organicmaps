@@ -47,7 +47,9 @@ public class MenuAdapterCommandTest
       doAnswer(invocation -> {
         change.set(invocation.getArgument(0));
         return null;
-      }).when(toggle).setOnCheckedChangeListener(any());
+      })
+          .when(toggle)
+          .setOnCheckedChangeListener(any());
       when(toggle.isChecked()).thenAnswer(invocation -> displayed.get());
       doAnswer(invocation -> {
         boolean checked = invocation.getArgument(0);
@@ -55,11 +57,15 @@ public class MenuAdapterCommandTest
         if (old != checked && change.get() != null)
           change.get().onCheckedChanged(toggle, checked);
         return null;
-      }).when(toggle).setChecked(anyBoolean());
+      })
+          .when(toggle)
+          .setChecked(anyBoolean());
       doAnswer(invocation -> {
         click.set(invocation.getArgument(0));
         return null;
-      }).when(row).setOnClickListener(any());
+      })
+          .when(row)
+          .setOnClickListener(any());
       // A recycled holder carries a previous listener that must be detached before checked is applied.
       change.set((button, checked) -> commands.incrementAndGet());
       adapter.onBindViewHolder(holder, 0);
