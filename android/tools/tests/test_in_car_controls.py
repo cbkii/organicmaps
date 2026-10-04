@@ -121,8 +121,8 @@ int main() {
 
     def test_production_menu_command_guard(self):
         compiler, runtime = shutil.which("javac"), shutil.which("java")
-        if not compiler or not runtime:
-            self.skipTest("JDK unavailable: menu command guard NOT_RUN")
+        if not runtime:
+            self.skipTest("Java unavailable: menu command guard NOT_RUN")
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "GuardTest.java"
             source.write_text('''import app.organicmaps.util.bottomsheet.MenuBottomSheetItem;
@@ -141,7 +141,18 @@ public class GuardTest {
  }
 }''')
             production = ROOT / "android/app/src/main/java/app/organicmaps/util/bottomsheet/MenuBottomSheetItem.java"
-            subprocess.run([compiler, "-d", tmp, str(production), str(source)], check=True, capture_output=True)
+            if compiler:
+                compile_command = [compiler, "-d", tmp, str(production), str(source)]
+            else:
+                # This environment exposes jdk.compiler through java but no javac executable.
+                probe = subprocess.run([runtime, "--list-modules"], capture_output=True, text=True)
+                if "jdk.compiler@" not in probe.stdout:
+                    self.skipTest("jdk.compiler unavailable: menu command guard NOT_RUN")
+                bridge = Path(tmp) / "Compile.java"
+                bridge.write_text("class Compile { public static void main(String[] a) { "
+                                  "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+                compile_command = [runtime, str(bridge), "-d", tmp, str(production), str(source)]
+            subprocess.run(compile_command, check=True, capture_output=True)
             subprocess.run([runtime, "-cp", tmp, "GuardTest"], check=True)
 
     def test_native_mode_mutation_and_settings_handoff_regressions_are_rejected(self):

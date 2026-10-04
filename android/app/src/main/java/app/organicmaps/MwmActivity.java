@@ -2269,8 +2269,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
         mLocationSettlingExhausted = true;
         if (!InCarSettingsStore.showLocationDisabledWarning(MwmActivity.this)
             || (InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) && !mInCarRecenterRecovery)
-            || isLocationErrorDialogShowing()
-            || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
+            || isLocationErrorDialogShowing() || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
           return;
         mLocationWarningIssued = true;
         showInCarLocationDisabledWarning(generation);
