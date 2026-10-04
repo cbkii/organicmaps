@@ -2671,6 +2671,17 @@ public class MwmActivity extends BaseMwmFragmentActivity
     updateDrivingOptionCount();
   }
 
+  public void onTrackRecordingSwitchChanged(boolean enabled)
+  {
+    if (!Map.isEngineCreated() || TrackRecorder.nativeIsTrackRecordingEnabled() == enabled)
+      return;
+
+    if (enabled)
+      startTrackRecording();
+    else
+      onTrackRecordingSaved();
+  }
+
   @Override
   public void onTrackRecordingSaved()
   {

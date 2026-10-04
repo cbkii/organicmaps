@@ -13,12 +13,13 @@ import androidx.annotation.Nullable;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
-import app.organicmaps.maplayer.MapButtonsController;
+import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.util.ThemeUtils;
@@ -38,6 +39,9 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
   private ArrayList<MenuBottomSheetItem> mMenuBottomSheetItems;
   @Nullable
   private Fragment mHeaderFragment;
+  @Nullable
+  private MenuAdapter mMenuAdapter;
+  private boolean mMenuActionClosing;
 
   public static MenuBottomSheetFragment newInstance(String id)
   {
@@ -99,6 +103,7 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+    mMenuActionClosing = false;
     attachToNearestContext();
     TextView titleView = view.findViewById(R.id.bottomSheetTitle);
     RecyclerView recyclerView = view.findViewById(R.id.bottomSheetMenuContainer);
@@ -118,8 +123,14 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
 
     if (mMenuBottomSheetItems != null)
     {
-      MenuAdapter menuAdapter = new MenuAdapter(mMenuBottomSheetItems, this::dismiss);
-      recyclerView.setAdapter(menuAdapter);
+      mMenuAdapter = new MenuAdapter(mMenuBottomSheetItems, () -> {
+        mMenuActionClosing = true;
+        dismiss();
+      });
+      recyclerView.setAdapter(mMenuAdapter);
+      if (BuildConfig.IS_IN_CAR && requireActivity() instanceof MwmActivity)
+        new ViewModelProvider(requireActivity()).get(MapButtonsViewModel.class).getTrackRecorderState().observe(
+            getViewLifecycleOwner(), ignored -> refreshInCarTrackRecording());
       recyclerView.setLayoutManager(new LinearLayoutManager(requireActivity()));
     }
     if (mHeaderFragment != null)
@@ -128,6 +139,41 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
     // If there is nothing to show, hide the sheet
     if (!UiUtils.isVisible(titleView) && mMenuBottomSheetItems == null && mHeaderFragment == null)
       dismiss();
+  }
+
+  @Override
+  public void onResume()
+  {
+    super.onResume();
+    refreshInCarTrackRecording();
+  }
+
+  @Override
+  public void onDestroyView()
+  {
+    mMenuActionClosing = true;
+    mMenuAdapter = null;
+    super.onDestroyView();
+  }
+
+  private void refreshInCarTrackRecording()
+  {
+    if (!BuildConfig.IS_IN_CAR || mMenuActionClosing || mMenuAdapter == null || mMenuBottomSheetItems == null)
+      return;
+
+    final boolean recording = Map.isEngineCreated() && TrackRecorder.nativeIsTrackRecordingEnabled();
+    for (int i = 0; i < mMenuBottomSheetItems.size(); ++i)
+    {
+      MenuBottomSheetItem item = mMenuBottomSheetItems.get(i);
+      if (item.checkable && item.titleRes == R.string.track_recording_title && !item.isActionDispatched()
+          && item.checked != recording)
+      {
+        mMenuBottomSheetItems.set(i, MenuBottomSheetItem.checkable(
+            R.string.track_recording_title, R.drawable.ic_track_recording_off, recording,
+            () -> setInCarTrackRecording(!recording)));
+        mMenuAdapter.notifyItemChanged(i);
+      }
+    }
   }
 
   private void attachToNearestContext()
@@ -192,7 +238,7 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
         item -> item.iconRes == R.drawable.ic_track_recording_off || item.iconRes == R.drawable.ic_track_recording_on);
     final boolean recording = Map.isEngineCreated() && TrackRecorder.nativeIsTrackRecordingEnabled();
     final MenuBottomSheetItem trackRecording = MenuBottomSheetItem.checkable(
-        R.string.track_recording_title, R.drawable.ic_track_recording_off, recording, this::toggleInCarTrackRecording);
+        R.string.track_recording_title, R.drawable.ic_track_recording_off, recording, () -> setInCarTrackRecording(!recording));
 
     int insertAt = mMenuBottomSheetItems.size();
     for (int i = 0; i < mMenuBottomSheetItems.size(); ++i)
@@ -212,15 +258,10 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
     }
   }
 
-  private void toggleInCarTrackRecording()
+  private void setInCarTrackRecording(boolean enabled)
   {
-    if (!(requireActivity() instanceof MwmActivity activity) || !Map.isEngineCreated())
-      return;
-
-    if (TrackRecorder.nativeIsTrackRecordingEnabled())
-      activity.onTrackRecordingSaved();
-    else
-      activity.onMapButtonClick(MapButtonsController.MapButtons.trackRecordingStatus);
+    if (requireActivity() instanceof MwmActivity activity)
+      activity.onTrackRecordingSwitchChanged(enabled);
   }
 
   public interface MenuBottomSheetInterfaceWithHeader

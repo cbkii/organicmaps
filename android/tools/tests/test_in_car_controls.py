@@ -290,3 +290,38 @@ public class RelayTest {
                                 "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
             subprocess.run([runtime, str(compiler), "-d", tmp, str(source)], check=True, capture_output=True)
             subprocess.run([runtime, "-cp", tmp, "RelayTest"], check=True)
+
+    def test_recording_switch_applies_requested_state(self):
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable: recording command isolation NOT_RUN")
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        command = controls.method_body(activity, "public void onTrackRecordingSwitchChanged(boolean enabled)")
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "RecordingTest.java"
+            source.write_text('''class Map { static boolean engine=true; static boolean isEngineCreated() { return engine; } }
+class TrackRecorder { static boolean enabled; static boolean nativeIsTrackRecordingEnabled() { return enabled; } }
+class Activity {
+ int starts, saves;
+ void startTrackRecording() { starts++; TrackRecorder.enabled=true; }
+ void onTrackRecordingSaved() { saves++; TrackRecorder.enabled=false; }
+ void onTrackRecordingSwitchChanged(boolean enabled) {''' + command + ''' }
+}
+public class RecordingTest {
+ public static void main(String[] args) {
+  Activity a=new Activity();
+  a.onTrackRecordingSwitchChanged(false);
+  if (a.starts!=0 || a.saves!=0) throw new AssertionError("stale ON snapshot restarted stopped recorder");
+  a.onTrackRecordingSwitchChanged(true); a.onTrackRecordingSwitchChanged(true);
+  if (a.starts!=1 || !TrackRecorder.enabled) throw new AssertionError("start request not idempotent");
+  a.onTrackRecordingSwitchChanged(false); a.onTrackRecordingSwitchChanged(false);
+  if (a.saves!=1 || TrackRecorder.enabled) throw new AssertionError("stop request not idempotent");
+  Map.engine=false; a.onTrackRecordingSwitchChanged(true);
+  if (a.starts!=1) throw new AssertionError("started without engine");
+ }
+}''')
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            subprocess.run([runtime, str(compiler), "-d", tmp, str(source)], check=True, capture_output=True)
+            subprocess.run([runtime, "-cp", tmp, "RecordingTest"], check=True)

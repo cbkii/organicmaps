@@ -146,12 +146,15 @@ def verify_track_recording() -> None:
     for token in ("MAIN_MENU_ID", "ADVANCED_MENU_ID", "MenuBottomSheetItem.checkable(",
                   "R.string.track_recording_title", "R.drawable.ic_track_recording_off", "item.iconRes == 0"):
         require(token in adapt, f"InCar main-menu Track Recording/icon contract missing {token}")
-    toggle = method_body(fragment, "private void toggleInCarTrackRecording()")
-    require("TrackRecorder.nativeIsTrackRecordingEnabled()" in toggle,
-            "Track Recording switch must observe the actual native recorder state at action time")
-    require("activity.onTrackRecordingSaved()" in toggle,
+    require("() -> setInCarTrackRecording(!recording)" in adapt,
+            "Track Recording switch must apply the requested snapshot state")
+    activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+    command = method_body(activity, "public void onTrackRecordingSwitchChanged(boolean enabled)")
+    require("TrackRecorder.nativeIsTrackRecordingEnabled() == enabled" in command,
+            "Track Recording switch must ignore already satisfied requests")
+    require("onTrackRecordingSaved()" in command,
             "Track Recording ON -> OFF must use the existing save-and-stop authority")
-    require("MapButtonsController.MapButtons.trackRecordingStatus" in toggle,
+    require("startTrackRecording()" in command,
             "Track Recording OFF -> ON must reuse the existing start/permission authority")
 
     item = read("android/app/src/main/java/app/organicmaps/util/bottomsheet/MenuBottomSheetItem.java")
