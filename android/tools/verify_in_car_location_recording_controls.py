@@ -68,10 +68,14 @@ def verify_my_position() -> None:
     activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
     click = method_body(activity, "case myPosition ->")
     incar = method_body(click, "if (BuildConfig.IS_IN_CAR)")
-    require("LocationState.nativeRecenterToCurrentPosition()" in incar,
+    require("LocationState.nativeRecenterToCurrentPosition(this::recoverInCarRecenterLocation)" in incar,
             "InCar click must request native recenter")
     for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
         require(forbidden not in incar, f"InCar click must not change intent via {forbidden}")
+    acquisition = method_body(activity, "private void recoverInCarRecenterLocation()")
+    require("helper.isActive()" in acquisition, "already-pending acquisition must stay pending")
+    require("LocationState.getMode()" not in acquisition,
+            "assigned modes must not suppress acquisition after native rejects a stale position")
     recovery = method_body(activity, "private void restartLocationAfterAvailabilityConfirmed(")
     explicit = method_body(recovery, "if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)")
     require("resumeLocationInForeground(true)" in explicit, "recenter recovery must reuse existing provider acquisition")
@@ -89,12 +93,14 @@ def verify_my_position() -> None:
 
     bridge = read("android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp")
     jni = method_body(bridge, "Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition")
-    require("RecenterMyPositionPreservingMode()" in jni, "JNI must dispatch to native camera owner")
+    require("RecenterMyPositionPreservingMode(" in jni, "JNI must dispatch to native camera owner")
+    require("if (dispatched)" in jni and "Platform::Thread::Gui" in jni,
+            "native usable-position result must gate Android recovery on the GUI thread")
     require("CurrentPositionState" not in bridge and "g_currentPosition" not in bridge,
             "JNI must not maintain a second provider position cache")
     controller = read("libs/drape_frontend/my_position_controller.cpp")
-    recenter = method_body(controller, "void MyPositionController::RecenterPreservingMode()")
-    for token in ("m_isPositionAssigned", "IsFreshPositionObservation", "m_recenterPending = true",
+    recenter = method_body(controller, "bool MyPositionController::RecenterPreservingMode()")
+    for token in ("m_listener", "return false", "return true", "m_isPositionAssigned", "IsFreshPositionObservation", "m_recenterPending = true",
                   "m_recenterPending = false", "m_position", "m_drawDirection", "GetRoutingRotationPixelCenter()",
                   "m_visiblePixelRect.Center()", "kDoNotChangeZoom"):
         require(token in recenter, f"native recenter owner missing {token}")

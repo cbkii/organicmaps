@@ -455,13 +455,22 @@ public:
     RecenterPreservingMode
   };
 
-  explicit ChangeMyPositionModeMessage(EChangeType changeType) : m_changeType(changeType) {}
+  explicit ChangeMyPositionModeMessage(EChangeType changeType, std::function<void(bool)> onRecenterResult = {})
+    : m_changeType(changeType), m_onRecenterResult(std::move(onRecenterResult))
+  {}
+
+  void NotifyRecenterResult(bool dispatched) const
+  {
+    if (m_onRecenterResult)
+      m_onRecenterResult(dispatched);
+  }
 
   EChangeType GetChangeType() const { return m_changeType; }
   Type GetType() const override { return Type::ChangeMyPositionMode; }
 
 private:
   EChangeType const m_changeType;
+  std::function<void(bool)> const m_onRecenterResult;
 };
 
 class CompassInfoMessage : public Message

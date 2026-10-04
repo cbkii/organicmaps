@@ -356,12 +356,12 @@ void MyPositionController::ResetRenderShape()
   m_shape.reset();
 }
 
-void MyPositionController::RecenterPreservingMode()
+bool MyPositionController::RecenterPreservingMode()
 {
   m_recenterPending = true;
-  if (!m_isPositionAssigned || m_positionIsObsolete ||
+  if (!m_listener || !m_isPositionAssigned || m_positionIsObsolete ||
       !IsFreshPositionObservation(m_lastRecenterObservationNanos, PositionClockNanos()))
-    return;
+    return false;
 
   m_recenterPending = false;
   if (m_mode == location::FollowAndRotate)
@@ -370,6 +370,7 @@ void MyPositionController::RecenterPreservingMode()
                     kDoNotChangeZoom);
   else
     ChangeModelView(m_position, kDoNotChangeZoom);
+  return true;
 }
 
 void MyPositionController::NextMode(ScreenBase const & screen)

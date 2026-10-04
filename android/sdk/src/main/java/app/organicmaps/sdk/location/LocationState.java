@@ -43,9 +43,10 @@ public final class LocationState
 
   /**
    * Requests recentering on the render controller's accepted fresh position without changing the native My Position
-   * mode. If no fresh observation exists yet, exactly one recenter is kept pending for the next valid fix.
+   * mode. If no usable position exists, one recenter stays pending and onNeedsLocation runs on the GUI thread
+   * so the existing Android provider/permission owner can recover acquisition without guessing from the mode.
    */
-  public static native void nativeRecenterToCurrentPosition();
+  public static native void nativeRecenterToCurrentPosition(@NonNull Runnable onNeedsLocation);
 
   @Value
   private static native int nativeGetMode();

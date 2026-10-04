@@ -66,7 +66,7 @@ int main() {
         if not compiler:
             self.skipTest("C++ compiler unavailable: native method isolation NOT_RUN")
         production = controls.read("libs/drape_frontend/my_position_controller.cpp")
-        body = controls.method_body(production, "void MyPositionController::RecenterPreservingMode()")
+        body = controls.method_body(production, "bool MyPositionController::RecenterPreservingMode()")
         # Execute the actual owner method with listener/clock seams; full drape integration is separate.
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "owner.cpp"
@@ -79,6 +79,7 @@ int constexpr kDoNotChangeZoom = -1;
 int64_t now = 2000000000;
 int64_t PositionClockNanos() { return now; }
 struct Owner {
+ bool m_listener=true;
  bool m_isPositionAssigned=true, m_positionIsObsolete=false, m_recenterPending=false, routing=false, driving=false;
  int64_t m_lastRecenterObservationNanos=1000000000;
  location::Mode m_mode=location::NotFollow;
@@ -88,23 +89,30 @@ struct Owner {
  Point GetRoutingRotationPixelCenter() const { return {99}; }
  void ChangeModelView(Point p, int z) { ++calls; center=p.value; zoom=z; }
  void ChangeModelView(Point p, double a, Point px, int z) { ++calls; center=p.value; angle=a; pixel=px.value; zoom=z; }
- void recenter() {''' + body + r''' }
+ bool recenter() {''' + body + r''' }
 };
 int main() {
  for (auto mode : {location::NotFollow, location::Follow, location::FollowAndRotate}) {
    Owner o; o.m_mode=mode;
-   o.recenter(); o.recenter();
+   assert(o.recenter()); assert(o.recenter());
    assert(o.calls==2 && o.center==7 && o.zoom==-1 && o.m_mode==mode && !o.m_recenterPending);
    assert(!o.routing && !o.driving);
    if (mode==location::FollowAndRotate) assert(o.angle==0.75 && o.pixel==42);
    else assert(o.angle==0.25);
+   now=12000000000;
+   assert(!o.recenter() && o.calls==2 && o.m_recenterPending && o.m_mode==mode);
+   o.m_lastRecenterObservationNanos=now;
+   if (o.m_recenterPending) assert(o.recenter());
+   if (o.m_recenterPending) o.recenter();
+   assert(o.calls==3 && !o.m_recenterPending && o.m_mode==mode);
+   now=2000000000;
  }
  Owner routed; routed.routing=true; routed.driving=true; routed.m_mode=location::FollowAndRotate;
  routed.recenter(); assert(routed.routing && routed.driving && routed.pixel==99 && routed.m_mode==location::FollowAndRotate);
  Owner o; o.m_isPositionAssigned=false; o.m_mode=location::PendingPosition;
- for (int i=0;i<100;++i) o.recenter();
+ for (int i=0;i<100;++i) assert(!o.recenter());
  assert(o.calls==0 && o.m_recenterPending && o.m_mode==location::PendingPosition);
- o.m_isPositionAssigned=true; now=12000000000; o.recenter();
+ o.m_isPositionAssigned=true; now=12000000000; assert(!o.recenter());
  assert(o.calls==0 && o.m_recenterPending);
  o.m_lastRecenterObservationNanos=now;
  if (o.m_recenterPending) o.recenter();

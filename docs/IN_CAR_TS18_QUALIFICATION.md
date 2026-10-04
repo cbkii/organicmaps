@@ -167,7 +167,9 @@ Android observation age uses the original elapsed-realtime timestamp and CLOCK_B
 
 My Position is a stable icon-only automotive hit target labelled “Centre on my location”. Acquisition
 uses the existing bounded Android permission/settings coordinator and LocationHelper, without changing
-the persisted explicit-off preference. Assigned modes do not restart providers merely to recenter.
+the persisted explicit-off preference. The native owner reports whether it could use its accepted position; only a failed dispatch posts a GUI
+callback to the existing acquisition owner. Fresh assigned modes do not restart providers, while an
+assigned-but-stale position with a stopped provider can recover without changing that mode.
 The main menu recording switch reads native state, starts through the existing permission/service path,
 and stops through the existing save-and-stop path. A per-menu command guard prevents duplicate gestures,
 including RecyclerView rebinding; it stores no optimistic recorder state. Ordinary rows retain their

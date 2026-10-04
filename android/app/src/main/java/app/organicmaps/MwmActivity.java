@@ -847,18 +847,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       {
         if (!Map.isEngineCreated())
           return;
-        LocationState.nativeRecenterToCurrentPosition();
-        final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
-        final int mode = LocationState.getMode();
-        if (!helper.isActive()
-            && (mode == LocationState.NOT_FOLLOW_NO_POSITION || mode == LocationState.PENDING_POSITION))
-        {
-          mInCarRecenterRecovery = true;
-          if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))
-            restartLocationAfterAvailabilityConfirmed("My Position recenter acquisition");
-          else
-            settleInCarLocation();
-        }
+        LocationState.nativeRecenterToCurrentPosition(this::recoverInCarRecenterLocation);
         return;
       }
       // Calls onMyPositionModeChanged(mode + 1).
@@ -2184,6 +2173,21 @@ public class MwmActivity extends BaseMwmFragmentActivity
                                 (dialog, which) -> launchLocationSettings(intent, "location provider settings"));
     }
     mLocationErrorDialog = builder.show();
+  }
+
+  /** Called only when the native camera owner could not use its accepted position. */
+  private void recoverInCarRecenterLocation()
+  {
+    if (!BuildConfig.IS_IN_CAR || mLocationActivityStopped || !Map.isEngineCreated())
+      return;
+    final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
+    if (helper.isActive())
+      return;
+    mInCarRecenterRecovery = true;
+    if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))
+      restartLocationAfterAvailabilityConfirmed("My Position recenter acquisition");
+    else
+      settleInCarLocation();
   }
 
   private void resumeInCarLocationIfAllowed()

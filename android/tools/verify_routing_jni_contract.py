@@ -112,6 +112,14 @@ def verify_sources() -> None:
         if required not in framework_jni:
             fail("Framework current-road JNI constructor/registration drifted")
 
+    location_java = (REPO_ROOT / "android/sdk/src/main/java/app/organicmaps/sdk/location/LocationState.java").read_text()
+    location_jni = (REPO_ROOT / "android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp").read_text()
+    if not re.search(r"native\s+void\s+nativeRecenterToCurrentPosition\(\s*@NonNull\s+Runnable\s+\w+\s*\)", location_java):
+        fail("LocationState recenter JNI contract drifted from (Ljava/lang/Runnable;)V")
+    for required in ("jobject onNeedsLocation", "jni::make_global_ref_safe(onNeedsLocation)", "Platform::Thread::Gui"):
+        if required not in location_jni:
+            fail("LocationState recenter JNI completion bridge drifted")
+
     for enum_name, contract in CONTRACTS.items():
         path = contract["path"]
         source = path.read_text(encoding="utf-8")
@@ -265,7 +273,9 @@ def verify_apk(apk: Path) -> None:
 
     for method in (("Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;", "<init>", "(DJJ)V"),
                    ("Lapp/organicmaps/sdk/Framework;", "nativeGetCurrentRoadSpeedLimit",
-                    "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;")):
+                    "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;"),
+                   ("Lapp/organicmaps/sdk/location/LocationState;", "nativeRecenterToCurrentPosition",
+                    "(Ljava/lang/Runnable;)V")):
         if method not in defined_methods:
             fail(f"Post-R8 APK is missing JNI method definition: {method}")
 

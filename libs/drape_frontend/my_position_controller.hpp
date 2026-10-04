@@ -111,7 +111,7 @@ public:
 
   void StopLocationFollow();
   void NextMode(ScreenBase const & screen);
-  void RecenterPreservingMode();
+  bool RecenterPreservingMode();
   void LoseLocation();
   location::EMyPositionMode GetCurrentMode() const { return m_mode; }
 

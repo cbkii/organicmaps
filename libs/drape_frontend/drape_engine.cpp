@@ -505,11 +505,11 @@ void DrapeEngine::LoseLocation()
                                   MessagePriority::Normal);
 }
 
-void DrapeEngine::RecenterMyPositionPreservingMode()
+void DrapeEngine::RecenterMyPositionPreservingMode(std::function<void(bool)> onResult)
 {
   using Mode = ChangeMyPositionModeMessage::EChangeType;
   m_threadCommutator->PostMessage(ThreadsCommutator::RenderThread,
-                                  make_unique_dp<ChangeMyPositionModeMessage>(Mode::RecenterPreservingMode),
+                                  make_unique_dp<ChangeMyPositionModeMessage>(Mode::RecenterPreservingMode, std::move(onResult)),
                                   MessagePriority::Normal);
 }
 
