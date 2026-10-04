@@ -1,5 +1,5 @@
-#include "Framework.hpp"
 #include "CurrentPositionFreshness.hpp"
+#include "Framework.hpp"
 #include "map/gps_tracker.hpp"
 
 #include "app/organicmaps/sdk/core/jni_helper.hpp"
@@ -10,9 +10,9 @@
 
 #include "geometry/mercator.hpp"
 
+#include <time.h>
 #include <chrono>
 #include <cmath>
-#include <time.h>
 
 namespace
 {
@@ -75,8 +75,7 @@ int64_t BootTimeNanos()
 
 bool HasFreshCurrentPosition()
 {
-  return g_currentPosition.m_valid &&
-         IsFreshPositionObservation(g_currentPosition.m_observedAtNanos, BootTimeNanos());
+  return g_currentPosition.m_valid && IsFreshPositionObservation(g_currentPosition.m_observedAtNanos, BootTimeNanos());
 }
 
 bool RecenterToCurrentPosition()

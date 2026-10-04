@@ -7,6 +7,5 @@
 inline bool IsFreshPositionObservation(int64_t observedAtNanos, int64_t nowNanos)
 {
   int64_t constexpr kLifetimeNanos = 10000000000;
-  return observedAtNanos > 0 && nowNanos >= observedAtNanos &&
-         nowNanos - observedAtNanos <= kLifetimeNanos;
+  return observedAtNanos > 0 && nowNanos >= observedAtNanos && nowNanos - observedAtNanos <= kLifetimeNanos;
 }
