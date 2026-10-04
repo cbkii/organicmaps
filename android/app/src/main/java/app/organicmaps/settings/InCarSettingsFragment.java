@@ -67,6 +67,23 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     final ListPreference drivingView = getPreference(getString(R.string.pref_in_car_driving_view_mode));
     filterLegacyManualDrivingView(drivingView);
 
+    final ListPreference expiry = getPreference("in_car_route_resume_minutes");
+    final List<CharSequence> expiryLabels = new ArrayList<>();
+    final List<CharSequence> expiryValues = new ArrayList<>();
+    for (int minutes = 5; minutes <= 90; minutes += 5)
+    {
+      expiryLabels.add(getString(R.string.in_car_route_resume_minutes, minutes, getString(R.string.minute)));
+      expiryValues.add(Integer.toString(minutes));
+    }
+    expiry.setEntries(expiryLabels.toArray(new CharSequence[0]));
+    expiry.setEntryValues(expiryValues.toArray(new CharSequence[0]));
+    expiry.setValue(Integer.toString(InCarSettingsStore.routeResumeMinutes(requireContext())));
+    expiry.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+    expiry.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setRouteResumeMinutes(requireContext(), Integer.parseInt((String) value));
+      return true;
+    });
+
     final ListPreference fallback = getPreference(getString(R.string.pref_in_car_navigation_fallback_mode));
     final OfflineNavigationVoicePack.Mode mode = OfflineNavigationVoicePack.getMode(requireContext());
     fallback.setValue(mode.getPreferenceValue());

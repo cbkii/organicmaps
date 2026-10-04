@@ -165,6 +165,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private static final String LAYERS_MENU_ID = "LAYERS_MENU_BOTTOM_SHEET";
   private static final String ADVANCED_MENU_ID = "ADVANCED_MENU_BOTTOM_SHEET";
 
+  private static final String IN_CAR_RECENTER_RECOVERY = "IN_CAR_RECENTER_RECOVERY";
   private static final String POWER_SAVE_DISCLAIMER_SHOWN = "POWER_SAVE_DISCLAIMER_SHOWN";
 
   @SuppressWarnings("NotNullFieldNotInitialized")
@@ -207,6 +208,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private int mLocationRecoveryGeneration;
   private boolean mLocationActivityStopped = true;
   private boolean mLocationWarningIssued;
+  // Android recovery context only; the render controller owns the pending camera request.
+  private boolean mInCarRecenterRecovery;
   private boolean mLocationSettlingExhausted;
   private final BroadcastReceiver mLocationModeReceiver = new BroadcastReceiver() {
     @Override
@@ -278,6 +281,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
 
     Framework.nativeRestoreDownloadQueue();
+    MwmApplication.from(this).discardExpiredInCarRoute();
 
     if (RoutingController.get().isPlanning())
       restoreRoutingUI(MapButtonsController.LayoutMode.planning);
@@ -577,6 +581,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mPlacePageViewModel = new ViewModelProvider(this).get(PlacePageViewModel.class);
     mSearchPageViewModel = new ViewModelProvider(this).get(SearchPageViewModel.class);
     mMapButtonsViewModel = new ViewModelProvider(this).get(MapButtonsViewModel.class);
+    TrackRecordingService.isRecording().observe(this, recording -> {
+      if (Boolean.TRUE.equals(recording))
+        mMapButtonsViewModel.setTrackRecorderState(true);
+      else if (Boolean.TRUE.equals(mMapButtonsViewModel.getTrackRecorderState().getValue()))
+        updateStoppedTrackRecordingUi();
+    });
     mLocationPromptCoordinator = new ViewModelProvider(this).get(LocationPromptCoordinator.class);
     // We don't need to manually handle removing the observers it follows the activity lifecycle
     mMapButtonsViewModel.getBottomButtonsHeight().observe(this, this::onMapBottomButtonsHeightChange);
@@ -584,8 +594,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Bridge search-active state into RoutingPlanViewModel so the routing sheet hides under the search
     // bottom sheet. RoutingPlanFragment stays decoupled from SearchPageViewModel; the activity is the
     // single place that knows about both subsystems.
-    mSearchPageViewModel.getSearchEnabled().observe(
-        this, enabled -> mRoutingPlanViewModel.setIsSearchActive(Boolean.TRUE.equals(enabled)));
+    mSearchPageViewModel.getSearchEnabled().observe(this, enabled -> {
+      mRoutingPlanViewModel.setIsSearchActive(Boolean.TRUE.equals(enabled));
+      // This fork has no route map-chooser owner: every search dismissal abandons its pick.
+      if (!Boolean.TRUE.equals(enabled))
+        RoutingController.get().cancelPoiPick();
+    });
 
     // Note: You must call registerForActivityResult() before the fragment or activity is created.
     mLocationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
@@ -651,8 +665,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Global listener on the activity's semantic root, so insets are captured regardless
     // of which overlay views happen to be present at dispatch time.
     ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.coordinator), (view, windowInsets) -> {
-      final int trackRecorderOffset =
-          TrackRecorder.nativeIsTrackRecordingEnabled() ? dimen(this, R.dimen.map_button_size) : 0;
+      final boolean hasMapRecordingButton = !BuildConfig.IS_IN_CAR && TrackRecorder.nativeIsTrackRecordingEnabled();
+      final int trackRecorderOffset = hasMapRecordingButton ? dimen(this, R.dimen.map_button_size) : 0;
       final Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
       // Drive nav-bar height from the AndroidX visibility signal — pre-R FLAG_FULLSCREEN
       // hides only the status bar, so inferring from app state misreports the nav bar.
@@ -831,17 +845,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
       Logger.i(LOCATION_TAG, "The location button pressed");
       if (BuildConfig.IS_IN_CAR)
       {
-        final int mode = LocationState.getMode();
-        // Only a user click while waiting explicitly turns location updates off. A restored
-        // NotFollowNoPosition mode or a provider error is not evidence of this user action.
-        if (mode == LocationState.PENDING_POSITION)
-        {
-          InCarSettingsStore.setExplicitLocationOff(this, true);
-          if (MwmApplication.from(this).getInCarDrivingViewController() != null)
-            MwmApplication.from(this).getInCarDrivingViewController().onExplicitLocationOff();
-        }
-        else if (mode == LocationState.NOT_FOLLOW_NO_POSITION)
-          InCarSettingsStore.setExplicitLocationOff(this, false);
+        if (!Map.isEngineCreated())
+          return;
+        final MwmApplication application = MwmApplication.from(this);
+        LocationState.nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery);
+        return;
       }
       // Calls onMyPositionModeChanged(mode + 1).
       LocationState.nativeSwitchToNextMode();
@@ -988,6 +996,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       // orientation changing, etc. Otherwise, the saved route might be restored at undesirable moment.
       RoutingController.get().deleteSavedRoute();
 
+    outState.putBoolean(IN_CAR_RECENTER_RECOVERY, mInCarRecenterRecovery);
     outState.putBoolean(POWER_SAVE_DISCLAIMER_SHOWN, mPowerSaveDisclaimerShown);
     outState.putBoolean(EXTRA_CONSUMED, mIntentConsumed);
     super.onSaveInstanceState(outState);
@@ -999,6 +1008,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     super.onRestoreInstanceState(savedInstanceState);
     // The routing plan fragment is restored by the FragmentManager and re-applies its own saved sheet state,
     // so there is nothing routing-related to restore here.
+    mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean(IN_CAR_RECENTER_RECOVERY, false);
     mPowerSaveDisclaimerShown = savedInstanceState.getBoolean(POWER_SAVE_DISCLAIMER_SHOWN, false);
   }
 
@@ -1037,12 +1047,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
     logLocationPromptState("onNewIntent", "warm intent received; location UI unchanged");
     if (mMapController.isRenderingActive())
       processIntent();
-    if (intent.getAction() != null && intent.getAction().equals(TrackRecordingService.STOP_TRACK_RECORDING))
-    {
-      // closes the bottom sheet in case it is opened to deal with updates of track recording status in bottom sheet.
-      closeBottomSheet(MAIN_MENU_ID);
-      toggleTrackRecordingPP();
-    }
   }
 
   @CallSuper
@@ -1065,6 +1069,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (mOnmapDownloader != null)
       mOnmapDownloader.onResume();
 
+    MwmApplication.from(this).discardExpiredInCarRoute();
     mNavigationController.refresh();
     refreshLightStatusBar();
 
@@ -1830,6 +1835,20 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
     dismissLocationErrorDialog();
 
+    if (!BuildConfig.IS_IN_CAR)
+      updateNavigationFromLocation();
+  }
+
+  @Override
+  @UiThread
+  public void onLocationUpdatedNative(@NonNull Location location)
+  {
+    if (BuildConfig.IS_IN_CAR)
+      updateNavigationFromLocation();
+  }
+
+  private void updateNavigationFromLocation()
+  {
     final RoutingController routing = RoutingController.get();
     if (!routing.isNavigating())
       return;
@@ -2102,7 +2121,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
         showLocationPermissionDeniedDialog(true);
       else if (action == ProviderAction.RESTORE_LOCATION)
       {
-        if (InCarSettingsStore.isExplicitLocationOff(this))
+        if (InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery)
           mLocationPromptCoordinator.finishProviderRecoveryAttempt();
         else
           restartLocationAfterAvailabilityConfirmed("InCar provider callback with Location enabled");
@@ -2157,6 +2176,22 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mLocationErrorDialog = builder.show();
   }
 
+  /** Called only when the native camera owner could not use its accepted position. */
+  boolean recoverInCarRecenterLocation()
+  {
+    if (!BuildConfig.IS_IN_CAR || mLocationActivityStopped || !Map.isEngineCreated())
+      return false;
+    final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
+    if (helper.isActive())
+      return true;
+    mInCarRecenterRecovery = true;
+    if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))
+      restartLocationAfterAvailabilityConfirmed("My Position recenter acquisition");
+    else
+      settleInCarLocation();
+    return true;
+  }
+
   private void resumeInCarLocationIfAllowed()
   {
     if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
@@ -2184,7 +2219,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   /** Checks Android's master switch for at most ten seconds, without polling for a GNSS fix. */
   private void settleInCarLocation()
   {
-    if (mLocationActivityStopped || InCarSettingsStore.isExplicitLocationOff(this))
+    if (mLocationActivityStopped || (InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery))
       return;
     if (!LocationUtils.checkLocationPermission(this))
     {
@@ -2239,8 +2274,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
         mLocationRecoveryCheck = null;
         mLocationSettlingExhausted = true;
         if (!InCarSettingsStore.showLocationDisabledWarning(MwmActivity.this)
-            || InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) || isLocationErrorDialogShowing()
-            || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
+            || (InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) && !mInCarRecenterRecovery)
+            || isLocationErrorDialogShowing() || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
           return;
         mLocationWarningIssued = true;
         showInCarLocationDisabledWarning(generation);
@@ -2280,8 +2315,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
     }
 
-    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this))
+    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery)
     {
+      mLocationPromptCoordinator.finishProviderRecoveryAttempt();
+      return;
+    }
+
+    if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)
+    {
+      MwmApplication.from(this).getLocationHelper().resumeLocationInForeground(true);
+      mInCarRecenterRecovery = false;
       mLocationPromptCoordinator.finishProviderRecoveryAttempt();
       return;
     }
@@ -2488,11 +2531,18 @@ public class MwmActivity extends BaseMwmFragmentActivity
     }
     Toast.makeText(this, R.string.track_recording, Toast.LENGTH_SHORT).show();
     TrackRecordingService.startForegroundService(getApplicationContext());
-    mMapButtonsViewModel.setTrackRecorderState(true);
+    mMapButtonsViewModel.setTrackRecorderState(TrackRecorder.nativeIsTrackRecordingEnabled());
     return true;
   }
 
   private void stopTrackRecording()
+  {
+    // Only an explicit user action may disarm recording auto-resume consent.
+    TrackRecordingService.stopService(getApplicationContext());
+    updateStoppedTrackRecordingUi();
+  }
+
+  private void updateStoppedTrackRecordingUi()
   {
     if (mCurrentWindowInsets != null)
     {
@@ -2500,8 +2550,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
       final int offsetX = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).right;
       updateCompassOffset(offsetY, offsetX);
     }
-    TrackRecordingService.stopService(getApplicationContext());
     mMapButtonsViewModel.setTrackRecorderState(false);
+    closeBottomSheet(MAIN_MENU_ID);
     if (mPlacePageViewModel.getMapObject().getValue() != null
         && mPlacePageViewModel.getMapObject().getValue().isTrackRecording())
       closePlacePage();
@@ -2509,11 +2559,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void saveAndStopTrackRecording()
   {
-    // we are detaching the listener before saving the track to stop getting updates and fetching data from wrong
-    // mapObject
-    TrackRecorder.nativeSetTrackRecordingStatsListener(null);
-    if (!TrackRecorder.nativeIsTrackRecordingEmpty())
-      TrackRecorder.nativeSaveTrackRecordingWithName("");
+    TrackRecorder.saveAndStop();
     stopTrackRecording();
   }
 
@@ -2623,6 +2669,17 @@ public class MwmActivity extends BaseMwmFragmentActivity
     RoutingOptions.addOption(roadType);
     rebuildLastRoute();
     updateDrivingOptionCount();
+  }
+
+  public void onTrackRecordingSwitchChanged(boolean enabled)
+  {
+    if (!Map.isEngineCreated() || TrackRecorder.nativeIsTrackRecordingEnabled() == enabled)
+      return;
+
+    if (enabled)
+      startTrackRecording();
+    else
+      onTrackRecordingSaved();
   }
 
   @Override

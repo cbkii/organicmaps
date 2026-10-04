@@ -16,8 +16,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
+import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarDrivingUi;
+import app.organicmaps.incar.InCarSpeedDisplayPolicy;
 import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Router;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
@@ -37,6 +40,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 public class NavigationController implements TrafficManager.TrafficCallback, NavMenu.NavMenuListener
 {
   private final View mFrame;
+  private final AppCompatActivity mActivity;
 
   private final ImageView mNextTurnImage;
   private final TextView mNextTurnDistance;
@@ -64,6 +68,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
                               View.OnClickListener onVoiceSettingsClickListener,
                               NavMenu.OnMenuSizeChangedListener onMenuSizeChangedListener)
   {
+    mActivity = activity;
     mMapButtonsViewModel = new ViewModelProvider(activity).get(MapButtonsViewModel.class);
 
     mFrame = activity.findViewById(R.id.navigation_frame);
@@ -73,8 +78,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
     // Top frame.
     mTopFrame = mFrame.findViewById(R.id.nav_top_frame);
-    mTopFrame.addOnLayoutChangeListener(
-        (v, l, t, r, b, ol, ot, or, ob) -> mMapButtonsViewModel.setTopHeaderHeight(computeNavContentHeight()));
+    mTopFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateNavigationHeaderMetrics());
     final View turnFrame = mTopFrame.findViewById(R.id.nav_next_turn_frame);
     mNextTurnImage = turnFrame.findViewById(R.id.turn);
     mNextTurnDistance = turnFrame.findViewById(R.id.distance);
@@ -93,14 +97,37 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     final View navBottomSheet = mFrame.findViewById(R.id.nav_bottom_sheet);
     mNextTurnContainer = mFrame.findViewById(R.id.nav_next_turn_container);
 
-    ViewCompat.setOnApplyWindowInsetsListener(mStreetFrame, BaselinePaddingInsetsListener.excludeBottom());
+    if (isInCarLandscape())
+    {
+      // The landscape InCar resource is one fixed-height full-width ribbon. Apply safe drawing
+      // insets once to that owning surface so turn, street, lanes and the physical-right speed
+      // cluster move as one without conditional children changing map clearance.
+      final int left = mNextTurnContainer.getPaddingLeft();
+      final int right = mNextTurnContainer.getPaddingRight();
+      ViewCompat.setOnApplyWindowInsetsListener(mNextTurnContainer, (view, insets) -> {
+        final Insets safe = insets.getInsets(WindowInsetUtils.TYPE_SAFE_DRAWING);
+        final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+        if (params.topMargin != safe.top)
+        {
+          params.topMargin = safe.top;
+          view.setLayoutParams(params);
+        }
+        view.setPadding(left + safe.left, view.getPaddingTop(), right + safe.right, view.getPaddingBottom());
+        return insets;
+      });
+    }
+    else
+      ViewCompat.setOnApplyWindowInsetsListener(mStreetFrame, BaselinePaddingInsetsListener.excludeBottom());
 
     ViewCompat.setOnApplyWindowInsetsListener(mTopFrame, (v, windowInsets) -> {
       final Insets safeDrawing = windowInsets.getInsets(WindowInsetUtils.TYPE_SAFE_DRAWING);
       if (BuildConfig.IS_IN_CAR)
       {
-        // The InCar manoeuvre cluster is deliberately physical-right for the RHD product. Protect
-        // that physical edge from the TS18/SystemUI inset; never let locale direction mirror it.
+        if (isInCarLandscape())
+          return windowInsets;
+
+        // Portrait InCar retains the established physical-right glance cluster. Protect that edge
+        // from SystemUI without allowing locale direction to mirror it.
         mNextTurnContainer.setPadding(mNextTurnContainer.getPaddingLeft(), mNextTurnContainer.getPaddingTop(),
                                       safeDrawing.right, mNextTurnContainer.getPaddingBottom());
       }
@@ -136,12 +163,48 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     });
   }
 
-  // Height the search sheet must clear when expanded over the navigation top frame: the always
-  // shown street-name frame plus the taller of the turn/speed column or the lanes strip (the two
-  // overlap rather than stack, so take the max). The turn/speed column is only laid out below the
-  // street frame in portrait.
+  private boolean isInCarLandscape()
+  {
+    return BuildConfig.IS_IN_CAR
+ && mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+  }
+
+  private void updateNavigationHeaderMetrics()
+  {
+    final boolean activeNavigation = UiUtils.isVisible(mFrame) && RoutingController.get().isNavigating();
+    if (BuildConfig.IS_IN_CAR && !activeNavigation)
+    {
+      mMapButtonsViewModel.setTopHeaderHeight(0);
+      mMapButtonsViewModel.setNavigationFooterHeight(0);
+      return;
+    }
+    final int contentHeight = computeNavContentHeight();
+    mMapButtonsViewModel.setTopHeaderHeight(contentHeight);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Both InCar orientations have a fixed NavMenu footer. Its explicit owner protects
+      // this clearance from legacy zero-height callbacks only while navigation is visible.
+      mMapButtonsViewModel.setNavigationFooterHeight(dimen(mFrame.getContext(), R.dimen.nav_menu_height));
+    }
+    if (isInCarLandscape())
+    {
+      mMapButtonsViewModel.setTopButtonsMarginTop(dimen(mFrame.getContext(), R.dimen.nav_frame_padding)
+                                                  + contentHeight);
+    }
+  }
+
+  // Height the search sheet and map controls must clear. InCar landscape owns all driver guidance
+  // inside one fixed ribbon envelope; conditional lanes/next-next content must never move the map.
   private int computeNavContentHeight()
   {
+    if (isInCarLandscape())
+    {
+      final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) mNextTurnContainer.getLayoutParams();
+      return UiUtils.isVisible(mNextTurnContainer)
+        ? dimen(mFrame.getContext(), R.dimen.in_car_nav_ribbon_height) + params.topMargin
+        : 0;
+    }
+
     int turnAndSpeedHeight = 0;
     if (mFrame.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)
     {
@@ -159,14 +222,28 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     mNextTurnDistance.setText(Utils.formatDistance(mFrame.getContext(), info.distToTurn));
     mNextTurnImage.setImageResource(info.carDirection.getTurnRes(info.exitNum));
 
-    final boolean showNextNextTurn = info.hasNextNextTurn();
+    final boolean hasLanes = info.lanes != null && info.lanes.length > 0;
+    final boolean showNextNextTurn = info.hasNextNextTurn() && (!isInCarLandscape() || !hasLanes);
     UiUtils.showIf(showNextNextTurn, mNextNextTurnFrame);
     if (showNextNextTurn)
       mNextNextTurnImage.setImageResource(info.nextCarDirection.getTurnRes());
 
     mLanesView.setLanes(info.lanes);
+    updateGuidanceLabel(hasLanes, showNextNextTurn);
 
     updateSpeedLimit(info);
+  }
+
+  private void updateGuidanceLabel(boolean hasLanes, boolean hasAfter)
+  {
+    if (!isInCarLandscape())
+      return;
+    final TextView label = mTopFrame.findViewById(R.id.in_car_nav_guidance_label);
+    label.setText(hasLanes ? R.string.in_car_nav_lanes : R.string.in_car_nav_after);
+    label.setAlpha(hasLanes ? 1.0f : 0.70f);
+    mNextNextTurnFrame.setAlpha(0.70f);
+    // Preserve the stable section width without suggesting an unavailable future instruction.
+    UiUtils.visibleIf(hasLanes || hasAfter, label);
   }
 
   private void updatePedestrian(@NonNull RoutingInfo info)
@@ -181,11 +258,21 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       return;
 
     if (Router.get() == Router.Pedestrian)
+    {
       updatePedestrian(info);
+      if (isInCarLandscape())
+      {
+        mLanesView.setLanes(null);
+        UiUtils.hide(mNextNextTurnFrame);
+        updateGuidanceLabel(false, false);
+        updateSpeedLimit(info);
+      }
+    }
     else
       updateVehicle(info);
 
     updateStreetView(info);
+    updateNavigationHeaderMetrics();
     mNavMenu.update(info);
   }
 
@@ -199,7 +286,9 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       mNextStreet.setText(RoadShieldUtils.createStreetTextWithShields(info.nextStreet, info.nextStreetRoadShields,
                                                                       mNextStreet.getTextSize()));
     int margin = dimen(mFrame.getContext(), R.dimen.nav_frame_padding);
-    if (hasStreet)
+    if (isInCarLandscape())
+      margin += computeNavContentHeight();
+    else if (hasStreet)
       margin += mStreetFrame.getHeight();
     mMapButtonsViewModel.setTopButtonsMarginTop(margin);
   }
@@ -209,12 +298,23 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     if (show && !UiUtils.isVisible(mFrame))
     {
       collapseNavMenu();
+      if (BuildConfig.IS_IN_CAR)
+        InCarSpeedDisplayPolicy.resetSpeeding();
       // Seed the panel from the already-built route so it isn't empty until the first GPS fix arrives.
       update(RoutingController.get().getCachedRoutingInfo());
     }
     UiUtils.showIf(show, mFrame);
-    if (!show)
+    if (show)
+      updateNavigationHeaderMetrics();
+    else
+    {
       mMapButtonsViewModel.setTopHeaderHeight(0);
+      if (BuildConfig.IS_IN_CAR)
+      {
+        mMapButtonsViewModel.setNavigationFooterHeight(0);
+        InCarSpeedDisplayPolicy.resetSpeeding();
+      }
+    }
   }
 
   public boolean isNavMenuCollapsed()
@@ -246,7 +346,7 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
   @Override
   public void onDisabled()
   {
-    // mNavMenu.refreshTraffic();
+    // no op
   }
 
   @Override
@@ -307,8 +407,23 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updateSpeedLimit(@NonNull RoutingInfo info)
   {
-    final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
-    final boolean speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
-    mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(info.speedLimitMps), speedLimitExceeded);
+    final boolean speedLimitExceeded;
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Route updates own only the current posted limit. The Driving View snapshot is the single
+      // authority that feeds speed samples into the hysteresis, avoiding competing saved-location
+      // and snapshot call order around the 103-105% band.
+      if (mActivity instanceof MwmActivity mapActivity)
+        InCarDrivingUi.updateNavigationSpeedLimit(mapActivity, info.speedLimitMps);
+      speedLimitExceeded = InCarSpeedDisplayPolicy.warningActive();
+    }
+    else
+    {
+      final Location location = MwmApplication.from(mFrame.getContext()).getLocationHelper().getSavedLocation();
+      speedLimitExceeded = location != null && info.speedLimitMps < location.getSpeed();
+    }
+    final double displayedLimit =
+        BuildConfig.IS_IN_CAR ? InCarSpeedDisplayPolicy.currentLimitMps() : info.speedLimitMps;
+    mSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), speedLimitExceeded);
   }
 }

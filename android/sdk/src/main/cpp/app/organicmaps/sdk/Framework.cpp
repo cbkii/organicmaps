@@ -15,6 +15,7 @@
 #include "map/everywhere_search_params.hpp"
 #include "map/framework.hpp"
 #include "map/place_page_info.hpp"
+#include "map/routing_mark.hpp"
 #include "map/user_mark.hpp"
 
 #include "storage/country_info_getter.hpp"
@@ -1330,6 +1331,23 @@ JNIEXPORT jobjectArray Java_app_organicmaps_sdk_Framework_nativeGetRouteJunction
   return routing_jni::CreateJunctionInfoArray(env, result);
 }
 
+JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGetCurrentRoadSpeedLimit(JNIEnv * env, jclass)
+{
+  if (!g_framework)
+    return nullptr;
+  auto & manager = frm()->GetRoutingManager();
+  if (manager.GetRouter() != routing::RouterType::Vehicle)
+    return nullptr;
+  auto const info = manager.RoutingSession().GetCurrentRoadSpeedLimit();
+  if (!info)
+    return nullptr;
+  static jclass const clazz = jni::GetGlobalClassRef(env, "app/organicmaps/sdk/routing/RoadSpeedLimitInfo");
+  static jmethodID const constructor = jni::GetConstructorID(env, clazz, "(DJJ)V");
+  return env->NewObject(clazz, constructor, info->m_speedLimitMps,
+                        static_cast<jlong>(info->m_observationMonotonicSeconds * 1.0e9),
+                        static_cast<jlong>(info->m_roadToken));
+}
+
 JNIEXPORT jobject Java_app_organicmaps_sdk_Framework_nativeGetRouteAltitudeData(JNIEnv * env, jclass)
 {
   ElevationInfo ei;
@@ -1469,6 +1487,11 @@ JNIEXPORT void Java_app_organicmaps_sdk_Framework_nativeRemoveIntermediateRouteP
 JNIEXPORT jboolean Java_app_organicmaps_sdk_Framework_nativeCouldAddIntermediatePoint(JNIEnv * env, jclass)
 {
   return frm()->GetRoutingManager().CouldAddIntermediatePoint();
+}
+
+JNIEXPORT jboolean Java_app_organicmaps_sdk_Framework_nativeIsRoutePointsLimitReached(JNIEnv *, jclass)
+{
+  return frm()->GetRoutingManager().GetRoutePointsCount() >= RoutePointsLayout::kMaxRoutePointsCount;
 }
 
 JNIEXPORT jobjectArray Java_app_organicmaps_sdk_Framework_nativeGetRoutePoints(JNIEnv * env, jclass)
@@ -1913,6 +1936,8 @@ namespace
 JNINativeMethod const frameworkMethods[] = {
     {"nativeGetRouteFollowingInfo", "()Lapp/organicmaps/sdk/routing/RoutingInfo;",
      reinterpret_cast<void *>(&Java_app_organicmaps_sdk_Framework_nativeGetRouteFollowingInfo)},
+    {"nativeGetCurrentRoadSpeedLimit", "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;",
+     reinterpret_cast<void *>(&Java_app_organicmaps_sdk_Framework_nativeGetCurrentRoadSpeedLimit)},
 };
 }
 

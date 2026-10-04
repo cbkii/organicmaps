@@ -3,6 +3,7 @@ package app.organicmaps.incar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.Resources;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -27,6 +28,48 @@ public final class InCarDialogSizing
                resources.getDimensionPixelSize(R.dimen.in_car_compact_dialog_min_width),
                resources.getDimensionPixelSize(R.dimen.in_car_compact_dialog_max_width));
     enforceTouchTargets(activity, dialog);
+  }
+
+  /** Place the active-navigation overflow below the measured ribbon and above route controls. */
+  public static void applyNavigationOverflowBounds(@NonNull Activity activity, @NonNull AlertDialog dialog,
+                                                   int headerHeightPx, int bottomControlsHeightPx)
+  {
+    applyCompactWidth(activity, dialog);
+    final Window window = dialog.getWindow();
+    if (window == null)
+      return;
+
+    final int gap = activity.getResources().getDimensionPixelSize(R.dimen.margin_half);
+    final int bottom = Math.max(0, bottomControlsHeightPx) + gap;
+    // The two gaps reserve space below the ribbon and above the footer.
+    final int maximumHeight = Math.max(1, usableWindowSize(activity)[1] - Math.max(0, headerHeightPx) - bottom - gap);
+    final View decor = window.getDecorView();
+    if (decor.getHeight() > 0)
+    {
+      if (decor.getHeight() > maximumHeight)
+        window.setLayout(window.getAttributes().width, maximumHeight);
+    }
+    else
+    {
+      decor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+        @Override
+        public void onLayoutChange(View view, int left, int top, int right, int bottom, int oldLeft, int oldTop,
+                                   int oldRight, int oldBottom)
+        {
+          final int height = bottom - top;
+          if (height <= 0)
+            return;
+          view.removeOnLayoutChangeListener(this);
+          if (height > maximumHeight)
+            window.setLayout(window.getAttributes().width, maximumHeight);
+        }
+      });
+    }
+
+    final WindowManager.LayoutParams attributes = window.getAttributes();
+    attributes.gravity = Gravity.RIGHT | Gravity.BOTTOM;
+    attributes.y = bottom;
+    window.setAttributes(attributes);
   }
 
   public static void applyPickerSize(@NonNull Activity activity, @NonNull AlertDialog dialog)
@@ -94,12 +137,20 @@ public final class InCarDialogSizing
     return Math.min(available, Math.max(minPx, Math.min(maxPx, proportional)));
   }
 
+  @VisibleForTesting
+  static int measuredOrFallback(int measuredPx, int fallbackPx)
+  {
+    return measuredPx > 0 ? measuredPx : fallbackPx;
+  }
+
   @NonNull
   private static int[] usableWindowSize(@NonNull Activity activity)
   {
-    int width = activity.getResources().getDisplayMetrics().widthPixels;
-    int height = activity.getResources().getDisplayMetrics().heightPixels;
-    final WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(activity.getWindow().getDecorView());
+    final View decor = activity.getWindow().getDecorView();
+    final Resources resources = activity.getResources();
+    int width = measuredOrFallback(decor.getWidth(), resources.getDisplayMetrics().widthPixels);
+    int height = measuredOrFallback(decor.getHeight(), resources.getDisplayMetrics().heightPixels);
+    final WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(decor);
     if (insets != null)
     {
       final Insets safe =

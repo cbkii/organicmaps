@@ -40,6 +40,14 @@ public final class LocationState
   // public static final int ERROR_TIMEOUT = 4; // Unused on Android (only used on Qt)
 
   public static native void nativeSwitchToNextMode();
+
+  /**
+   * Requests recentering on the render controller's accepted fresh position without changing the native My Position
+   * mode. If no usable position exists, one recenter stays pending and onNeedsLocation runs on the GUI thread
+   * so the existing Android provider/permission owner can recover acquisition without guessing from the mode.
+   */
+  public static native void nativeRecenterToCurrentPosition(@NonNull Runnable onNeedsLocation);
+
   @Value
   private static native int nativeGetMode();
 

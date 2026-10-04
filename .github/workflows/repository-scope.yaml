@@ -22,3 +22,18 @@ jobs:
 
       - name: Verify Android-only repository scope
         run: python3 tools/ci/verify_android_repo_scope.py
+
+      - name: Verify track-delete confirmation identity
+        run: |
+          python3 tools/ci/verify_place_page_delete_dialog.py
+          python3 tools/ci/test_verify_place_page_delete_dialog.py
+
+      - name: Test current-road metadata freshness policy
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Ilibs tools/ci/test_current_road_speed_limit.cpp -o /tmp/current-road-speed-limit-test
+          /tmp/current-road-speed-limit-test
+
+      - name: Verify default arrow texture fallback
+        run: |
+          python3 tools/ci/verify_default_arrow_texture.py
+          python3 tools/ci/test_verify_default_arrow_texture.py

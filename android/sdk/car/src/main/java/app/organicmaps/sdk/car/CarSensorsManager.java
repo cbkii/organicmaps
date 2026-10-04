@@ -8,6 +8,7 @@ import androidx.annotation.RequiresPermission;
 import androidx.car.app.CarContext;
 import androidx.car.app.hardware.CarHardwareManager;
 import androidx.car.app.hardware.common.CarValue;
+import androidx.car.app.hardware.common.OnCarDataAvailableListener;
 import androidx.car.app.hardware.info.CarHardwareLocation;
 import androidx.car.app.hardware.info.CarSensors;
 import androidx.car.app.hardware.info.Compass;
@@ -15,6 +16,7 @@ import androidx.core.content.ContextCompat;
 import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.SensorHelper;
+import app.organicmaps.sdk.location.SensorListener;
 import app.organicmaps.sdk.util.log.Logger;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -26,13 +28,22 @@ public final class CarSensorsManager
   @NonNull
   private final CarContext mCarContext;
   @NonNull
-  private final CarSensors mCarSensors;
+  private final CarSensorsSafe mCarSensors;
 
   @NonNull
   private final SensorHelper mSensorHelper;
   @NonNull
   private final LocationHelper mLocationHelper;
+  @NonNull
+  private final OnCarDataAvailableListener<Compass> mOnCarCompassDataAvailableListener =
+      this::onCarCompassDataAvailable;
+  @NonNull
+  private final OnCarDataAvailableListener<CarHardwareLocation> mOnCarLocationDataAvailableListener =
+      this::onCarLocationDataAvailable;
+  @NonNull
+  private final SensorListener mSensorListener = this::onCompassUpdated;
 
+  private boolean mIsActive = false;
   private boolean mIsCarCompassUsed = true;
   // TODO: Car location is disabled until proper support for 2+ LocationProviders is added to the core.
   private boolean mIsCarLocationUsed = false;
@@ -41,7 +52,7 @@ public final class CarSensorsManager
                            @NonNull final LocationHelper locationHelper)
   {
     mCarContext = context;
-    mCarSensors = mCarContext.getCarService(CarHardwareManager.class).getCarSensors();
+    mCarSensors = new CarSensorsSafe(context.getCarService(CarHardwareManager.class).getCarSensors());
     mSensorHelper = sensorHelper;
     mLocationHelper = locationHelper;
   }
@@ -49,54 +60,71 @@ public final class CarSensorsManager
   @RequiresPermission(ACCESS_FINE_LOCATION)
   public void onStart()
   {
+    if (mIsActive)
+      return;
+    mIsActive = true;
     final Executor executor = ContextCompat.getMainExecutor(mCarContext);
 
     if (mIsCarCompassUsed)
-      mCarSensors.addCompassListener(CarSensors.UPDATE_RATE_NORMAL, executor, this::onCarCompassDataAvailable);
-    else
-      mSensorHelper.addListener(this::onCompassUpdated);
+      mIsCarCompassUsed =
+          mCarSensors.addCompassListener(CarSensors.UPDATE_RATE_NORMAL, executor, mOnCarCompassDataAvailableListener);
+
+    if (!mIsCarCompassUsed)
+      mSensorHelper.addListener(mSensorListener);
 
     if (!mLocationHelper.isActive())
       mLocationHelper.start();
 
     if (mIsCarLocationUsed)
-      mCarSensors.addCarHardwareLocationListener(CarSensors.UPDATE_RATE_FASTEST, executor,
-                                                 this::onCarLocationDataAvailable);
+      mIsCarLocationUsed = mCarSensors.addCarHardwareLocationListener(CarSensors.UPDATE_RATE_FASTEST, executor,
+                                                                      mOnCarLocationDataAvailableListener);
   }
 
   public void onStop()
   {
+    mIsActive = false;
+
     if (mIsCarCompassUsed)
-      mCarSensors.removeCompassListener(this::onCarCompassDataAvailable);
+      mCarSensors.removeCompassListener(mOnCarCompassDataAvailableListener);
     else
-      mSensorHelper.removeListener(this::onCompassUpdated);
+      mSensorHelper.removeListener(mSensorListener);
 
     if (mIsCarLocationUsed)
-      mCarSensors.removeCarHardwareLocationListener(this::onCarLocationDataAvailable);
+      mCarSensors.removeCarHardwareLocationListener(mOnCarLocationDataAvailableListener);
   }
 
   private void onCarCompassDataAvailable(@NonNull final Compass compass)
   {
+    if (!mIsActive || !mIsCarCompassUsed)
+      return;
+
     final CarValue<List<Float>> data = compass.getOrientations();
     if (data.getStatus() == CarValue.STATUS_UNIMPLEMENTED)
       onCarCompassUnsupported();
     else if (data.getStatus() == CarValue.STATUS_SUCCESS)
     {
       final List<Float> orientations = compass.getOrientations().getValue();
-      if (orientations == null)
+      if (orientations == null || orientations.isEmpty() || orientations.get(0) == null)
         return;
       final float azimuth = orientations.get(0);
+      if (Float.isNaN(azimuth) || Float.isInfinite(azimuth))
+        return;
       Map.onCompassUpdated(Math.toRadians(azimuth), true);
     }
   }
 
   private void onCompassUpdated(double north)
   {
+    if (!mIsActive || mIsCarCompassUsed || Double.isNaN(north) || Double.isInfinite(north))
+      return;
     Map.onCompassUpdated(north, true);
   }
 
   private void onCarLocationDataAvailable(@NonNull final CarHardwareLocation hardwareLocation)
   {
+    if (!mIsActive || !mIsCarLocationUsed)
+      return;
+
     final CarValue<Location> location = hardwareLocation.getLocation();
     if (location.getStatus() == CarValue.STATUS_UNIMPLEMENTED)
       onCarLocationUnsupported();
@@ -112,14 +140,14 @@ public final class CarSensorsManager
   {
     Logger.d(TAG);
     mIsCarLocationUsed = false;
-    mCarSensors.removeCarHardwareLocationListener(this::onCarLocationDataAvailable);
+    mCarSensors.removeCarHardwareLocationListener(mOnCarLocationDataAvailableListener);
   }
 
   private void onCarCompassUnsupported()
   {
     Logger.d(TAG);
     mIsCarCompassUsed = false;
-    mCarSensors.removeCompassListener(this::onCarCompassDataAvailable);
-    mSensorHelper.addListener(this::onCompassUpdated);
+    mCarSensors.removeCompassListener(mOnCarCompassDataAvailableListener);
+    mSensorHelper.addListener(mSensorListener);
   }
 }

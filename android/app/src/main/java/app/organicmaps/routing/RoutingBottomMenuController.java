@@ -17,6 +17,7 @@ import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -78,7 +79,6 @@ final class RoutingBottomMenuController
 
   private static final String STATE_ALTITUDE_CHART_SHOWN = "altitude_chart_shown";
   private static final String STATE_ERROR = "error";
-  // Dimming applied to the save button once the route has been saved (it stays disabled until rebuilt).
   private static final float SAVE_BUTTON_DISABLED_ALPHA = 0.5f;
 
   @NonNull
@@ -215,6 +215,11 @@ final class RoutingBottomMenuController
               final RoutingController controller = RoutingController.get();
               if (controller.getStartPoint() == null || controller.getEndPoint() == null)
                 return;
+              if (Framework.nativeIsRoutePointsLimitReached())
+              {
+                Toast.makeText(mContext, R.string.routing_stops_limit_reached, Toast.LENGTH_SHORT).show();
+                return;
+              }
               controller.waitForPoiPick(RouteMarkType.Intermediate);
               openSearchForRoutePick();
             }
@@ -298,18 +303,15 @@ final class RoutingBottomMenuController
       showRouteAltitudeChart();
     showRoutingDetails();
     UiUtils.show(mAltitudeChartFrame);
-    updateSaveButton();
     notifyVisibilityChanged();
     refreshManageRoute();
   }
 
-  // Reflect the current route's saved state on the save button, consistently across every route-details view.
-  private void updateSaveButton()
+  void updateSaveButton()
   {
-    setSaveButtonEnabled(!RoutingController.get().isRouteSaved());
+    setSaveButtonEnabled(RoutingController.get().isBuilt() && !RoutingController.get().isRouteSaved());
   }
 
-  // Keeps the enabled flag and the dimming in sync so a saved (disabled) button is always restored on rebuild.
   private void setSaveButtonEnabled(boolean enabled)
   {
     mSaveButton.setEnabled(enabled);
@@ -332,7 +334,6 @@ final class RoutingBottomMenuController
   void showTransitInfo(@NonNull TransitRouteInfo info)
   {
     refreshManageRoute();
-    updateSaveButton();
     View transitTime = mAltitudeChartFrame.findViewById(R.id.transit_time);
     hideAltitudeChartAndRoutingDetails();
     UiUtils.hide(mError, mTimeElevationLine, mTimeVehicle);
@@ -354,7 +355,6 @@ final class RoutingBottomMenuController
   void showRulerInfo(@NonNull RouteMarkData[] points, Distance totalLength)
   {
     refreshManageRoute();
-    updateSaveButton();
     UiUtils.hide(mError, mTimeVehicle, mTransitTime, mTimeElevationLine, mAltitudeChart);
     setStartState(StartState.DISABLED);
     hideAltitudeChartAndRoutingDetails();

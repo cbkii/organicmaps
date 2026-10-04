@@ -77,7 +77,11 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     final FragmentActivity activity = findActivity(getContext());
     if (BuildConfig.IS_IN_CAR && activity != null)
     {
-      final int size = InCarVisuals.currentQuickActionSizePx(activity);
+      int size = InCarVisuals.currentQuickActionSizePx(activity);
+      if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED)
+        size = Math.min(size, MeasureSpec.getSize(widthMeasureSpec));
+      if (MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.UNSPECIFIED)
+        size = Math.min(size, MeasureSpec.getSize(heightMeasureSpec));
       final int compact = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min);
       final int extraCompact = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact);
       final float textSp = size <= extraCompact ? 20.0f : size <= compact ? 24.0f : 28.0f;

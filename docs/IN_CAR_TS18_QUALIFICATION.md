@@ -136,3 +136,56 @@ For the next qualification pass, retain the exact-head APK provenance plus each 
 ## Repository-side checks
 
 Before review/merge, the exact PR head should have its applicable GitHub checks green, including code style, Android/repository scope, InCar touch-target/compact-chrome contracts and generated InCar drawing-rule verification. The generated drawing rules and packaged Android asset must match the exact source style revision. `bash -n android/tools/ts18_termux_in_car_ux_capture.sh` is part of the InCar touch-target workflow so the shipped Termux collector cannot silently regress into invalid shell syntax.
+
+
+## Work package A — integrated candidate acceptance
+
+Physical status for the new integrated candidate is **NOT_RUN** until installed-byte provenance is recorded.
+The dedicated automotive ribbon has one near-black immediate manoeuvre/road group with light text and no NOW/NEXT captions. Warning tint blends into this group as well as the secondary surface. AFTER receives a 60dp caption allocation and 0.70 caption/glyph alpha; LANES restores caption alpha to 1.0 and retains 72dp graphics. Compact/full secondary widths remain 156/240dp. END retains the black treatment and touch target accepted in the prior #55 selection; these intentionally diverge from fork master.
+
+The footer contains complete distance and remaining-duration expressions, with nonbreaking value/unit pairs and equal shares of the actual available width. RoutingInfo supplies signed 32-bit seconds: the theoretical maximum is 24,855 days 3 hours (seconds/minutes omitted in the day representation). Under 48 hours use hours/minutes; at or above 48 hours use days/hours. Test 9999 km/mi, 2 min, 2 h 18 min, 47 h 59 min, 2 d 0 h and the maximum representation in compact and full windows, both themes, font scales 1.0/1.3 and at least one long-unit and RTL locale. Auto-sizing is bounded at 18–30sp; physical fit/readability at the actual TS18 density/window is an acceptance gate, not inferred from XML.
+
+Current-road speed metadata uses the existing directed road matcher, including during routed following. Routed position/projection and guidance remain the route authority; the free-driving display corridor is not refreshed or applied during routed following. Only a currently confirmed, unambiguous Road state with good accuracy can supply fallback posted metadata. Parking, off-road, poor/ambiguous match and missing maxspeed produce unknown. The native saved `maxspeeds` section supports forward/backward units and version-3 conditional opening-hours data; lookup uses its existing GetCurrentSpeed semantics and never highway average/default/model speeds. Older/missing sections and unsupported/unavailable saved data cannot provide a guessed sign. Physical test roads must contain relevant saved maxspeed data.
+
+Normal route limits, including explicit unrestricted zero, take precedence. A fallback carries a directed-segment token and provider elapsed-realtime observation identity. Java reads after the native provider update completes, rejects a different fix, and expires fallback road metadata after five seconds. A valid route limit remains independent of the fallback age; provider loss or stale-location resume invalidates its presentation until a current native observation arrives. Native matcher resets, dead map identity, provider loss, rendering/framework detachment, explicit location OFF, settings/mode and route presentation transitions invalidate/reacquire. ACC resume checks elapsed realtime rather than trusting paused Handler uptime. Process recreation starts with no road snapshot. Existing SpeedLimitView draws no numeric zero or unknown sign.
+
+Required physical cases: route START/low speed/stationary known route limit, before first manoeuvre, after turn and road/direction change; unknown route with current-road fallback; non-route Driving follow and moving-road sign; map with absent limit, parking/off-road/poor accuracy; provider OFF/ON and map replacement; route END/restart; long ACC sleep/wake and process restart. Confirm no stale sign or guessed national default, no 10km/h delay, no competing routed marker trajectory and no additional renderer wake/graph rebuild. Re-test START/JNI, intermediate stops, rerouting, selected alternative, route lease/expiry and optional untextured arrow fallback on the same final APK.
+
+Repository validation adds Java source/packaged DEX checks for the exact RoadSpeedLimitInfo (DJJ)V constructor and Framework native registration; the definition-only DEX reader has reference-only and wrong-signature regressions. A small host C++ test executes the production metadata freshness/reset contract. Full native routing/matcher/renderer suites remain **NOT_RUN** unless a supported native runner executes them; Android compilation and this small policy test do not imply those suites ran.
+
+## Positioning and recording requirements (4 October 2026)
+
+The earlier implementation only hid the recording FAB and recentred on a separate JNI provider cache.
+Dedicated InCar regular/navigation layout IDs prevent higher-priority mobile landscape/height resources
+from restoring the recording FAB or duplicating My Position. Ordinary flavours retain their original layout IDs.
+The final implementation removes the InCar recording view/accessor and sends recenter requests through
+DrapeEngine's existing render-thread message queue to MyPositionController. Its accepted position,
+assigned/freshness state, heading and visible/routing rotation centre remain authoritative. Recenter
+never cycles mode or changes Driving View/routing intent. One pending request is consumed on an
+accepted fresh fix; explicit mode/Driving View recenter, drag and route activation cancel it.
+Android observation age uses the original elapsed-realtime timestamp and CLOCK_BOOTTIME, including sleep.
+
+My Position is a stable icon-only automotive hit target labelled “Centre on my location”. Acquisition
+uses the existing bounded Android permission/settings coordinator and LocationHelper, without changing
+the persisted explicit-off preference. The native owner reports whether it could use its accepted position; only a failed dispatch posts a GUI
+callback through the existing Application/current-Activity authority to the acquisition owner. A deferred
+Android recovery delivery is rebound after Activity resume or rendering creation, rather than retaining
+a stopped Activity. This relay stores no location, mode or camera state. Fresh assigned modes do not restart providers, while an
+assigned-but-stale position with a stopped provider can recover without changing that mode.
+The main menu recording switch reads native state, starts through the existing permission/service path,
+and stops through the existing save-and-stop path. A per-menu command guard prevents duplicate gestures,
+including RecyclerView rebinding; it stores no optimistic recorder state. The closing switch/row is disabled after dispatch; reopening reads a new native snapshot. Ordinary rows retain their
+existing behaviour, and Advanced contains no duplicate recording action.
+
+| Requirement | Evidence / qualification |
+| --- | --- |
+| NotFollow/Follow/FollowAndRotate, angle/viewport, route/Driving intent, repeated taps | Actual production recenter method executed in isolated C++ listener/clock harness |
+| Missing/stale/future/replayed/sleep observation; one pending request | Native method isolation and production freshness-header boundary tests |
+| No InCar map recording FAB or obsolete setting | Recursive effective-layout ID inventory (one My Position, no recording FAB), qualified/flavour layout mutations, and standalone/extended automotive touch-target checks |
+| Binding has no command; row/switch one dispatch, including rapid gestures and rebind | Listener-order source mutation tests, actual Java menu-model command guard, and MenuAdapterCommandTest with recycled-holder/rapid-gesture/rebind coverage; canonical CI executes JDK and Android unit tests |
+| Main switch and normal rows; existing permission/start/save/stop authorities | Source contract checks; Android unit/build and API29/30 smoke remain canonical gates |
+| Full native drape/routing integration tests | NOT_RUN: repository forces BUILD_TESTING=OFF; method isolation is not full renderer integration |
+| Real recording, GNSS, provider/settings/permission recovery and physical day/night UX | NOT_RUN: no connected TS18; do not mark these device acceptance rows passed |
+
+The signed TESTING candidate must be built only after the final repository checks pass. Any earlier
+snapshot belongs to its recorded older SHA and does not qualify these added requirements.

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
   xmlns:tools="http://schemas.android.com/tools"
   android:layout_width="match_parent"
   android:layout_height="@dimen/in_car_touch_target_preferred"
@@ -10,112 +11,57 @@
   android:paddingEnd="@dimen/margin_half"
   tools:ignore="RtlSymmetry">
 
-  <!-- NavMenu still owns these IDs, but InCar already exposes current speed beside the speed-limit control. -->
+  <!-- Retain the shared controller IDs without creating a second speed/ETA or detached unit display. -->
   <LinearLayout
     android:layout_width="0dp"
     android:layout_height="0dp"
     android:orientation="horizontal"
     android:visibility="gone">
-
     <LinearLayout
       android:id="@+id/speed_view_container"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:background="@drawable/speed_cams_bg"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
       android:orientation="horizontal">
-
-      <TextView
-        android:id="@+id/speed_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/MwmTextAppearance.NavMenu.Number" />
-
-      <TextView
-        android:id="@+id/speed_dimen"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/MwmTextAppearance.NavMenu.Number.Dimension" />
+      <TextView android:id="@+id/speed_value" android:layout_width="0dp" android:layout_height="0dp" />
+      <TextView android:id="@+id/speed_dimen" android:layout_width="0dp" android:layout_height="0dp" />
     </LinearLayout>
-
-    <!-- Remaining duration is the persistent time signal; absolute arrival time is intentionally omitted. -->
-    <TextView
-      android:id="@+id/time_estimate"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Number.Dimension" />
+    <TextView android:id="@+id/time_estimate" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/time_hour_value" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/time_hour_dimen" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/time_minute_dimen" android:layout_width="0dp" android:layout_height="0dp" />
+    <TextView android:id="@+id/distance_dimen" android:layout_width="0dp" android:layout_height="0dp" />
   </LinearLayout>
 
-  <LinearLayout
-    android:id="@+id/time_values_container"
-    android:layout_width="wrap_content"
+  <!-- Each expression auto-sizes as one unit, with equal shares of the actual available footer width. -->
+  <androidx.appcompat.widget.AppCompatTextView
+    android:id="@+id/distance_value"
+    android:layout_width="0dp"
     android:layout_height="match_parent"
-    android:gravity="center_vertical"
-    android:minWidth="@dimen/nav_numbers_side_min_width"
-    android:orientation="horizontal">
-
-    <TextView
-      android:id="@+id/time_hour_value"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:includeFontPadding="false"
-      android:lines="1"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Time"
-      tools:text="2" />
-
-    <TextView
-      android:id="@+id/time_hour_dimen"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginEnd="@dimen/margin_quarter"
-      android:includeFontPadding="false"
-      android:lines="1"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Time.Dimension"
-      tools:text="h" />
-
-    <TextView
-      android:id="@+id/time_minute_value"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:includeFontPadding="false"
-      android:lines="1"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Time"
-      tools:text="18" />
-
-    <TextView
-      android:id="@+id/time_minute_dimen"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:includeFontPadding="false"
-      android:lines="1"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Time.Dimension"
-      tools:text="m" />
-  </LinearLayout>
-
-  <LinearLayout
-    android:layout_width="wrap_content"
+    android:layout_weight="1"
+    android:layout_marginEnd="@dimen/margin_half"
+    android:gravity="center"
+    android:includeFontPadding="false"
+    android:maxLines="1"
+    android:textDirection="locale"
+    android:textAppearance="@style/MwmTextAppearance.NavMenu.Number"
+    app:autoSizeTextType="uniform"
+    app:autoSizeMinTextSize="18sp"
+    app:autoSizeMaxTextSize="30sp"
+    app:autoSizeStepGranularity="1sp"
+    tools:text="9999 km" />
+  <androidx.appcompat.widget.AppCompatTextView
+    android:id="@+id/time_minute_value"
+    android:layout_width="0dp"
     android:layout_height="match_parent"
-    android:layout_marginStart="@dimen/margin_half"
-    android:gravity="center_vertical"
-    android:minWidth="@dimen/nav_numbers_side_min_width"
-    android:orientation="horizontal">
-
-    <TextView
-      android:id="@+id/distance_value"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:includeFontPadding="false"
-      android:lines="1"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Number"
-      tools:text="128" />
-
-    <TextView
-      android:id="@+id/distance_dimen"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginStart="@dimen/margin_quarter"
-      android:includeFontPadding="false"
-      android:lines="1"
-      android:textAppearance="@style/MwmTextAppearance.NavMenu.Number.Dimension"
-      tools:text="km" />
-  </LinearLayout>
+    android:layout_weight="1"
+    android:gravity="center"
+    android:includeFontPadding="false"
+    android:maxLines="1"
+    android:textDirection="locale"
+    android:textAppearance="@style/MwmTextAppearance.NavMenu.Time"
+    app:autoSizeTextType="uniform"
+    app:autoSizeMinTextSize="18sp"
+    app:autoSizeMaxTextSize="30sp"
+    app:autoSizeStepGranularity="1sp"
+    tools:text="24855 d 3 h" />
 </LinearLayout>

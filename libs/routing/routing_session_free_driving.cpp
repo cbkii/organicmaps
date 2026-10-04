@@ -423,6 +423,7 @@ void RoutingSession::SetFreeDrivingAreaContextProvider(FreeDrivingAreaContextPro
 void RoutingSession::ResetFreeDrivingRoadGraphMatch()
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
+  m_currentRoadSpeedLimit = {};
   m_freeDrivingPositionAccumulator.Clear();
   m_freeDrivingMotionEstimator.Reset();
   m_freeDrivingLastMotionEvidence = {};
@@ -448,7 +449,9 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
 
-  if (!m_freeDrivingRoadSnapEnabled || IsActive() || !m_router || !m_router->HasRouter())
+  // Every provider observation must re-prove metadata; retained marker hysteresis is not a fresh sign.
+  m_currentRoadSpeedLimit = {};
+  if (!m_freeDrivingRoadSnapEnabled || !m_router || !m_router->HasRouter())
   {
     if (m_freeDrivingProjectionSeeded ||
         m_freeDrivingRoadMatcher.GetState() != free_driving_snap::MatchState::Unsnapped)
@@ -789,7 +792,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     m_freeDrivingLastAcceptedRawPoint = rawPoint;
     m_freeDrivingHasLastAcceptedRawPoint = true;
     m_freeDrivingLastAcceptedRoadTimestamp = observationTimestamp;
-    if (edgeChanged || m_freeDrivingDisplayCorridor.empty())
+    if (!IsActive() && (edgeChanged || m_freeDrivingDisplayCorridor.empty()))
       RefreshDisplayCorridor(*m_router, m_freeDrivingProjection, policyInfo, m_freeDrivingDisplayCorridor);
   }
   else if (decision.m_action == free_driving_snap::MatcherAction::HoldCurrentRoad && previous != nullptr &&
@@ -802,7 +805,7 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
     m_freeDrivingLastAcceptedRawPoint = rawPoint;
     m_freeDrivingHasLastAcceptedRawPoint = true;
     m_freeDrivingLastAcceptedRoadTimestamp = observationTimestamp;
-    if (m_freeDrivingDisplayCorridor.empty())
+    if (!IsActive() && m_freeDrivingDisplayCorridor.empty())
       RefreshDisplayCorridor(*m_router, m_freeDrivingProjection, policyInfo, m_freeDrivingDisplayCorridor);
   }
   else if (decision.m_action == free_driving_snap::MatcherAction::EnterParkingFree ||
@@ -827,10 +830,23 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
          m_freeDrivingAreaContext.m_insideStrongOpenArea, "weak_open=", m_freeDrivingAreaContext.m_insideWeakOpenArea));
   }
 
+  bool const currentRoadConfirmed =
+      (decision.m_action == free_driving_snap::MatcherAction::UseBestRoad && bestAcceptable && bestUnambiguous) ||
+      (decision.m_action == free_driving_snap::MatcherAction::HoldCurrentRoad && stationaryHold && current != nullptr &&
+       current == best && bestUnambiguous && IsAcceptable(*current, policyInfo, true));
+  if (currentRoadConfirmed && !offRoadEvidence && !bestParkingRoad &&
+      accuracy == free_driving_snap::AccuracyBand::Good &&
+      m_freeDrivingRoadMatcher.GetState() == free_driving_snap::MatchState::Road && m_freeDrivingProjectionSeeded)
+  {
+    m_currentRoadSpeedLimit = {m_router->GetFreeDrivingRoadSpeedLimit(m_freeDrivingProjection.m_edge),
+                               rawLocation.m_monotonicTimestamp, CandidateToken(m_freeDrivingProjection.m_edge),
+                               CurrentRoadSpeedLimit::Clock::now()};
+  }
+
   bool const persistenceDue =
       decision.m_stateChanged || m_freeDrivingLastPersistenceTimestamp <= 0.0 ||
       rawLocation.m_timestamp - m_freeDrivingLastPersistenceTimestamp >= free_driving_snap::kPersistenceRefreshSeconds;
-  if (persistenceDue && rawLocation.m_timestamp > 0.0)
+  if (!IsActive() && persistenceDue && rawLocation.m_timestamp > 0.0)
   {
     SchedulePersistedState(m_freeDrivingRoadMatcher.GetState(), rawLocation);
     m_freeDrivingLastPersistenceTimestamp = rawLocation.m_timestamp;
@@ -839,6 +855,18 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   m_freeDrivingLastRawPoint = rawPoint;
   m_freeDrivingHasLastRawPoint = true;
   m_freeDrivingLastObservationTimestamp = observationTimestamp;
+}
+
+std::optional<CurrentRoadSpeedLimit> RoutingSession::GetCurrentRoadSpeedLimit() const
+{
+  CHECK_THREAD_CHECKER(m_threadChecker, ());
+  if (!m_freeDrivingRoadSnapEnabled || !m_freeDrivingProjectionSeeded ||
+      !m_freeDrivingProjection.m_edge.GetFeatureId().m_mwmId.IsAlive() ||
+      !m_currentRoadSpeedLimit.IsFresh(CurrentRoadSpeedLimit::Clock::now()))
+  {
+    return std::nullopt;
+  }
+  return m_currentRoadSpeedLimit;
 }
 
 bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo const & displayInput,

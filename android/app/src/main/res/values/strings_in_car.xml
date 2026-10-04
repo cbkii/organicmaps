@@ -94,8 +94,6 @@
   <string name="in_car_map_age_warning_title">Outdated map notice</string>
   <string name="in_car_map_age_warning_summary">Show a non-blocking notice when the installed global map-data version is more than six months old.</string>
   <string name="in_car_maps_may_be_outdated">Maps may be outdated</string>
-  <string name="in_car_show_track_recording_button_title">Track recording button</string>
-  <string name="in_car_show_track_recording_button_summary">Keep a track recording control near the zoom buttons so recording can be started or opened directly.</string>
   <string name="in_car_advanced_menu_title">Advanced</string>
   <string name="in_car_navigation_more">More navigation options</string>
   <string name="in_car_navigation_voice">Voice guidance</string>

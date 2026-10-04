@@ -77,4 +77,6 @@
   <color name="routing_bottom_button_bg">@color/in_car_surface_raised</color>
 
   <color name="material_calendar_surface_dark">@color/in_car_surface_raised</color>
+  <color name="in_car_nav_foreground">#FFF1F3F4</color>
+  <color name="in_car_nav_secondary">#FFBDC1C6</color>
 </resources>
