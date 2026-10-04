@@ -59,8 +59,8 @@ def verify_my_position() -> None:
     button = by_id(layout, "my_position")
     require(button.attrib.get(f"{{{APP_NS}}}backgroundTint") == "@android:color/transparent",
             f"{layout}: My Position must have no visible button background")
-    require(button.attrib.get(f"{{{APP_NS}}}rippleColor") == "@android:color/transparent",
-            f"{layout}: My Position ripple must not recreate visible button chrome")
+    require(button.attrib.get(f"{{{APP_NS}}}rippleColor") == "?attr/colorControlHighlight",
+            f"{layout}: My Position must retain transient pressed feedback")
     require(button.attrib.get(f"{{{APP_NS}}}fabCustomSize") == "@dimen/in_car_map_primary_button_size",
             f"{layout}: icon-only My Position must retain the automotive hit target")
 
@@ -69,6 +69,9 @@ def verify_my_position() -> None:
     for token in ("LocationState.nativeRecenterToCurrentPosition()",
                   "LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION"):
         require(token in click, f"MyPositionButton InCar click contract missing {token}")
+    require(click.find("LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION") <
+            click.find("LocationState.nativeRecenterToCurrentPosition()"),
+            "location acquisition must precede cached recenter when location is off")
     for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", "setDrivingViewEnabled"):
         require(forbidden not in click, f"MyPositionButton InCar click must not change location mode via {forbidden}")
     render = method_body(java, "private void updateInCar()")
@@ -124,14 +127,19 @@ def verify_track_recording() -> None:
             "menu model must carry immutable checkable state")
     adapter = read("android/app/src/main/java/app/organicmaps/util/bottomsheet/MenuAdapter.java")
     bind = method_body(adapter, "public void onBindViewHolder(")
-    require(bind.find("toggle.setOnCheckedChangeListener(null)") < bind.find("toggle.setChecked(item.checked)"),
+    detach_at = bind.find("toggle.setOnCheckedChangeListener(null)")
+    checked_at = bind.find("toggle.setChecked(item.checked)")
+    require(0 <= detach_at < checked_at,
             "menu binding must detach the switch listener before applying observed state")
     require("if (checked != item.checked)" in bind,
             "menu switch must not dispatch merely because RecyclerView rebound the row")
     require("v -> toggle.setChecked(!toggle.isChecked())" in bind,
             "row and switch must converge on one switch command path")
 
-    row = by_id("android/app/src/main/res/layout/bottom_sheet_menu_item.xml", "bottom_sheet_menu_item_switch")
+    require("toggle.setContentDescription(viewHolder.getTitleTextView().getText())" in bind,
+            "the switch must carry its observed row action as an accessible name")
+
+    row = by_id("android/app/src/inCar/res/layout/bottom_sheet_menu_item.xml", "bottom_sheet_menu_item_switch")
     require(row.attrib.get(f"{{{ANDROID_NS}}}visibility") == "gone",
             "ordinary menu rows must not gain a visible switch")
     require(row.attrib.get(f"{{{APP_NS}}}showText") == "true",

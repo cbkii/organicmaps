@@ -71,6 +71,7 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
     if (item.checkable)
     {
       toggle.setVisibility(View.VISIBLE);
+      toggle.setContentDescription(viewHolder.getTitleTextView().getText());
       toggle.setChecked(item.checked);
       toggle.setOnCheckedChangeListener((button, checked) -> {
         if (checked != item.checked)

@@ -178,6 +178,8 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
       mMenuBottomSheetItems.removeIf(item
                                      -> item.iconRes == R.drawable.ic_track_recording_off
                                             || item.iconRes == R.drawable.ic_track_recording_on);
+      if (mMenuBottomSheetItems.isEmpty())
+        mMenuBottomSheetItems = null;
       return;
     }
 

@@ -11,4 +11,4 @@
   app:fabCustomSize="@dimen/in_car_map_primary_button_size"
   app:maxImageSize="@dimen/in_car_map_primary_icon_size"
   app:pressedTranslationZ="0dp"
-  app:rippleColor="@android:color/transparent" />
+  app:rippleColor="?attr/colorControlHighlight" />

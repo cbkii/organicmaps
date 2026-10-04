@@ -51,14 +51,13 @@ public class MyPositionButton
     if (!Map.isEngineCreated())
       return;
 
-    if (LocationState.nativeRecenterToCurrentPosition())
-      return;
-
     // The native bridge has retained exactly one recenter for the next valid provider fix.
     // Only NO_POSITION needs the established Android acquisition path. PENDING must stay pending:
     // invoking the legacy click there would explicitly turn location off.
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
       mDefaultListener.onClick(view);
+
+    LocationState.nativeRecenterToCurrentPosition();
   }
 
   public void update(int mode)
@@ -132,7 +131,7 @@ public class MyPositionButton
     // Preserve the InCar resource-defined automotive icon size; unlike the mobile mode renderer,
     // this stable command has no mode-dependent geometry.
     ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, R.attr.iconTint)));
-    mButton.setContentDescription(context.getString(R.string.core_my_position));
+    mButton.setContentDescription(context.getString(app.organicmaps.sdk.R.string.core_my_position));
     mButton.clearAnimation();
     mButton.setPadding(0, 0, 0, 0);
   }

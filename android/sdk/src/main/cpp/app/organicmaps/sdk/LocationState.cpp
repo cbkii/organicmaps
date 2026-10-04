@@ -1,4 +1,5 @@
 #include "Framework.hpp"
+#include "CurrentPositionFreshness.hpp"
 #include "map/gps_tracker.hpp"
 
 #include "app/organicmaps/sdk/core/jni_helper.hpp"
@@ -11,11 +12,11 @@
 
 #include <chrono>
 #include <cmath>
+#include <time.h>
 
 namespace
 {
 auto constexpr kStartupCameraBridgeLifetime = std::chrono::seconds(10);
-auto constexpr kCurrentPositionLifetime = std::chrono::seconds(10);
 
 struct StartupCameraBridgeState
 {
@@ -27,7 +28,7 @@ struct StartupCameraBridgeState
 struct CurrentPositionState
 {
   m2::PointD m_position = m2::PointD::Zero();
-  std::chrono::steady_clock::time_point m_receivedAt;
+  int64_t m_observedAtNanos = 0;
   bool m_valid = false;
   bool m_recenterPending = false;
 };
@@ -64,10 +65,18 @@ bool IsValidProviderPosition(double lat, double lon)
   return std::isfinite(lat) && std::isfinite(lon) && lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0;
 }
 
+int64_t BootTimeNanos()
+{
+  timespec bootTime{};
+  if (clock_gettime(CLOCK_BOOTTIME, &bootTime) != 0)
+    return -1;
+  return static_cast<int64_t>(bootTime.tv_sec) * 1000000000 + bootTime.tv_nsec;
+}
+
 bool HasFreshCurrentPosition()
 {
   return g_currentPosition.m_valid &&
-         std::chrono::steady_clock::now() - g_currentPosition.m_receivedAt <= kCurrentPositionLifetime;
+         IsFreshPositionObservation(g_currentPosition.m_observedAtNanos, BootTimeNanos());
 }
 
 bool RecenterToCurrentPosition()
@@ -110,6 +119,7 @@ static void LocationStateModeChanged(location::EMyPositionMode mode, std::shared
 //  public static void nativeSwitchToNextMode();
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSwitchToNextMode(JNIEnv * env, jclass clazz)
 {
+  g_currentPosition.m_recenterPending = false;
   g_framework->SwitchMyPositionNextMode();
 }
 
@@ -155,11 +165,13 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeRemoveListe
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeOnLocationError(JNIEnv * env, jclass clazz,
                                                                                      int errorCode)
 {
+  g_currentPosition = {};
   g_framework->OnLocationError(errorCode);
 }
 
 JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeResetFreeDrivingSession(JNIEnv *, jclass)
 {
+  g_currentPosition = {};
   // Provider teardown can precede framework creation. This bridge must fail open.
   if (g_framework)
     g_framework->NativeFramework()->GetRoutingManager().ResetFreeDrivingLocationSession();
@@ -213,10 +225,12 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeLocationUpd
   g_framework->OnLocationUpdated(info);
   GpsTracker::Instance().OnLocationUpdated(info);
 
-  if (IsValidProviderPosition(lat, lon))
+  bool const freshObservation = IsFreshPositionObservation(monotonicTimeNanos, BootTimeNanos());
+  g_currentPosition.m_valid = false;
+  if (IsValidProviderPosition(lat, lon) && freshObservation)
   {
     g_currentPosition.m_position = mercator::FromLatLon(lat, lon);
-    g_currentPosition.m_receivedAt = std::chrono::steady_clock::now();
+    g_currentPosition.m_observedAtNanos = monotonicTimeNanos;
     g_currentPosition.m_valid = true;
     if (g_currentPosition.m_recenterPending && RecenterToCurrentPosition())
       g_currentPosition.m_recenterPending = false;
@@ -234,7 +248,10 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSetDrivingV
   // A recentering app-side Driving View action explicitly takes camera ownership from the bounded launcher bridge.
   // Cancel first so a stale bridge timeout/fix cannot later disable the newly selected manual/persistent state.
   if (recenter)
+  {
+    g_currentPosition.m_recenterPending = false;
     CancelStartupCameraBridge();
+  }
 
   auto const drapeEngine = GetDrapeEngine();
   if (drapeEngine != nullptr)

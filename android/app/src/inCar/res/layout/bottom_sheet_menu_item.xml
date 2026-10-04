@@ -32,6 +32,17 @@
     android:ellipsize="end"
     tools:text="Menu Item" />
 
+  <androidx.appcompat.widget.SwitchCompat
+    android:id="@+id/bottom_sheet_menu_item_switch"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:gravity="center_vertical"
+    android:textOff="@string/in_car_switch_off"
+    android:textOn="@string/in_car_switch_on"
+    android:visibility="gone"
+    app:showText="true"
+    tools:checked="true"
+    tools:visibility="visible" />
   <TextView
     android:id="@+id/bottom_sheet_menu_item_badge"
     style="@style/MwmWidget.Counter"

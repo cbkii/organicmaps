@@ -79,3 +79,4 @@ jobs:
           python3 -X dev -W default android/tools/verify_in_car_touch_targets_rail.py
           python3 -X dev -W default android/tools/verify_in_car_compact_chrome.py
           python3 -X dev -W default android/tools/verify_in_car_location_recording_controls.py
+          python3 -m unittest discover -s android/tools/tests -p test_in_car_controls.py
