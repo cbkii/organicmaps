@@ -7,6 +7,7 @@ public class MenuBottomSheetItem
   public final int badgeCount;
   public final boolean checkable;
   public final boolean checked;
+  private boolean actionDispatched;
   public final OnClickListener onClickListener;
 
   public MenuBottomSheetItem(int titleRes, int iconRes, OnClickListener onClickListener)
@@ -34,6 +35,16 @@ public class MenuBottomSheetItem
     this.checkable = checkable;
     this.checked = checked;
     this.onClickListener = onClickListener;
+  }
+
+  // A checkable command can dispatch once per menu snapshot, including after RecyclerView rebinds.
+  // This is an event guard, not recorder state: checked always comes from the native recorder.
+  public boolean claimAction()
+  {
+    if (checkable && actionDispatched)
+      return false;
+    actionDispatched = true;
+    return true;
   }
 
   public interface OnClickListener

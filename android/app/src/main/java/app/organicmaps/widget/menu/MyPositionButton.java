@@ -29,8 +29,6 @@ public class MyPositionButton
 
   @NonNull
   private final FloatingActionButton mButton;
-  @NonNull
-  private final View.OnClickListener mDefaultListener;
   private static final SparseArray<Drawable> mIcons = new SparseArray<>(); // Location mode -> Button icon
 
   private final int mFollowPaddingShift;
@@ -38,26 +36,11 @@ public class MyPositionButton
   public MyPositionButton(@NonNull View button, @NonNull View.OnClickListener listener)
   {
     mButton = (FloatingActionButton) button;
-    mDefaultListener = listener;
-    mButton.setOnClickListener(BuildConfig.IS_IN_CAR ? this::onInCarClick : listener);
+    mButton.setOnClickListener(listener);
     mIcons.clear();
     mFollowPaddingShift = (int) (FOLLOW_SHIFT * button.getResources().getDisplayMetrics().density);
     final int locationMode = Map.isEngineCreated() ? LocationState.getMode() : LocationState.NOT_FOLLOW_NO_POSITION;
     update(locationMode);
-  }
-
-  private void onInCarClick(@NonNull View view)
-  {
-    if (!Map.isEngineCreated())
-      return;
-
-    // The native bridge has retained exactly one recenter for the next valid provider fix.
-    // Only NO_POSITION needs the established Android acquisition path. PENDING must stay pending:
-    // invoking the legacy click there would explicitly turn location off.
-    if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
-      mDefaultListener.onClick(view);
-
-    LocationState.nativeRecenterToCurrentPosition();
   }
 
   public void update(int mode)
@@ -131,7 +114,7 @@ public class MyPositionButton
     // Preserve the InCar resource-defined automotive icon size; unlike the mobile mode renderer,
     // this stable command has no mode-dependent geometry.
     ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, R.attr.iconTint)));
-    mButton.setContentDescription(context.getString(app.organicmaps.sdk.R.string.core_my_position));
+    mButton.setContentDescription(context.getString(R.string.in_car_recenter_my_position));
     mButton.clearAnimation();
     mButton.setPadding(0, 0, 0, 0);
   }

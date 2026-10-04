@@ -257,7 +257,7 @@ def verify_camera_control_rail(root: Path) -> None:
         raise VerificationError(f"{zoom_layout}: camera controls must have a dedicated stable rail root")
 
     direct_ids = [resource_id(child, id_attr) for child in zoom_root]
-    expected_direct_ids = ["in_car_driving_view_button", "zoom_buttons_container", "track_recording_status"]
+    expected_direct_ids = ["in_car_driving_view_button", "zoom_buttons_container"]
     if direct_ids != expected_direct_ids:
         raise VerificationError(
             f"{zoom_layout}: camera rail direct children must be {expected_direct_ids}; found {direct_ids}"

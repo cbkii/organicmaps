@@ -207,6 +207,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private int mLocationRecoveryGeneration;
   private boolean mLocationActivityStopped = true;
   private boolean mLocationWarningIssued;
+  // Android recovery context only; the render controller owns the pending camera request.
+  private boolean mInCarRecenterRecovery;
   private boolean mLocationSettlingExhausted;
   private final BroadcastReceiver mLocationModeReceiver = new BroadcastReceiver() {
     @Override
@@ -842,17 +844,21 @@ public class MwmActivity extends BaseMwmFragmentActivity
       Logger.i(LOCATION_TAG, "The location button pressed");
       if (BuildConfig.IS_IN_CAR)
       {
+        if (!Map.isEngineCreated())
+          return;
+        LocationState.nativeRecenterToCurrentPosition();
+        final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
         final int mode = LocationState.getMode();
-        // Only a user click while waiting explicitly turns location updates off. A restored
-        // NotFollowNoPosition mode or a provider error is not evidence of this user action.
-        if (mode == LocationState.PENDING_POSITION)
+        if (!helper.isActive()
+            && (mode == LocationState.NOT_FOLLOW_NO_POSITION || mode == LocationState.PENDING_POSITION))
         {
-          InCarSettingsStore.setExplicitLocationOff(this, true);
-          if (MwmApplication.from(this).getInCarDrivingViewController() != null)
-            MwmApplication.from(this).getInCarDrivingViewController().onExplicitLocationOff();
+          mInCarRecenterRecovery = true;
+          if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))
+            restartLocationAfterAvailabilityConfirmed("My Position recenter acquisition");
+          else
+            settleInCarLocation();
         }
-        else if (mode == LocationState.NOT_FOLLOW_NO_POSITION)
-          InCarSettingsStore.setExplicitLocationOff(this, false);
+        return;
       }
       // Calls onMyPositionModeChanged(mode + 1).
       LocationState.nativeSwitchToNextMode();
@@ -1126,6 +1132,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   protected void onStop()
   {
     mLocationActivityStopped = true;
+    mInCarRecenterRecovery = false;
     if (BuildConfig.IS_IN_CAR)
       unregisterReceiver(mLocationModeReceiver);
     cancelInCarLocationRecovery();
@@ -2122,7 +2129,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
         showLocationPermissionDeniedDialog(true);
       else if (action == ProviderAction.RESTORE_LOCATION)
       {
-        if (InCarSettingsStore.isExplicitLocationOff(this))
+        if (InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery)
           mLocationPromptCoordinator.finishProviderRecoveryAttempt();
         else
           restartLocationAfterAvailabilityConfirmed("InCar provider callback with Location enabled");
@@ -2204,7 +2211,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   /** Checks Android's master switch for at most ten seconds, without polling for a GNSS fix. */
   private void settleInCarLocation()
   {
-    if (mLocationActivityStopped || InCarSettingsStore.isExplicitLocationOff(this))
+    if (mLocationActivityStopped || (InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery))
       return;
     if (!LocationUtils.checkLocationPermission(this))
     {
@@ -2300,8 +2307,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
     }
 
-    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this))
+    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery)
     {
+      mLocationPromptCoordinator.finishProviderRecoveryAttempt();
+      return;
+    }
+
+    if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)
+    {
+      MwmApplication.from(this).getLocationHelper().resumeLocationInForeground(true);
+      mInCarRecenterRecovery = false;
       mLocationPromptCoordinator.finishProviderRecoveryAttempt();
       return;
     }

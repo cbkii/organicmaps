@@ -76,16 +76,4 @@
       android:layout_height="@dimen/in_car_map_primary_button_size" />
   </LinearLayout>
 
-  <!-- Compatibility-only shared controller ID. InCarSettingsStore permanently disables this view;
-       Track Recording is exposed by the top-level menu switch instead. -->
-  <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/track_recording_status"
-    style="@style/MwmWidget.MapButton.Zoom"
-    android:contentDescription="@string/track_recording_title"
-    android:importantForAccessibility="no"
-    android:visibility="gone"
-    app:backgroundTint="@color/in_car_map_button_background"
-    app:fabCustomSize="@dimen/in_car_compact_map_button_size"
-    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-    app:srcCompat="@drawable/ic_track_recording_status" />
 </LinearLayout>

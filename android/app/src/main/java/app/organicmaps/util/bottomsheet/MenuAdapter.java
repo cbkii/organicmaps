@@ -30,6 +30,8 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
 
   private void onMenuItemClick(MenuBottomSheetItem item)
   {
+    if (!item.claimAction())
+      return;
     if (onClickListener != null)
       onClickListener.onClick();
     item.onClickListener.onClick();

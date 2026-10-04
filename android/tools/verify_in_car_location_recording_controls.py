@@ -65,50 +65,48 @@ def verify_my_position() -> None:
             f"{layout}: icon-only My Position must retain the automotive hit target")
 
     java = read("android/app/src/main/java/app/organicmaps/widget/menu/MyPositionButton.java")
-    click = method_body(java, "private void onInCarClick(")
-    for token in ("LocationState.nativeRecenterToCurrentPosition()",
-                  "LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION"):
-        require(token in click, f"MyPositionButton InCar click contract missing {token}")
-    require(click.find("LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION") <
-            click.find("LocationState.nativeRecenterToCurrentPosition()"),
-            "location acquisition must precede cached recenter when location is off")
-    for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", "setDrivingViewEnabled"):
-        require(forbidden not in click, f"MyPositionButton InCar click must not change location mode via {forbidden}")
+    activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+    click = method_body(activity, "case myPosition ->")
+    incar = method_body(click, "if (BuildConfig.IS_IN_CAR)")
+    require("LocationState.nativeRecenterToCurrentPosition()" in incar,
+            "InCar click must request native recenter")
+    for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
+        require(forbidden not in incar, f"InCar click must not change intent via {forbidden}")
     render = method_body(java, "private void updateInCar()")
     require("R.drawable.ic_not_follow" in render, "InCar My Position must use one stable crosshair icon")
     require("setSelected(false)" in render and "clearAnimation()" in render,
             "InCar My Position must not render mode-selected/pending state")
 
     bridge = read("android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp")
-    recenter = method_body(bridge, "bool RecenterToCurrentPosition()")
-    require("SetModelViewCenter" in recenter and "kDoNotChangeZoom" in recenter,
-            "native InCar recenter must reuse the existing mode-neutral camera-centre authority")
-    for forbidden in ("SwitchMyPositionNextMode", "SetDrivingView", "ChangeMode"):
-        require(forbidden not in recenter, f"native recenter must not mutate My Position mode via {forbidden}")
-    jni = method_body(
-        bridge, "Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition")
-    require("m_recenterPending = true" in jni,
-            "a missing fresh fix must retain exactly one pending recenter request")
+    jni = method_body(bridge, "Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition")
+    require("RecenterMyPositionPreservingMode()" in jni, "JNI must dispatch to native camera owner")
+    require("CurrentPositionState" not in bridge and "g_currentPosition" not in bridge,
+            "JNI must not maintain a second provider position cache")
+    controller = read("libs/drape_frontend/my_position_controller.cpp")
+    recenter = method_body(controller, "void MyPositionController::RecenterPreservingMode()")
+    for token in ("m_isPositionAssigned", "IsFreshPositionObservation", "m_recenterPending = true",
+                  "m_recenterPending = false", "m_position", "m_drawDirection", "GetRoutingRotationPixelCenter()",
+                  "m_visiblePixelRect.Center()", "kDoNotChangeZoom"):
+        require(token in recenter, f"native recenter owner missing {token}")
+    for forbidden in ("ChangeMode", "NextMode", "SetDrivingView"):
+        require(re.search(r"\b" + forbidden + r"\s*\(", recenter) is None,
+                f"native recenter must not change intent via {forbidden}")
+    fresh = method_body(controller, "void MyPositionController::RefreshLocationFreshness(")
+    require("if (m_recenterPending)" in fresh and "RecenterPreservingMode()" in fresh,
+            "accepted fresh native position must consume a pending request")
 
 
 def verify_track_recording() -> None:
     zoom = "android/app/src/inCar/res/layout/map_buttons_zoom.xml"
-    status = by_id(zoom, "track_recording_status")
-    require(status.attrib.get(f"{{{ANDROID_NS}}}visibility") == "gone",
-            f"{zoom}: Track Recording compatibility view must remain hidden")
-    require(status.attrib.get(f"{{{ANDROID_NS}}}importantForAccessibility") == "no",
-            f"{zoom}: hidden Track Recording view must not remain an accessibility action")
-
+    require("track_recording_status" not in read(zoom), "InCar must remove the recording map FAB")
     prefs = read("android/app/src/main/res/xml/prefs_in_car.xml")
     require("pref_in_car_show_track_recording_button" not in prefs,
             "InCar Settings must not expose a Show Track Recording map-button preference")
     settings = read("android/app/src/main/java/app/organicmaps/incar/InCarSettingsStore.java")
     require("KEY_SHOW_TRACK_RECORDING_BUTTON" not in settings,
             "obsolete Track Recording map-button preference storage must stay removed")
-    show = method_body(settings, "public static boolean isShowTrackRecordingButton(")
-    require(re.search(r"\breturn\s+false\s*;", show) is not None,
-            "shared MapButtons compatibility seam must permanently hide Track Recording in InCar")
-
+    require("isShowTrackRecordingButton" not in settings,
+            "obsolete map recording visibility accessor must be removed")
     fragment = read("android/app/src/main/java/app/organicmaps/util/bottomsheet/MenuBottomSheetFragment.java")
     adapt = method_body(fragment, "private void adaptInCarMenu(")
     for token in ("MAIN_MENU_ID", "ADVANCED_MENU_ID", "MenuBottomSheetItem.checkable(",
@@ -126,6 +124,8 @@ def verify_track_recording() -> None:
     require("public final boolean checkable" in item and "public final boolean checked" in item,
             "menu model must carry immutable checkable state")
     adapter = read("android/app/src/main/java/app/organicmaps/util/bottomsheet/MenuAdapter.java")
+    action = method_body(adapter, "private void onMenuItemClick(")
+    require("if (!item.claimAction())" in action, "menu action must guard duplicate gestures across rebinds")
     bind = method_body(adapter, "public void onBindViewHolder(")
     detach_at = bind.find("toggle.setOnCheckedChangeListener(null)")
     checked_at = bind.find("toggle.setChecked(item.checked)")

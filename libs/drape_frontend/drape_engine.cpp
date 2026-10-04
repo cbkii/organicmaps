@@ -505,6 +505,14 @@ void DrapeEngine::LoseLocation()
                                   MessagePriority::Normal);
 }
 
+void DrapeEngine::RecenterMyPositionPreservingMode()
+{
+  using Mode = ChangeMyPositionModeMessage::EChangeType;
+  m_threadCommutator->PostMessage(ThreadsCommutator::RenderThread,
+                                  make_unique_dp<ChangeMyPositionModeMessage>(Mode::RecenterPreservingMode),
+                                  MessagePriority::Normal);
+}
+
 void DrapeEngine::StopLocationFollow()
 {
   using Mode = ChangeMyPositionModeMessage::EChangeType;

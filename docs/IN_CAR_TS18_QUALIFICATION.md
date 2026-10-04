@@ -152,3 +152,34 @@ Normal route limits, including explicit unrestricted zero, take precedence. A fa
 Required physical cases: route START/low speed/stationary known route limit, before first manoeuvre, after turn and road/direction change; unknown route with current-road fallback; non-route Driving follow and moving-road sign; map with absent limit, parking/off-road/poor accuracy; provider OFF/ON and map replacement; route END/restart; long ACC sleep/wake and process restart. Confirm no stale sign or guessed national default, no 10km/h delay, no competing routed marker trajectory and no additional renderer wake/graph rebuild. Re-test START/JNI, intermediate stops, rerouting, selected alternative, route lease/expiry and optional untextured arrow fallback on the same final APK.
 
 Repository validation adds Java source/packaged DEX checks for the exact RoadSpeedLimitInfo (DJJ)V constructor and Framework native registration; the definition-only DEX reader has reference-only and wrong-signature regressions. A small host C++ test executes the production metadata freshness/reset contract. Full native routing/matcher/renderer suites remain **NOT_RUN** unless a supported native runner executes them; Android compilation and this small policy test do not imply those suites ran.
+
+## Positioning and recording requirements (4 October 2026)
+
+The earlier implementation only hid the recording FAB and recentred on a separate JNI provider cache.
+The final implementation removes the InCar recording view/accessor and sends recenter requests through
+DrapeEngine's existing render-thread message queue to MyPositionController. Its accepted position,
+assigned/freshness state, heading and visible/routing rotation centre remain authoritative. Recenter
+never cycles mode or changes Driving View/routing intent. One pending request is consumed on an
+accepted fresh fix; explicit mode/Driving View recenter, drag and route activation cancel it.
+Android observation age uses the original elapsed-realtime timestamp and CLOCK_BOOTTIME, including sleep.
+
+My Position is a stable icon-only automotive hit target labelled “Centre on my location”. Acquisition
+uses the existing bounded Android permission/settings coordinator and LocationHelper, without changing
+the persisted explicit-off preference. Assigned modes do not restart providers merely to recenter.
+The main menu recording switch reads native state, starts through the existing permission/service path,
+and stops through the existing save-and-stop path. A per-menu command guard prevents duplicate gestures,
+including RecyclerView rebinding; it stores no optimistic recorder state. Ordinary rows retain their
+existing behaviour, and Advanced contains no duplicate recording action.
+
+| Requirement | Evidence / qualification |
+| --- | --- |
+| NotFollow/Follow/FollowAndRotate, angle/viewport, route/Driving intent, repeated taps | Actual production recenter method executed in isolated C++ listener/clock harness |
+| Missing/stale/future/replayed/sleep observation; one pending request | Native method isolation and production freshness-header boundary tests |
+| No InCar map recording FAB or obsolete setting | XML/source verifier and automotive touch-target checks |
+| Binding has no command; row/switch one dispatch, including rapid gestures and rebind | Listener-order source mutation tests and actual Java menu-model command guard; canonical CI executes JDK test |
+| Main switch and normal rows; existing permission/start/save/stop authorities | Source contract checks; Android unit/build and API29/30 smoke remain canonical gates |
+| Full native drape/routing integration tests | NOT_RUN: repository forces BUILD_TESTING=OFF; method isolation is not full renderer integration |
+| Real recording, GNSS, provider/settings/permission recovery and physical day/night UX | NOT_RUN: no connected TS18; do not mark these device acceptance rows passed |
+
+The signed TESTING candidate must be built only after the final repository checks pass. Any earlier
+snapshot belongs to its recorded older SHA and does not qualify these added requirements.

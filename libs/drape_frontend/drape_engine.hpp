@@ -164,6 +164,7 @@ public:
   void SwitchMyPositionNextMode();
   void LoseLocation();
   void StopLocationFollow();
+  void RecenterMyPositionPreservingMode();
   void SetDrivingView(bool enabled, bool autoReturn, bool recenter);
 
   using TapEventInfoHandler = FrontendRenderer::TapEventInfoHandler;

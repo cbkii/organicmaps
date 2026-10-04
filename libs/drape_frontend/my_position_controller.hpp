@@ -111,6 +111,7 @@ public:
 
   void StopLocationFollow();
   void NextMode(ScreenBase const & screen);
+  void RecenterPreservingMode();
   void LoseLocation();
   location::EMyPositionMode GetCurrentMode() const { return m_mode; }
 
@@ -202,6 +203,8 @@ private:
   base::Timer m_blockAutoZoomTimer;
   base::Timer m_updateLocationTimer;
   double m_lastLocationTimestamp;
+  int64_t m_lastRecenterObservationNanos = 0;
+  bool m_recenterPending = false;
 
   m2::RectD m_pixelRect;
   m2::RectD m_visiblePixelRect;

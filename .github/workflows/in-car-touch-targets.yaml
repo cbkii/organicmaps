@@ -28,6 +28,11 @@ on:
       - 'android/tools/verify_in_car_touch_targets_rail.py'
       - 'android/tools/verify_in_car_compact_chrome.py'
       - 'android/tools/verify_in_car_location_recording_controls.py'
+      - 'android/tools/tests/test_in_car_controls.py'
+      - 'libs/drape_frontend/*position*'
+      - 'libs/drape_frontend/drape_engine.*'
+      - 'libs/drape_frontend/frontend_renderer.cpp'
+      - 'libs/drape_frontend/message_subclasses.hpp'
   pull_request:
     paths:
       - '.github/workflows/in-car-touch-targets.yaml'
@@ -53,6 +58,11 @@ on:
       - 'android/tools/verify_in_car_touch_targets_rail.py'
       - 'android/tools/verify_in_car_compact_chrome.py'
       - 'android/tools/verify_in_car_location_recording_controls.py'
+      - 'android/tools/tests/test_in_car_controls.py'
+      - 'libs/drape_frontend/*position*'
+      - 'libs/drape_frontend/drape_engine.*'
+      - 'libs/drape_frontend/frontend_renderer.cpp'
+      - 'libs/drape_frontend/message_subclasses.hpp'
 
 permissions:
   contents: read

@@ -42,12 +42,10 @@ public final class LocationState
   public static native void nativeSwitchToNextMode();
 
   /**
-   * Recentres on a fresh provider observation without changing the native My Position mode.
+   * Requests recentering on the render controller's accepted fresh position without changing the native My Position mode.
    * If no fresh observation exists yet, exactly one recenter is kept pending for the next valid fix.
-   *
-   * @return true when a fresh position was available and the recenter was dispatched immediately.
    */
-  public static native boolean nativeRecenterToCurrentPosition();
+  public static native void nativeRecenterToCurrentPosition();
 
   @Value
   private static native int nativeGetMode();

@@ -89,11 +89,7 @@ public class MapButtonsController extends Fragment
   {
     final boolean recording = Boolean.TRUE.equals(enable);
     updateMenuBadge(recording);
-    // InCar keeps the control available while idle so it can start recording; the setting controls
-    // visibility, while the recorder state controls only the active/blinking appearance.
-    final boolean show =
-        BuildConfig.IS_IN_CAR ? InCarSettingsStore.isShowTrackRecordingButton(requireContext()) : recording;
-    showButton(show, MapButtons.trackRecordingStatus);
+    showButton(recording, MapButtons.trackRecordingStatus);
   };
   private final Observer<Integer> mTopButtonMarginObserver = this::updateTopButtonsMargin;
 
@@ -187,8 +183,7 @@ public class MapButtonsController extends Fragment
       mButtonsMap.put(MapButtons.help, helpButton);
     if (mTrackRecordingStatusButton != null)
       mButtonsMap.put(MapButtons.trackRecordingStatus, mTrackRecordingStatusButton);
-    showButton(BuildConfig.IS_IN_CAR && InCarSettingsStore.isShowTrackRecordingButton(activity),
-               MapButtons.trackRecordingStatus);
+    showButton(false, MapButtons.trackRecordingStatus);
     if (BuildConfig.IS_IN_CAR)
     {
       showButton(true, MapButtons.search);

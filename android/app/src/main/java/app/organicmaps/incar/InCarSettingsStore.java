@@ -181,12 +181,6 @@ public final class InCarSettingsStore
     prefs(context).edit().putBoolean(KEY_WALKING_SESSION_ACTIVE, active).apply();
   }
 
-  /** Compatibility seam for the shared MapButtonsController; InCar no longer exposes this map button. */
-  public static boolean isShowTrackRecordingButton(@NonNull Context context)
-  {
-    return false;
-  }
-
   @NonNull
   private static SharedPreferences prefs(@NonNull Context context)
   {
