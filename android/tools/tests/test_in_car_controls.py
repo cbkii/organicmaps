@@ -168,3 +168,15 @@ public class GuardTest {
             with self.subTest(path=path), patch.object(controls, "read", altered):
                 with self.assertRaisesRegex(SystemExit, expected):
                     controls.verify_my_position()
+
+    def test_qualified_mobile_layout_selection_is_rejected(self):
+        original_read = controls.read
+        def altered(path):
+            source = original_read(path)
+            if path.endswith("MapButtonsController.java"):
+                source = source.replace("layout = R.layout.in_car_map_buttons_layout_regular",
+                                        "layout = R.layout.map_buttons_layout_regular")
+            return source
+        with patch.object(controls, "read", altered):
+            with self.assertRaisesRegex(SystemExit, "dedicated regular layout"):
+                controls.verify_track_recording()

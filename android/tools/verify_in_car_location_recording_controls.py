@@ -109,6 +109,18 @@ def verify_my_position() -> None:
 def verify_track_recording() -> None:
     zoom = "android/app/src/inCar/res/layout/map_buttons_zoom.xml"
     require("track_recording_status" not in read(zoom), "InCar must remove the recording map FAB")
+    controller = read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+    create = method_body(controller, "public View onCreateView(")
+    owning_layouts = method_body(create, "if (BuildConfig.IS_IN_CAR)")
+    for mode in ("regular", "navigation"):
+        name = f"in_car_map_buttons_layout_{mode}"
+        require(f"layout = R.layout.{name}" in owning_layouts,
+                f"InCar must select its dedicated {mode} layout before Android qualifier matching")
+        root = ET.parse(ROOT / f"android/app/src/main/res/layout/{name}.xml").getroot()
+        require(all(element.attrib.get("layout") != "@layout/map_status_track_recording" for element in root.iter()),
+                f"{name}: InCar must not include the shared recording map FAB")
+        require(not list((ROOT / "android/app/src/main/res").glob(f"layout-*/{name}.xml")),
+                f"{name}: qualified variants require explicit recording-free verification")
     prefs = read("android/app/src/main/res/xml/prefs_in_car.xml")
     require("pref_in_car_show_track_recording_button" not in prefs,
             "InCar Settings must not expose a Show Track Recording map-button preference")

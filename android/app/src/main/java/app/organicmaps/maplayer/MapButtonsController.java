@@ -104,10 +104,24 @@ public class MapButtonsController extends Fragment
     mPlacePageViewModel = new ViewModelProvider(activity).get(PlacePageViewModel.class);
     mMapButtonsViewModel = new ViewModelProvider(activity).get(MapButtonsViewModel.class);
     mSearchPageViewModel = new ViewModelProvider(activity).get(SearchPageViewModel.class);
-    if (mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation)
-      mFrame = inflater.inflate(R.layout.map_buttons_layout_navigation, container, false);
+    final boolean navigation = mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation;
+    final int layout;
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Distinct resource IDs prevent mobile landscape/height qualifiers from restoring removed controls.
+      if (navigation)
+        layout = R.layout.in_car_map_buttons_layout_navigation;
+      else
+        layout = R.layout.in_car_map_buttons_layout_regular;
+    }
     else
-      mFrame = inflater.inflate(R.layout.map_buttons_layout_regular, container, false);
+    {
+      if (navigation)
+        layout = R.layout.map_buttons_layout_navigation;
+      else
+        layout = R.layout.map_buttons_layout_regular;
+    }
+    mFrame = inflater.inflate(layout, container, false);
 
     mInnerLeftButtonsFrame = mFrame.findViewById(R.id.map_buttons_inner_left);
     mInnerRightButtonsFrame = mFrame.findViewById(R.id.map_buttons_inner_right);

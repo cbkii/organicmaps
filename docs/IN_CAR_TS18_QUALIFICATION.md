@@ -156,6 +156,8 @@ Repository validation adds Java source/packaged DEX checks for the exact RoadSpe
 ## Positioning and recording requirements (4 October 2026)
 
 The earlier implementation only hid the recording FAB and recentred on a separate JNI provider cache.
+Dedicated InCar regular/navigation layout IDs prevent higher-priority mobile landscape/height resources
+from restoring the recording FAB or duplicating My Position. Ordinary flavours retain their original layout IDs.
 The final implementation removes the InCar recording view/accessor and sends recenter requests through
 DrapeEngine's existing render-thread message queue to MyPositionController. Its accepted position,
 assigned/freshness state, heading and visible/routing rotation centre remain authoritative. Recenter

@@ -331,7 +331,7 @@ def verify_warning_foreground_contrast(root):
 
 
 def verify_navigation_quick_actions(root):
-    nav_buttons = root / "android/app/src/inCar/res/layout/map_buttons_layout_navigation.xml"
+    nav_buttons = root / "android/app/src/main/res/layout/in_car_map_buttons_layout_navigation.xml"
     base.require_layout_attr(nav_buttons, "map_buttons_inner_left", base.ANDROID_NS, "visibility", "gone")
 
     quick_ui = root / "android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java"
