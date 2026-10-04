@@ -17,11 +17,11 @@
 
 #include "base/math.hpp"
 
+#include <time.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <string_view>
-#include <time.h>
 
 namespace df
 {
@@ -546,7 +546,8 @@ void MyPositionController::RefreshLocationFreshness(location::GpsInfo const & in
 {
   m_positionIsObsolete = false;
 #if defined(__ANDROID__)
-  m_lastRecenterObservationNanos = static_cast<int64_t>((info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0) * 1.0e9);
+  m_lastRecenterObservationNanos =
+      static_cast<int64_t>((info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0) * 1.0e9);
 #else
   m_lastRecenterObservationNanos = static_cast<int64_t>(info.m_timestamp * 1.0e9);
 #endif
