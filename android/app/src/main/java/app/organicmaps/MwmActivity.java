@@ -165,6 +165,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private static final String LAYERS_MENU_ID = "LAYERS_MENU_BOTTOM_SHEET";
   private static final String ADVANCED_MENU_ID = "ADVANCED_MENU_BOTTOM_SHEET";
 
+  private static final String IN_CAR_RECENTER_RECOVERY = "IN_CAR_RECENTER_RECOVERY";
   private static final String POWER_SAVE_DISCLAIMER_SHOWN = "POWER_SAVE_DISCLAIMER_SHOWN";
 
   @SuppressWarnings("NotNullFieldNotInitialized")
@@ -664,8 +665,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     // Global listener on the activity's semantic root, so insets are captured regardless
     // of which overlay views happen to be present at dispatch time.
     ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.coordinator), (view, windowInsets) -> {
-      final int trackRecorderOffset =
-          TrackRecorder.nativeIsTrackRecordingEnabled() ? dimen(this, R.dimen.map_button_size) : 0;
+      final boolean hasMapRecordingButton = !BuildConfig.IS_IN_CAR && TrackRecorder.nativeIsTrackRecordingEnabled();
+      final int trackRecorderOffset = hasMapRecordingButton ? dimen(this, R.dimen.map_button_size) : 0;
       final Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
       // Drive nav-bar height from the AndroidX visibility signal — pre-R FLAG_FULLSCREEN
       // hides only the status bar, so inferring from app state misreports the nav bar.
@@ -1005,6 +1006,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       // orientation changing, etc. Otherwise, the saved route might be restored at undesirable moment.
       RoutingController.get().deleteSavedRoute();
 
+    outState.putBoolean(IN_CAR_RECENTER_RECOVERY, mInCarRecenterRecovery);
     outState.putBoolean(POWER_SAVE_DISCLAIMER_SHOWN, mPowerSaveDisclaimerShown);
     outState.putBoolean(EXTRA_CONSUMED, mIntentConsumed);
     super.onSaveInstanceState(outState);
@@ -1016,6 +1018,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     super.onRestoreInstanceState(savedInstanceState);
     // The routing plan fragment is restored by the FragmentManager and re-applies its own saved sheet state,
     // so there is nothing routing-related to restore here.
+    mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean(IN_CAR_RECENTER_RECOVERY, false);
     mPowerSaveDisclaimerShown = savedInstanceState.getBoolean(POWER_SAVE_DISCLAIMER_SHOWN, false);
   }
 
@@ -1132,7 +1135,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
   protected void onStop()
   {
     mLocationActivityStopped = true;
-    mInCarRecenterRecovery = false;
     if (BuildConfig.IS_IN_CAR)
       unregisterReceiver(mLocationModeReceiver);
     cancelInCarLocationRecovery();
@@ -2266,7 +2268,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
         mLocationRecoveryCheck = null;
         mLocationSettlingExhausted = true;
         if (!InCarSettingsStore.showLocationDisabledWarning(MwmActivity.this)
-            || InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) || isLocationErrorDialogShowing()
+            || (InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) && !mInCarRecenterRecovery)
+            || isLocationErrorDialogShowing()
             || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
           return;
         mLocationWarningIssued = true;

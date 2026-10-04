@@ -143,3 +143,17 @@ public class GuardTest {
             production = ROOT / "android/app/src/main/java/app/organicmaps/util/bottomsheet/MenuBottomSheetItem.java"
             subprocess.run([compiler, "-d", tmp, str(production), str(source)], check=True, capture_output=True)
             subprocess.run([runtime, "-cp", tmp, "GuardTest"], check=True)
+
+    def test_native_mode_mutation_and_settings_handoff_regressions_are_rejected(self):
+        original_read = controls.read
+        cases = [
+            ("my_position_controller.cpp", "  m_recenterPending = true;", "  ChangeMode(location::Follow);\n  m_recenterPending = true;", "must not change intent"),
+            ("MwmActivity.java", "    mLocationActivityStopped = true;", "    mLocationActivityStopped = true;\n    mInCarRecenterRecovery = false;", "settings handoff"),
+        ]
+        for path, before, after, expected in cases:
+            def altered(name):
+                source = original_read(name)
+                return source.replace(before, after) if name.endswith(path) else source
+            with self.subTest(path=path), patch.object(controls, "read", altered):
+                with self.assertRaisesRegex(SystemExit, expected):
+                    controls.verify_my_position()

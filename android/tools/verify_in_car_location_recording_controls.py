@@ -72,6 +72,16 @@ def verify_my_position() -> None:
             "InCar click must request native recenter")
     for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
         require(forbidden not in incar, f"InCar click must not change intent via {forbidden}")
+    recovery = method_body(activity, "private void restartLocationAfterAvailabilityConfirmed(")
+    explicit = method_body(recovery, "if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)")
+    require("resumeLocationInForeground(true)" in explicit, "recenter recovery must reuse existing provider acquisition")
+    for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
+        require(forbidden not in explicit, f"recenter acquisition must preserve intent: {forbidden}")
+    stopped = method_body(activity, "protected void onStop()")
+    require("mInCarRecenterRecovery = false" not in stopped,
+            "settings handoff must retain bounded recenter recovery context")
+    require("savedInstanceState.getBoolean(IN_CAR_RECENTER_RECOVERY" in activity,
+            "configuration recreation must retain Android recovery context")
     render = method_body(java, "private void updateInCar()")
     require("R.drawable.ic_not_follow" in render, "InCar My Position must use one stable crosshair icon")
     require("setSelected(false)" in render and "clearAnimation()" in render,
