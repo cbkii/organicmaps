@@ -79,8 +79,8 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeSwitchToNex
 }
 
 // public static void nativeRecenterToCurrentPosition(Runnable onNeedsLocation);
-JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition(
-    JNIEnv *, jclass, jobject onNeedsLocation)
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition(JNIEnv *, jclass,
+                                                                                               jobject onNeedsLocation)
 {
   CancelStartupCameraBridge();
   auto const drapeEngine = GetDrapeEngine();
@@ -88,15 +88,15 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToC
   {
     drapeEngine->RecenterMyPositionPreservingMode(
         [onNeedsLocation = jni::make_global_ref_safe(onNeedsLocation)](bool dispatched)
-        {
-          if (dispatched)
-            return;
-          GetPlatform().RunTask(Platform::Thread::Gui, [onNeedsLocation]()
-          {
-            JNIEnv * env = jni::GetEnv();
-            env->CallVoidMethod(*onNeedsLocation, jni::GetMethodID(env, *onNeedsLocation, "run", "()V"));
-          });
-        });
+    {
+      if (dispatched)
+        return;
+      GetPlatform().RunTask(Platform::Thread::Gui, [onNeedsLocation]()
+      {
+        JNIEnv * env = jni::GetEnv();
+        env->CallVoidMethod(*onNeedsLocation, jni::GetMethodID(env, *onNeedsLocation, "run", "()V"));
+      });
+    });
   }
 }
 

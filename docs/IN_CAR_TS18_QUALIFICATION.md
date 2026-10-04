@@ -172,14 +172,14 @@ callback to the existing acquisition owner. Fresh assigned modes do not restart 
 assigned-but-stale position with a stopped provider can recover without changing that mode.
 The main menu recording switch reads native state, starts through the existing permission/service path,
 and stops through the existing save-and-stop path. A per-menu command guard prevents duplicate gestures,
-including RecyclerView rebinding; it stores no optimistic recorder state. Ordinary rows retain their
+including RecyclerView rebinding; it stores no optimistic recorder state. The closing switch/row is disabled after dispatch; reopening reads a new native snapshot. Ordinary rows retain their
 existing behaviour, and Advanced contains no duplicate recording action.
 
 | Requirement | Evidence / qualification |
 | --- | --- |
 | NotFollow/Follow/FollowAndRotate, angle/viewport, route/Driving intent, repeated taps | Actual production recenter method executed in isolated C++ listener/clock harness |
 | Missing/stale/future/replayed/sleep observation; one pending request | Native method isolation and production freshness-header boundary tests |
-| No InCar map recording FAB or obsolete setting | XML/source verifier and automotive touch-target checks |
+| No InCar map recording FAB or obsolete setting | Recursive effective-layout ID inventory (one My Position, no recording FAB), qualified/flavour layout mutations, and standalone/extended automotive touch-target checks |
 | Binding has no command; row/switch one dispatch, including rapid gestures and rebind | Listener-order source mutation tests, actual Java menu-model command guard, and MenuAdapterCommandTest with recycled-holder/rapid-gesture/rebind coverage; canonical CI executes JDK and Android unit tests |
 | Main switch and normal rows; existing permission/start/save/stop authorities | Source contract checks; Android unit/build and API29/30 smoke remain canonical gates |
 | Full native drape/routing integration tests | NOT_RUN: repository forces BUILD_TESTING=OFF; method isolation is not full renderer integration |

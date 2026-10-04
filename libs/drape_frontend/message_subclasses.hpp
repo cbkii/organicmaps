@@ -456,7 +456,8 @@ public:
   };
 
   explicit ChangeMyPositionModeMessage(EChangeType changeType, std::function<void(bool)> onRecenterResult = {})
-    : m_changeType(changeType), m_onRecenterResult(std::move(onRecenterResult))
+    : m_changeType(changeType)
+    , m_onRecenterResult(std::move(onRecenterResult))
   {}
 
   void NotifyRecenterResult(bool dispatched) const

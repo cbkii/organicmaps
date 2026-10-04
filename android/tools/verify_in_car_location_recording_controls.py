@@ -84,7 +84,10 @@ def verify_my_position() -> None:
     stopped = method_body(activity, "protected void onStop()")
     require("mInCarRecenterRecovery = false" not in stopped,
             "settings handoff must retain bounded recenter recovery context")
-    require("savedInstanceState.getBoolean(IN_CAR_RECENTER_RECOVERY" in activity,
+    restore = method_body(activity, "protected void onRestoreInstanceState(")
+    restore = re.sub(r"/\*.*?\*/|//[^\n]*", " ", restore, flags=re.S)
+    require(re.search(r"mInCarRecenterRecovery\s*=\s*BuildConfig\.IS_IN_CAR\s*&&\s*"
+                      r"savedInstanceState\.getBoolean\(IN_CAR_RECENTER_RECOVERY,\s*false\)", restore) is not None,
             "configuration recreation must retain Android recovery context")
     render = method_body(java, "private void updateInCar()")
     require("R.drawable.ic_not_follow" in render, "InCar My Position must use one stable crosshair icon")
@@ -125,8 +128,9 @@ def verify_track_recording() -> None:
         root = ET.parse(ROOT / f"android/app/src/main/res/layout/{name}.xml").getroot()
         require(all(element.attrib.get("layout") != "@layout/map_status_track_recording" for element in root.iter()),
                 f"{name}: InCar must not include the shared recording map FAB")
-        require(not list((ROOT / "android/app/src/main/res").glob(f"layout-*/{name}.xml")),
-                f"{name}: qualified variants require explicit recording-free verification")
+        variants = list((ROOT / "android/app/src/main/res").glob(f"layout-*/{name}.xml"))
+        variants += list((ROOT / "android/app/src/inCar/res").glob(f"layout*/{name}.xml"))
+        require(not variants, f"{name}: qualified/flavour variants require explicit recording-free verification")
     prefs = read("android/app/src/main/res/xml/prefs_in_car.xml")
     require("pref_in_car_show_track_recording_button" not in prefs,
             "InCar Settings must not expose a Show Track Recording map-button preference")

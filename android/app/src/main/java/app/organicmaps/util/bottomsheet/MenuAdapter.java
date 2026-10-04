@@ -70,6 +70,8 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
 
     final SwitchCompat toggle = viewHolder.getToggle();
     toggle.setOnCheckedChangeListener(null);
+    toggle.setEnabled(!item.isActionDispatched());
+    viewHolder.getContainer().setEnabled(!item.isActionDispatched());
     if (item.checkable)
     {
       toggle.setVisibility(View.VISIBLE);
@@ -77,7 +79,11 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
       toggle.setChecked(item.checked);
       toggle.setOnCheckedChangeListener((button, checked) -> {
         if (checked != item.checked)
+        {
           onMenuItemClick(item);
+          toggle.setEnabled(false);
+          viewHolder.getContainer().setEnabled(false);
+        }
       });
       viewHolder.getContainer().setOnClickListener(v -> toggle.setChecked(!toggle.isChecked()));
     }

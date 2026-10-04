@@ -47,6 +47,11 @@ public class MenuBottomSheetItem
     return true;
   }
 
+  public boolean isActionDispatched()
+  {
+    return checkable && actionDispatched;
+  }
+
   public interface OnClickListener
   {
     void onClick();

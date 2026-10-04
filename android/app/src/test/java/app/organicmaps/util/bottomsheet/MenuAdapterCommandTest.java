@@ -3,8 +3,10 @@ package app.organicmaps.util.bottomsheet;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.view.View;
@@ -77,6 +79,8 @@ public class MenuAdapterCommandTest
       click.get().onClick(row);
       assertEquals(1, commands.get());
       assertEquals(1, dismissals.get());
+      verify(toggle, atLeastOnce()).setEnabled(false);
+      verify(row, atLeastOnce()).setEnabled(false);
       assertEquals(observed, items.get(0).checked);
     }
   }

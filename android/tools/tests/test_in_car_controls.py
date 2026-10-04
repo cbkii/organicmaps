@@ -188,3 +188,52 @@ public class GuardTest {
         with patch.object(controls, "read", altered):
             with self.assertRaisesRegex(SystemExit, "dedicated regular layout"):
                 controls.verify_track_recording()
+
+    def test_restore_comment_spoof_is_rejected(self):
+        original_read = controls.read
+        def altered(path):
+            source = original_read(path)
+            if path.endswith("MwmActivity.java"):
+                source = source.replace("    mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean",
+                                        "    // mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean")
+            return source
+        with patch.object(controls, "read", altered):
+            with self.assertRaisesRegex(SystemExit, "configuration recreation"):
+                controls.verify_my_position()
+
+    def test_qualified_incar_resource_cannot_restore_recording(self):
+        original_root = controls.ROOT
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for mode in ("regular", "navigation"):
+                relative = f"android/app/src/main/res/layout/in_car_map_buttons_layout_{mode}.xml"
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text((original_root / relative).read_text())
+            variant = root / "android/app/src/inCar/res/layout-land/in_car_map_buttons_layout_regular.xml"
+            variant.parent.mkdir(parents=True)
+            variant.write_text('<include layout="@layout/map_status_track_recording" />')
+            with patch.object(controls, "ROOT", root), patch.object(controls, "read", lambda path: (original_root/path).read_text()):
+                with self.assertRaisesRegex(SystemExit, "qualified/flavour variants"):
+                    controls.verify_track_recording()
+
+    def test_effective_incar_layouts_have_one_my_position_and_no_recording(self):
+        import xml.etree.ElementTree as ET
+        def ids(name, visiting=()):
+            self.assertNotIn(name, visiting, "layout include cycle")
+            choices = [ROOT / f"android/app/src/{flavour}/res/layout/{name}.xml" for flavour in ("inCar", "main")]
+            path = next((p for p in choices if p.exists()), None)
+            self.assertIsNotNone(path, name)
+            result = []
+            for element in ET.parse(path).getroot().iter():
+                value = element.attrib.get(f"{{{controls.ANDROID_NS}}}id", "")
+                if value:
+                    result.append(value.split("/")[-1])
+                include = element.attrib.get("layout", "")
+                if element.tag == "include" and include.startswith("@layout/"):
+                    result += ids(include.split("/")[-1], visiting + (name,))
+            return result
+        for mode in ("regular", "navigation"):
+            actual = ids(f"in_car_map_buttons_layout_{mode}")
+            self.assertEqual(1, actual.count("my_position"), actual)
+            self.assertNotIn("track_recording_status", actual)
