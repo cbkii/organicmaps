@@ -129,8 +129,10 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
       });
       recyclerView.setAdapter(mMenuAdapter);
       if (BuildConfig.IS_IN_CAR && requireActivity() instanceof MwmActivity)
-        new ViewModelProvider(requireActivity()).get(MapButtonsViewModel.class).getTrackRecorderState().observe(
-            getViewLifecycleOwner(), ignored -> refreshInCarTrackRecording());
+        new ViewModelProvider(requireActivity())
+            .get(MapButtonsViewModel.class)
+            .getTrackRecorderState()
+            .observe(getViewLifecycleOwner(), ignored -> refreshInCarTrackRecording());
       recyclerView.setLayoutManager(new LinearLayoutManager(requireActivity()));
     }
     if (mHeaderFragment != null)
@@ -168,9 +170,9 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
       if (item.checkable && item.titleRes == R.string.track_recording_title && !item.isActionDispatched()
           && item.checked != recording)
       {
-        mMenuBottomSheetItems.set(i, MenuBottomSheetItem.checkable(
-            R.string.track_recording_title, R.drawable.ic_track_recording_off, recording,
-            () -> setInCarTrackRecording(!recording)));
+        mMenuBottomSheetItems.set(
+            i, MenuBottomSheetItem.checkable(R.string.track_recording_title, R.drawable.ic_track_recording_off,
+                                             recording, () -> setInCarTrackRecording(!recording)));
         mMenuAdapter.notifyItemChanged(i);
       }
     }
@@ -237,8 +239,9 @@ public class MenuBottomSheetFragment extends BottomSheetDialogFragment
     mMenuBottomSheetItems.removeIf(
         item -> item.iconRes == R.drawable.ic_track_recording_off || item.iconRes == R.drawable.ic_track_recording_on);
     final boolean recording = Map.isEngineCreated() && TrackRecorder.nativeIsTrackRecordingEnabled();
-    final MenuBottomSheetItem trackRecording = MenuBottomSheetItem.checkable(
-        R.string.track_recording_title, R.drawable.ic_track_recording_off, recording, () -> setInCarTrackRecording(!recording));
+    final MenuBottomSheetItem trackRecording =
+        MenuBottomSheetItem.checkable(R.string.track_recording_title, R.drawable.ic_track_recording_off, recording,
+                                      () -> setInCarTrackRecording(!recording));
 
     int insertAt = mMenuBottomSheetItems.size();
     for (int i = 0; i < mMenuBottomSheetItems.size(); ++i)
