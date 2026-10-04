@@ -118,7 +118,7 @@ def verify_sources() -> None:
         fail("LocationState recenter JNI contract drifted from (Ljava/lang/Runnable;)V")
     for required in ("jobject onNeedsLocation", "jni::make_global_ref_safe(onNeedsLocation)", "Platform::Thread::Gui"):
         if required not in location_jni:
-            fail("LocationState recenter JNI completion bridge drifted")
+            fail(f"LocationState recenter JNI completion bridge drifted: missing {required}")
 
     for enum_name, contract in CONTRACTS.items():
         path = contract["path"]

@@ -237,3 +237,56 @@ public class GuardTest {
             actual = ids(f"in_car_map_buttons_layout_{mode}")
             self.assertEqual(1, actual.count("my_position"), actual)
             self.assertNotIn("track_recording_status", actual)
+
+    def test_successful_native_dispatch_cannot_start_recovery(self):
+        original_read = controls.read
+        def altered(path):
+            source = original_read(path)
+            if path.endswith("LocationState.cpp"):
+                source = source.replace("      if (dispatched)\n        return;", "      if (dispatched) {}")
+            return source
+        with patch.object(controls, "read", altered):
+            with self.assertRaisesRegex(SystemExit, "gate Android recovery"):
+                controls.verify_my_position()
+
+    def test_application_recovery_rebinds_across_activity_gap(self):
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable: recovery delivery isolation NOT_RUN")
+        probe = subprocess.run([runtime, "--list-modules"], capture_output=True, text=True)
+        if "jdk.compiler@" not in probe.stdout:
+            self.skipTest("jdk.compiler unavailable: recovery delivery isolation NOT_RUN")
+        application = controls.read("android/app/src/main/java/app/organicmaps/MwmApplication.java")
+        request = controls.method_body(application, "void requestInCarRecenterRecovery()")
+        retry = controls.method_body(application, "private void retryPendingInCarRecenterRecovery()")
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "RelayTest.java"
+            source.write_text('''class BuildConfig { static final boolean IS_IN_CAR=true; }
+class MwmActivity { boolean ready; int deliveries;
+ boolean recoverInCarRecenterLocation() { deliveries++; return ready; }
+}
+class Relay {
+ boolean mPendingInCarRecenterRecovery; Object current;
+ Object getTopActivity() { return current; }
+ void requestInCarRecenterRecovery() {''' + request + ''' }
+ void retryPendingInCarRecenterRecovery() {''' + retry + ''' }
+}
+public class RelayTest {
+ public static void main(String[] args) {
+  Relay app=new Relay(); app.requestInCarRecenterRecovery();
+  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("lost between Activities");
+  MwmActivity old=new MwmActivity(); app.current=old; app.retryPendingInCarRecenterRecovery();
+  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("lost while stopped/rendering unavailable");
+  app.current=new Object(); app.retryPendingInCarRecenterRecovery();
+  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("stolen by another Activity");
+  MwmActivity replacement=new MwmActivity(); replacement.ready=true; app.current=replacement;
+  app.retryPendingInCarRecenterRecovery(); app.retryPendingInCarRecenterRecovery();
+  if (app.mPendingInCarRecenterRecovery || replacement.deliveries!=1 || old.deliveries!=1)
+   throw new AssertionError("recovery not rebound/consumed once");
+ }
+}''')
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            subprocess.run([runtime, str(compiler), "-d", tmp, str(source)], check=True, capture_output=True)
+            subprocess.run([runtime, "-cp", tmp, "RelayTest"], check=True)

@@ -68,11 +68,11 @@ def verify_my_position() -> None:
     activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
     click = method_body(activity, "case myPosition ->")
     incar = method_body(click, "if (BuildConfig.IS_IN_CAR)")
-    require("LocationState.nativeRecenterToCurrentPosition(this::recoverInCarRecenterLocation)" in incar,
+    require("LocationState.nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery)" in incar,
             "InCar click must request native recenter")
     for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
         require(forbidden not in incar, f"InCar click must not change intent via {forbidden}")
-    acquisition = method_body(activity, "private void recoverInCarRecenterLocation()")
+    acquisition = method_body(activity, "boolean recoverInCarRecenterLocation()")
     require("helper.isActive()" in acquisition, "already-pending acquisition must stay pending")
     require("LocationState.getMode()" not in acquisition,
             "assigned modes must not suppress acquisition after native rejects a stale position")
@@ -97,7 +97,9 @@ def verify_my_position() -> None:
     bridge = read("android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp")
     jni = method_body(bridge, "Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition")
     require("RecenterMyPositionPreservingMode(" in jni, "JNI must dispatch to native camera owner")
-    require("if (dispatched)" in jni and "Platform::Thread::Gui" in jni,
+    executable_jni = re.sub(r"/\*.*?\*/|//[^\n]*", " ", jni, flags=re.S)
+    require(re.search(r"if\s*\(dispatched\)\s*return;\s*"
+                      r"GetPlatform\(\)\.RunTask\(Platform::Thread::Gui", executable_jni) is not None,
             "native usable-position result must gate Android recovery on the GUI thread")
     require("CurrentPositionState" not in bridge and "g_currentPosition" not in bridge,
             "JNI must not maintain a second provider position cache")

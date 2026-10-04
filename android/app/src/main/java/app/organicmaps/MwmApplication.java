@@ -69,6 +69,8 @@ public class MwmApplication extends Application implements Application.ActivityL
 
   @Nullable
   private WeakReference<Activity> mTopActivity;
+  // Deferred Android recovery delivery only; position and the pending camera request remain native-owned.
+  private boolean mPendingInCarRecenterRecovery;
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
@@ -79,6 +81,23 @@ public class MwmApplication extends Application implements Application.ActivityL
   public Activity getTopActivity()
   {
     return mTopActivity != null ? mTopActivity.get() : null;
+  }
+
+  @UiThread
+  void requestInCarRecenterRecovery()
+  {
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+    mPendingInCarRecenterRecovery = true;
+    retryPendingInCarRecenterRecovery();
+  }
+
+  @UiThread
+  private void retryPendingInCarRecenterRecovery()
+  {
+    if (mPendingInCarRecenterRecovery && getTopActivity() instanceof MwmActivity current
+        && current.recoverInCarRecenterLocation())
+      mPendingInCarRecenterRecovery = false;
   }
 
   @Nullable
@@ -235,6 +254,7 @@ public class MwmApplication extends Application implements Application.ActivityL
         if (Map.isEngineCreated())
           InCarBudgetRendering.applyCurrent(mapActivity);
       });
+      retryPendingInCarRecenterRecovery();
     }
   }
 
@@ -257,6 +277,7 @@ public class MwmApplication extends Application implements Application.ActivityL
   void onInCarRenderingCreated()
   {
     runInCarDrivingViewController("rendering attachment", InCarDrivingViewController::onRenderingCreated);
+    retryPendingInCarRecenterRecovery();
   }
 
   void onInCarRenderingDetached()
