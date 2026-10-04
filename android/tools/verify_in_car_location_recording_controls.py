@@ -149,6 +149,9 @@ def verify_track_recording() -> None:
     require("() -> setInCarTrackRecording(!recording)" in adapt,
             "Track Recording switch must apply the requested snapshot state")
     activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+    forward = method_body(fragment, "private void setInCarTrackRecording(boolean enabled)")
+    require("activity.onTrackRecordingSwitchChanged(enabled)" in forward,
+            "Track Recording switch must still reach the Activity command")
     command = method_body(activity, "public void onTrackRecordingSwitchChanged(boolean enabled)")
     require("TrackRecorder.nativeIsTrackRecordingEnabled() == enabled" in command,
             "Track Recording switch must ignore already satisfied requests")

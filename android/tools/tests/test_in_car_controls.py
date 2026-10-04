@@ -295,6 +295,9 @@ public class RelayTest {
         runtime = shutil.which("java")
         if not runtime:
             self.skipTest("Java unavailable: recording command isolation NOT_RUN")
+        probe = subprocess.run([runtime, "--list-modules"], capture_output=True, text=True)
+        if "jdk.compiler@" not in probe.stdout:
+            self.skipTest("jdk.compiler unavailable: recording command isolation NOT_RUN")
         activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
         command = controls.method_body(activity, "public void onTrackRecordingSwitchChanged(boolean enabled)")
         with tempfile.TemporaryDirectory() as tmp:
@@ -325,3 +328,14 @@ public class RecordingTest {
                                 "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
             subprocess.run([runtime, str(compiler), "-d", tmp, str(source)], check=True, capture_output=True)
             subprocess.run([runtime, "-cp", tmp, "RecordingTest"], check=True)
+
+    def test_recording_forwarding_removal_is_rejected(self):
+        original_read = controls.read
+        def altered(path):
+            source = original_read(path)
+            if path.endswith("MenuBottomSheetFragment.java"):
+                source = source.replace("activity.onTrackRecordingSwitchChanged(enabled);", "")
+            return source
+        with patch.object(controls, "read", altered):
+            with self.assertRaisesRegex(SystemExit, "still reach the Activity"):
+                controls.verify_track_recording()
