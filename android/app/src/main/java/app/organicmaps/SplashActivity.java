@@ -190,7 +190,9 @@ public class SplashActivity extends AppCompatActivity
       mInCarStartupHandoff.onCoreReady();
       if (!mInCarStartupHandoff.claimHandoff())
       {
-        Logger.i(TAG, "InCar startup handoff deferred or already dispatched task=" + getTaskId());
+        Logger.i(TAG, "InCar startup handoff "
+                          + (mInCarStartupHandoff.isHandedOff() ? "already dispatched" : "deferred until resume")
+                          + " task=" + getTaskId());
         return;
       }
       Logger.i(TAG, "InCar startup handoff dispatch task=" + getTaskId());

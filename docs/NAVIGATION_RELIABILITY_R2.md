@@ -41,10 +41,14 @@ ownership, unchanged/car UI-mode transitions and theme changes. Existing tests
 cover original-intent consumption and geometry recovery. Repository Android Check
 must pass lint/detekt, app/SDK JVM tests, API29/API30 emulator smoke, the retained
 SDK connected suite and arm64 release-equivalent APK verification for the exact
-head. TESTING signing is separately requested for physical installation.
+head. Android Check now runs the existing scope verifier after recursive checkout
+and detekt alongside lint, so these required checks also cover this stacked PR
+whose base is not master. TESTING signing is separately requested for physical installation.
 
-Local Android/JVM builds are NOT_RUN: this host has a JRE without a compiler,
-Android SDK or Gradle. Local scope verification was attempted, but the inherited
+Local Android/Gradle/JUnit builds are NOT_RUN: this host has no Android SDK or
+Gradle. The Java compiler module is available despite the missing javac wrapper;
+10 committed pure-policy tests passed in a JVM adapter with minimal Android
+constants and assertion stubs. This does not exercise the Android Activity runtime. Local scope verification was attempted, but the inherited
 sparse object cache cannot provide every tracked blob; canonical full recursive
 CI is the authority. Do not weaken the scope guard to hide that limitation.
 
@@ -54,8 +58,9 @@ Activity lifecycle, bounds, visible/drawn window and map/surface/native dimensio
 Run 20 cold starts, 30 returns from other apps and 20 fullscreen-to-HOME returns.
 Each stable state needs one owned task, rendered map, aligned touch, no unintended
 foreground theft, crash or duplicate handoff. Keep the permission/download stages
-in the trace and exclude them from map-ready claims. See TS18_VALIDATION.md and
-launcher docs/NAVIGATION_RELIABILITY_R1.md for the wider acceptance matrix.
+in the trace and exclude them from map-ready claims. See [TS18 validation](TS18_VALIDATION.md) and the
+[launcher R1 matrix](https://github.com/cbkii/ts-theme/blob/fe57a7f035485632dc06d749fcc3d97b21aaddce/docs/NAVIGATION_RELIABILITY_R1.md)
+for the wider acceptance matrix.
 
 R3 remains conditional on those physical observations proving an OEM/window
 contract defect after R1/R2. No protected DoFun/TW/SystemUI or platform change is

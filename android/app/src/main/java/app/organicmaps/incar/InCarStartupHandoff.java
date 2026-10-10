@@ -47,6 +47,11 @@ public final class InCarStartupHandoff
     return true;
   }
 
+  public boolean isHandedOff()
+  {
+    return mHandedOff;
+  }
+
   public void close()
   {
     mClosed = true;
