@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 import app.organicmaps.downloader.DownloaderActivity;
 import app.organicmaps.incar.InCarStartupCameraPolicy;
+import app.organicmaps.incar.InCarStartupHandoff;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.location.LocationUtils;
@@ -41,6 +42,9 @@ public class SplashActivity extends AppCompatActivity
   private static final long DELAY = 100;
 
   private boolean mCanceled = false;
+
+  @NonNull
+  private final InCarStartupHandoff mInCarStartupHandoff = new InCarStartupHandoff();
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
@@ -84,7 +88,9 @@ public class SplashActivity extends AppCompatActivity
   protected void onResume()
   {
     super.onResume();
-    if (mCanceled)
+    if (BuildConfig.IS_IN_CAR)
+      mInCarStartupHandoff.onResume();
+    if (mCanceled || isFinishing())
       return;
     if (!Config.isLocationRequested() && !LocationUtils.checkLocationPermission(this))
     {
@@ -93,12 +99,17 @@ public class SplashActivity extends AppCompatActivity
       return;
     }
 
-    UiThread.runLater(mInitCoreDelayedTask, DELAY);
+    if (BuildConfig.IS_IN_CAR && mInCarStartupHandoff.isCoreReady())
+      processNavigation();
+    else
+      UiThread.runLater(mInitCoreDelayedTask, DELAY);
   }
 
   @Override
   protected void onPause()
   {
+    if (BuildConfig.IS_IN_CAR)
+      mInCarStartupHandoff.onPause();
     super.onPause();
     UiThread.cancelDelayedTasks(mInitCoreDelayedTask);
   }
@@ -106,6 +117,8 @@ public class SplashActivity extends AppCompatActivity
   @Override
   protected void onDestroy()
   {
+    mInCarStartupHandoff.close();
+    UiThread.cancelDelayedTasks(mInitCoreDelayedTask);
     super.onDestroy();
     mPermissionRequest.unregister();
     mPermissionRequest = null;
@@ -116,6 +129,7 @@ public class SplashActivity extends AppCompatActivity
   private void showFatalErrorDialog(@StringRes int titleId, @StringRes int messageId, Exception error)
   {
     mCanceled = true;
+    mInCarStartupHandoff.close();
     new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
         .setTitle(titleId)
         .setMessage(messageId)
@@ -128,6 +142,9 @@ public class SplashActivity extends AppCompatActivity
 
   private void init()
   {
+    if (BuildConfig.IS_IN_CAR
+        && (isFinishing() || isDestroyed() || !mInCarStartupHandoff.beginInitialization()))
+      return;
     MwmApplication app = MwmApplication.from(this);
     boolean asyncContinue = false;
     try
@@ -157,10 +174,28 @@ public class SplashActivity extends AppCompatActivity
   @SuppressWarnings({"unused", "unchecked"})
   public void processNavigation()
   {
-    if (isDestroyed())
+    if (BuildConfig.IS_IN_CAR && !UiThread.isUiThread())
     {
-      Logger.w(TAG, "Ignore late callback from core because activity is already destroyed");
+      UiThread.run(this::processNavigation);
       return;
+    }
+    if (isDestroyed() || (BuildConfig.IS_IN_CAR && (isFinishing() || mCanceled)))
+    {
+      Logger.w(TAG, "Ignore late callback from core because activity is no longer available");
+      return;
+    }
+
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mInCarStartupHandoff.onCoreReady();
+      if (!mInCarStartupHandoff.claimHandoff())
+      {
+        Logger.i(TAG, "InCar startup handoff "
+                          + (mInCarStartupHandoff.isHandedOff() ? "already dispatched" : "deferred until resume")
+                          + " task=" + getTaskId());
+        return;
+      }
+      Logger.i(TAG, "InCar startup handoff dispatch task=" + getTaskId());
     }
 
     // Re-use original intent with the known safe subset of flags to retain security permissions.
