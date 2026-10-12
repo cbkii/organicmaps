@@ -5,6 +5,7 @@ import unittest
 import shutil
 import subprocess
 import tempfile
+import re
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -13,6 +14,86 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_unknown_compiled_colour_references_report_a_validation_error(self):
+        from tools.ci import verify_in_car_light_palette as palette
+        dump = ROOT / "data/drules_in_car.txt"
+        original_read = Path.read_text
+        source = original_read(dump)
+        patterns = (
+            r"(type amenity-fuel\n.*?    caption primary\[[^]]*?color=)c\d+",
+            r"(type amenity-fuel\n.*?    caption primary\[[^]]*?stroke=)c\d+",
+            r"(type highway-primary\n.*?    path_text primary\[[^]]*?color=)c\d+",
+            r"(type building-address\n.*?    caption primary\[[^]]*?color=)c\d+",
+            r"(^  Route )c\d+",
+        )
+        for pattern in patterns:
+            with self.subTest(pattern=pattern):
+                malformed, count = re.subn(pattern, r"\g<1>c999999", source, count=1, flags=re.S | re.M)
+                self.assertEqual(count, 1)
+                def read(path, *args, **kwargs):
+                    return malformed if path == dump else original_read(path, *args, **kwargs)
+                with patch.object(Path, "read_text", read):
+                    with self.assertRaisesRegex(palette.VerificationError, "unknown colour reference c999999"):
+                        palette.verify_compiled_feature_captions(ROOT)
+
+    def test_mixed_highway_types_keep_one_native_caption_owner(self):
+        compiler = shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: overlay ownership NOT_RUN")
+        source = controls.read("libs/drape_frontend/stylist.cpp")
+        # Execute the production selection/filter block, not a parallel ownership policy.
+        selection = source.split("  feature::TypesHolder const types(f);", 1)[1].split(
+            "  feature::FilterRulesByRuntimeSelector", 1)[0]
+        selection = "  feature::TypesHolder const types(f);" + selection
+        priorities = {}
+        current = ""
+        for line in (ROOT / "data/drules_in_car.txt").read_text().splitlines():
+            if line.startswith("type "):
+                current = line[5:]
+            if line.startswith(("    caption", "    path_text", "    symbol", "    shield")):
+                match = re.search(r"priority=(-?\d+)", line)
+                if match:
+                    priorities[current] = max(priorities.get(current, -2147483648), int(match[1]))
+        cases = [(priorities[road], priorities[other])
+                 for road in ("highway-primary", "highway-service")
+                 for other in ("railway-rail-tourism", "waterway-river")]
+        harness = r'''#include <cassert>
+#include <cstdint>
+#include <vector>
+#include <limits>
+#include <utility>
+namespace drule { enum Kind { line, area, caption, pathtext, symbol, shield };
+struct Key { int owner; Kind m_type; bool m_hatching=false; }; using KeysT=std::vector<Key>; }
+struct FeatureType { std::vector<uint32_t> types; };
+namespace feature { struct TypesHolder {
+ std::vector<uint32_t> ts; TypesHolder(FeatureType &f):ts(f.types){}
+ size_t Size() const{return ts.size();} uint32_t front() const{return ts.front();}
+ auto begin() const{return ts.begin();} auto end() const{return ts.end();} int GetGeomType() const{return 1;}
+}; }
+struct Object { int id=0,priority=0; int GetMaxOverlaysPriority() const{return priority;}
+ void GetSuitable(int,int,drule::KeysT &keys) const {keys.push_back({id,drule::line});keys.push_back({id,drule::pathtext});} };
+struct Classificator { Object objects[3]; Object const *GetObject(uint32_t t) const{return &objects[t];} };
+Classificator cl; Classificator const &classif(){return cl;} Classificator const &GetOutdoorClassif(){return cl;}
+struct IsHatchingTerritoryChecker {static IsHatchingTerritoryChecker Instance(){return {};}
+ bool operator()(uint32_t) const{return false;} };
+drule::KeysT select(FeatureType &f, uint8_t zoomLevel, bool forceOutdoorStyle) {''' + selection + r'''return keys;}
+int main(){
+ for(auto p:std::vector<std::pair<int,int>>{''' + ",".join("{" + str(a) + "," + str(b) + "}" for a, b in cases) + r'''}){
+  cl.objects[1]={1,p.first};cl.objects[2]={2,p.second};assert(p.first>p.second);
+  for(auto ts:std::vector<std::vector<uint32_t>>{{1,2},{2,1}}){
+   FeatureType f{ts};auto keys=select(f,18,false);int overlays=0,lines=0;
+   for(auto k:keys){if(k.m_type==drule::pathtext){++overlays;assert(k.owner==1);}else ++lines;}
+   assert(overlays==1 && lines==2); // Other-type geometry survives; its caption cannot override the highway.
+  }
+ }
+}'''
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp) / "ownership.cpp"
+            binary = Path(tmp) / "ownership"
+            fixture.write_text(harness)
+            subprocess.run([compiler, "-std=c++17", str(fixture), "-o", str(binary)], check=True)
+            subprocess.run([str(binary)], check=True)
+
     def test_production_countdown_dispatch_and_interruption_boundaries(self):
         runtime = shutil.which("java")
         if not runtime:

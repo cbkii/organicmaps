@@ -22,6 +22,10 @@ bash "$HOME/bin/ts18_in_car_ui_walkthrough.sh"
 
 Keep scripts in private Termux storage. Each prompt describes the manual action: switch to Organic Maps, do it, return to Termux, enter **P** (pass), **F** (fail), or **N/Enter** (not run). Optional comments need no typing. **Q** finishes safely and explicitly records all remaining rows NOT_RUN. Invalid input is rejected. The walkthrough never launches apps, changes Android settings or injects touch/input. Settings/lifecycle changes described by the prompt are performed by the tester.
 
+Unexpected terminal end-of-input returns an error (exit 1) and still seals the
+results, including remaining NOT_RUN rows. This is an input/collector failure,
+not evidence that an app feature failed. Intentional **Q** retains exit 0.
+
 For a failed row, **Y** optionally captures the current state. Leave the failing UI visible before invoking the collector separately if returning to Termux changes focus:
 
 ```bash

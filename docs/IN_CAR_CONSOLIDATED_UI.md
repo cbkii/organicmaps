@@ -101,3 +101,13 @@ from GitHub Actions. Fully linked native drape/routing/AStar suites, rendered ma
 screenshots, actual GPS, glare and vehicle lifecycle remain NOT_RUN until observed.
 Integer house-number sizing and renderer-owned halo thickness remain the bounded
 visual qualifications described above; no style or upstream-tree rewrite is made.
+
+Substantive review also hardened two diagnostic boundaries: unexpected terminal
+EOF now reports an error while sealing remaining walkthrough rows as NOT_RUN,
+and missing compiled colour references raise a named validation error. Five
+malformed-dump fixtures cover feature/halo, road, address and route references.
+The proposed mixed highway/railway caption leak was checked against native
+`Stylist`: only the highest-priority type owns caption/path-text overlays. A
+production-block C++ probe using compiled road/railway/waterway priorities
+confirms that other-type geometry remains without overriding the road caption.
+Colour changes do not alter this ownership or its priorities.

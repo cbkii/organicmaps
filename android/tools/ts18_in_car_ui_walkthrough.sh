@@ -51,7 +51,7 @@ while IFS='|' read -r key instruction; do
   printf '\n[%s] %s\n' "$key" "$instruction"
   while true; do
     printf 'Result P/F/N (Enter = N), Q = finish: '
-    IFS= read -r answer < /dev/tty || exit 0
+    IFS= read -r answer < /dev/tty || exit 1
     case "$answer" in
       p|P) verdict=PASS; break;; f|F) verdict=FAIL; break;; ''|n|N) verdict=NOT_RUN; break;; q|Q) exit 0;;
       *) printf 'Use one letter P, F, N or Q.\n';;

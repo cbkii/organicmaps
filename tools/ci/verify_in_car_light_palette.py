@@ -398,6 +398,11 @@ def verify_compiled_feature_captions(root: Path) -> None:
             for role, properties in re.findall(r"(primary|secondary)\[([^]]+)\]", line):
                 captions.setdefault(current_type, []).append((zoom, role, properties))
 
+    def resolve_colour(ref: str, variant: int) -> str:
+        if ref not in colours:
+            raise VerificationError(f"{path}: unknown colour reference {ref}")
+        return colours[ref][variant]
+
     for variant, theme in enumerate(("light", "dark")):
         palette_path = root / f"data/styles/in_car/{theme}/colors.mapcss"
         palette = read_values(palette_path, VAR)
@@ -410,13 +415,13 @@ def verify_compiled_feature_captions(root: Path) -> None:
             for properties in primary:
                 color = re.search(r"\bcolor=(c\d+)\b", properties)
                 stroke = re.search(r"\bstroke=(c\d+)\b", properties)
-                if not color or not stroke or colours[color.group(1)][variant] != gold or colours[stroke.group(1)][variant] != halo:
+                if not color or not stroke or resolve_colour(color.group(1), variant) != gold or resolve_colour(stroke.group(1), variant) != halo:
                     raise VerificationError(f"{theme}: {feature} does not use feature gold/charcoal halo")
         for feature, entries in captions.items():
             if feature.startswith(("highway-", "place-", "building-address")):
                 for _, _, properties in entries:
                     color = re.search(r"\bcolor=(c\d+)\b", properties)
-                    if color and colours[color.group(1)][variant] == gold:
+                    if color and resolve_colour(color.group(1), variant) == gold:
                         raise VerificationError(f"{theme}: excluded {feature} uses feature gold")
         address = captions.get("building-address", [])
         if not address:
@@ -426,14 +431,14 @@ def verify_compiled_feature_captions(root: Path) -> None:
             color = re.search(r"\bcolor=(c\d+)\b", properties)
             height = re.search(r"\bheight=(\d+)\b", properties)
             expected_height = 11 if role == "secondary" else (12 if zoom == 18 else 13)
-            if not color or colours[color.group(1)][variant] != address_color or not height or int(height.group(1)) != expected_height:
+            if not color or resolve_colour(color.group(1), variant) != address_color or not height or int(height.group(1)) != expected_height:
                 raise VerificationError(f"{theme}: address colour or rounded size changed at z{zoom}")
         style_path = root / f"data/styles/in_car/{theme}/style.mapcss"
         style = read_values(style_path, STYLE_COLOR)
         for name in ("Route", "RouteOutline"):
             expected = opaque_compiled_colour(require_colour(style, name, style_path))
             named = re.search(rf"^  {name} (c\d+)$", text, re.MULTILINE)
-            if not named or colours[named.group(1)][variant] != expected:
+            if not named or resolve_colour(named.group(1), variant) != expected:
                 raise VerificationError(f"{theme}: compiled {name} differs from source")
         require_contrast("feature gold", require_colour(palette, "in_car_feature_label", palette_path), "charcoal halo", require_colour(palette, "in_car_feature_halo", palette_path), 7.0, background=require_colour(palette, "in_car_feature_halo", palette_path))
     if (root / "android/sdk/src/main/assets/drules_in_car.bin").read_bytes() != (root / "data/drules_in_car.bin").read_bytes():
