@@ -100,6 +100,18 @@ def verify_my_position() -> None:
     for id in ("nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
         require(ids.count(id) == 1, f"rail requires exactly one {id}")
     require(sum(e.tag == "View" for e in rail.iter()) == 3, "four-cell rail requires three dividers")
+    container = next(e for e in rail.iter() if e.attrib.get(f"{{{ANDROID_NS}}}id") == "@+id/zoom_buttons_container")
+    require(container.attrib.get(f"{{{ANDROID_NS}}}background") == "@drawable/in_car_camera_rail",
+            "transparent camera cells must have one shared visible surface")
+    surface = ET.parse(ROOT / "android/app/src/inCar/res/drawable/in_car_camera_rail.xml").getroot()
+    require(surface.find("solid").attrib.get(f"{{{ANDROID_NS}}}color") == "@color/in_car_camera_rail_surface",
+            "camera rail must use theme-aware high-opacity surface")
+    require(surface.find("stroke").attrib.get(f"{{{ANDROID_NS}}}width") == "1dp",
+            "camera rail requires one restrained outer outline")
+    events = read("libs/drape_frontend/user_event_stream.cpp")
+    presentation = method_body(events, "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+    require("AddEvent(make_unique_dp<ActiveFrameEvent>())" in presentation,
+            "manual presentation must dirty/render the scene even without a fresh GPS recenter")
     renderer = read("libs/drape_frontend/frontend_renderer.cpp")
     toggle = method_body(renderer, "bool FrontendRenderer::ToggleCameraViewAndRecenter()")
     for token in ("GetCurrentScreen().isPerspective()", "ApplyCameraPresentation", "RecenterPreservingMode()"):

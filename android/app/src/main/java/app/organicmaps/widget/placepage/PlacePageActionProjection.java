@@ -9,6 +9,16 @@ public final class PlacePageActionProjection
 {
   private PlacePageActionProjection() {}
   public record Result(List<PlacePageButtons.ButtonType> direct, List<PlacePageButtons.ButtonType> overflow) {}
+  public static int slotsForWidth(int available, int preferredFootprint, int maximum)
+  {
+    return Math.min(Math.max(2, maximum), Math.max(2, available / Math.max(1, preferredFootprint)));
+  }
+
+  public static int cellWidth(int available, int slots, int preferredWidth, int gap)
+  {
+    return Math.max(1, Math.min(preferredWidth, available / Math.max(1, slots) - 2 * gap));
+  }
+
   public static Result project(List<PlacePageButtons.ButtonType> actions, int maximum, boolean inCar)
   {
     List<PlacePageButtons.ButtonType> ordered = new ArrayList<>(inCar ? new LinkedHashSet<>(actions) : actions);

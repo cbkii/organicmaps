@@ -27,6 +27,10 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
 {
   public static final String PLACEPAGE_MORE_MENU_ID = "PLACEPAGE_MORE_MENU_BOTTOM_SHEET";
   private int mMaxButtons;
+  private int mAvailableWidth;
+  private int mActionWidth;
+  private int mActionGap;
+  private View.OnLayoutChangeListener mWidthListener;
   private List<ButtonType> mRenderedButtons;
   private long mRenderedSelectionGeneration = -1;
 
@@ -55,6 +59,28 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
                                                | WindowInsetsCompat.Type.displayCutout()));
     mMaxButtons = getResources().getInteger(R.integer.pp_buttons_max);
 
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mWidthListener = (root, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+        final int available = right - left - root.getPaddingLeft() - root.getPaddingRight();
+        if (available <= 0 || available == mAvailableWidth) return;
+        final boolean resize = mAvailableWidth > 0;
+        mAvailableWidth = available;
+        final int preferred = getResources().getDimensionPixelSize(R.dimen.in_car_place_page_action_width);
+        final int preferredGap = getResources().getDimensionPixelSize(R.dimen.in_car_place_page_action_gap_half);
+        mMaxButtons = PlacePageActionProjection.slotsForWidth(available, preferred + 2 * preferredGap,
+                                                              getResources().getInteger(R.integer.pp_buttons_max));
+        mViewModel.setActionSlots(mMaxButtons);
+        final int emergency = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact);
+        mActionGap = Math.min(preferredGap, Math.max(0, (available / mMaxButtons - emergency) / 2));
+        mActionWidth = PlacePageActionProjection.cellWidth(available, mMaxButtons, preferred, mActionGap);
+        if (resize) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+        mRenderedButtons = null;
+        createButtons(mViewModel.getCurrentButtons().getValue(), !resize);
+      };
+      view.addOnLayoutChangeListener(mWidthListener);
+    }
+
     Fragment parentFragment = getParentFragment();
     mItemListener = (PlacePageButtonClickListener) parentFragment;
 
@@ -81,6 +107,11 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
   {
     if (BuildConfig.IS_IN_CAR && getActivity() instanceof MwmActivity activity)
       activity.cancelInCarNavigationCountdown();
+    if (getView() != null && mWidthListener != null)
+      getView().removeOnLayoutChangeListener(mWidthListener);
+    mWidthListener = null;
+    mAvailableWidth = 0;
+    mRenderedButtons = null;
     super.onDestroyView();
   }
 
@@ -100,6 +131,11 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
 
   private void createButtons(@Nullable List<ButtonType> buttons)
   {
+    createButtons(buttons, true);
+  }
+
+  private void createButtons(@Nullable List<ButtonType> buttons, boolean armCountdown)
+  {
     if (buttons == null)
       return;
     final long selectionGeneration = mViewModel.getSelectionGeneration();
@@ -113,8 +149,18 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     for (PlacePageButton button : shownButtons)
     {
       View action = createButton(button);
+      if (BuildConfig.IS_IN_CAR && mAvailableWidth > 0)
+      {
+        final android.widget.LinearLayout.LayoutParams params =
+            (android.widget.LinearLayout.LayoutParams) action.getLayoutParams();
+        params.width = mActionWidth;
+        params.setMarginStart(mActionGap);
+        params.setMarginEnd(mActionGap);
+        action.setMinimumWidth(mActionWidth);
+        action.setLayoutParams(params);
+      }
       mButtonsContainer.addView(action);
-      if (BuildConfig.IS_IN_CAR && button.getType() == ButtonType.ROUTE_TO)
+      if (BuildConfig.IS_IN_CAR && armCountdown && mAvailableWidth > 0 && button.getType() == ButtonType.ROUTE_TO)
       {
         final long generation = mViewModel.getSelectionGeneration();
         final app.organicmaps.sdk.bookmarks.data.MapObject destination = mViewModel.getMapObject().getValue();

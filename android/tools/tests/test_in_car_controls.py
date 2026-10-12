@@ -13,6 +13,19 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_shared_camera_symbol_and_safe_activity_teardown(self):
+        import xml.etree.ElementTree as ET
+        resources = ET.parse(ROOT / "android/app/src/main/res/values/in_car_shared_fallbacks.xml").getroot()
+        self.assertTrue(any(item.tag == "item" and item.get("type") == "id"
+                            and item.get("name") == "in_car_camera_view_recenter" for item in resources))
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        base = controls.read("android/app/src/main/java/app/organicmaps/base/BaseMwmFragmentActivity.java")
+        self.assertIn("protected final void onDestroy()", base)
+        self.assertNotIn("protected void onDestroy()", activity)
+        teardown = controls.method_body(activity, "protected void onSafeDestroy()")
+        self.assertIn("cancelInCarNavigationCountdown();", teardown)
+        self.assertIn("super.onSafeDestroy();", teardown)
+
     def test_current_contract(self):
         controls.verify_my_position()
         controls.verify_track_recording()
@@ -78,6 +91,42 @@ int main() {
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "camera.cpp"
             binary = Path(tmp) / "camera"
+            source.write_text(harness)
+            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            subprocess.run([str(binary)], check=True)
+
+    def test_camera_presentation_invalidates_scene_without_fresh_location(self):
+        compiler = shutil.which("g++")
+        if compiler is None:
+            self.skipTest("C++ compiler unavailable: camera scene invalidation NOT_RUN")
+        body = controls.method_body(controls.read("libs/drape_frontend/user_event_stream.cpp"),
+                                    "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        harness = r"""#include <cassert>
+#include <memory>
+struct ActiveFrameEvent {};
+template<typename T> auto make_unique_dp() { return std::make_unique<T>(); }
+struct ScreenBase { bool tilted=false; void SetAutoPerspective(bool) {}
+ void ApplyPerspective(double angle,double,double) { assert(angle>0); tilted=true; }
+ void ResetPerspective() { tilted=false; } double GetAngleFOV() const { return 1; } };
+struct Navigator { ScreenBase screen; const ScreenBase & Screen() const { return screen; }
+ void SetFromScreen(const ScreenBase & s) { screen=s; } };
+struct Stream { Navigator m_navigator; int events=0; bool redraw=false;
+ void ResetMapPlaneAnimations() {} void AddEvent(std::unique_ptr<ActiveFrameEvent>) { ++events; }
+ void apply(bool perspective) {""" + body + r"""}
+ void process() { redraw=events!=0; events=0; }
+};
+int main() {
+ Stream s;
+ s.apply(true); assert(s.m_navigator.screen.tilted && s.events==1);
+ s.process(); assert(s.redraw); // No location/recenter event exists: presentation alone dirtied it.
+ s.apply(false); assert(!s.m_navigator.screen.tilted && s.events==1);
+ s.process(); assert(s.redraw); // Permission-disallow flatten is also rendered.
+ s.process(); assert(!s.redraw); // No perpetual redraw loop.
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "camera_scene.cpp"
+            binary = Path(tmp) / "camera_scene"
             source.write_text(harness)
             subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
             subprocess.run([str(binary)], check=True)

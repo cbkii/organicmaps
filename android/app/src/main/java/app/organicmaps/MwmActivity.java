@@ -1108,13 +1108,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
   }
 
   @Override
-  protected void onDestroy()
-  {
-    cancelInCarNavigationCountdown();
-    super.onDestroy();
-  }
-
-  @Override
   public void onMultiWindowModeChanged(boolean inMultiWindowMode, Configuration newConfig)
   {
     cancelInCarNavigationCountdown();
@@ -1233,6 +1226,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onSafeDestroy()
   {
+    cancelInCarNavigationCountdown();
     cancelInCarLocationRecovery();
     super.onSafeDestroy();
     mLocationPermissionRequest.unregister();

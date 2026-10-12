@@ -17,6 +17,9 @@ public class PlacePageViewModel extends ViewModel
   private final MutableLiveData<Integer> mPlacePageDistanceToTop = new MutableLiveData<>();
   public boolean isAlertDialogShowing = false;
   private long mSelectionGeneration;
+  private int mActionSlots = 4;
+  public int getActionSlots() { return mActionSlots; }
+  public void setActionSlots(int slots) { mActionSlots = slots; }
   public long getSelectionGeneration() { return mSelectionGeneration; }
 
   public LiveData<List<PlacePageButtons.ButtonType>> getCurrentButtons()

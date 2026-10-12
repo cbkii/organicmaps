@@ -265,7 +265,8 @@ public class PlacePageController
       return null;
     ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
     for (PlacePageButtons.ButtonType type :
-         PlacePageActionProjection.project(currentItems, mMaxButtons, BuildConfig.IS_IN_CAR).overflow())
+         PlacePageActionProjection.project(currentItems, BuildConfig.IS_IN_CAR ? mViewModel.getActionSlots() : mMaxButtons,
+                                         BuildConfig.IS_IN_CAR).overflow())
     {
       final PlacePageButton bsItem = PlacePageButtonFactory.createButton(type, requireActivity());
       items.add(
