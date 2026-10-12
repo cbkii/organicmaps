@@ -276,11 +276,11 @@ public class MapButtonsController extends Fragment
       UiUtils.showIf(!hide, mBottomButtonsFrame);
   }
 
-  // The quick rail owns Search/Places in active InCar navigation; planning and normal Android
-  // retain their original map controls. Use the layout contract, not transient native route state.
+  // Saved Places belongs to the InCar menu in every mode. The quick rail owns Search during
+  // navigation. Apply this policy to every visibility request, including inflation and observers.
   static boolean shouldSuppressLegacyButton(boolean inCar, @Nullable LayoutMode mode, MapButtons button)
   {
-    return inCar && mode == LayoutMode.navigation && (button == MapButtons.search || button == MapButtons.bookmarks);
+    return inCar && (button == MapButtons.bookmarks || (mode == LayoutMode.navigation && button == MapButtons.search));
   }
 
   public void showButton(boolean show, MapButtons button)

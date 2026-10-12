@@ -218,8 +218,8 @@ def verify_navigation_refinements(root):
 
     owner = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java"
     base.require_method_text(owner, "static boolean shouldSuppressLegacyButton(",
-                             r"inCar && mode == LayoutMode\.navigation.*MapButtons\.search.*MapButtons\.bookmarks",
-                             "only duplicate legacy controls must be suppressed in InCar navigation")
+                             r"inCar && \(button == MapButtons\.bookmarks \|\| \(mode == LayoutMode\.navigation && button == MapButtons\.search\)\)",
+                             "InCar Saved Places is menu-only in every mode; legacy Search is suppressed only in navigation")
     for path, method in ((owner, "public void showButton("),
                          (root / "android/app/src/main/java/app/organicmaps/maplayer/SearchWheel.java", "public void show(")):
         for token in ("setClickable(!suppressed)", "setFocusable(!suppressed)",

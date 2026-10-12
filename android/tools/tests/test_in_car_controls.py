@@ -13,6 +13,181 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_production_countdown_dispatch_and_interruption_boundaries(self):
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable: countdown coordinator NOT_RUN")
+        # Compile the whole production coordinator/policy. Only Android clock, queue, view and
+        # lifecycle services are fixtures: advancing the clock runs callbacks without sleeping.
+        files = {
+            "android/os/Looper.java": "package android.os; public class Looper { public static Looper getMainLooper(){return new Looper();} }",
+            "android/os/SystemClock.java": "package android.os; public class SystemClock { public static long now; public static long elapsedRealtime(){return now;} }",
+            "android/os/Handler.java": r'''package android.os; import java.util.*;
+public class Handler {
+ public static final Map<Runnable,Long> pending=new LinkedHashMap<>();
+ public Handler(Looper l) {} public void removeCallbacks(Runnable r){pending.remove(r);}
+ public void post(Runnable r){postDelayed(r,0);} public void postDelayed(Runnable r,long delay){pending.put(r,SystemClock.now+delay);}
+ public static void advance(long now){SystemClock.now=now;
+  for(int bounded=0; bounded<100; ++bounded){Runnable ready=null;
+   for(var e:pending.entrySet()) if(e.getValue()<=now){ready=e.getKey();break;}
+   if(ready==null)return; pending.remove(ready); ready.run();
+  } throw new AssertionError("unbounded callbacks");
+ }
+}''',
+            "android/os/PowerManager.java": "package android.os; public class PowerManager { public boolean interactive=true; public boolean isInteractive(){return interactive;} }",
+            "android/content/Context.java": "package android.content; public class Context { public static final String POWER_SERVICE=\"power\"; }",
+            "android/graphics/Rect.java": "package android.graphics; public class Rect { public int w,h; public int width(){return w;} public int height(){return h;} }",
+            "android/view/View.java": r'''package android.view; import android.graphics.Rect;
+public class View {
+ public boolean shown=true, enabled=true; public int w=100,h=60,clicks; public Runnable click=()->{};
+ public boolean isShown(){return shown;} public boolean isEnabled(){return enabled;}
+ public boolean getGlobalVisibleRect(Rect r){r.w=w;r.h=h;return shown;}
+ public int getWidth(){return w;} public int getHeight(){return h;} public View getRootView(){return this;}
+ public void performClick(){++clicks;click.run();}
+}''',
+            "androidx/lifecycle/ViewModel.java": "package androidx.lifecycle; public class ViewModel {}",
+            "androidx/lifecycle/ViewModelProvider.java": r'''package androidx.lifecycle;
+public class ViewModelProvider { public ViewModelProvider(Object o){} public <T> T get(Class<T> c){try{return c.getDeclaredConstructor().newInstance();}catch(Exception e){throw new RuntimeException(e);}} }''',
+            "androidx/lifecycle/Lifecycle.java": r'''package androidx.lifecycle;
+public class Lifecycle { public enum State { CREATED, RESUMED; public boolean isAtLeast(State s){return ordinal()>=s.ordinal();} }
+ public State state=State.RESUMED; public State getCurrentState(){return state;} }''',
+            "app/organicmaps/MwmActivity.java": r'''package app.organicmaps;
+public class MwmActivity {
+ public boolean focus=true,touch=false; public final androidx.lifecycle.Lifecycle life=new androidx.lifecycle.Lifecycle();
+ public final android.os.PowerManager power=new android.os.PowerManager();
+ public static class Fragments { public boolean saved; public boolean isStateSaved(){return saved;} }
+ public final Fragments fragments=new Fragments();
+ public boolean hasWindowFocus(){return focus;} public boolean isInCarTouchActive(){return touch;}
+ public androidx.lifecycle.Lifecycle getLifecycle(){return life;} public Object getSystemService(String s){return power;}
+ public Fragments getSupportFragmentManager(){return fragments;}
+}''',
+            "app/organicmaps/incar/InCarSettingsStore.java": "package app.organicmaps.incar; public class InCarSettingsStore { public static int delay=10; public static int getAutomaticNavigationActionDelaySeconds(Object o){return delay;} }",
+            "CountdownTest.java": r'''import android.os.*; import android.view.View;
+import app.organicmaps.*; import app.organicmaps.incar.*;
+public class CountdownTest {
+ static void check(boolean b){if(!b)throw new AssertionError();}
+ public static void main(String[] args){
+  for(int delay:new int[]{2,3,5,10,15,20,30}){
+   Handler.pending.clear(); SystemClock.now=0; InCarSettingsStore.delay=delay;
+   MwmActivity a=new MwmActivity(); View go=new View(), start=new View();
+   InCarNavigationCountdown c=new InCarNavigationCountdown(a); final int[] progress={-1};
+   go.click=()->c.arm("START",1,start,()->true,s->progress[0]=s);
+   c.arm("GO_TO",1,go,()->true,s->progress[0]=s);
+   Handler.advance(0); check(progress[0]==delay);
+   Handler.advance(delay*1000-1); check(go.clicks==0);
+   Handler.advance(delay*1000+200); check(go.clicks==1 && start.clicks==0);
+   Handler.advance(2*delay*1000+400); check(go.clicks==1 && start.clicks==1);
+   Handler.advance(100000); check(start.clicks==1 && Handler.pending.isEmpty());
+   c.arm("GO_TO",1,go,()->true,s->{}); Handler.advance(100000); check(go.clicks==1);
+  }
+  // Every interruption cancels dispatch and consumes the generation; a new one can still arm.
+  for(int interruption=0;interruption<8;++interruption){
+   Handler.pending.clear(); SystemClock.now=0; InCarSettingsStore.delay=2;
+   MwmActivity a=new MwmActivity(); View v=new View(); boolean[] eligible={true};
+   InCarNavigationCountdown c=new InCarNavigationCountdown(a);
+   c.arm("START",1,v,()->eligible[0],s->{}); Handler.advance(0);
+   switch(interruption){case 0:a.focus=false;break;case 1:a.life.state=androidx.lifecycle.Lifecycle.State.CREATED;break;
+    case 2:a.power.interactive=false;break;case 3:v.w++;break;case 4:v.shown=false;break;
+    case 5:v.enabled=false;break;case 6:eligible[0]=false;break;case 7:c.cancel();break;}
+   Handler.advance(2200); check(v.clicks==0 && Handler.pending.isEmpty());
+   a.focus=true;a.life.state=androidx.lifecycle.Lifecycle.State.RESUMED;a.power.interactive=true;
+   v.shown=true;v.enabled=true;eligible[0]=true;
+   c.arm("START",1,v,()->true,s->{}); Handler.advance(5000);check(v.clicks==0);
+   c.arm("START",2,v,()->true,s->{}); Handler.advance(5000);Handler.advance(7200);check(v.clicks==1);
+  }
+  Handler.pending.clear(); SystemClock.now=0; MwmActivity a=new MwmActivity(); View v=new View();
+  InCarNavigationCountdown c=new InCarNavigationCountdown(a); a.touch=true;
+  c.arm("GO_TO",1,v,()->true,s->{});Handler.advance(0);Handler.advance(1000);check(v.clicks==0);
+  a.touch=false;Handler.advance(1500);Handler.advance(3400);check(v.clicks==0);
+  Handler.advance(3700);check(v.clicks==1); // Full delay starts only after selection touch completes.
+ }
+}'''
+        }
+        for name in ("InCarNavigationCountdown", "InCarNavigationCountdownPolicy"):
+            files[f"app/organicmaps/incar/{name}.java"] = controls.read(
+                f"android/app/src/main/java/app/organicmaps/incar/{name}.java")
+        with tempfile.TemporaryDirectory() as tmp:
+            sources = []
+            for path, content in files.items():
+                target = Path(tmp) / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+                sources.append(str(target))
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            subprocess.run([runtime, str(compiler), "-d", tmp, *sources], check=True)
+            subprocess.run([runtime, "-cp", tmp, "CountdownTest"], check=True)
+
+    def test_incar_saved_places_cannot_be_restored_by_visibility_updates(self):
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable: production visibility dispatch NOT_RUN")
+        production = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+        policy = controls.method_body(production, "static boolean shouldSuppressLegacyButton(")
+        dispatch = controls.method_body(production, "public void showButton(boolean show, MapButtons button)")
+        # Execute production dispatch, including focus/accessibility setters, against a small View seam.
+        harness = r'''import java.util.*;
+class View {
+ static final int IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS=4, IMPORTANT_FOR_ACCESSIBILITY_AUTO=0;
+ boolean visible=true, clickable=true, focusable=true; int accessibility;
+ void setClickable(boolean v) { clickable=v; } void setFocusable(boolean v) { focusable=v; }
+ void setImportantForAccessibility(int v) { accessibility=v; }
+}
+class FloatingActionButton extends View {}
+class UiUtils { static void showIf(boolean show, View v) { v.visible=show; } }
+class BuildConfig { static boolean IS_IN_CAR=true; }
+class Config { static boolean showZoomButtons() { return true; } }
+class TrackRecorder { static boolean nativeIsTrackRecordingEnabled() { return false; } }
+class Value { LayoutMode mode; LayoutMode getValue() { return mode; } }
+class Model { Value value=new Value(); Value getLayoutMode() { return value; } }
+enum LayoutMode { regular, planning, navigation }
+enum MapButtons { zoom, toggleMapLayer, myPosition, search, bookmarks, cameraViewRecenter, menu, trackRecordingStatus }
+class Position { void showButton(boolean show) {} }
+class Wheel { void show(boolean show) {} }
+class Controller {
+ Map<MapButtons, View> mButtonsMap=new HashMap<>(); Model mMapButtonsViewModel=new Model();
+ View mToggleMapLayerButton; Position mNavMyPosition; Wheel mSearchWheel=new Wheel();
+ boolean isInNavigationMode() { return false; } void animateIconBlinking(boolean active, FloatingActionButton v) {}
+ static boolean shouldSuppressLegacyButton(boolean inCar, LayoutMode mode, MapButtons button) {''' + policy + r'''}
+ void showButton(boolean show, MapButtons button) {''' + dispatch + r'''}
+}
+public class VisibilityTest {
+ static void check(boolean condition) { if (!condition) throw new AssertionError(); }
+ public static void main(String[] args) {
+  for (boolean inCar : new boolean[]{true, false}) {
+   BuildConfig.IS_IN_CAR=inCar;
+   // A fresh controller represents initial inflation and each fragment replacement.
+   for (int replacement=0; replacement<3; ++replacement) {
+    Controller c=new Controller(); View places=new View(), search=new View(), menu=new View();
+    c.mButtonsMap.put(MapButtons.bookmarks,places); c.mButtonsMap.put(MapButtons.search,search);
+    c.mButtonsMap.put(MapButtons.menu,menu);
+    for (LayoutMode mode : new LayoutMode[]{null, LayoutMode.regular, LayoutMode.planning,
+          LayoutMode.navigation, LayoutMode.regular}) {
+     c.mMapButtonsViewModel.value.mode=mode;
+     // Repeat requests model initial setup, LiveData delivery, and visibility/layout refresh.
+     for (int refresh=0; refresh<3; ++refresh) {
+      c.showButton(false,MapButtons.bookmarks); c.showButton(true,MapButtons.bookmarks);
+      c.showButton(true,MapButtons.search); c.showButton(true,MapButtons.menu);
+      check(places.visible==!inCar);
+      check(places.clickable==!inCar && places.focusable==!inCar);
+      check(places.accessibility==(inCar?4:0));
+      check(search.visible==!(inCar && mode==LayoutMode.navigation)); check(menu.visible);
+     }
+    }
+   }
+  }
+ }
+}'''
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "VisibilityTest.java"
+            source.write_text(harness)
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            subprocess.run([runtime, str(compiler), "-d", tmp, str(source)], check=True)
+            subprocess.run([runtime, "-cp", tmp, "VisibilityTest"], check=True)
+
     def test_shared_camera_symbol_and_safe_activity_teardown(self):
         import xml.etree.ElementTree as ET
         resources = ET.parse(ROOT / "android/app/src/main/res/values/in_car_shared_fallbacks.xml").getroot()

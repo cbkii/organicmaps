@@ -27,6 +27,12 @@ place-page and footer owners share that setting. The information banner stays
 in place. The 76/69/55dp tiers remain; a shallow window uses a horizontal four-cell
 rail while keeping all camera/zoom actions and three dividers accessible.
 
+Persistent browsing controls are Search and Main Menu only. Saved Places stays in
+the menu; every controller visibility request suppresses its legacy button in all
+InCar modes, including initial inflation and LiveData/layout refreshes. Suppression
+also removes clickability, focusability and accessibility traversal. Non-InCar
+controls retain their existing behaviour; navigation Quick Search owns Search.
+
 ## Destination and route actions
 
 GO TO reserves a direct slot before secondary-action overflow. Both visible and
@@ -71,3 +77,27 @@ Use [the physical walkthrough](TS18_CONSOLIDATED_UI_VALIDATION.md) for installat
 signer/version compatibility, P/F/N results, failure captures and same-package
 rollback. Keep a prior compatible APK. No merge or production release is part of
 this candidate.
+
+### Corrective qualification, 13 October 2026
+
+The Bookmarks visibility regression is corrected in the existing shared policy.
+The host regression executes the production `showButton` method with View seams
+through initial setup, repeated observer-style requests, mode changes and fresh
+controllers. The JVM policy matrix also covers every mode, null/initial mode and
+non-InCar behaviour.
+
+The countdown regression compiles the complete production coordinator and policy
+with Android clock/queue/view/lifecycle seams. It exercises all seven delays,
+GO TO dispatch leading to an independent START stage, one-shot delivery, consumed
+generations, focus/pause/screen-off/resize/hidden/disabled/stale eligibility/manual
+cancellation, and countdown timing after the selection gesture completes. These
+are host integration tests, not a linked Android renderer or physical-device test.
+
+Local Python regressions, camera/freshness C++ method probes, control/layout/JNI,
+contrast, packaged-style and repository-scope checks are recorded separately from
+final-head Android CI in the PR qualification record. Android SDK/NDK/emulator are
+unavailable locally; authoritative Android build/JVM/connected/smoke evidence comes
+from GitHub Actions. Fully linked native drape/routing/AStar suites, rendered map
+screenshots, actual GPS, glare and vehicle lifecycle remain NOT_RUN until observed.
+Integer house-number sizing and renderer-owned halo thickness remain the bounded
+visual qualifications described above; no style or upstream-tree rewrite is made.

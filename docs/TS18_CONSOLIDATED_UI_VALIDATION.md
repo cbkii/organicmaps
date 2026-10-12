@@ -34,6 +34,12 @@ The snapshot identifies its actual focus/task and time: it cannot prove a previo
 
 The prompts cover handedness persistence, four-cell rail and native Follow states, real perspective/recenter and location recovery, search/menu/overflow, primary GO TO, two independent countdowns and cancellation, all delay settings, day/night HUD hierarchy, warning thresholds, adaptive footer/cog/END, rendered map style/exclusions, launcher window/fullscreen transitions and app/reboot/ACC boundaries.
 
+For Search/Menu, check browsing immediately after cold launch, after returning from
+navigation, and after a resize or Activity recreation. The persistent group must
+contain **Search + Main Menu only**; Saved Places must remain available inside Main
+Menu and must not appear or receive accessibility focus as a separate map button.
+In active navigation, use Quick Search and confirm there is no second Search.
+
 Speed warning qualification requires an already approved, parked-only test-data facility. The walkthrough supplies no mock-location injection and no speed simulation. Without approved data, record NOT_RUN. Stationary lack of usable bearing may also leave some native Follow/camera states NOT_RUN. Note individual untested delay choices, route alternatives, locality categories, localisations, cold boot, reverse transitions and physical glare in comments: passing one representative row does not qualify every variant.
 
 After any failure, record the earliest observed cause and relevant screenshot/log snapshot; do not repeatedly retry the same launch/camera command or label dependent tests as independent failures. Re-run a new walkthrough after a new candidate; preserve old directories for comparison. CI, capture-command PASS, APK installation and screenshot existence are not physical behaviour PASS.
