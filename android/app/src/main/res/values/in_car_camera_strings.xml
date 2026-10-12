@@ -1,0 +1,10 @@
+<resources>
+  <string name="in_car_follow_pending">Follow mode: waiting for location</string>
+  <string name="in_car_follow_unavailable">Follow mode: location unavailable</string>
+  <string name="in_car_follow_stopped">Follow mode: stopped following</string>
+  <string name="in_car_follow_position">Follow mode: following position</string>
+  <string name="in_car_follow_heading">Follow mode: following position and heading</string>
+  <string name="in_car_camera_view_recenter">Switch camera view and centre on location</string>
+  <string name="in_car_camera_driving">Driving-angle camera: switch to top-down and centre</string>
+  <string name="in_car_camera_top_down">Top-down camera: switch to driving angle and centre</string>
+</resources>

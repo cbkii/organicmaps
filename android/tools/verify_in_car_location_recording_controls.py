@@ -67,11 +67,13 @@ def verify_my_position() -> None:
     java = read("android/app/src/main/java/app/organicmaps/widget/menu/MyPositionButton.java")
     activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
     click = method_body(activity, "case myPosition ->")
-    incar = method_body(click, "if (BuildConfig.IS_IN_CAR)")
-    require("LocationState.nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery)" in incar,
-            "InCar click must request native recenter")
-    for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
-        require(forbidden not in incar, f"InCar click must not change intent via {forbidden}")
+    require("LocationState.nativeSwitchToNextMode()" in click,
+            "Follow control must dispatch the native upstream mode cycle")
+    require("nativeRecenter" not in click, "Follow must not alias Camera View / Recentre")
+    camera = method_body(activity, "case cameraViewRecenter ->")
+    require("nativeToggleCameraViewAndRecenter(application::requestInCarRecenterRecovery)" in camera,
+            "camera action must retain bounded native recovery")
+    require("nativeSwitchToNextMode" not in camera, "camera must not alias Follow")
     acquisition = method_body(activity, "boolean recoverInCarRecenterLocation()")
     require("helper.isActive()" in acquisition, "already-pending acquisition must stay pending")
     require("LocationState.getMode()" not in acquisition,
@@ -89,10 +91,27 @@ def verify_my_position() -> None:
     require(re.search(r"mInCarRecenterRecovery\s*=\s*BuildConfig\.IS_IN_CAR\s*&&\s*"
                       r"savedInstanceState\.getBoolean\(IN_CAR_RECENTER_RECOVERY,\s*false\)", restore) is not None,
             "configuration recreation must retain Android recovery context")
-    render = method_body(java, "private void updateInCar()")
-    require("R.drawable.ic_not_follow" in render, "InCar My Position must use one stable crosshair icon")
-    require("setSelected(false)" in render and "clearAnimation()" in render,
-            "InCar My Position must not render mode-selected/pending state")
+    render = method_body(java, "public void update(int mode)")
+    for icon in ("ic_menu_location_pending", "ic_location_off", "ic_not_follow", "ic_follow", "ic_follow_and_rotate"):
+        require(icon in render, f"Follow must render the actual native mode: {icon}")
+    require("setContentDescription" in render, "Follow must expose actual mode accessibility")
+    rail = ET.parse(ROOT / "android/app/src/inCar/res/layout/map_buttons_zoom.xml").getroot()
+    ids = [e.attrib.get(f"{{{ANDROID_NS}}}id", "").split("/")[-1] for e in rail.iter()]
+    for id in ("nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
+        require(ids.count(id) == 1, f"rail requires exactly one {id}")
+    require(sum(e.tag == "View" for e in rail.iter()) == 3, "four-cell rail requires three dividers")
+    renderer = read("libs/drape_frontend/frontend_renderer.cpp")
+    toggle = method_body(renderer, "bool FrontendRenderer::ToggleCameraViewAndRecenter()")
+    for token in ("GetCurrentScreen().isPerspective()", "ApplyCameraPresentation", "RecenterPreservingMode()"):
+        require(token in toggle, f"renderer camera command missing {token}")
+    perspective_request = method_body(renderer, "case Message::Type::EnablePerspective:")
+    require("!m_manualCameraPresentation" in perspective_request,
+            "observer perspective requests must preserve a manual session presentation")
+    permission = method_body(renderer, "void FrontendRenderer::ApplyPerspectivePermission(bool allowed)")
+    require("IsInRouting() && !allowed" in permission and "ApplyCameraPresentation(false)" in permission,
+            "explicit routing perspective disallow must flatten a manual camera safely")
+    for forbidden in ("NextMode", "ActivateRouting", "Allow3dMode"):
+        require(forbidden not in toggle, f"camera must preserve tracking/global preference: {forbidden}")
 
     bridge = read("android/sdk/src/main/cpp/app/organicmaps/sdk/LocationState.cpp")
     jni = method_body(bridge, "Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToCurrentPosition")

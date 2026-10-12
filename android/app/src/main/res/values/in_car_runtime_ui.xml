@@ -14,6 +14,7 @@
 
   <!-- InCarDrivingUi is compiled for every app flavour; declare the InCar-only view id in main resources. -->
   <item name="in_car_driving_view_button" type="id" />
+  <item name="in_car_browsing_controls" type="id" />
 
   <!-- Persistent map chrome stays translucent while selected/pressed states retain stronger contrast. -->
   <integer name="in_car_map_button_surface_alpha">153</integer>

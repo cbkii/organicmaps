@@ -166,6 +166,8 @@ public:
   void StopLocationFollow();
   void RecenterMyPositionPreservingMode(std::function<void(bool)> onResult);
   void SetDrivingView(bool enabled, bool autoReturn, bool recenter);
+  void ToggleCameraViewAndRecenter(std::function<void(bool)> onResult);
+  void QueryCameraPerspective(std::function<void(bool)> onResult);
 
   using TapEventInfoHandler = FrontendRenderer::TapEventInfoHandler;
   void SetTapEventInfoListener(TapEventInfoHandler && fn);

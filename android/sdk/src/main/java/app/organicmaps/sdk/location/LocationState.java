@@ -48,6 +48,17 @@ public final class LocationState
    */
   public static native void nativeRecenterToCurrentPosition(@NonNull Runnable onNeedsLocation);
 
+  /** One render-thread operation; never changes the global 3D preference or native follow mode. */
+  public static native void nativeToggleCameraViewAndRecenter(@NonNull Runnable onNeedsLocation);
+
+  public interface CameraPresentationListener
+  {
+    @Keep
+    void onCameraPresentation(boolean perspective);
+  }
+
+  public static native void nativeQueryCameraPresentation(@NonNull CameraPresentationListener listener);
+
   @Value
   private static native int nativeGetMode();
 

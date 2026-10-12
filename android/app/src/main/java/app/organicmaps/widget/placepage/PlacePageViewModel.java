@@ -16,6 +16,8 @@ public class PlacePageViewModel extends ViewModel
   private final MutableLiveData<Integer> mPlacePageWidth = new MutableLiveData<>();
   private final MutableLiveData<Integer> mPlacePageDistanceToTop = new MutableLiveData<>();
   public boolean isAlertDialogShowing = false;
+  private long mSelectionGeneration;
+  public long getSelectionGeneration() { return mSelectionGeneration; }
 
   public LiveData<List<PlacePageButtons.ButtonType>> getCurrentButtons()
   {
@@ -34,6 +36,7 @@ public class PlacePageViewModel extends ViewModel
 
   public void setMapObject(MapObject mapObject)
   {
+    if (!MapObject.same(mMapObject.getValue(), mapObject)) ++mSelectionGeneration;
     mMapObject.setValue(mapObject);
   }
 

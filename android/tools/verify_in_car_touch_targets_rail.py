@@ -166,7 +166,7 @@ def verify_navigation_refinements(root):
     if android("alpha") in by_id["street_frame"].attrib:
         raise base.VerificationError("immediate road must retain full foreground strength")
     for view in ("nav_next_next_turn_frame", "in_car_nav_guidance_label"):
-        base.require_layout_attr(layout, view, base.ANDROID_NS, "alpha", "0.70")
+        base.require_layout_attr(layout, view, base.ANDROID_NS, "alpha", "1.0")
     base.require_layout_attr(layout, "nav_next_turn_container", base.ANDROID_NS, "layoutDirection", "ltr")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_width", "0dp")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_weight", "1")
@@ -194,7 +194,7 @@ def verify_navigation_refinements(root):
                              r"hasLanes \? R\.string\.in_car_nav_lanes : R\.string\.in_car_nav_after",
                              "LANES caption must replace AFTER")
     base.require_method_text(controller, "private void updateGuidanceLabel(",
-                             r"label\.setAlpha\(hasLanes \? 1\.0f : 0\.70f\)",
+                             r"label\.setAlpha\(1\.0f\)",
                              "LANES must reset AFTER alpha in both directions")
     base.require_method_text(controller, "private void updateVehicle(",
                              r"showNextNextTurn = info\.hasNextNextTurn\(\) && \(!isInCarLandscape\(\) \|\| !hasLanes\)",
@@ -233,21 +233,24 @@ def verify_navigation_refinements(root):
 def verify_warning_foreground_contrast(root):
     fallbacks = contrast.read_colors(root / "android/app/src/main/res/values/in_car_shared_fallbacks.xml")
     for night in (False, True):
-        palette = {**fallbacks, **contrast.build_palette(root, night)}
-        normal = contrast.resolve_color("bg_cards", palette)
-        red = contrast.resolve_color("in_car_nav_warning", palette)
-        foreground = contrast.resolve_color("in_car_nav_foreground", palette)
-        immediate = contrast.resolve_color("in_car_nav_immediate_background", palette)
-        light = contrast.resolve_color("in_car_nav_immediate_foreground", palette)
-        for strength in (0.0, 0.44, 0.47, 0.50):
-            for stage, normal_background, ink, alpha in (("IMMEDIATE", immediate, light, 1.0),
-                                                        ("AFTER", normal, foreground, 0.70),
-                                                        ("LANES", normal, foreground, 1.0)):
-                background = contrast.composite(contrast.Rgba(red.red, red.green, red.blue, strength), normal_background)
-                faded = contrast.Rgba(ink.red, ink.green, ink.blue, alpha)
-                ratio = contrast.contrast_ratio(faded, background)
-                if ratio < 4.5:
-                    raise base.VerificationError(f"{stage} warning foreground contrast is only {ratio:.2f}:1")
+        qualifier = "values-night" if night else "values"
+        semantic = contrast.read_colors(root / f"android/app/src/inCar/res/{qualifier}/in_car_navigation_colours.xml")
+        palette = {**fallbacks, **contrast.build_palette(root, night), **semantic}
+        stages = (("IMMEDIATE", "in_car_nav_immediate_background", "in_car_nav_immediate_foreground"),
+                  ("AFTER", "in_car_nav_after_background", "in_car_nav_after_foreground"),
+                  ("LANES", "in_car_nav_lanes_background", "in_car_nav_lanes_foreground"))
+        for severity in ("in_car_nav_warning", "in_car_nav_warning_orange"):
+            warning = contrast.resolve_color(severity, palette)
+            for strength in (0.0, 0.44, 0.47, 0.50):
+                for stage, background_token, ink_token in stages:
+                    normal_background = contrast.resolve_color(background_token, palette)
+                    ink = contrast.resolve_color(ink_token, palette)
+                    # AFTER/LANES have opaque semantic surfaces; only NOW is warning-blended.
+                    background = (contrast.composite(contrast.Rgba(warning.red, warning.green, warning.blue, strength), normal_background)
+                                  if stage == "IMMEDIATE" else normal_background)
+                    ratio = contrast.contrast_ratio(ink, background)
+                    if ratio < 4.5:
+                        raise base.VerificationError(f"{qualifier} {stage} {severity} foreground contrast is only {ratio:.2f}:1")
     renderer = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
     body = base.java_method_body(renderer, "private static void renderRibbon(")
     if "immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB" not in body:

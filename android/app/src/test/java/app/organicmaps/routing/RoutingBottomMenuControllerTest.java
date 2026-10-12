@@ -8,6 +8,28 @@ import org.junit.Test;
 public class RoutingBottomMenuControllerTest
 {
   @Test
+  public void automaticExpiryUsesTheSameGuardedStartListenerAndNeverRetries()
+  {
+    final StartGateFixture fixture = new StartGateFixture();
+    fixture.gate.setState(RoutingBottomMenuController.StartState.ENABLED);
+    var countdown = new app.organicmaps.incar.InCarNavigationCountdownPolicy();
+    countdown.arm("START", 1, 2, 0);
+    if (countdown.dispatch(2000, true))
+      RoutingBottomMenuController.dispatchStart(fixture.gate, true, true, () -> fixture.calls++);
+    if (countdown.dispatch(3000, true))
+      RoutingBottomMenuController.dispatchStart(fixture.gate, true, true, () -> fixture.calls++);
+    org.junit.Assert.assertEquals(1, fixture.calls);
+    RoutingBottomMenuController.dispatchStart(fixture.gate, false, true, () -> fixture.calls++);
+    org.junit.Assert.assertEquals(1, fixture.calls);
+  }
+
+  private static final class StartGateFixture
+  {
+    final RoutingBottomMenuController.StartGate gate = new RoutingBottomMenuController.StartGate();
+    int calls;
+  }
+
+  @Test
   public void startGateRequiresEnabledBuiltPlanningRoute()
   {
     final RoutingBottomMenuController.StartGate gate = new RoutingBottomMenuController.StartGate();

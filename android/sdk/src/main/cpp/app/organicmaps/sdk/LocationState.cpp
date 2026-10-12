@@ -100,6 +100,43 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeRecenterToC
   }
 }
 
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeToggleCameraViewAndRecenter(
+    JNIEnv *, jclass, jobject onNeedsLocation)
+{
+  CancelStartupCameraBridge();
+  auto const engine = GetDrapeEngine();
+  if (engine == nullptr)
+    return;
+  engine->ToggleCameraViewAndRecenter(
+      [onNeedsLocation = jni::make_global_ref_safe(onNeedsLocation)](bool dispatched)
+      {
+        if (dispatched)
+          return;
+        GetPlatform().RunTask(Platform::Thread::Gui, [onNeedsLocation]()
+        {
+          JNIEnv * env = jni::GetEnv();
+          env->CallVoidMethod(*onNeedsLocation, jni::GetMethodID(env, *onNeedsLocation, "run", "()V"));
+        });
+      });
+}
+
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeQueryCameraPresentation(
+    JNIEnv *, jclass, jobject listener)
+{
+  auto const engine = GetDrapeEngine();
+  if (engine == nullptr)
+    return;
+  engine->QueryCameraPerspective([listener = jni::make_global_ref_safe(listener)](bool perspective)
+  {
+    GetPlatform().RunTask(Platform::Thread::Gui, [listener, perspective]()
+    {
+      JNIEnv * env = jni::GetEnv();
+      env->CallVoidMethod(*listener, jni::GetMethodID(env, *listener, "onCameraPresentation", "(Z)V"),
+                          static_cast<jboolean>(perspective));
+    });
+  });
+}
+
 // private static int nativeGetMode();
 JNIEXPORT jint Java_app_organicmaps_sdk_location_LocationState_nativeGetMode(JNIEnv * env, jclass clazz)
 {

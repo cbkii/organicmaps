@@ -17,6 +17,71 @@ class MenuContractTests(unittest.TestCase):
         controls.verify_my_position()
         controls.verify_track_recording()
 
+    def test_renderer_camera_toggle_uses_actual_presentation_and_recenter_result(self):
+        compiler = shutil.which("g++")
+        if compiler is None:
+            self.skipTest("C++ compiler unavailable: native camera NOT_RUN")
+        production = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        body = controls.method_body(production, "bool FrontendRenderer::ToggleCameraViewAndRecenter()")
+        permission = controls.method_body(production, "void FrontendRenderer::ApplyPerspectivePermission(bool allowed)")
+        session = controls.method_body(controls.read("libs/drape_frontend/frontend_renderer.hpp"),
+                                       "void SetDrivingView(bool enabled, bool autoReturn, bool recenter)")
+        harness = r"""#include <cassert>
+#include <memory>
+struct SetAutoPerspectiveEvent { bool p; explicit SetAutoPerspectiveEvent(bool v):p(v){} };
+template<typename T, typename... Args> auto make_unique_dp(Args&&... args) { return std::make_unique<T>(std::forward<Args>(args)...); }
+struct Screen { bool tilted=false; bool isPerspective() const { return tilted; } };
+struct Stream { Screen screen; const Screen & GetCurrentScreen() const { return screen; }
+ void ApplyCameraPresentation(bool p) { screen.tilted=p; } };
+struct Position { bool routing=false, fresh=true; int calls=0, mode=3;
+ bool IsInRouting() const { return routing; }
+ void SetDrivingView(bool, bool, bool) {}
+ void EnablePerspectiveInRouting(bool) {}
+ bool RecenterPreservingMode() { ++calls; return fresh; } };
+struct Renderer {
+ Stream m_userEventStream; Position position; Position *m_myPositionController=&position;
+ bool m_enablePerspectiveInNavigation=true, m_manualCameraPresentation=false, m_cameraDrivingSession=false;
+ void AddUserEvent(std::unique_ptr<SetAutoPerspectiveEvent> e) { m_userEventStream.ApplyCameraPresentation(e->p); }
+ void DisablePerspective() { m_userEventStream.ApplyCameraPresentation(false); }
+ void driving(bool enabled, bool autoReturn, bool recenter) {""" + session + r"""}
+ void permit(bool allowed) {""" + permission + r"""}
+ bool toggle() {""" + body + r"""}
+};
+int main() {
+ Renderer r;
+ assert(r.toggle() && r.m_userEventStream.screen.tilted && r.position.calls==1);
+ assert(r.toggle() && !r.m_userEventStream.screen.tilted && r.position.calls==2);
+ assert(r.position.mode==3 && r.m_manualCameraPresentation);
+ r.position.fresh=false;
+ assert(!r.toggle() && r.m_userEventStream.screen.tilted && r.position.calls==3);
+ r.position.routing=true; r.m_enablePerspectiveInNavigation=false;
+ assert(!r.toggle() && !r.m_userEventStream.screen.tilted && r.position.mode==3);
+ assert(!r.toggle() && !r.m_userEventStream.screen.tilted);
+ Renderer session;
+ session.driving(true, true, false);
+ assert(session.m_userEventStream.screen.tilted);
+ session.toggle(); assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
+ session.driving(true, true, false);
+ assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
+ session.driving(false, true, false);
+ assert(!session.m_manualCameraPresentation && !session.m_userEventStream.screen.tilted);
+ session.driving(true, true, false); assert(session.m_userEventStream.screen.tilted);
+ session.position.routing=true;
+ session.toggle(); assert(!session.m_userEventStream.screen.tilted);
+ session.permit(true); assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
+ session.toggle(); assert(session.m_userEventStream.screen.tilted);
+ session.permit(false); assert(!session.m_userEventStream.screen.tilted && !session.m_manualCameraPresentation);
+ session.permit(false); assert(!session.m_userEventStream.screen.tilted);
+ session.permit(true); assert(session.m_userEventStream.screen.tilted);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "camera.cpp"
+            binary = Path(tmp) / "camera"
+            source.write_text(harness)
+            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            subprocess.run([str(binary)], check=True)
+
     def test_missing_or_reordered_detach_is_rejected(self):
         original_read = controls.read
         for replacement in ("", "toggle.setChecked(item.checked);"):

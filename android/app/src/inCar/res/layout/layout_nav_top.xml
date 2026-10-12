@@ -132,4 +132,13 @@
     app:layout_constraintRight_toLeftOf="@id/nav_next_turn_container"
     app:layout_constraintTop_toBottomOf="@id/street_frame"
     tools:visibility="visible" />
+  <View
+    android:id="@+id/in_car_nav_warning_underline"
+    android:layout_width="0dp"
+    android:layout_height="4dp"
+    android:visibility="invisible"
+    android:importantForAccessibility="no"
+    app:layout_constraintLeft_toLeftOf="parent"
+    app:layout_constraintRight_toRightOf="parent"
+    app:layout_constraintTop_toBottomOf="street_frame" />
 </androidx.constraintlayout.widget.ConstraintLayout>

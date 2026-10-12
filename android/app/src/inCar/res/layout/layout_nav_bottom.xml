@@ -35,7 +35,7 @@
         android:contentDescription="@string/in_car_navigation_more"
         android:padding="@dimen/margin_base"
         android:scaleType="centerInside"
-        app:srcCompat="@drawable/ic_more"
+        app:srcCompat="@drawable/ic_menu_settings"
         app:tint="?iconTint" />
 
       <Button

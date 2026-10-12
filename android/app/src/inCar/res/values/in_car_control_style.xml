@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <integer name="in_car_map_button_surface_alpha">242</integer>
+  <integer name="in_car_quick_surface_alpha">242</integer>
+  <dimen name="corner_radius_medium">16dp</dimen>
+  <style name="MwmWidget.MapButton.Square" parent="MwmWidget.MapButton.Bottom">
+    <item name="cornerFamily">rounded</item><item name="cornerSize">16dp</item>
+  </style>
+  <style name="MwmWidget.MapButton.Square.bottom" parent="MwmWidget.MapButton.Bottom">
+    <item name="cornerFamily">rounded</item><item name="cornerSize">16dp</item>
+  </style>
+</resources>

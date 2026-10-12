@@ -45,12 +45,6 @@ public class MyPositionButton
 
   public void update(int mode)
   {
-    if (BuildConfig.IS_IN_CAR)
-    {
-      updateInCar();
-      return;
-    }
-
     Drawable image = mIcons.get(mode);
     @AttrRes
     int colorAttr = R.attr.iconTint;
@@ -85,9 +79,20 @@ public class MyPositionButton
 
     mButton.setSelected(false);
     mButton.setImageDrawable(image);
-    mButton.setMaxImageSize((int) resources.getDimension(sizeDimen));
+    if (!BuildConfig.IS_IN_CAR)
+      mButton.setMaxImageSize((int) resources.getDimension(sizeDimen));
     ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, colorAttr)));
     updatePadding(mode);
+    if (BuildConfig.IS_IN_CAR)
+      mButton.setContentDescription(context.getString(switch (mode)
+      {
+        case LocationState.PENDING_POSITION -> R.string.in_car_follow_pending;
+        case LocationState.NOT_FOLLOW_NO_POSITION -> R.string.in_car_follow_unavailable;
+        case LocationState.NOT_FOLLOW -> R.string.in_car_follow_stopped;
+        case LocationState.FOLLOW -> R.string.in_car_follow_position;
+        case LocationState.FOLLOW_AND_ROTATE -> R.string.in_car_follow_heading;
+        default -> throw new IllegalArgumentException("Invalid location mode: " + mode);
+      }));
 
     if (mode == LocationState.PENDING_POSITION)
     {
@@ -102,21 +107,6 @@ public class MyPositionButton
     }
     else
       mButton.clearAnimation();
-  }
-
-  private void updateInCar()
-  {
-    final Context context = mButton.getContext();
-    final Resources resources = mButton.getResources();
-    final Drawable image = ResourcesCompat.getDrawable(resources, R.drawable.ic_not_follow, context.getTheme());
-    mButton.setSelected(false);
-    mButton.setImageDrawable(image);
-    // Preserve the InCar resource-defined automotive icon size; unlike the mobile mode renderer,
-    // this stable command has no mode-dependent geometry.
-    ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, R.attr.iconTint)));
-    mButton.setContentDescription(context.getString(R.string.in_car_recenter_my_position));
-    mButton.clearAnimation();
-    mButton.setPadding(0, 0, 0, 0);
   }
 
   private void updatePadding(int mode)

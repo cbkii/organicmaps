@@ -154,12 +154,22 @@ public:
   // Called only from the frontend/render thread via DrapeEngine's existing NotifyRenderThread path.
   void SetDrivingView(bool enabled, bool autoReturn, bool recenter)
   {
+    bool const changed = m_cameraDrivingSession != enabled;
+    m_cameraDrivingSession = enabled;
+    if (changed)
+      m_manualCameraPresentation = false;
     m_myPositionController->SetDrivingView(enabled, autoReturn, recenter);
+    if (m_manualCameraPresentation)
+      return;
     if (enabled && m_enablePerspectiveInNavigation)
       AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(true /* isAutoPerspective */));
     else if (!enabled && !m_myPositionController->IsInRouting())
       DisablePerspective();
   }
+
+  void ApplyPerspectivePermission(bool allowed);
+  bool ToggleCameraViewAndRecenter();
+  bool IsCameraPerspective() const { return m_userEventStream.GetCurrentScreen().isPerspective(); }
 
   void OnEnterBackground();
 
@@ -345,6 +355,8 @@ private:
   FrameValues m_frameValues;
 
   bool m_enablePerspectiveInNavigation;
+  bool m_manualCameraPresentation = false;
+  bool m_cameraDrivingSession = false;
   bool m_enable3dBuildings;
   bool m_isIsometry;
 

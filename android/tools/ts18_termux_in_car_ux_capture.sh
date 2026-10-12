@@ -3,6 +3,10 @@
 # Usage: bash ts18_termux_in_car_ux_capture.sh <label>
 
 umask 077
+case "${1:-}" in
+  -h|--help) printf 'Usage: bash ts18_termux_in_car_ux_capture.sh [label]\nRead-only bounded capture; no visual acceptance inferred.\n'; exit 0 ;;
+esac
+if [ "$#" -gt 1 ]; then printf 'One label only; use --help.\n' >&2; exit 2; fi
 
 PACKAGE="${PACKAGE:-app.organicmaps.incar}"
 PROJECT="${PROJECT:-OrganicMaps-TS18-UX-Qualification}"
@@ -10,6 +14,14 @@ EXPORT_BASE="${EXPORT_BASE:-/storage/emulated/0/Download/${PROJECT}}"
 LABEL="${1:-baseline}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-12}"
 MAX_LOG_LINES="${MAX_LOG_LINES:-1400}"
+
+for bound in "$TIMEOUT_SECONDS" "$MAX_LOG_LINES"; do
+  case "$bound" in ''|*[!0-9]*) printf 'Bounds must be positive integers.\n' >&2; exit 2;; esac
+  if [ "$bound" -eq 0 ] || [ "$bound" -gt 10000 ]; then printf 'Bounds out of range.\n' >&2; exit 2; fi
+done
+if [ "$TIMEOUT_SECONDS" -gt 30 ] || [ "$MAX_LOG_LINES" -gt 5000 ]; then
+  printf 'Maximum timeout 30 seconds; maximum log lines 5000.\n' >&2; exit 2
+fi
 
 case "$LABEL" in
   *[!A-Za-z0-9._-]*|'')
@@ -38,7 +50,7 @@ if [ -z "$TIMEOUT_BIN" ]; then
 fi
 
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
-RUN_DIR="${EXPORT_BASE}/${TS}-${LABEL}"
+RUN_DIR="${EXPORT_BASE}/${TS}-${LABEL}-$$"
 TMP_BASE="${TMPDIR:-$HOME/.tmp}"
 TMP_RUN="${TMP_BASE}/omaps-ts18-ux-${TS}-$$"
 STATUS_FILE="${RUN_DIR}/STATUS.txt"
@@ -56,7 +68,8 @@ BLOCKED=0
 INFO=0
 ROOT_OK=0
 ROOT_UID=""
-SU_BIN="$(command -v su 2>/dev/null || true)"
+SU_BIN="${PREFIX:-/data/data/com.termux/files/usr}/bin/su"
+if [ ! -x "$SU_BIN" ]; then SU_BIN=""; fi
 
 record_status() {
   local status="$1" name="$2" detail="${3:-}"
@@ -177,7 +190,7 @@ finalise() {
   if [ -d "$RUN_DIR" ]; then
     (
       cd "$RUN_DIR" || exit 1
-      find . -type f ! -name MANIFEST.sha256 -print | LC_ALL=C sort | while IFS= read -r file; do
+      find . -type f ! -name MANIFEST.sha256 ! -name MANIFEST.verify.txt -print | LC_ALL=C sort | while IFS= read -r file; do
         sha256sum "$file"
       done > MANIFEST.sha256
       sha256sum -c MANIFEST.sha256 > MANIFEST.verify.txt 2>&1

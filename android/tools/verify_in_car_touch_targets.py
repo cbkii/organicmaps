@@ -283,14 +283,14 @@ def verify_camera_control_rail(root):
         for child in zoom_container
         if resource_id(child, id_attr) != "<no-id>"
     ]
-    if interactive_ids != ["nav_zoom_in", "nav_zoom_out"]:
+    if interactive_ids != ["nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"]:
         raise VerificationError(
             f"{zoom_layout}: grouped rail must retain zoom in/out controller ids; found {interactive_ids}"
         )
 
     divider_count = sum(1 for child in zoom_container if child.tag == "View")
-    if divider_count != 2:
-        raise VerificationError(f"{zoom_layout}: grouped rail must contain exactly two visual dividers")
+    if divider_count != 3:
+        raise VerificationError(f"{zoom_layout}: grouped rail must contain exactly three visual dividers")
 
     my_position_includes = [
         child
@@ -302,7 +302,7 @@ def verify_camera_control_rail(root):
             f"{zoom_layout}: grouped rail must contain exactly one My Position control include"
         )
 
-    for view_id in ("in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out"):
+    for view_id in ("in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
         require_layout_attr(
             zoom_layout,
             view_id,
@@ -403,7 +403,7 @@ def verify_camera_rail_movement(root: Path) -> None:
     require_method_text(
         controller,
         "public void showButton(",
-        r"case zoom:\s*UiUtils\.showIf\(show\s*&&\s*Config\.showZoomButtons\(\),\s*buttonView\)",
+        r"case zoom:\s*UiUtils\.showIf\(show\s*&&\s*\(BuildConfig\.IS_IN_CAR \|\| Config\.showZoomButtons\(\)\),\s*buttonView\)",
         "independent +/- visibility setting authority",
     )
 

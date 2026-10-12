@@ -21,6 +21,7 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
   private ColorStateList mDefaultTextColors;
   private boolean mHasWarningState;
   private boolean mWarningState;
+  private InCarSpeedDisplayPolicy.Severity mSeverity = InCarSpeedDisplayPolicy.Severity.NORMAL;
 
   public InCarNavigationSpeedView(@NonNull Context context)
   {
@@ -49,17 +50,30 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
 
   public void setSpeeding(boolean warning)
   {
-    if (mHasWarningState && mWarningState == warning)
+    final InCarSpeedDisplayPolicy.Severity severity = InCarSpeedDisplayPolicy.severity();
+    if (mHasWarningState && mWarningState == warning && mSeverity == severity)
       return;
 
     mHasWarningState = true;
     mWarningState = warning;
+    mSeverity = severity;
     setBackgroundResource(warning ? R.drawable.in_car_speed_warning_background
                                   : R.drawable.in_car_speed_circle_background);
     if (warning)
-      setTextColor(Color.WHITE);
-    else if (mDefaultTextColors != null)
-      setTextColor(mDefaultTextColors);
+    {
+      if (severity == InCarSpeedDisplayPolicy.Severity.WARNING)
+        androidx.core.view.ViewCompat.setBackgroundTintList(this, ColorStateList.valueOf(
+            androidx.core.content.ContextCompat.getColor(getContext(), R.color.in_car_nav_warning_orange)));
+      else
+        androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
+      setTextColor(severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
+    }
+    else
+    {
+      androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
+      if (mDefaultTextColors != null)
+        setTextColor(mDefaultTextColors);
+    }
   }
 
   @Override

@@ -202,6 +202,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void showInCarRouteMoreMenu(@NonNull View anchor)
   {
+    ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     final boolean editing = mRoutingBottomMenuController.isManageRouteEditing();
     InCarActionMenu.show(anchor,
                          Arrays.asList(getString(editing ? R.string.in_car_done_editing : R.string.in_car_edit_route),
@@ -263,6 +264,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   @Override
   public void onDestroyView()
   {
+    if (BuildConfig.IS_IN_CAR) ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     super.onDestroyView();
     mRoutingContainer.removeOnLayoutChangeListener(this);
   }
@@ -290,6 +292,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void showSheet(boolean show)
   {
+    if (!show && BuildConfig.IS_IN_CAR) ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     if (show)
     {
       UiUtils.show(mButtonsLayout, mFrame);
@@ -453,6 +456,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   public void onBuildStarted()
   {
+    if (BuildConfig.IS_IN_CAR) ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     if (mRoutingBottomMenuController != null)
       mRoutingBottomMenuController.resetBuildProgress();
   }

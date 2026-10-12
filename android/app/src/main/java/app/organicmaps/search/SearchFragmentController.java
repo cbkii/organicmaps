@@ -383,7 +383,10 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   {
     if (!BuildConfig.IS_IN_CAR || mSearchPageContainer == null)
       return;
-    int available = getResources().getDisplayMetrics().widthPixels;
+    int available = mMapView != null && mMapView.getWidth() > 0 ? mMapView.getWidth()
+                    : requireActivity().findViewById(android.R.id.content).getWidth();
+    if (available <= 0)
+      return;
     if (mCurrentWindowInsets != null)
     {
       final Insets bars = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
@@ -397,7 +400,8 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     final ViewGroup.LayoutParams raw = mSearchPageContainer.getLayoutParams();
     raw.width = target;
     if (raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
-      params.gravity = Gravity.BOTTOM | Gravity.LEFT;
+      params.gravity = Gravity.BOTTOM | app.organicmaps.incar.InCarControlPositionPolicy.horizontalGravity(
+          app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext()));
     mSearchPageContainer.setLayoutParams(raw);
   }
 

@@ -219,7 +219,12 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
             "requireOwnedView(mButtonsLayout, R.id.routing_btn_search)" in fragment,
         "START has exactly one listener": controller.count("mStart.setOnClickListener") == 1,
         "START dispatches only route start":
-            "mListener.onRoutingStart();" in start_listener and "MapButtons.search" not in start_listener,
+            "dispatchStart(mStartGate, controller.isPlanning(), controller.isBuilt(), mListener::onRoutingStart)"
+            in " ".join(start_listener.split())
+            and "MapButtons.search" not in start_listener
+            and controller.count("mListener::onRoutingStart") == 1
+            and "if (gate.canDispatch(planning, built)) start.run();" in controller
+            and "RoutingController.get().start()" not in controller,
         "Search dispatches only search":
             "onMapButtonClick(MapButtonsController.MapButtons.search)" in search_listener
             and "onRoutingStart" not in search_listener,

@@ -15,6 +15,8 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.R;
+import app.organicmaps.BuildConfig;
+import app.organicmaps.MwmActivity;
 import app.organicmaps.util.Graphics;
 import app.organicmaps.util.WindowInsetUtils.PaddingInsetsListener;
 import app.organicmaps.util.bottomsheet.MenuBottomSheetFragment;
@@ -25,6 +27,8 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
 {
   public static final String PLACEPAGE_MORE_MENU_ID = "PLACEPAGE_MORE_MENU_BOTTOM_SHEET";
   private int mMaxButtons;
+  private List<ButtonType> mRenderedButtons;
+  private long mRenderedSelectionGeneration = -1;
 
   private PlacePageButtonClickListener mItemListener;
   private ViewGroup mButtonsContainer;
@@ -67,22 +71,24 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
   @Override
   public void onStop()
   {
+    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     super.onStop();
     mViewModel.getCurrentButtons().removeObserver(this);
+  }
+
+  @Override
+  public void onDestroyView()
+  {
+    if (BuildConfig.IS_IN_CAR && getActivity() instanceof MwmActivity activity)
+      activity.cancelInCarNavigationCountdown();
+    super.onDestroyView();
   }
 
   private @NonNull List<PlacePageButton> collectButtons(List<PlacePageButtons.ButtonType> items)
   {
     List<PlacePageButton> res = new ArrayList<>();
-    int count = items.size();
-    if (items.size() > mMaxButtons)
-      count = mMaxButtons - 1;
-
-    for (int i = 0; i < count; i++)
-      res.add(PlacePageButtonFactory.createButton(items.get(i), requireContext()));
-
-    if (items.size() > mMaxButtons)
-      res.add(PlacePageButtonFactory.createButton(ButtonType.MORE, requireContext()));
+    for (ButtonType type : PlacePageActionProjection.project(items, mMaxButtons, BuildConfig.IS_IN_CAR).direct())
+      res.add(PlacePageButtonFactory.createButton(type, requireContext()));
     return res;
   }
 
@@ -96,10 +102,43 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
   {
     if (buttons == null)
       return;
+    final long selectionGeneration = mViewModel.getSelectionGeneration();
+    if (buttons.equals(mRenderedButtons) && selectionGeneration == mRenderedSelectionGeneration
+        && mButtonsContainer.getChildCount() > 0)
+      return;
+    mRenderedButtons = new ArrayList<>(buttons);
+    mRenderedSelectionGeneration = selectionGeneration;
     List<PlacePageButton> shownButtons = collectButtons(buttons);
     mButtonsContainer.removeAllViews();
     for (PlacePageButton button : shownButtons)
-      mButtonsContainer.addView(createButton(button));
+    {
+      View action = createButton(button);
+      mButtonsContainer.addView(action);
+      if (BuildConfig.IS_IN_CAR && button.getType() == ButtonType.ROUTE_TO)
+      {
+        final long generation = mViewModel.getSelectionGeneration();
+        final app.organicmaps.sdk.bookmarks.data.MapObject destination = mViewModel.getMapObject().getValue();
+        final MwmActivity owner = (MwmActivity) requireActivity();
+        final long interactionGeneration = owner.getInCarInteractionGeneration();
+        action.post(() -> {
+          if (!isAdded() || getView() == null
+              || owner.getInCarInteractionGeneration() != interactionGeneration) return;
+          TextView title = action.findViewById(R.id.title);
+          ((MwmActivity) requireActivity()).getInCarNavigationCountdown().arm(
+              "GO_TO", generation, action,
+              () -> app.organicmaps.sdk.bookmarks.data.MapObject.same(mViewModel.getMapObject().getValue(), destination)
+                  && generation == mViewModel.getSelectionGeneration()
+                  && getView() != null && isResumed()
+                  && mViewModel.getCurrentButtons().getValue() != null
+                  && mViewModel.getCurrentButtons().getValue().contains(ButtonType.ROUTE_TO)
+                  && !mViewModel.isAlertDialogShowing
+                  && !app.organicmaps.sdk.routing.RoutingController.get().isNavigating()
+                  && !app.organicmaps.sdk.routing.RoutingController.get().isWaitingPoiPick(),
+              seconds -> title.setText(seconds < 0 ? getString(button.getTitle())
+                                                  : countdownLabel(getString(button.getTitle()), seconds)));
+        });
+      }
+    }
   }
 
   private View createButton(@NonNull final PlacePageButton current)
@@ -115,13 +154,33 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     final int tint = current.getType() == ButtonType.BOOKMARK_DELETE ? R.attr.iconTintActive : R.attr.iconTint;
     icon.setImageDrawable(Graphics.tint(getContext(), current.getIcon(), tint));
 
+    if (BuildConfig.IS_IN_CAR && current.getType() == ButtonType.ROUTE_TO)
+    {
+      parent.setBackgroundResource(R.drawable.in_car_go_to_primary);
+      title.setTextColor(android.graphics.Color.WHITE);
+      icon.setColorFilter(android.graphics.Color.WHITE);
+      title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+      title.setMaxLines(2);
+      title.getLayoutParams().width = ViewGroup.LayoutParams.MATCH_PARENT;
+      androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+          title, 16, 22, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+    }
     parent.setOnClickListener((view) -> {
+      if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
       if (current.getType() == ButtonType.MORE)
         showMoreBottomSheet();
       else
         mItemListener.onPlacePageButtonClick(current.getType());
     });
     return parent;
+  }
+
+  private static CharSequence countdownLabel(String label, int seconds)
+  {
+    android.text.SpannableString text = new android.text.SpannableString(label + "\n" + seconds + "s");
+    text.setSpan(new android.text.style.RelativeSizeSpan(0.65f), label.length() + 1, text.length(),
+                 android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    return text;
   }
 
   @Override

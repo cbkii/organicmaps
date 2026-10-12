@@ -122,3 +122,7 @@
 @water_label: #78C7CF;
 @park_label: #9BC49A;
 @halo_park_label: #050607;
+
+/* Ordinary feature captions; localities, roads and addresses keep their own tokens. */
+@in_car_feature_label: #D5C18E;
+@in_car_feature_halo: #252A2E;

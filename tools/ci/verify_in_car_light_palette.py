@@ -376,6 +376,70 @@ def verify_compiled_light_style(
         )
 
 
+def verify_compiled_feature_captions(root: Path) -> None:
+    """Verify both packed palettes and label exceptions at the rendering-rule boundary."""
+    path = root / "data/drules_in_car.txt"
+    colours: dict[str, tuple[str, str]] = {}
+    captions: dict[str, list[tuple[int, str, str]]] = {}
+    current_type = ""
+    zoom = 0
+    text = path.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        match = DRULE_COLOUR.fullmatch(line)
+        if match:
+            name, light, dark = match.groups()
+            colours[name] = (light.upper(), dark.upper())
+        if line.startswith("type "):
+            current_type = line.removeprefix("type ")
+        match = re.match(r"^  z(\d+)(?: if .*)?$", line)
+        if match:
+            zoom = int(match.group(1))
+        if line.startswith(("    caption ", "    path_text ")):
+            for role, properties in re.findall(r"(primary|secondary)\[([^]]+)\]", line):
+                captions.setdefault(current_type, []).append((zoom, role, properties))
+
+    for variant, theme in enumerate(("light", "dark")):
+        palette_path = root / f"data/styles/in_car/{theme}/colors.mapcss"
+        palette = read_values(palette_path, VAR)
+        gold = opaque_compiled_colour(require_colour(palette, "in_car_feature_label", palette_path))
+        halo = opaque_compiled_colour(require_colour(palette, "in_car_feature_halo", palette_path))
+        for feature in ("amenity-fuel", "shop-supermarket", "tourism-attraction", "natural-water", "leisure-park"):
+            primary = [properties for _, _, properties in captions.get(feature, [])]
+            if not primary:
+                raise VerificationError(f"{path}: {feature} has no caption qualification sample")
+            for properties in primary:
+                color = re.search(r"\bcolor=(c\d+)\b", properties)
+                stroke = re.search(r"\bstroke=(c\d+)\b", properties)
+                if not color or not stroke or colours[color.group(1)][variant] != gold or colours[stroke.group(1)][variant] != halo:
+                    raise VerificationError(f"{theme}: {feature} does not use feature gold/charcoal halo")
+        for feature, entries in captions.items():
+            if feature.startswith(("highway-", "place-", "building-address")):
+                for _, _, properties in entries:
+                    color = re.search(r"\bcolor=(c\d+)\b", properties)
+                    if color and colours[color.group(1)][variant] == gold:
+                        raise VerificationError(f"{theme}: excluded {feature} uses feature gold")
+        address = captions.get("building-address", [])
+        if not address:
+            raise VerificationError(f"{path}: address caption qualification sample missing")
+        address_color = opaque_compiled_colour(require_colour(palette, "housenumber", palette_path))
+        for zoom, role, properties in address:
+            color = re.search(r"\bcolor=(c\d+)\b", properties)
+            height = re.search(r"\bheight=(\d+)\b", properties)
+            expected_height = 11 if role == "secondary" else (12 if zoom == 18 else 13)
+            if not color or colours[color.group(1)][variant] != address_color or not height or int(height.group(1)) != expected_height:
+                raise VerificationError(f"{theme}: address colour or rounded size changed at z{zoom}")
+        style_path = root / f"data/styles/in_car/{theme}/style.mapcss"
+        style = read_values(style_path, STYLE_COLOR)
+        for name in ("Route", "RouteOutline"):
+            expected = opaque_compiled_colour(require_colour(style, name, style_path))
+            named = re.search(rf"^  {name} (c\d+)$", text, re.MULTILINE)
+            if not named or colours[named.group(1)][variant] != expected:
+                raise VerificationError(f"{theme}: compiled {name} differs from source")
+        require_contrast("feature gold", require_colour(palette, "in_car_feature_label", palette_path), "charcoal halo", require_colour(palette, "in_car_feature_halo", palette_path), 7.0, background=require_colour(palette, "in_car_feature_halo", palette_path))
+    if (root / "android/sdk/src/main/assets/drules_in_car.bin").read_bytes() != (root / "data/drules_in_car.bin").read_bytes():
+        raise VerificationError("packaged InCar drawing rules differ from the generated binary")
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     palette_path = root / "data/styles/in_car/light/colors.mapcss"
@@ -384,6 +448,7 @@ def main() -> int:
     drules_path = root / "data/drules_in_car.txt"
 
     try:
+        verify_compiled_feature_captions(root)
         palette = read_values(palette_path, VAR)
         style_colours = read_values(style_path, STYLE_COLOR)
         style_opacities = read_values(style_path, STYLE_OPACITY)
@@ -409,8 +474,8 @@ def main() -> int:
         casing_opacity = min(high_casing_opacities)
 
         background = require_colour(palette, "background", palette_path)
-        route = require_colour(style_colours, "Route", style_path)
-        route_opacity = float(style_opacities.get("Route", "1"))
+        route = require_colour(style_colours, "RouteOutline", style_path)
+        route_opacity = float(style_opacities.get("RouteOutline", "1"))
 
         road_names = (
             "trunk0",
@@ -435,7 +500,7 @@ def main() -> int:
                 background=background,
             )
             require_contrast(
-                "Route",
+                "RouteOutline",
                 route,
                 name,
                 road,

@@ -7,6 +7,17 @@ import org.junit.Test;
 
 public class InCarRouteSummaryPolicyTest
 {
+  @Test
+  public void footerWidthAdaptsToContentAndWindow()
+  {
+    assertEquals(460, InCarRouteSummaryPolicy.footerWidth(800, 100, 140), 0);
+    assertEquals(500, InCarRouteSummaryPolicy.footerWidth(800, 140, 180), 0);
+    assertEquals(540, InCarRouteSummaryPolicy.footerWidth(800, 300, 300), 0);
+    assertEquals(320, InCarRouteSummaryPolicy.footerWidth(320, 140, 180), 0);
+    assertEquals("2Std. 18Min.", InCarRouteSummaryPolicy.compactExpression("2\u00a0Std. 18\u00a0Min."));
+    assertEquals("٢د", InCarRouteSummaryPolicy.compactExpression("٢\u00a0د"));
+  }
+
   private static String duration(int seconds)
   {
     return InCarRouteSummaryPolicy.duration(seconds, "min", "h", "d", Locale.UK);

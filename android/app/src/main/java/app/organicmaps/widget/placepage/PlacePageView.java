@@ -912,6 +912,7 @@ public class PlacePageView extends Fragment
   @Override
   public void onClick(View v)
   {
+    ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     final Context context = requireContext();
     final int id = v.getId();
     if ((id == R.id.tv__title || id == R.id.iv__title_chevron) && mMapObject instanceof Track)
@@ -1235,6 +1236,7 @@ public class PlacePageView extends Fragment
 
   void shareClickListener(View v)
   {
+    ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     if (mMapObject.isTrackRecording())
       return;
     if (mMapObject instanceof Track)

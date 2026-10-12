@@ -22,8 +22,7 @@
     app:srcCompat="@drawable/ic_in_car_driving_view"
     app:tint="@color/icon_tint" />
 
-  <!-- Zoom keeps visible button surfaces. My Position uses the same automotive hit target but the
-       InCar layout override makes the last cell an icon-only transparent recenter command. -->
+  <!-- One shared surface: zoom, native Follow Mode and independent camera/recenter. -->
   <LinearLayout
     android:id="@+id/zoom_buttons_container"
     android:layout_width="@dimen/in_car_map_primary_button_size"
@@ -34,7 +33,7 @@
       android:id="@+id/nav_zoom_in"
       style="@style/MwmWidget.MapButton.Zoom"
       android:contentDescription="@string/zoom_in"
-      app:backgroundTint="@color/in_car_camera_cell_background"
+      app:backgroundTint="@android:color/transparent"
       app:borderWidth="0dp"
       app:elevation="0dp"
       app:fabCustomSize="@dimen/in_car_map_primary_button_size"
@@ -54,7 +53,7 @@
       android:id="@+id/nav_zoom_out"
       style="@style/MwmWidget.MapButton.Zoom"
       android:contentDescription="@string/zoom_out"
-      app:backgroundTint="@color/in_car_camera_cell_background"
+      app:backgroundTint="@android:color/transparent"
       app:borderWidth="0dp"
       app:elevation="0dp"
       app:fabCustomSize="@dimen/in_car_map_primary_button_size"
@@ -74,6 +73,23 @@
       layout="@layout/map_buttons_myposition"
       android:layout_width="@dimen/in_car_map_primary_button_size"
       android:layout_height="@dimen/in_car_map_primary_button_size" />
+    <View
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/in_car_camera_rail_divider_width"
+      android:layout_marginStart="@dimen/in_car_camera_rail_divider_inset"
+      android:layout_marginEnd="@dimen/in_car_camera_rail_divider_inset"
+      android:background="@color/in_car_divider" />
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+      android:id="@+id/in_car_camera_view_recenter"
+      style="@style/MwmWidget.MapButton.Zoom"
+      android:contentDescription="@string/in_car_camera_view_recenter"
+      app:backgroundTint="@android:color/transparent"
+      app:borderWidth="0dp"
+      app:elevation="0dp"
+      app:fabCustomSize="@dimen/in_car_map_primary_button_size"
+      app:maxImageSize="@dimen/in_car_map_primary_icon_size"
+      app:pressedTranslationZ="0dp"
+      app:srcCompat="@drawable/ic_not_follow" />
   </LinearLayout>
 
 </LinearLayout>
