@@ -46,9 +46,11 @@ public final class LocationState
    * mode. If no usable position exists, one recenter stays pending and onNeedsLocation runs on the GUI thread
    * so the existing Android provider/permission owner can recover acquisition without guessing from the mode.
    */
+  @Keep
   public static native void nativeRecenterToCurrentPosition(@NonNull Runnable onNeedsLocation);
 
   /** One render-thread operation; never changes the global 3D preference or native follow mode. */
+  @Keep
   public static native void nativeToggleCameraViewAndRecenter(@NonNull Runnable onNeedsLocation);
 
   public interface CameraPresentationListener

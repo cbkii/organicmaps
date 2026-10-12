@@ -275,6 +275,8 @@ def verify_apk(apk: Path) -> None:
                    ("Lapp/organicmaps/sdk/Framework;", "nativeGetCurrentRoadSpeedLimit",
                     "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;"),
                    ("Lapp/organicmaps/sdk/location/LocationState;", "nativeRecenterToCurrentPosition",
+                    "(Ljava/lang/Runnable;)V"),
+                   ("Lapp/organicmaps/sdk/location/LocationState;", "nativeToggleCameraViewAndRecenter",
                     "(Ljava/lang/Runnable;)V")):
         if method not in defined_methods:
             fail(f"Post-R8 APK is missing JNI method definition: {method}")
