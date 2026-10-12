@@ -42,8 +42,9 @@ public final class InCarControlPositionPolicy
     else if (raw instanceof RelativeLayout.LayoutParams params)
     {
       final int selected = left ? RelativeLayout.ALIGN_PARENT_LEFT : RelativeLayout.ALIGN_PARENT_RIGHT;
-      changed = params.getRule(selected) == 0 || params.getRule(left ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT) != 0
-                || params.getRule(RelativeLayout.ALIGN_PARENT_START) != 0 || params.getRule(RelativeLayout.ALIGN_PARENT_END) != 0;
+      final int[] rules = params.getRules();
+      changed = rules[selected] == 0 || rules[left ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT] != 0
+                || rules[RelativeLayout.ALIGN_PARENT_START] != 0 || rules[RelativeLayout.ALIGN_PARENT_END] != 0;
       params.removeRule(RelativeLayout.ALIGN_PARENT_START);
       params.removeRule(RelativeLayout.ALIGN_PARENT_END);
       params.removeRule(left ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT);
