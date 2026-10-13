@@ -292,7 +292,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void showSheet(boolean show)
   {
-    // A hidden routing sheet must not cancel a different owner\'s GO TO countdown.
+    // A hidden routing sheet must not cancel a different owner's GO TO countdown.
     // The START timer separately checks actual button visibility before dispatch.
     if (show)
     {

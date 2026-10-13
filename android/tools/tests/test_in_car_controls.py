@@ -466,7 +466,20 @@ int main() {
                                     "void UserEventStream::ApplyCameraPresentation(bool perspective)")
         harness = r"""#include <cassert>
 #include <memory>
-struct ActiveFrameEvent {};
+#include <list>
+#include <mutex>
+struct UserEvent {
+ enum class EventType { AutoPerspective, ActiveFrame };
+ virtual ~UserEvent() = default;
+ virtual EventType GetType() const = 0;
+};
+struct ActiveFrameEvent : UserEvent {
+ EventType GetType() const override { return EventType::ActiveFrame; }
+};
+struct SetAutoPerspectiveEvent : UserEvent {
+ EventType GetType() const override { return EventType::AutoPerspective; }
+};
+template<typename T> using drape_ptr = std::unique_ptr<T>;
 template<typename T> auto make_unique_dp() { return std::make_unique<T>(); }
 struct ScreenBase { bool tilted=false; void SetAutoPerspective(bool) {}
  void ApplyPerspective(double angle,double,double) { assert(angle>0); tilted=true; }
@@ -474,13 +487,21 @@ struct ScreenBase { bool tilted=false; void SetAutoPerspective(bool) {}
 struct Navigator { ScreenBase screen; const ScreenBase & Screen() const { return screen; }
  void SetFromScreen(const ScreenBase & s) { screen=s; } };
 struct Stream { Navigator m_navigator; int events=0; bool redraw=false;
- void ResetMapPlaneAnimations() {} void AddEvent(std::unique_ptr<ActiveFrameEvent>) { ++events; }
+ std::mutex m_lock;
+ std::list<drape_ptr<UserEvent>> m_events;
+ void ResetMapPlaneAnimations() {}
+ void AddEvent(std::unique_ptr<ActiveFrameEvent> event) {
+  ++events; m_events.push_back(std::move(event));
+ }
+ void queueStaleAuto() { m_events.push_back(std::make_unique<SetAutoPerspectiveEvent>()); }
  void apply(bool perspective) {""" + body + r"""}
- void process() { redraw=events!=0; events=0; }
+ void process() { redraw=events!=0; events=0; m_events.clear(); }
 };
 int main() {
  Stream s;
+ s.queueStaleAuto();
  s.apply(true); assert(s.m_navigator.screen.tilted && s.events==1);
+ assert(s.m_events.size()==1 && s.m_events.front()->GetType()==UserEvent::EventType::ActiveFrame);
  s.process(); assert(s.redraw); // No location/recenter event exists: presentation alone dirtied it.
  s.apply(false); assert(!s.m_navigator.screen.tilted && s.events==1);
  s.process(); assert(s.redraw); // Permission-disallow flatten is also rendered.
