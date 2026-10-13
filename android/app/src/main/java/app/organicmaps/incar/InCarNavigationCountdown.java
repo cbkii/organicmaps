@@ -39,6 +39,11 @@ public final class InCarNavigationCountdown
     mProgress = null;
   }
 
+  public boolean hasPendingAction()
+  {
+    return mTick != null;
+  }
+
   public void arm(String stage, long generation, View button, BooleanSupplier eligible, IntConsumer progress)
   {
     if (!mPolicy.arm(stage, generation,

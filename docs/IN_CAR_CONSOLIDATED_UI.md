@@ -111,3 +111,14 @@ The proposed mixed highway/railway caption leak was checked against native
 production-block C++ probe using compiled road/railway/waterway priorities
 confirms that other-type geometry remains without overriding the road caption.
 Colour changes do not alter this ownership or its priorities.
+
+Accessibility focus/clear, scroll and click events can bypass Activity touch/key dispatch.
+The InCar Activity now observes those events at its own decor root and cancels the
+pending generation while forwarding to the original accessibility delegate.
+Countdown text/content updates do not cancel. Owned clicks cancel before dispatch;
+their later click event does not invalidate a newly posted GO TO/START handoff.
+Destroyed Activity events are ignored. API 29 wraps the public original delegate;
+older Android preserves an existing custom delegate rather than using private
+bridge access. A production-method fixture covers event types, forwarding, stage
+consumption, API 21/29 gating and non-InCar isolation. Device TalkBack behaviour
+still requires the physical walkthrough.

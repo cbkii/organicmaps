@@ -44,6 +44,11 @@ contain **Search + Main Menu only**; Saved Places must remain available inside M
 Menu and must not appear or receive accessibility focus as a separate map button.
 In active navigation, use Quick Search and confirm there is no second Search.
 
+Where an accessibility service is already available, start each countdown and move
+accessibility focus to another control or scroll with its accessibility action.
+The countdown must cancel while the normal focus/scroll action still works.
+Countdown text updates alone must not cancel. Manual GO TO/START must remain usable.
+
 Speed warning qualification requires an already approved, parked-only test-data facility. The walkthrough supplies no mock-location injection and no speed simulation. Without approved data, record NOT_RUN. Stationary lack of usable bearing may also leave some native Follow/camera states NOT_RUN. Note individual untested delay choices, route alternatives, locality categories, localisations, cold boot, reverse transitions and physical glare in comments: passing one representative row does not qualify every variant.
 
 After any failure, record the earliest observed cause and relevant screenshot/log snapshot; do not repeatedly retry the same launch/camera command or label dependent tests as independent failures. Re-run a new walkthrough after a new candidate; preserve old directories for comparison. CI, capture-command PASS, APK installation and screenshot existence are not physical behaviour PASS.

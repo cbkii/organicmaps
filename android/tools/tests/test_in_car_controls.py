@@ -14,6 +14,100 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_accessibility_interaction_cancels_without_swallowing_events(self):
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable: accessibility cancellation NOT_RUN")
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        create = controls.method_body(activity, "protected void onSafeCreate(")
+        self.assertLess(create.index("setContentView("), create.index("installInCarAccessibilityCancellation();"))
+        install = controls.method_body(activity, "private void installInCarAccessibilityCancellation()")
+        cancel = controls.method_body(activity, "public void cancelInCarNavigationCountdown()")
+        files = {
+            "android/os/Build.java": "package android.os; public class Build { public static class VERSION { public static int SDK_INT=29; } public static class VERSION_CODES { public static final int Q=29; } }",
+            "android/view/View.java": r'''package android.view;
+public class View { public static class AccessibilityDelegate {
+ public boolean allow=true; public int calls;
+ public boolean onRequestSendAccessibilityEvent(ViewGroup host,View child,android.view.accessibility.AccessibilityEvent e){++calls;return allow;}
+} }''',
+            "android/view/ViewGroup.java": "package android.view; public class ViewGroup extends View { public AccessibilityDelegate delegate; public AccessibilityDelegate getAccessibilityDelegate(){return delegate;} }",
+            "android/view/accessibility/AccessibilityEvent.java": r'''package android.view.accessibility;
+public class AccessibilityEvent {
+ public static final int TYPE_VIEW_ACCESSIBILITY_FOCUSED=32768,TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED=65536,
+ TYPE_VIEW_SCROLLED=4096,TYPE_WINDOW_CONTENT_CHANGED=2048,TYPE_VIEW_CLICKED=1,TYPE_VIEW_LONG_CLICKED=2;
+ private final int type; public AccessibilityEvent(int t){type=t;} public int getEventType(){return type;}
+}''',
+            "androidx/core/view/AccessibilityDelegateCompat.java": r'''package androidx.core.view;
+public class AccessibilityDelegateCompat {
+ final android.view.View.AccessibilityDelegate original;
+ public AccessibilityDelegateCompat(android.view.View.AccessibilityDelegate d){original=d;}
+ public boolean onRequestSendAccessibilityEvent(android.view.ViewGroup host,android.view.View child,android.view.accessibility.AccessibilityEvent e){return original.onRequestSendAccessibilityEvent(host,child,e);}
+}''',
+            "androidx/core/view/ViewCompat.java": r'''package androidx.core.view;
+public class ViewCompat {
+ public static AccessibilityDelegateCompat getAccessibilityDelegate(android.view.ViewGroup root){return root.delegate==null?null:new AccessibilityDelegateCompat(root.delegate);}
+ public static void setAccessibilityDelegate(android.view.ViewGroup root,AccessibilityDelegateCompat d){
+  root.delegate=new android.view.View.AccessibilityDelegate(){@Override public boolean onRequestSendAccessibilityEvent(android.view.ViewGroup h,android.view.View c,android.view.accessibility.AccessibilityEvent e){return d.onRequestSendAccessibilityEvent(h,c,e);}};
+ }
+}''',
+            "AccessibilityTest.java": r'''import android.view.*;
+import android.view.accessibility.AccessibilityEvent;
+import app.organicmaps.incar.InCarNavigationCountdownPolicy;
+@interface NonNull {}
+class BuildConfig {static boolean IS_IN_CAR=true;}
+class Countdown {final InCarNavigationCountdownPolicy policy=new InCarNavigationCountdownPolicy();boolean pending=true;
+ boolean hasPendingAction(){return pending;}void cancel(){pending=false;policy.cancel();}}
+class Window {ViewGroup root=new ViewGroup();View getDecorView(){return root;}}
+class Host {
+ Window window=new Window();Countdown mInCarNavigationCountdown=new Countdown();long mInCarInteractionGeneration;boolean destroyed;
+ boolean isDestroyed(){return destroyed;}
+ Window getWindow(){return window;}
+ void install(){''' + install + r'''}
+ void cancelInCarNavigationCountdown(){''' + cancel + r'''}
+}
+public class AccessibilityTest {
+ static void check(boolean b){if(!b)throw new AssertionError();}
+ public static void main(String[] args){
+  for(boolean inCar:new boolean[]{true,false})for(int sdk:new int[]{21,29})for(boolean existing:new boolean[]{true,false}){
+   for(boolean destroyed:new boolean[]{true,false})for(int type:new int[]{32768,65536,4096,2048,1,2}){
+    BuildConfig.IS_IN_CAR=inCar;android.os.Build.VERSION.SDK_INT=sdk;
+    Host h=new Host();h.destroyed=destroyed;View.AccessibilityDelegate original=new View.AccessibilityDelegate();original.allow=false;
+    if(existing)h.window.root.delegate=original;
+    h.install();boolean hooked=inCar&&(sdk>=29||!existing);
+    h.mInCarNavigationCountdown.policy.arm("START",1,2,0);
+    boolean allowed=h.window.root.delegate==null||h.window.root.delegate.onRequestSendAccessibilityEvent(h.window.root,new View(),new AccessibilityEvent(type));
+    boolean cancelled=hooked&&!destroyed&&type!=2048;
+    check(h.mInCarNavigationCountdown.policy.dispatch(2000,true)==!cancelled);
+    check(h.mInCarInteractionGeneration==(cancelled?1:0));
+    if(existing){check(!allowed&&original.calls==1);} // Delegate forwarding/return value is unchanged.
+    if(cancelled)check(!h.mInCarNavigationCountdown.policy.arm("START",1,2,3000));
+   }
+  }
+  BuildConfig.IS_IN_CAR=true;android.os.Build.VERSION.SDK_INT=29;
+  Host h=new Host();h.install();h.mInCarNavigationCountdown.policy.arm("GO_TO",1,2,0);
+  h.cancelInCarNavigationCountdown();long interaction=h.mInCarInteractionGeneration;
+  h.window.root.delegate.onRequestSendAccessibilityEvent(h.window.root,new View(),new AccessibilityEvent(1));
+  check(h.mInCarInteractionGeneration==interaction); // Owned click already cancelled; queued START may arm.
+  check(h.mInCarNavigationCountdown.policy.arm("START",1,2,0));
+  check(h.mInCarNavigationCountdown.policy.dispatch(2000,true));
+ }
+}'''
+        }
+        files["app/organicmaps/incar/InCarNavigationCountdownPolicy.java"] = controls.read(
+            "android/app/src/main/java/app/organicmaps/incar/InCarNavigationCountdownPolicy.java")
+        with tempfile.TemporaryDirectory() as tmp:
+            sources = []
+            for path, content in files.items():
+                target = Path(tmp) / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+                sources.append(str(target))
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            subprocess.run([runtime, str(compiler), "-d", tmp, *sources], check=True, timeout=30)
+            subprocess.run([runtime, "-cp", tmp, "AccessibilityTest"], check=True, timeout=10)
+
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
         dump = ROOT / "data/drules_in_car.txt"
@@ -154,11 +248,11 @@ public class CountdownTest {
    InCarNavigationCountdown c=new InCarNavigationCountdown(a); final int[] progress={-1};
    go.click=()->c.arm("START",1,start,()->true,s->progress[0]=s);
    c.arm("GO_TO",1,go,()->true,s->progress[0]=s);
-   Handler.advance(0); check(progress[0]==delay);
+   Handler.advance(0); check(progress[0]==delay && c.hasPendingAction());
    Handler.advance(delay*1000-1); check(go.clicks==0);
    Handler.advance(delay*1000+200); check(go.clicks==1 && start.clicks==0);
    Handler.advance(2*delay*1000+400); check(go.clicks==1 && start.clicks==1);
-   Handler.advance(100000); check(start.clicks==1 && Handler.pending.isEmpty());
+   Handler.advance(100000); check(start.clicks==1 && Handler.pending.isEmpty() && !c.hasPendingAction());
    c.arm("GO_TO",1,go,()->true,s->{}); Handler.advance(100000); check(go.clicks==1);
   }
   // Every interruption cancels dispatch and consumes the generation; a new one can still arm.
