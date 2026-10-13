@@ -1121,39 +1121,14 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private void installInCarAccessibilityCancellation()
   {
-    if (!BuildConfig.IS_IN_CAR || !(getWindow().getDecorView() instanceof android.view.ViewGroup root))
+    if (!BuildConfig.IS_IN_CAR || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q
+        || !(getWindow().getDecorView() instanceof android.view.ViewGroup root))
       return;
-    android.view.View.AccessibilityDelegate original = new android.view.View.AccessibilityDelegate();
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q)
-    {
-      final android.view.View.AccessibilityDelegate existing = root.getAccessibilityDelegate();
-      if (existing != null)
-        original = existing;
-    }
-    else if (androidx.core.view.ViewCompat.getAccessibilityDelegate(root) != null)
-      return; // Older Android: preserve an existing delegate whose bridge is not a public API.
-    androidx.core.view.ViewCompat.setAccessibilityDelegate(
-        root, new androidx.core.view.AccessibilityDelegateCompat(original) {
-          @Override
-          public boolean onRequestSendAccessibilityEvent(@NonNull android.view.ViewGroup host,
-                                                        @NonNull android.view.View child,
-                                                        @NonNull android.view.accessibility.AccessibilityEvent event)
-          {
-            final int type = event.getEventType();
-            final boolean pendingClick =
-                (type == android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED
-                 || type == android.view.accessibility.AccessibilityEvent.TYPE_VIEW_LONG_CLICKED)
-                && mInCarNavigationCountdown != null && mInCarNavigationCountdown.hasPendingAction();
-            if (!isDestroyed() && (type == android.view.accessibility.AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED
-                || type == android.view.accessibility.AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED
-                || type == android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED || pendingClick))
-              cancelInCarNavigationCountdown();
-            // Countdown text updates are not user interaction. Preserve event forwarding and
-            // the previous delegate's behaviour. Owned button clicks cancel before dispatch;
-            // their later click event must not invalidate a newly posted GO TO/START handoff.
-            return super.onRequestSendAccessibilityEvent(host, child, event);
-          }
-        });
+    final android.view.View.AccessibilityDelegate existing = root.getAccessibilityDelegate();
+    root.setAccessibilityDelegate(new app.organicmaps.incar.InCarAccessibilityDelegate(
+        existing != null ? existing : new android.view.View.AccessibilityDelegate(),
+        this::cancelInCarNavigationCountdown,
+        () -> mInCarNavigationCountdown != null && mInCarNavigationCountdown.hasPendingAction(), this::isDestroyed));
   }
 
   public long getInCarInteractionGeneration() { return mInCarInteractionGeneration; }

@@ -27,28 +27,28 @@ class MenuContractTests(unittest.TestCase):
             "android/os/Build.java": "package android.os; public class Build { public static class VERSION { public static int SDK_INT=29; } public static class VERSION_CODES { public static final int Q=29; } }",
             "android/view/View.java": r'''package android.view;
 public class View { public static class AccessibilityDelegate {
- public boolean allow=true; public int calls;
+ public boolean allow=true; public int calls,forwarded; public final android.view.accessibility.AccessibilityNodeProvider provider=new android.view.accessibility.AccessibilityNodeProvider();
  public boolean onRequestSendAccessibilityEvent(ViewGroup host,View child,android.view.accessibility.AccessibilityEvent e){++calls;return allow;}
+ public void sendAccessibilityEvent(View v,int t){forwarded|=1;}
+ public void sendAccessibilityEventUnchecked(View v,android.view.accessibility.AccessibilityEvent e){forwarded|=2;}
+ public boolean dispatchPopulateAccessibilityEvent(View v,android.view.accessibility.AccessibilityEvent e){forwarded|=4;return allow;}
+ public void onPopulateAccessibilityEvent(View v,android.view.accessibility.AccessibilityEvent e){forwarded|=8;}
+ public void onInitializeAccessibilityEvent(View v,android.view.accessibility.AccessibilityEvent e){forwarded|=16;}
+ public void onInitializeAccessibilityNodeInfo(View v,android.view.accessibility.AccessibilityNodeInfo i){forwarded|=32;}
+ public android.view.accessibility.AccessibilityNodeProvider getAccessibilityNodeProvider(View v){forwarded|=64;return provider;}
+ public boolean performAccessibilityAction(View v,int a,android.os.Bundle b){forwarded|=128;return allow;}
 } }''',
-            "android/view/ViewGroup.java": "package android.view; public class ViewGroup extends View { public AccessibilityDelegate delegate; public AccessibilityDelegate getAccessibilityDelegate(){return delegate;} }",
+            "android/view/ViewGroup.java": "package android.view; public class ViewGroup extends View { public AccessibilityDelegate delegate; public int getterCalls; public AccessibilityDelegate getAccessibilityDelegate(){++getterCalls;return delegate;} public void setAccessibilityDelegate(AccessibilityDelegate d){delegate=d;} }",
+            "android/os/Bundle.java": "package android.os; public class Bundle {}",
+            "android/view/accessibility/AccessibilityNodeInfo.java": "package android.view.accessibility; public class AccessibilityNodeInfo {}",
+            "android/view/accessibility/AccessibilityNodeProvider.java": "package android.view.accessibility; public class AccessibilityNodeProvider {}",
+            "androidx/annotation/NonNull.java": "package androidx.annotation; public @interface NonNull {}",
+            "androidx/annotation/Nullable.java": "package androidx.annotation; public @interface Nullable {}",
             "android/view/accessibility/AccessibilityEvent.java": r'''package android.view.accessibility;
 public class AccessibilityEvent {
  public static final int TYPE_VIEW_ACCESSIBILITY_FOCUSED=32768,TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED=65536,
  TYPE_VIEW_SCROLLED=4096,TYPE_WINDOW_CONTENT_CHANGED=2048,TYPE_VIEW_CLICKED=1,TYPE_VIEW_LONG_CLICKED=2;
  private final int type; public AccessibilityEvent(int t){type=t;} public int getEventType(){return type;}
-}''',
-            "androidx/core/view/AccessibilityDelegateCompat.java": r'''package androidx.core.view;
-public class AccessibilityDelegateCompat {
- final android.view.View.AccessibilityDelegate original;
- public AccessibilityDelegateCompat(android.view.View.AccessibilityDelegate d){original=d;}
- public boolean onRequestSendAccessibilityEvent(android.view.ViewGroup host,android.view.View child,android.view.accessibility.AccessibilityEvent e){return original.onRequestSendAccessibilityEvent(host,child,e);}
-}''',
-            "androidx/core/view/ViewCompat.java": r'''package androidx.core.view;
-public class ViewCompat {
- public static AccessibilityDelegateCompat getAccessibilityDelegate(android.view.ViewGroup root){return root.delegate==null?null:new AccessibilityDelegateCompat(root.delegate);}
- public static void setAccessibilityDelegate(android.view.ViewGroup root,AccessibilityDelegateCompat d){
-  root.delegate=new android.view.View.AccessibilityDelegate(){@Override public boolean onRequestSendAccessibilityEvent(android.view.ViewGroup h,android.view.View c,android.view.accessibility.AccessibilityEvent e){return d.onRequestSendAccessibilityEvent(h,c,e);}};
- }
 }''',
             "AccessibilityTest.java": r'''import android.view.*;
 import android.view.accessibility.AccessibilityEvent;
@@ -73,13 +73,21 @@ public class AccessibilityTest {
     BuildConfig.IS_IN_CAR=inCar;android.os.Build.VERSION.SDK_INT=sdk;
     Host h=new Host();h.destroyed=destroyed;View.AccessibilityDelegate original=new View.AccessibilityDelegate();original.allow=false;
     if(existing)h.window.root.delegate=original;
-    h.install();boolean hooked=inCar&&(sdk>=29||!existing);
+    h.install();boolean hooked=inCar&&sdk>=29;check(h.window.root.getterCalls==(hooked?1:0));
     h.mInCarNavigationCountdown.policy.arm("START",1,2,0);
     boolean allowed=h.window.root.delegate==null||h.window.root.delegate.onRequestSendAccessibilityEvent(h.window.root,new View(),new AccessibilityEvent(type));
     boolean cancelled=hooked&&!destroyed&&type!=2048;
     check(h.mInCarNavigationCountdown.policy.dispatch(2000,true)==!cancelled);
     check(h.mInCarInteractionGeneration==(cancelled?1:0));
-    if(existing){check(!allowed&&original.calls==1);} // Delegate forwarding/return value is unchanged.
+    if(existing){
+     check(!allowed&&original.calls==1); // Delegate forwarding/return value is unchanged.
+     View.AccessibilityDelegate d=h.window.root.delegate;View v=new View();AccessibilityEvent e=new AccessibilityEvent(2048);
+     d.sendAccessibilityEvent(v,1);d.sendAccessibilityEventUnchecked(v,e);check(!d.dispatchPopulateAccessibilityEvent(v,e));
+     d.onPopulateAccessibilityEvent(v,e);d.onInitializeAccessibilityEvent(v,e);
+     d.onInitializeAccessibilityNodeInfo(v,new android.view.accessibility.AccessibilityNodeInfo());
+     check(d.getAccessibilityNodeProvider(v)==original.provider);
+     check(!d.performAccessibilityAction(v,0,new android.os.Bundle()));check(original.forwarded==255);
+    }
     if(cancelled)check(!h.mInCarNavigationCountdown.policy.arm("START",1,2,3000));
    }
   }
@@ -95,6 +103,8 @@ public class AccessibilityTest {
         }
         files["app/organicmaps/incar/InCarNavigationCountdownPolicy.java"] = controls.read(
             "android/app/src/main/java/app/organicmaps/incar/InCarNavigationCountdownPolicy.java")
+        files["app/organicmaps/incar/InCarAccessibilityDelegate.java"] = controls.read(
+            "android/app/src/main/java/app/organicmaps/incar/InCarAccessibilityDelegate.java")
         with tempfile.TemporaryDirectory() as tmp:
             sources = []
             for path, content in files.items():

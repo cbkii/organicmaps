@@ -117,8 +117,10 @@ The InCar Activity now observes those events at its own decor root and cancels t
 pending generation while forwarding to the original accessibility delegate.
 Countdown text/content updates do not cancel. Owned clicks cancel before dispatch;
 their later click event does not invalidate a newly posted GO TO/START handoff.
-Destroyed Activity events are ignored. API 29 wraps the public original delegate;
-older Android preserves an existing custom delegate rather than using private
-bridge access. A production-method fixture covers event types, forwarding, stage
+Destroyed Activity events are ignored. API 29 wraps the public original framework
+delegate and forwards all nine callbacks. Below API 29 the decor observer is not
+installed; existing touch/key/button cancellation and delegates remain intact.
+No library-internal constructor or private bridge access is used.
+A production-method fixture covers event types, forwarding, stage
 consumption, API 21/29 gating and non-InCar isolation. Device TalkBack behaviour
 still requires the physical walkthrough.
