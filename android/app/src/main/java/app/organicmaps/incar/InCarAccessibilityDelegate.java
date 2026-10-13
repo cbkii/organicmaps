@@ -74,7 +74,11 @@ public final class InCarAccessibilityDelegate extends View.AccessibilityDelegate
   @Override
   public void addExtraDataToAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfo info,
                                                   @NonNull String extraDataKey, @NonNull Bundle arguments)
-  { mOriginal.addExtraDataToAccessibilityNodeInfo(host, info, extraDataKey, arguments); }
+  {
+    // The InCar decor wrapper is installed on API29+, but this shared source also builds for API21.
+    if (android.os.Build.VERSION.SDK_INT >= 26)
+      mOriginal.addExtraDataToAccessibilityNodeInfo(host, info, extraDataKey, arguments);
+  }
 
   @Override
   public boolean performAccessibilityAction(@NonNull View host, int action, @Nullable Bundle arguments)
