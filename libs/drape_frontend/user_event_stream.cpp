@@ -697,6 +697,13 @@ bool UserEventStream::SetFollowAndRotate(m2::PointD const & userPos, m2::PointD 
 
 void UserEventStream::ApplyCameraPresentation(bool perspective)
 {
+  // Invalidate auto-perspective commands queued before the driver's explicit choice.
+  // The render thread owns presentation; the queue is protected for cross-thread producers.
+  {
+    std::lock_guard guard(m_lock);
+    m_events.remove_if([](drape_ptr<UserEvent> const & event)
+    { return event->GetType() == UserEvent::EventType::AutoPerspective; });
+  }
   // Session-scoped presentation, independent of heading/follow mode and automatic zoom tilt.
   ResetMapPlaneAnimations();
   ScreenBase screen = m_navigator.Screen();

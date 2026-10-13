@@ -39,7 +39,10 @@ public class PlacePageViewModel extends ViewModel
 
   public void setMapObject(MapObject mapObject)
   {
-    if (!MapObject.same(mMapObject.getValue(), mapObject)) ++mSelectionGeneration;
+    final MapObject previous = mMapObject.getValue();
+    final boolean changedTrack = previous instanceof Track previousTrack && mapObject instanceof Track nextTrack
+                                 && previousTrack.getTrackId() != nextTrack.getTrackId();
+    if (!MapObject.same(previous, mapObject) || changedTrack) ++mSelectionGeneration;
     mMapObject.setValue(mapObject);
   }
 

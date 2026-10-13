@@ -95,6 +95,17 @@ def verify_my_position() -> None:
     for icon in ("ic_menu_location_pending", "ic_location_off", "ic_not_follow", "ic_follow", "ic_follow_and_rotate"):
         require(icon in render, f"Follow must render the actual native mode: {icon}")
     require("setContentDescription" in render, "Follow must expose actual mode accessibility")
+    for mode, drawable, description in (
+        ("PENDING_POSITION", "ic_menu_location_pending", "in_car_follow_pending"),
+        ("NOT_FOLLOW_NO_POSITION", "ic_location_off", "in_car_follow_unavailable"),
+        ("NOT_FOLLOW", "ic_not_follow", "in_car_follow_stopped"),
+        ("FOLLOW", "ic_follow", "in_car_follow_position"),
+        ("FOLLOW_AND_ROTATE", "ic_follow_and_rotate", "in_car_follow_heading"),
+    ):
+        require(re.search(rf"case LocationState\.{mode}\s*->\s*R\.drawable\.{drawable}\b", render) is not None,
+                f"incorrect Follow icon for {mode}")
+        require(re.search(rf"case LocationState\.{mode}\s*->\s*R\.string\.{description}\b", render) is not None,
+                f"incorrect Follow accessibility description for {mode}")
     rail = ET.parse(ROOT / "android/app/src/inCar/res/layout/map_buttons_zoom.xml").getroot()
     ids = [e.attrib.get(f"{{{ANDROID_NS}}}id", "").split("/")[-1] for e in rail.iter()]
     for id in ("nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
@@ -116,6 +127,8 @@ def verify_my_position() -> None:
     toggle = method_body(renderer, "bool FrontendRenderer::ToggleCameraViewAndRecenter()")
     for token in ("GetCurrentScreen().isPerspective()", "ApplyCameraPresentation", "RecenterPreservingMode()"):
         require(token in toggle, f"renderer camera command missing {token}")
+    require("m_events.remove_if" in presentation and "AutoPerspective" in presentation,
+            "manual camera presentation must discard older queued automatic-perspective events")
     perspective_request = method_body(renderer, "case Message::Type::EnablePerspective:")
     require("!m_manualCameraPresentation" in perspective_request,
             "observer perspective requests must preserve a manual session presentation")

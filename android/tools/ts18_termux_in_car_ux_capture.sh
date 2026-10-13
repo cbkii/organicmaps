@@ -69,7 +69,11 @@ INFO=0
 ROOT_OK=0
 ROOT_UID=""
 SU_BIN="${PREFIX:-/data/data/com.termux/files/usr}/bin/su"
-if [ ! -x "$SU_BIN" ]; then SU_BIN=""; fi
+if [ ! -x "$SU_BIN" ]; then
+  # Preserve Termux's own su when present; only then consider a different PATH-owned bridge.
+  SU_BIN="$(command -v su 2>/dev/null || true)"
+  if [ -n "$SU_BIN" ] && [ ! -x "$SU_BIN" ]; then SU_BIN=""; fi
+fi
 
 record_status() {
   local status="$1" name="$2" detail="${3:-}"

@@ -7,6 +7,7 @@
     <item name="cornerFamily">rounded</item><item name="cornerSize">16dp</item>
   </style>
   <style name="MwmWidget.MapButton.Square.bottom" parent="MwmWidget.MapButton.Bottom">
+    <item name="android:backgroundTint">@color/routing_bottom_button_tint</item>
     <item name="cornerFamily">rounded</item><item name="cornerSize">16dp</item>
   </style>
 </resources>

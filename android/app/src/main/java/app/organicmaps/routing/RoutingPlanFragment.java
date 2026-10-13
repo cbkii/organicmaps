@@ -292,7 +292,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   private void showSheet(boolean show)
   {
-    if (!show && BuildConfig.IS_IN_CAR) ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+    // A hidden routing sheet must not cancel a different owner\'s GO TO countdown.
+    // The START timer separately checks actual button visibility before dispatch.
     if (show)
     {
       UiUtils.show(mButtonsLayout, mFrame);

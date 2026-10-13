@@ -403,6 +403,18 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       params.gravity = Gravity.BOTTOM | app.organicmaps.incar.InCarControlPositionPolicy.horizontalGravity(
           app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext()));
     mSearchPageContainer.setLayoutParams(raw);
+    // In landscape the inner sheet belongs to a width-fraction outer container. Move
+    // that container to the selected physical edge, not merely the sheet within it.
+    final View outer = (View) mSearchPageContainer.getParent();
+    if (outer.getLayoutParams() instanceof androidx.constraintlayout.widget.ConstraintLayout.LayoutParams position)
+    {
+      position.width = target;
+      position.startToStart = position.startToEnd = position.endToStart = position.endToEnd = -1;
+      final boolean left = app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext());
+      position.leftToLeft = left ? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID : -1;
+      position.rightToRight = left ? -1 : androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+      outer.setLayoutParams(position);
+    }
   }
 
   private void applyInCarPanelSurface(boolean mapMode)

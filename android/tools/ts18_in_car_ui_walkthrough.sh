@@ -7,7 +7,7 @@ case "${1:-}" in
   *) printf 'Unknown argument. Use --help.\n' >&2; exit 2 ;;
 esac
 if [ ! -t 0 ]; then printf 'Interactive terminal required; no tests were run.\n' >&2; exit 2; fi
-output="${EXPORT_BASE:-/storage/emulated/0/Download/OrganicMaps-TS18-UX-Qualification}"
+output="${EXPORT_BASE:-/storage/emulated/0/Download/${PROJECT:-OrganicMaps-TS18-UX-Qualification}}"
 run="$output/$(date -u +%Y%m%dT%H%M%SZ)-walkthrough-$$"
 mkdir -p "$run" || { printf 'Cannot export results. Run termux-setup-storage first.\n' >&2; exit 3; }
 collector="$(cd "$(dirname "$0")" && pwd)/ts18_termux_in_car_ux_capture.sh"

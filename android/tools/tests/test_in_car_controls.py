@@ -37,6 +37,7 @@ public class View { public static class AccessibilityDelegate {
  public void onInitializeAccessibilityNodeInfo(View v,android.view.accessibility.AccessibilityNodeInfo i){forwarded|=32;}
  public android.view.accessibility.AccessibilityNodeProvider getAccessibilityNodeProvider(View v){forwarded|=64;return provider;}
  public boolean performAccessibilityAction(View v,int a,android.os.Bundle b){forwarded|=128;return allow;}
+ public void addExtraDataToAccessibilityNodeInfo(View v,android.view.accessibility.AccessibilityNodeInfo i,String key,android.os.Bundle b){forwarded|=256;}
 } }''',
             "android/view/ViewGroup.java": "package android.view; public class ViewGroup extends View { public AccessibilityDelegate delegate; public int getterCalls; public AccessibilityDelegate getAccessibilityDelegate(){++getterCalls;return delegate;} public void setAccessibilityDelegate(AccessibilityDelegate d){delegate=d;} }",
             "android/os/Bundle.java": "package android.os; public class Bundle {}",
@@ -86,7 +87,9 @@ public class AccessibilityTest {
      d.onPopulateAccessibilityEvent(v,e);d.onInitializeAccessibilityEvent(v,e);
      d.onInitializeAccessibilityNodeInfo(v,new android.view.accessibility.AccessibilityNodeInfo());
      check(d.getAccessibilityNodeProvider(v)==original.provider);
-     check(!d.performAccessibilityAction(v,0,new android.os.Bundle()));check(original.forwarded==255);
+     check(!d.performAccessibilityAction(v,0,new android.os.Bundle()));
+     d.addExtraDataToAccessibilityNodeInfo(v,new android.view.accessibility.AccessibilityNodeInfo(),"extra",new android.os.Bundle());
+     check(original.forwarded==511);
     }
     if(cancelled)check(!h.mInCarNavigationCountdown.policy.arm("START",1,2,3000));
    }

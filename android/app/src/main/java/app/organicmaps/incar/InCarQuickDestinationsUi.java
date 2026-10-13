@@ -762,8 +762,7 @@ public final class InCarQuickDestinationsUi
         final int cameraColumn = horizontalCamera ? dp(6) : InCarVisuals.currentQuickActionSizePx(mActivity) + dp(18);
         margins.bottomMargin = navigationFooterHeightPx() + mSystemBottomInset + dp(12)
                              + (horizontalCamera ? cameraRail.getHeight() + dp(12) : 0);
-        margins.setMarginStart(0);
-        margins.setMarginEnd(0);
+        // Physical margins are authoritative; resolving zero start/end margins can override them.
         margins.leftMargin = InCarSettingsStore.controlsOnLeft(mActivity) ? cameraColumn : dp(6);
         margins.rightMargin = InCarSettingsStore.controlsOnLeft(mActivity) ? dp(6) : cameraColumn;
         mRoot.setLayoutParams(margins);

@@ -57,15 +57,14 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     mHasWarningState = true;
     mWarningState = warning;
     mSeverity = severity;
-    setBackgroundResource(warning ? R.drawable.in_car_speed_warning_background
-                                  : R.drawable.in_car_speed_circle_background);
+    androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
+    setBackgroundResource(!warning ? R.drawable.in_car_speed_circle_background
+                          : severity == InCarSpeedDisplayPolicy.Severity.WARNING
+                            ? R.drawable.in_car_speed_warning_orange_background
+                            : R.drawable.in_car_speed_warning_background);
     if (warning)
     {
-      if (severity == InCarSpeedDisplayPolicy.Severity.WARNING)
-        androidx.core.view.ViewCompat.setBackgroundTintList(this, ColorStateList.valueOf(
-            androidx.core.content.ContextCompat.getColor(getContext(), R.color.in_car_nav_warning_orange)));
-      else
-        androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
+      // Use a coloured solid instead of tinting the whole drawable: preserve the dark outline.
       setTextColor(severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
     }
     else

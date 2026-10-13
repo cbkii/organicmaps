@@ -21,6 +21,11 @@ public class PlacePageActionProjectionTest
       all.addAll(p.overflow());
       assertEquals(new HashSet<>(actions), all);
       assertFalse(p.overflow().contains(PlacePageButtons.ButtonType.ROUTE_TO));
+      assertTrue(p.direct().size() <= Math.max(2, max));
+      if (!p.overflow().isEmpty())
+        assertEquals(PlacePageButtons.ButtonType.MORE, p.direct().get(p.direct().size() - 1));
+      else
+        assertFalse(p.direct().contains(PlacePageButtons.ButtonType.MORE));
     }
   }
   @Test public void measuredWidthReservesPrimaryAndOverflowWithoutClipping()

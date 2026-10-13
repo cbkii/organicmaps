@@ -272,7 +272,7 @@ public class PlacePageController
       items.add(
           new MenuBottomSheetItem(bsItem.getTitle(), bsItem.getIcon(), () -> onPlacePageButtonClick(bsItem.getType())));
     }
-    return items;
+    return items.isEmpty() ? null : items;
   }
 
   private void setPlacePageInteractions(boolean enabled)

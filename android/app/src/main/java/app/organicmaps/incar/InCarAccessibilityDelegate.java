@@ -72,6 +72,11 @@ public final class InCarAccessibilityDelegate extends View.AccessibilityDelegate
   { return mOriginal.getAccessibilityNodeProvider(host); }
 
   @Override
+  public void addExtraDataToAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfo info,
+                                                  @NonNull String extraDataKey, @NonNull Bundle arguments)
+  { mOriginal.addExtraDataToAccessibilityNodeInfo(host, info, extraDataKey, arguments); }
+
+  @Override
   public boolean performAccessibilityAction(@NonNull View host, int action, @Nullable Bundle arguments)
   { return mOriginal.performAccessibilityAction(host, action, arguments); }
 }

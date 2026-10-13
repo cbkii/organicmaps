@@ -404,6 +404,11 @@ def verify_compiled_feature_captions(root: Path) -> None:
         return colours[ref][variant]
 
     for variant, theme in enumerate(("light", "dark")):
+        # A category-specific sample must not conceal dangling references in other compiled labels.
+        for entries in captions.values():
+            for _, _, properties in entries:
+                for reference in re.findall(r"\b(?:color|stroke)=(c\d+)\b", properties):
+                    resolve_colour(reference, variant)
         palette_path = root / f"data/styles/in_car/{theme}/colors.mapcss"
         palette = read_values(palette_path, VAR)
         gold = opaque_compiled_colour(require_colour(palette, "in_car_feature_label", palette_path))
