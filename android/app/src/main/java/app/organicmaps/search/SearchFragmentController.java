@@ -334,7 +334,6 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       if (!BuildConfig.IS_IN_CAR && toolbarH != null && toolbarH > 0)
         mBottomSheetBehavior.setPeekHeight(Math.max(toolbarH, mMinCollapsedPeekHeight) + navH);
       final boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
-      applyInCarSearchPanelWidth();
       updateExpandedOffset();
       if (imeVisible && Boolean.TRUE.equals(mViewModel.getSearchEnabled().getValue())
           && !mViewModel.isHiddenByPlacePage() && !mViewModel.isInCarMapMode())
@@ -343,6 +342,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
           insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
       searchBottomContainer.setPadding(horizontalInsets.left, searchBottomContainer.getPaddingTop(),
                                        horizontalInsets.right, searchBottomContainer.getPaddingBottom());
+      applyInCarSearchPanelWidth();
       ViewCompat.dispatchApplyWindowInsets(mSearchPageContainer, insets);
       return insets;
     });
@@ -408,7 +408,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     final View outer = (View) mSearchPageContainer.getParent();
     if (outer.getLayoutParams() instanceof androidx.constraintlayout.widget.ConstraintLayout.LayoutParams position)
     {
-      position.width = target;
+      position.width = target + outer.getPaddingLeft() + outer.getPaddingRight();
       position.startToStart = position.startToEnd = position.endToStart = position.endToEnd = -1;
       final boolean left = app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext());
       position.leftToLeft = left ? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID : -1;
