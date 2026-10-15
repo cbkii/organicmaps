@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <!-- Normal direct-display contract: use a 69dp primary rail cell and retain the 69dp normal touch floor. -->
-  <dimen name="in_car_touch_target_preferred">69dp</dimen>
+  <!-- Preserve 76dp general controls; compact only the two map overlay rails to 69dp. -->
+  <dimen name="in_car_touch_target_preferred">76dp</dimen>
   <dimen name="in_car_touch_target_min">69dp</dimen>
   <!-- Emergency reduced-height tier only; InCarVisuals gates this to live content height below 360dp. -->
   <dimen name="in_car_touch_target_extra_compact">55dp</dimen>
 
+  <dimen name="in_car_map_rail_cell_size">69dp</dimen>
   <!-- Shared direct-display sizing tokens. Keep map, Quick and place-page controls aligned. -->
   <dimen name="in_car_runtime_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
-  <dimen name="in_car_runtime_button_gap">0dp</dimen>
+  <dimen name="in_car_runtime_button_gap">6dp</dimen>
   <dimen name="in_car_map_control_outline_width">1dp</dimen>
 
   <!-- InCarDrivingUi is compiled for every app flavour; declare the InCar-only view id in main resources. -->
