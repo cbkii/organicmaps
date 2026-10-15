@@ -408,6 +408,7 @@ struct SetAutoPerspectiveEvent { bool p; explicit SetAutoPerspectiveEvent(bool v
 template<typename T, typename... Args> auto make_unique_dp(Args&&... args) { return std::make_unique<T>(std::forward<Args>(args)...); }
 struct Screen { bool tilted=false; bool isPerspective() const { return tilted; } };
 struct Stream { Screen screen; const Screen & GetCurrentScreen() const { return screen; }
+ void DiscardPendingAutoPerspective() {}
  void ApplyCameraPresentation(bool p) { screen.tilted=p; } };
 struct Position { bool routing=false, fresh=true; int calls=0, mode=3;
  bool IsInRouting() const { return routing; }
@@ -455,15 +456,18 @@ int main() {
             source = Path(tmp) / "camera.cpp"
             binary = Path(tmp) / "camera"
             source.write_text(harness)
-            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
     def test_camera_presentation_invalidates_scene_without_fresh_location(self):
         compiler = shutil.which("g++")
         if compiler is None:
             self.skipTest("C++ compiler unavailable: camera scene invalidation NOT_RUN")
-        body = controls.method_body(controls.read("libs/drape_frontend/user_event_stream.cpp"),
-                                    "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        stream_source = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        body = controls.method_body(stream_source, "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        discard = controls.method_body(stream_source, "void UserEventStream::DiscardPendingAutoPerspective()")
         harness = r"""#include <cassert>
 #include <memory>
 #include <list>
@@ -494,6 +498,7 @@ struct Stream { Navigator m_navigator; int events=0; bool redraw=false;
   ++events; m_events.push_back(std::move(event));
  }
  void queueStaleAuto() { m_events.push_back(std::make_unique<SetAutoPerspectiveEvent>()); }
+ void DiscardPendingAutoPerspective() {""" + discard + r"""}
  void apply(bool perspective) {""" + body + r"""}
  void process() { redraw=events!=0; events=0; m_events.clear(); }
 };
@@ -512,7 +517,9 @@ int main() {
             source = Path(tmp) / "camera_scene.cpp"
             binary = Path(tmp) / "camera_scene"
             source.write_text(harness)
-            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
     def test_missing_or_reordered_detach_is_rejected(self):
