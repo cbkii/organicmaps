@@ -151,6 +151,9 @@ public final class InCarQuickDestinationsUi
       mActivity = activity;
       mRoot = root;
       mContainer = container;
+      // Both map rails use one source-set-specific, day/night surface and clipped shared cells.
+      mContainer.setBackgroundResource(R.drawable.in_car_quick_rail);
+      mContainer.setClipToOutline(true);
       mPrefs = MwmApplication.prefs(activity);
       mLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
       {
@@ -490,8 +493,17 @@ public final class InCarQuickDestinationsUi
       for (int i = 0; i < rendered.size(); ++i)
       {
         final InCarQuickActionButton button = rendered.get(i);
-        setBottomGap(button, i + 1 < rendered.size() ? gapDp : 0);
+        setBottomGap(button, 0);
         mContainer.addView(button);
+        if (i + 1 < rendered.size())
+        {
+          final View divider = new View(mActivity);
+          divider.setBackgroundColor(ContextCompat.getColor(mActivity, R.color.divider));
+          final LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+          line.setMargins(dp(12), 0, dp(12), 0);
+          mContainer.addView(divider, line);
+        }
       }
       mRoot.bringToFront();
       updateRootBounds();
