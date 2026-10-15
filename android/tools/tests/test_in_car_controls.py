@@ -14,6 +14,99 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_production_road_matcher_and_parking_departure_boundaries(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable")
+        def without_local_includes(path):
+            return re.sub(r'^#include "[^"\n]+"\n|^#pragma once\n', '', controls.read(path), flags=re.M)
+        session = controls.read("libs/routing/routing_session_free_driving.cpp")
+        start = session.index("  bool const plausiblePublicRoad =")
+        predicate = session[start:session.index(";", start) + 1]
+        source = r'''
+#include <cassert>
+namespace m2 { struct PointD { double x=0,y=0; }; }
+namespace location { struct GpsInfo {
+ double m_horizontalAccuracy=5,m_speed=1,m_speedAccuracy=-1,m_bearing=-1,m_bearingAccuracy=-1;
+ bool HasSpeed() const { return m_speed>=0; }
+ bool HasSpeedAccuracy() const { return m_speedAccuracy>=0; }
+ bool HasBearing() const { return m_bearing>=0; }
+ bool HasBearingAccuracy() const { return m_bearingAccuracy>=0; }
+}; }
+''' + without_local_includes("libs/routing/free_driving_road_snap_policy.hpp") + without_local_includes(
+    "libs/routing/free_driving_road_matcher.hpp") + without_local_includes(
+    "libs/routing/free_driving_road_matcher.cpp") + r'''
+using namespace routing::free_driving_snap;
+namespace free_driving_snap = routing::free_driving_snap;
+struct Candidate { RoadMetadata m_metadata; RoadRelation m_relation=RoadRelation::Connected; bool acceptable=true; };
+bool IsAcceptable(Candidate const & c,location::GpsInfo const &,bool){return c.acceptable;}
+bool plausible(Candidate const * current,Candidate const * best,bool bestAcceptable,bool bestParkingAisle){
+ int previousValue=1; auto previous=&previousValue; location::GpsInfo policyInfo;
+''' + predicate + r'''
+ return plausiblePublicRoad;
+}
+int main() {
+ Candidate serviceRoad;
+ assert(plausible(&serviceRoad,nullptr,false,false));
+ serviceRoad.m_metadata.m_parkingAisle=true;
+ assert(!plausible(&serviceRoad,nullptr,false,false));
+ Candidate weakConnected;
+ assert(plausible(nullptr,&weakConnected,true,false));
+ assert(!plausible(nullptr,&weakConnected,true,true));
+ assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,69));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70));
+ assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,false,true,false,0));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,true,false,false,0));
+ // Accumulated crawl displacement is useful even when each 1Hz step is below 3m.
+ assert(HasTrustworthyParkingTurn(true,.6,4,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,4,true,0));
+ assert(!HasTrustworthyParkingTurn(true,.2,4,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,2,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,4,false,8));
+ assert(RoadDisplayEvidenceIsFresh(100,100,105));
+ assert(!RoadDisplayEvidenceIsFresh(100,100,105.001));
+ assert(!RoadDisplayEvidenceIsFresh(100,100,99));
+ assert(!RoadDisplayEvidenceIsFresh(100,99,101));
+ assert(!RoadDisplayEvidenceIsFresh(0,100,101));
+ assert(RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,false,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,false,false,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,true,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,false,36,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Poor,true,false,30,20));
+ AreaContext context; FreeDrivingRoadMatcher matcher; MatcherEvidence e;
+ e.m_hasBestRoad=e.m_bestAcceptable=e.m_bestStrong=e.m_bestUnambiguous=true;
+ e.m_accuracy=AccuracyBand::Good;e.m_candidateToken=1;e.m_deltaSeconds=1;
+ e.m_relation=RoadRelation::SameDirectedEdge;
+ matcher.Update(e,context);matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::Road);
+ context.m_insideParking=true;
+ e.m_stationaryHold=true;
+ for(int i=0;i<10;i++) {
+  e.m_parkingReleaseEligible=HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90);
+  assert(matcher.Update(e,context).m_state==MatchState::Road);
+ }
+ // Traffic-light stop, then a connected low-speed bend: same road authority survives.
+ e.m_stationaryHold=false;e.m_motionEstablished=true;e.m_relation=RoadRelation::Connected;e.m_candidateToken=2;
+ assert(matcher.Update(e,context).m_state==MatchState::Road);
+ e.m_parkingReleaseEligible=HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70);
+ for(int i=0;i<4;i++)matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::ParkingFree);
+ assert(!RetainFreshRoadDisplay(matcher.GetState(),AccuracyBand::Good,true,false,30,20));
+ e.m_parkingReleaseEligible=false;e.m_allowFreeStateRoadReacquire=true;e.m_candidateToken=3;
+ matcher.Update(e,context);matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::Road);
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "roads.cpp"
+            binary = Path(tmp) / "roads"
+            src.write_text(source)
+            result = subprocess.run([compiler, "-std=c++17", str(src), "-o", str(binary)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
     def test_production_ribbon_warning_surfaces_and_contrast(self):
         import xml.etree.ElementTree as ET
         runtime = shutil.which("java")
