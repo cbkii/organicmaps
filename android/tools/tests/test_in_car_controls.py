@@ -461,6 +461,71 @@ int main() {
             self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
+    def test_production_recenter_consumes_only_fresh_held_driving_fix(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: native recenter seam NOT_RUN")
+        native = controls.read("libs/drape_frontend/my_position_controller.cpp")
+        body = controls.method_body(native, "bool MyPositionController::RecenterPreservingMode()")
+        source = r"""
+#include <cstdint>
+struct Point { int value=0; };
+struct Rect { Point Center() const { return {}; } };
+namespace location { constexpr int FollowAndRotate=3; }
+constexpr int kDoNotChangeZoom=-1;
+int64_t PositionClockNanos() { return 200; }
+bool IsFreshPositionObservation(int64_t observation,int64_t) { return observation==200; }
+struct Listener {
+ int events=0,last=-1;
+ void PositionChanged(Point p,bool) { ++events; last=p.value; }
+};
+class MyPositionController {
+public:
+ Listener * m_listener=nullptr;
+ Point m_position={7},m_lastHeldDrivingPosition={42};
+ bool m_isPositionAssigned=true,m_positionIsObsolete=false,m_recenterPending=false;
+ bool m_hasLastHeldDrivingPosition=true;
+ int64_t m_lastRecenterObservationNanos=200;
+ int m_mode=location::FollowAndRotate;
+ double m_drawDirection=0;
+ Rect m_visiblePixelRect;
+ int recentered=-1;
+ bool IsNavigationStyleCameraActive() const { return true; }
+ Point GetRoutingRotationPixelCenter() const { return {}; }
+ Point Position() const { return m_position; }
+ bool IsModeHasPosition() const { return true; }
+ void ChangeModelView(Point p,int) { recentered=p.value; }
+ void ChangeModelView(Point p,double,Point,int) { recentered=p.value; }
+ bool RecenterPreservingMode();
+};
+bool MyPositionController::RecenterPreservingMode() {
+""" + body + r"""
+}
+int main() {
+ Listener listener;
+ MyPositionController controller;
+ controller.m_listener=&listener;
+ if (!controller.RecenterPreservingMode() || controller.recentered!=42 ||
+     controller.m_position.value!=42 || controller.m_hasLastHeldDrivingPosition ||
+     listener.events!=1 || listener.last!=42) return 1;
+ MyPositionController stale;
+ stale.m_listener=&listener;
+ stale.m_lastRecenterObservationNanos=100;
+ if (stale.RecenterPreservingMode() || stale.m_position.value!=7 ||
+     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1) return 2;
+ MyPositionController noListener;
+ if (noListener.RecenterPreservingMode()) return 3;
+ return 0;
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "recenter.cpp"
+            binary = Path(tmp) / "recenter"
+            src.write_text(source)
+            subprocess.run([compiler, "-std=c++17", str(src), "-o", str(binary)],
+                           check=True, timeout=30)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
     def test_camera_presentation_invalidates_scene_without_fresh_location(self):
         compiler = shutil.which("g++")
         if compiler is None:
