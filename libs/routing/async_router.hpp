@@ -99,6 +99,12 @@ public:
     return m_router && m_router->AreRoadEdgesConnected(from, to);
   }
 
+  double GetFreeDrivingRoadSpeedLimit(Edge const & edge)
+  {
+    std::lock_guard lock(m_guard);
+    return m_router ? m_router->GetFreeDrivingRoadSpeedLimit(edge) : -1.0;
+  }
+
 private:
   /// Worker thread function
   void ThreadFunc();

@@ -40,7 +40,6 @@ final class InCarSettingsPolicy
     bindDrivingViewSettings(fragment);
     bindBudgetRendering(fragment);
     bindMapAgeWarning(fragment);
-    bindShowTrackRecordingButton(fragment);
     installGenericPreferenceGuardObserver(fragment);
   }
 
@@ -201,27 +200,6 @@ final class InCarSettingsPolicy
     switchPreference.setChecked(InCarSettingsStore.mapAgeWarningEnabled(fragment.requireContext()));
     switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
       InCarSettingsStore.setMapAgeWarningEnabled(fragment.requireContext(), (boolean) newValue);
-      return true;
-    });
-  }
-
-  private static void bindShowTrackRecordingButton(@NonNull PreferenceFragmentCompat fragment)
-  {
-    @Nullable
-    final Preference preference =
-        fragment.findPreference(fragment.getString(R.string.pref_in_car_show_track_recording_button));
-    if (preference == null)
-      return;
-
-    final boolean show = showDedicatedPreference(fragment);
-    preference.setVisible(show);
-    if (!show)
-      return;
-
-    final TwoStatePreference switchPreference = (TwoStatePreference) preference;
-    switchPreference.setChecked(InCarSettingsStore.isShowTrackRecordingButton(fragment.requireContext()));
-    switchPreference.setOnPreferenceChangeListener((pref, newValue) -> {
-      InCarSettingsStore.setShowTrackRecordingButton(fragment.requireContext(), (boolean) newValue);
       return true;
     });
   }

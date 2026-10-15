@@ -23,6 +23,5 @@
   <dimen name="in_car_camera_rail_divider_width">1dp</dimen>
   <dimen name="in_car_camera_rail_divider_inset">12dp</dimen>
   <!-- Track recording remains intentionally separate from the camera-control rail. -->
-  <dimen name="in_car_track_record_gap">24dp</dimen>
   <dimen name="automotive_preference_row_min_height">@dimen/in_car_runtime_row_min_height</dimen>
 </resources>

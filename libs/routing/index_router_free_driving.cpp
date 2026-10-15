@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <ctime>
 #include <deque>
 #include <limits>
 #include <utility>
@@ -188,5 +189,44 @@ bool IndexRouter::AreRoadEdgesConnected(Edge const & from, Edge const & to) cons
   m_roadGraph.GetOutgoingEdges(from.GetEndJunction(), outgoing);
   return std::any_of(outgoing.begin(), outgoing.end(),
                      [&to](Edge const & edge) { return edge.SameRoadSegmentAndDirection(to); });
+}
+
+double IndexRouter::GetFreeDrivingRoadSpeedLimit(Edge const & edge)
+{
+  auto const & id = edge.GetFeatureId();
+  if (!edge.HasRealPart() || !id.m_mwmId.IsAlive())
+    return -1.0;
+
+  // Route calculation runs outside AsyncRouter's guard. Its cleanup and this UI-side
+  // cache lookup must use the same lock, and must not share the worker's handle cache.
+  std::lock_guard<std::mutex> lock(m_freeDrivingMaxspeedsMutex);
+  try
+  {
+    bool found = false;
+    auto & speeds = m_freeDrivingMaxspeeds.Find(id.m_mwmId, found);
+    if (!found)
+    {
+      auto handle = m_freeDrivingSpeedDataSource.GetMwmHandleById(id.m_mwmId);
+      if (!handle.IsAlive())
+        return -1.0;
+      speeds = LoadMaxspeeds(handle);
+    }
+    if (!speeds)
+      return -1.0;
+
+    // GetMaxspeed reads the feature's saved tag. GetDefaultSpeed/model speed is deliberately excluded.
+    auto const maxspeed = speeds->GetMaxspeed(id.m_index);
+    auto const speed =
+        maxspeed.GetCurrentSpeed(m_currentTimeGetter ? m_currentTimeGetter() : std::time(nullptr), edge.IsForward());
+    if (speed.IsNumeric())
+      return measurement_utils::KmphToMps(measurement_utils::ToSpeedKmPH(speed.GetSpeed(), speed.GetUnits()));
+    return speed.GetSpeed() == kNoneMaxSpeed ? 0.0 : -1.0;
+  }
+  catch (RootException const &)
+  {
+    // A map can disappear during source/lifecycle changes. Metadata failure must not affect guidance.
+    m_freeDrivingMaxspeeds.Clear();
+    return -1.0;
+  }
 }
 }  // namespace routing

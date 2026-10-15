@@ -179,6 +179,8 @@ public class SpeedLimitView extends View
   @Override
   public boolean onTouchEvent(@NonNull MotionEvent event)
   {
+    if (!isClickable())
+      return false;
     final float cx = mWidth / 2;
     final float cy = mHeight / 2;
     if (Math.pow(event.getX() - cx, 2) + Math.pow(event.getY() - cy, 2) <= Math.pow(mBackgroundRadius, 2))

@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:id="@+id/nav_top_frame"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  tools:showIn="@layout/layout_nav">
+
+  <!-- One stable row: immediate manoeuvre and road / AFTER-or-LANES / physical-right speed. -->
+  <LinearLayout
+    android:id="@+id/nav_next_turn_container"
+    android:layout_width="0dp"
+    android:layout_height="@dimen/in_car_nav_ribbon_height"
+    android:background="@color/bg_cards"
+    android:clickable="true"
+    android:clipChildren="true"
+    android:clipToPadding="true"
+    android:elevation="@dimen/nav_elevation"
+    android:gravity="center_vertical"
+    android:layoutDirection="ltr"
+    android:orientation="horizontal"
+    android:paddingLeft="4dp"
+    android:paddingTop="4dp"
+    android:paddingRight="4dp"
+    android:paddingBottom="4dp"
+    app:layout_constraintLeft_toLeftOf="parent"
+    app:layout_constraintRight_toRightOf="parent"
+    app:layout_constraintTop_toTopOf="parent"
+    tools:ignore="RtlHardcoded">
+
+    <LinearLayout
+      android:id="@+id/in_car_nav_immediate_group"
+      android:layout_width="0dp"
+      android:layout_height="match_parent"
+      android:layout_marginRight="@dimen/in_car_nav_section_gap"
+      android:layout_weight="1"
+      android:background="@color/in_car_nav_immediate_background"
+      android:gravity="center_vertical"
+      android:orientation="horizontal">
+      <LinearLayout
+        android:id="@+id/nav_next_turn_frame"
+        android:layout_width="@dimen/in_car_nav_manoeuvre_width"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+          android:id="@+id/turn"
+          android:layout_width="@dimen/in_car_nav_now_icon_size"
+          android:layout_height="match_parent"
+          android:layout_marginLeft="@dimen/in_car_nav_icon_gap"
+          android:layout_marginRight="@dimen/in_car_nav_icon_gap"
+          android:scaleType="fitCenter"
+          app:tint="@color/in_car_nav_immediate_foreground"
+          tools:src="@drawable/ic_roundabout_exit_12" />
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="match_parent"
+          android:layout_weight="1"
+          android:gravity="top"
+          android:orientation="vertical">
+          <TextView
+            android:id="@+id/distance"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="@color/in_car_nav_immediate_foreground"
+            android:textSize="@dimen/in_car_nav_distance_text_size"
+            android:textStyle="bold"
+            tools:text="320 m" />
+        </LinearLayout>
+      </LinearLayout>
+
+      <LinearLayout
+        android:id="@+id/street_frame"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/in_car_nav_instruction_height"
+        android:layout_marginLeft="@dimen/in_car_nav_section_gap"
+        android:layout_marginRight="@dimen/in_car_nav_section_gap"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        tools:ignore="RtlHardcoded">
+        <TextView
+          android:id="@+id/street"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:ellipsize="end"
+          android:gravity="start|center_vertical"
+          android:includeFontPadding="false"
+          android:layoutDirection="locale"
+          android:maxLines="1"
+          android:textDirection="locale"
+          android:textColor="@color/in_car_nav_immediate_foreground"
+          android:textSize="@dimen/in_car_nav_instruction_text_size"
+          android:textStyle="bold"
+          tools:text="Northbourne Avenue towards City" />
+      </LinearLayout>
+    </LinearLayout>
+
+    <!-- Labels sit beside full-height graphics: a common baseline without reducing lane height. -->
+    <LinearLayout
+      android:id="@+id/in_car_nav_guidance_group"
+      android:layout_width="@dimen/in_car_nav_guidance_width"
+      android:layout_height="match_parent"
+      android:layout_marginRight="@dimen/in_car_nav_section_gap"
+      android:orientation="horizontal"
+      tools:ignore="RtlHardcoded">
+      <TextView
+        android:id="@+id/in_car_nav_guidance_label"
+        android:layout_width="@dimen/in_car_nav_guidance_label_width"
+        android:layout_height="@dimen/in_car_nav_label_height"
+        android:alpha="0.70"
+        android:gravity="top"
+        android:includeFontPadding="false"
+        android:text="@string/in_car_nav_after"
+        android:textColor="@color/in_car_nav_foreground"
+        android:textSize="14sp"
+        android:visibility="invisible" />
+      <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+        <app.organicmaps.sdk.widgets.lanes.LanesView
+          android:id="@+id/lanes"
+          android:layout_width="match_parent"
+          android:layout_height="@dimen/in_car_nav_lanes_height"
+          android:layout_gravity="center_vertical"
+          android:visibility="gone"
+          app:lanesActiveLaneTintColor="@color/base_accent"
+          app:lanesBackgroundColor="@android:color/transparent"
+          app:lanesInactiveLaneTintColor="@color/in_car_nav_secondary"
+          tools:visibility="visible" />
+        <FrameLayout
+          android:id="@+id/nav_next_next_turn_frame"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:alpha="0.70"
+          android:visibility="gone">
+          <ImageView
+            android:id="@id/turn"
+            android:layout_width="@dimen/in_car_nav_after_icon_size"
+            android:layout_height="@dimen/in_car_nav_after_icon_size"
+            android:layout_gravity="center"
+            android:layout_marginLeft="@dimen/in_car_nav_icon_gap"
+            android:layout_marginRight="@dimen/in_car_nav_icon_gap"
+            android:scaleType="fitCenter"
+            app:tint="@color/in_car_nav_foreground"
+            tools:src="@drawable/ic_roundabout_exit_12" />
+        </FrameLayout>
+      </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="match_parent"
+      android:gravity="center_vertical"
+      android:orientation="horizontal">
+      <app.organicmaps.sdk.widgets.speedlimit.SpeedLimitView
+        android:id="@+id/nav_speed_limit"
+        style="@style/MwmWidget.SpeedLimit"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginRight="4dp"
+        tools:ignore="RtlHardcoded" />
+      <include
+        android:id="@+id/in_car_nav_speed"
+        layout="@layout/in_car_nav_speed"
+        android:layout_width="72dp"
+        android:layout_height="72dp" />
+    </LinearLayout>
+  </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

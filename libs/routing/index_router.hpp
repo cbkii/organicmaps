@@ -10,6 +10,7 @@
 #include "routing/fake_edges_container.hpp"
 #include "routing/features_road_graph.hpp"
 #include "routing/guides_connections.hpp"
+#include "routing/maxspeeds.hpp"
 #include "routing/nearest_edge_finder.hpp"
 #include "routing/regions_decl.hpp"
 #include "routing/router.hpp"
@@ -25,7 +26,10 @@
 #include "geometry/point2d.hpp"
 #include "geometry/tree4d.hpp"
 
+#include "base/lru_cache.hpp"
+
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <vector>
@@ -92,6 +96,7 @@ public:
                                    size_t maxEdges, size_t maxHops,
                                    std::vector<FreeDrivingCorridorProjection> & projections) const override;
   bool GetFreeDrivingRoadMetadata(Edge const & edge, free_driving_snap::RoadMetadata & metadata) const override;
+  double GetFreeDrivingRoadSpeedLimit(Edge const & edge) override;
   bool AreRoadEdgesConnected(Edge const & from, Edge const & to) const override;
 
   void SwapAltRouteToActive() override;
@@ -292,6 +297,7 @@ private:
   bool m_loadAltitudes;
   std::string const m_name;
   MwmDataSource m_dataSource;
+  DataSource & m_freeDrivingSpeedDataSource;
   std::shared_ptr<VehicleModelFactoryInterface> m_vehicleModelFactory;
 
   TCountryFileFn const m_countryFileFn;
@@ -300,6 +306,8 @@ private:
   std::shared_ptr<m4::Tree<NumMwmId>> m_numMwmTree;
   std::shared_ptr<TrafficStash> m_trafficStash;
   FeaturesRoadGraphBase m_roadGraph;
+  std::mutex m_freeDrivingMaxspeedsMutex;
+  LruCache<MwmSet::MwmId, std::unique_ptr<Maxspeeds>> m_freeDrivingMaxspeeds{2};
 
   std::shared_ptr<EdgeEstimator> m_estimator;
   std::unique_ptr<DirectionsEngine> m_directionsEngine;

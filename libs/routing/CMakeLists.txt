@@ -47,6 +47,7 @@ set(SRC
   directions_engine.cpp
   directions_engine.hpp
   directions_engine_helpers.cpp
+  current_road_speed_limit.hpp
   directions_engine_helpers.hpp
   dummy_world_graph.hpp
   edge_estimator.cpp

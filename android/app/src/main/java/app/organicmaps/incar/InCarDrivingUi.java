@@ -2,9 +2,11 @@ package app.organicmaps.incar;
 
 import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -13,6 +15,7 @@ import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
@@ -24,7 +27,10 @@ import app.organicmaps.maplayer.MapButtonsViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
+import app.organicmaps.sdk.util.StringUtils;
 import app.organicmaps.sdk.util.log.Logger;
+import app.organicmaps.sdk.widgets.lanes.LanesView;
+import app.organicmaps.sdk.widgets.speedlimit.SpeedLimitView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import java.lang.ref.WeakReference;
@@ -48,6 +54,8 @@ public final class InCarDrivingUi
     @Nullable
     final TextView navigationSpeed;
     @Nullable
+    final SpeedLimitView navigationSpeedLimit;
+    @Nullable
     FloatingActionButton drivingView;
     @Nullable
     FloatingActionButton zoomIn;
@@ -62,13 +70,20 @@ public final class InCarDrivingUi
     @NonNull
     final InCarDrivingViewController controller;
     String lastSpeedText;
+    double currentRouteSpeedLimitMps = -1.0;
+    final View speedCluster;
+    final SpeedLimitView roadSpeedLimit;
 
-    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed, @Nullable View help,
+    Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed,
+            @Nullable SpeedLimitView navigationSpeedLimit, @Nullable View help,
             @NonNull InCarDrivingViewController controller)
     {
       this.overlay = overlay;
       this.speed = speed;
+      this.speedCluster = overlay.findViewById(R.id.in_car_driving_speed_cluster);
+      this.roadSpeedLimit = overlay.findViewById(R.id.in_car_road_speed_limit);
       this.navigationSpeed = navigationSpeed;
+      this.navigationSpeedLimit = navigationSpeedLimit;
       this.help = help;
       this.controller = controller;
     }
@@ -113,8 +128,17 @@ public final class InCarDrivingUi
       }
 
       final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
+      final SpeedLimitView navigationSpeedLimit = activity.findViewById(R.id.nav_speed_limit);
       final View help = activity.findViewById(R.id.help_button);
-      binding = new Binding(overlay, speed, navigationSpeed, help, controller);
+      binding = new Binding(overlay, speed, navigationSpeed, navigationSpeedLimit, help, controller);
+      final InCarDrivingViewController.Snapshot initial = controller.getSnapshot().getValue();
+      if (initial != null && initial.routeLimitAvailable && app.organicmaps.sdk.Map.isEngineCreated()
+          && RoutingController.get().isNavigating())
+      {
+        final RoutingInfo route = Framework.nativeGetRouteFollowingInfo();
+        if (route != null)
+          binding.currentRouteSpeedLimitMps = route.speedLimitMps;
+      }
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       applyInsets(activity, binding);
@@ -152,6 +176,49 @@ public final class InCarDrivingUi
     bindDrivingViewButton(activity, binding, activity.findViewById(android.R.id.content), null);
     render(activity, binding, controller.getSnapshot().getValue());
     maybeShowMapAgeNotice(activity);
+  }
+
+  public static void updateNavigationSpeedLimit(@NonNull MwmActivity activity, double speedLimitMps)
+  {
+    final Binding binding = getBinding(activity);
+    if (binding == null)
+    {
+      InCarSpeedDisplayPolicy.updateSpeedLimit(speedLimitMps);
+      return;
+    }
+    binding.currentRouteSpeedLimitMps = speedLimitMps;
+    render(activity, binding, binding.controller.getSnapshot().getValue());
+  }
+
+  private static void renderRibbon(@NonNull MwmActivity activity, boolean warning, float strength)
+  {
+    final View group = activity.findViewById(R.id.in_car_nav_guidance_group);
+    if (group == null)
+      return; // Dedicated landscape resource only; portrait keeps its established appearance.
+    final View ribbon = activity.findViewById(R.id.nav_next_turn_container);
+    final int normal = ContextCompat.getColor(activity, R.color.bg_cards);
+    final int red = ContextCompat.getColor(activity, R.color.in_car_nav_warning);
+    ribbon.setBackgroundColor(warning ? ColorUtils.blendARGB(normal, red, strength) : normal);
+    final int foreground = ContextCompat.getColor(activity, R.color.in_car_nav_foreground);
+    final int secondary = ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
+    final View immediateGroup = ribbon.findViewById(R.id.in_car_nav_immediate_group);
+    final int immediateBackground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
+    final int immediateForeground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
+    immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB(immediateBackground, red, strength)
+                                              : immediateBackground);
+    for (int id : new int[] {R.id.distance, R.id.street})
+      ((TextView) immediateGroup.findViewById(id)).setTextColor(immediateForeground);
+    ((TextView) ribbon.findViewById(R.id.in_car_nav_guidance_label)).setTextColor(foreground);
+    final View immediate = ribbon.findViewById(R.id.nav_next_turn_frame);
+    final View then = ribbon.findViewById(R.id.nav_next_next_turn_frame);
+    ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
+                                     ColorStateList.valueOf(immediateForeground));
+    ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
+    final LanesView lanes = ribbon.findViewById(R.id.lanes);
+    // Half-strength day warnings are light red: keep dark guidance rather than forcing white.
+    // In warning state, use the same high-contrast theme foreground for the active lane.
+    lanes.setLaneColors(warning ? foreground : ContextCompat.getColor(activity, R.color.base_accent),
+                        warning ? ColorUtils.setAlphaComponent(foreground, 180) : secondary);
   }
 
   public static void refresh(@NonNull MwmActivity activity)
@@ -268,19 +335,45 @@ public final class InCarDrivingUi
       binding.lastSpeedText = speedText;
     }
 
-    binding.speed.setVisibility(snapshot.navigating ? View.INVISIBLE : View.VISIBLE);
+    binding.speedCluster.setVisibility(snapshot.navigating ? View.INVISIBLE : View.VISIBLE);
     if (binding.navigationSpeed != null)
       binding.navigationSpeed.setVisibility(snapshot.navigating ? View.VISIBLE : View.GONE);
 
-    if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
+    if (!snapshot.navigating)
+      binding.currentRouteSpeedLimitMps = -1.0;
+    if (snapshot.navigating && snapshot.routeLimitAvailable && snapshot.currentNativeObservation
+        && app.organicmaps.sdk.Map.isEngineCreated())
     {
-      final RoutingInfo routingInfo = RoutingController.get().getCachedRoutingInfo();
-      final boolean warning = snapshot.navigating
-                           && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
-                           && snapshot.hasSpeed && routingInfo != null
-                           && InCarSpeedDisplayPolicy.isSpeeding(snapshot.speedMps, routingInfo.speedLimitMps);
-      navigationSpeedView.setSpeeding(warning);
+      final RoutingInfo route = Framework.nativeGetRouteFollowingInfo();
+      if (route != null)
+        binding.currentRouteSpeedLimitMps = route.speedLimitMps;
     }
+    final double routeLimit = snapshot.routeLimitAvailable ? binding.currentRouteSpeedLimitMps : -1.0;
+    final double displayedLimit = InCarSpeedDisplayPolicy.selectSpeedLimit(
+        routeLimit, snapshot.roadSpeedLimit, snapshot.currentNativeObservation, SystemClock.elapsedRealtimeNanos());
+    InCarSpeedDisplayPolicy.updateSpeedLimit(displayedLimit);
+    final boolean current = snapshot.currentNativeObservation
+                         && snapshot.locationHealth == InCarDrivingViewController.LocationHealth.CURRENT
+                         && snapshot.hasSpeed;
+    final boolean warning = InCarSpeedDisplayPolicy.updateCurrentSpeed(current ? snapshot.speedMps : Double.NaN);
+    if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
+      navigationSpeedView.setSpeeding(warning);
+    final String limitDescription = displayedLimit > 0
+                                      ? activity.getString(R.string.in_car_road_speed_limit_content_description,
+                                                           Framework.nativeFormatSpeed(displayedLimit))
+                                      : null;
+    if (binding.navigationSpeedLimit != null)
+    {
+      binding.navigationSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
+      binding.navigationSpeedLimit.setContentDescription(limitDescription);
+    }
+    final boolean showRoadLimit = !snapshot.navigating && displayedLimit > 0.0
+                               && ((snapshot.enabled && snapshot.following) || (current && snapshot.speedMps > 0.0));
+    binding.roadSpeedLimit.setVisibility(showRoadLimit ? View.VISIBLE : View.GONE);
+    binding.roadSpeedLimit.setContentDescription(showRoadLimit ? limitDescription : null);
+    if (showRoadLimit)
+      binding.roadSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
+    renderRibbon(activity, snapshot.navigating && warning, InCarSpeedDisplayPolicy.warningStrength());
 
     applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
     if (binding.navigationSpeed != null)
@@ -338,13 +431,13 @@ public final class InCarDrivingUi
   {
     ViewCompat.setOnApplyWindowInsetsListener(binding.overlay, (view, windowInsets) -> {
       final Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-      final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.speed.getLayoutParams();
+      final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.speedCluster.getLayoutParams();
       final int baseMargin = activity.getResources().getDimensionPixelSize(R.dimen.margin_base);
       final int top = bars.top + baseMargin;
       if (params.topMargin != top)
       {
         params.topMargin = top;
-        binding.speed.setLayoutParams(params);
+        binding.speedCluster.setLayoutParams(params);
       }
       return windowInsets;
     });

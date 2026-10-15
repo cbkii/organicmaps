@@ -36,4 +36,17 @@ public class InCarDialogSizingTest
     assertEquals(410, InCarDialogSizing.boundedSizePx(500, 280, 560, 0.82f));
     assertEquals(250, InCarDialogSizing.boundedSizePx(250, 280, 560, 0.82f));
   }
+
+  @Test
+  public void measuredWindowDimensionWinsOverDisplayFallback()
+  {
+    assertEquals(640, InCarDialogSizing.measuredOrFallback(640, 1280));
+  }
+
+  @Test
+  public void displayFallbackIsUsedBeforeWindowIsMeasured()
+  {
+    assertEquals(1280, InCarDialogSizing.measuredOrFallback(0, 1280));
+    assertEquals(1280, InCarDialogSizing.measuredOrFallback(-1, 1280));
+  }
 }

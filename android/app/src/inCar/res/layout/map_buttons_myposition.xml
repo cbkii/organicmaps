@@ -4,10 +4,11 @@
   xmlns:app="http://schemas.android.com/apk/res-auto"
   android:id="@+id/my_position"
   style="@style/MwmWidget.MapButton"
-  android:contentDescription="@string/core_my_position"
-  app:backgroundTint="@color/in_car_camera_cell_background"
+  android:contentDescription="@string/in_car_recenter_my_position"
+  app:backgroundTint="@android:color/transparent"
   app:borderWidth="0dp"
   app:elevation="0dp"
   app:fabCustomSize="@dimen/in_car_map_primary_button_size"
   app:maxImageSize="@dimen/in_car_map_primary_icon_size"
-  app:pressedTranslationZ="0dp" />
+  app:pressedTranslationZ="0dp"
+  app:rippleColor="?attr/colorControlHighlight" />

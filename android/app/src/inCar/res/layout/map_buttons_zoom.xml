@@ -22,15 +22,12 @@
     app:srcCompat="@drawable/ic_in_car_driving_view"
     app:tint="@color/icon_tint" />
 
-  <!-- + / - / My Position deliberately share one surface. The cells keep full automotive touch
-       sizes; the shared outline and internal separators reduce visual objects without shrinking
-       interaction targets. -->
+  <!-- Zoom keeps visible button surfaces. My Position uses the same automotive hit target but the
+       InCar layout override makes the last cell an icon-only transparent recenter command. -->
   <LinearLayout
     android:id="@+id/zoom_buttons_container"
     android:layout_width="@dimen/in_car_map_primary_button_size"
     android:layout_height="wrap_content"
-    android:background="@drawable/in_car_camera_rail_background"
-    android:clipToOutline="true"
     android:orientation="vertical">
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -79,16 +76,4 @@
       android:layout_height="@dimen/in_car_map_primary_button_size" />
   </LinearLayout>
 
-  <!-- Track Recording is an action, not a camera state; keep it visually separate from the rail. -->
-  <com.google.android.material.floatingactionbutton.FloatingActionButton
-    android:id="@+id/track_recording_status"
-    style="@style/MwmWidget.MapButton.Zoom"
-    android:layout_marginTop="@dimen/in_car_track_record_gap"
-    android:contentDescription="@string/track_recording_title"
-    android:foreground="@drawable/in_car_map_control_outline_round"
-    android:visibility="gone"
-    app:backgroundTint="@color/in_car_map_button_background"
-    app:fabCustomSize="@dimen/in_car_compact_map_button_size"
-    app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-    app:srcCompat="@drawable/ic_track_recording_status" />
 </LinearLayout>

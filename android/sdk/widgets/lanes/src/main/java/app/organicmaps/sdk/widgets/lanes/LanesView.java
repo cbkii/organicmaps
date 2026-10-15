@@ -30,6 +30,7 @@ public class LanesView extends View
     int INACTIVE_LANE_TINT_COLOR = Color.GRAY;
 
     float CORNER_RADIUS = 0.0f;
+    boolean ALIGN_TOP = false;
 
     int LANES_COUNT = 5;
   }
@@ -37,9 +38,9 @@ public class LanesView extends View
   private final int mCornerRadius;
 
   @ColorInt
-  private final int mActiveLaneTintColor;
+  private int mActiveLaneTintColor;
   @ColorInt
-  private final int mInactiveLaneTintColor;
+  private int mInactiveLaneTintColor;
 
   @NonNull
   private final Paint mBackgroundPaint;
@@ -48,6 +49,7 @@ public class LanesView extends View
   private LanesDrawable mLanesDrawable;
   @Nullable
   private Rect mViewBounds = null;
+  private boolean mVerticalAlignmentTop;
 
   public LanesView(Context context, @Nullable AttributeSet attrs)
   {
@@ -64,6 +66,7 @@ public class LanesView extends View
           getAttrColor(data, R.styleable.LanesView_lanesInactiveLaneTintColor, DefaultValues.INACTIVE_LANE_TINT_COLOR);
       mCornerRadius =
           (int) Math.max(data.getDimension(R.styleable.LanesView_lanesCornerRadius, DefaultValues.CORNER_RADIUS), 0.0f);
+      mVerticalAlignmentTop = data.getBoolean(R.styleable.LanesView_lanesAlignTop, DefaultValues.ALIGN_TOP);
 
       if (isInEditMode())
       {
@@ -77,12 +80,26 @@ public class LanesView extends View
     mBackgroundPaint.setColor(backgroundColor);
   }
 
+  public void setLaneColors(@ColorInt int active, @ColorInt int inactive)
+  {
+    if (mActiveLaneTintColor == active && mInactiveLaneTintColor == inactive)
+      return;
+    mActiveLaneTintColor = active;
+    mInactiveLaneTintColor = inactive;
+    if (mLanesDrawable != null)
+      mLanesDrawable.setLaneColors(active, inactive);
+    invalidate();
+  }
+
   public void setLanes(@Nullable LaneInfo[] lanes)
   {
     if (lanes == null || lanes.length == 0)
       mLanesDrawable = null;
     else
+    {
       mLanesDrawable = new LanesDrawable(getContext(), lanes, mActiveLaneTintColor, mInactiveLaneTintColor);
+      mLanesDrawable.setVerticalAlignmentTop(mVerticalAlignmentTop);
+    }
     update();
   }
 

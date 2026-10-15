@@ -13,6 +13,7 @@ import app.organicmaps.sdk.bookmarks.data.MapObject;
 import app.organicmaps.sdk.products.ProductsConfig;
 import app.organicmaps.sdk.routing.JunctionInfo;
 import app.organicmaps.sdk.routing.NavigationNotification;
+import app.organicmaps.sdk.routing.RoadSpeedLimitInfo;
 import app.organicmaps.sdk.routing.RouteMarkData;
 import app.organicmaps.sdk.routing.RouteMarkType;
 import app.organicmaps.sdk.routing.RoutingInfo;
@@ -213,6 +214,9 @@ public class Framework
   @FastNative
   @Nullable
   public static native RoutingInfo nativeGetRouteFollowingInfo();
+
+  @Nullable
+  public static native RoadSpeedLimitInfo nativeGetCurrentRoadSpeedLimit();
 
   @Nullable
   /// @param[in] maxDistM Max distance between points in meters.

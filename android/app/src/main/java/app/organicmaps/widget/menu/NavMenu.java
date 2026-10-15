@@ -10,12 +10,14 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.os.ConfigurationCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarActionMenu;
+import app.organicmaps.incar.InCarRouteSummaryPolicy;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.StringUtils;
@@ -240,11 +242,20 @@ public class NavMenu implements DefaultLifecycleObserver
   private void updateTime(int seconds)
   {
     updateTimeLeft(seconds);
-    updateTimeEstimate(seconds);
+    if (!BuildConfig.IS_IN_CAR)
+      updateTimeEstimate(seconds);
   }
 
   private void updateTimeLeft(int seconds)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mTimeMinuteValue.setText(InCarRouteSummaryPolicy.duration(
+          seconds, mActivity.getString(R.string.minute), mActivity.getString(R.string.hour),
+          mActivity.getString(R.string.day),
+          ConfigurationCompat.getLocales(mActivity.getResources().getConfiguration()).get(0)));
+      return;
+    }
     final long hours = TimeUnit.SECONDS.toHours(seconds);
     final long minutes = TimeUnit.SECONDS.toMinutes(seconds) % 60;
     mTimeMinuteValue.setText(String.valueOf(minutes));
@@ -295,8 +306,14 @@ public class NavMenu implements DefaultLifecycleObserver
   {
     updateSpeedView(info);
     updateTime(info.totalTimeInSeconds);
-    mDistanceValue.setText(info.distToTarget.mDistanceStr);
-    mDistanceUnits.setText(info.distToTarget.getUnitsStr(mActivity.getApplicationContext()));
+    final String units = info.distToTarget.getUnitsStr(mActivity.getApplicationContext());
+    if (BuildConfig.IS_IN_CAR)
+      mDistanceValue.setText(InCarRouteSummaryPolicy.distance(info.distToTarget.mDistanceStr, units));
+    else
+    {
+      mDistanceValue.setText(info.distToTarget.mDistanceStr);
+      mDistanceUnits.setText(units);
+    }
     mRouteProgress.setProgressCompat((int) info.completionPercent, true);
   }
 

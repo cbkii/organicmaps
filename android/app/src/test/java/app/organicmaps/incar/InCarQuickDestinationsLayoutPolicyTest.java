@@ -49,6 +49,20 @@ public class InCarQuickDestinationsLayoutPolicyTest
   }
 
   @Test
+  public void navigationRailStepsDownOnlyWhenFourActionsNoLongerFit()
+  {
+    final int preferredRequired = InCarQuickDestinationsLayoutPolicy.requiredHeightDp(
+        4, 76, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+    final int compactRequired = InCarQuickDestinationsLayoutPolicy.requiredHeightDp(
+        4, 69, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+
+    assertEquals(76, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(preferredRequired));
+    assertEquals(69, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(preferredRequired - 1));
+    assertEquals(69, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(compactRequired));
+    assertEquals(55, InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(compactRequired - 1));
+  }
+
+  @Test
   public void constrainedHeightKeepsHomeAndWorkBeforeOverflow()
   {
     final int directActions = 4;
@@ -76,5 +90,24 @@ public class InCarQuickDestinationsLayoutPolicyTest
     final int visibleDirect = InCarQuickDestinationsLayoutPolicy.directActionCountForCapacity(4, directActions, 0);
     assertEquals(4, visibleDirect);
     assertFalse(InCarQuickDestinationsLayoutPolicy.shouldShowMore(4, directActions, visibleDirect, 0));
+  }
+  @Test
+  public void shortNavigationWindowsMoveHiddenActionsToMoreAndNeverOverlap()
+  {
+    for (int available = 0; available < 232; ++available)
+    {
+      final int size = InCarQuickDestinationsLayoutPolicy.navigationActionSizeDp(available);
+      final int capacity = InCarQuickDestinationsLayoutPolicy.maxVisibleActions(
+          available, size, InCarQuickDestinationsLayoutPolicy.MIN_ACTION_GAP_DP);
+      final int direct = InCarQuickDestinationsLayoutPolicy.directActionCountForCapacity(capacity, 3, 4);
+      final boolean more = InCarQuickDestinationsLayoutPolicy.shouldShowMore(capacity, 3, direct, 4 + 3 - direct);
+      final int count = direct + (more ? 1 : 0);
+      final int gap = InCarQuickDestinationsLayoutPolicy.resolvedGapDp(available, size, count);
+      assertTrue(InCarQuickDestinationsLayoutPolicy.requiredHeightDp(count, size, gap) <= available);
+      if (available < InCarQuickDestinationsLayoutPolicy.EXTRA_COMPACT_ACTION_SIZE_DP)
+        assertEquals(0, count);
+      else
+        assertTrue(more);
+    }
   }
 }

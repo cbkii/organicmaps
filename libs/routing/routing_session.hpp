@@ -1,6 +1,7 @@
 #pragma once
 
 #include "routing/async_router.hpp"
+#include "routing/current_road_speed_limit.hpp"
 #include "routing/following_info.hpp"
 #include "routing/free_driving_motion_evidence.hpp"
 #include "routing/free_driving_road_matcher.hpp"
@@ -27,6 +28,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -122,7 +124,8 @@ public:
 
   // InCar free-driving matcher. Only real provider observations may call ObserveFreeDrivingLocation().
   // Synthetic extrapolator ticks call ProjectFreeDrivingLocationToRoadGraph() and cannot change matcher confidence.
-  // Raw GNSS remains untouched and normal routed navigation retains authority while IsActive() is true.
+  // Raw GNSS remains untouched. Matching continues for posted metadata during routing, but display projection
+  // stays disabled while IsActive(): routed position/guidance retains authority.
   void SetFreeDrivingRoadSnapEnabled(bool enabled);
   bool IsFreeDrivingRoadSnapEnabled() const { return m_freeDrivingRoadSnapEnabled; }
   void SetFreeDrivingAreaContextProvider(FreeDrivingAreaContextProvider provider);
@@ -130,6 +133,7 @@ public:
   bool ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo const & displayInput,
                                              location::GpsInfo & displayOutput) const;
   void ResetFreeDrivingRoadGraphMatch();
+  std::optional<CurrentRoadSpeedLimit> GetCurrentRoadSpeedLimit() const;
 
   // Get traffic speed for the current route position.
   // Returns SpeedGroup::Unknown if any trouble happens: position doesn't match with route or something else.
@@ -261,6 +265,7 @@ private:
   free_driving_snap::FreeDrivingRoadMatcher m_freeDrivingRoadMatcher;
   EdgeProj m_freeDrivingProjection;
   bool m_freeDrivingProjectionSeeded = false;
+  CurrentRoadSpeedLimit m_currentRoadSpeedLimit;
   std::vector<Edge> m_freeDrivingDisplayCorridor;
   m2::PointD m_freeDrivingLastRawPoint;
   bool m_freeDrivingHasLastRawPoint = false;

@@ -1,4 +1,5 @@
 #include "drape_frontend/my_position_controller.hpp"
+#include "drape_frontend/current_position_freshness.hpp"
 
 #include "drape_frontend/animation/arrow_animation.hpp"
 #include "drape_frontend/animation_system.hpp"
@@ -16,6 +17,7 @@
 
 #include "base/math.hpp"
 
+#include <time.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -25,6 +27,18 @@ namespace df
 {
 namespace
 {
+int64_t PositionClockNanos()
+{
+#if defined(__ANDROID__)
+  timespec now{};
+  if (clock_gettime(CLOCK_BOOTTIME, &now) != 0)
+    return -1;
+  return static_cast<int64_t>(now.tv_sec) * 1000000000 + now.tv_nsec;
+#else
+  return static_cast<int64_t>(base::Timer::LocalTime() * 1.0e9);
+#endif
+}
+
 int const kPositionRoutingOffsetY = 104;
 
 // https://t.me/OrganicMapsRu/88317
@@ -223,6 +237,7 @@ bool MyPositionController::IsNavigationStyleCameraActive() const
 
 void MyPositionController::DragStarted()
 {
+  m_recenterPending = false;
   m_needBlockAnimation = true;
 }
 
@@ -341,8 +356,26 @@ void MyPositionController::ResetRenderShape()
   m_shape.reset();
 }
 
+bool MyPositionController::RecenterPreservingMode()
+{
+  m_recenterPending = true;
+  if (!m_listener || !m_isPositionAssigned || m_positionIsObsolete ||
+      !IsFreshPositionObservation(m_lastRecenterObservationNanos, PositionClockNanos()))
+    return false;
+
+  m_recenterPending = false;
+  if (m_mode == location::FollowAndRotate)
+    ChangeModelView(m_position, m_drawDirection,
+                    IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
+                    kDoNotChangeZoom);
+  else
+    ChangeModelView(m_position, kDoNotChangeZoom);
+  return true;
+}
+
 void MyPositionController::NextMode(ScreenBase const & screen)
 {
+  m_recenterPending = false;
   if (IsWaitingForLocation())
   {
     m_desiredInitMode = location::Follow;
@@ -513,16 +546,25 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
 void MyPositionController::RefreshLocationFreshness(location::GpsInfo const & info)
 {
   m_positionIsObsolete = false;
+#if defined(__ANDROID__)
+  m_lastRecenterObservationNanos =
+      static_cast<int64_t>((info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0) * 1.0e9);
+#else
+  m_lastRecenterObservationNanos = static_cast<int64_t>(info.m_timestamp * 1.0e9);
+#endif
   if (fabs(m_lastLocationTimestamp - info.m_timestamp) > 1.0E-5)
   {
     m_lastLocationTimestamp = info.m_timestamp;
     m_updateLocationTimer.Reset();
     ResetNotification(m_updateLocationNotifyId);
   }
+  if (m_recenterPending)
+    RecenterPreservingMode();
 }
 
 void MyPositionController::LoseLocation()
 {
+  m_lastRecenterObservationNanos = 0;
   if (m_mode == location::NotFollowNoPosition)
     return;
   else if (m_mode == location::Follow || m_mode == location::FollowAndRotate)
@@ -656,6 +698,7 @@ bool MyPositionController::IsWaitingForLocation() const
 
 void MyPositionController::StopLocationFollow()
 {
+  m_recenterPending = false;
   if (m_mode == location::Follow || m_mode == location::FollowAndRotate)
     ChangeMode(location::NotFollow);
   m_desiredInitMode = location::NotFollow;
@@ -845,6 +888,8 @@ void MyPositionController::EnableAutoZoomInRouting(bool enableAutoZoom)
 
 void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool recenter)
 {
+  if (recenter)
+    m_recenterPending = false;
   bool const wasDrivingView = m_isDrivingView;
   if (enabled && !wasDrivingView)
   {
@@ -908,6 +953,7 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
 
 void MyPositionController::ActivateRouting(int zoomLevel, bool enableAutoZoom, bool isArrowGlued)
 {
+  m_recenterPending = false;
   if (!m_isInRouting)
   {
     if (m_hasLastHeldDrivingPosition)
