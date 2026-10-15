@@ -124,6 +124,22 @@ public class MapButtonsController extends Fragment
         layout = R.layout.map_buttons_layout_regular;
     }
     mFrame = inflater.inflate(layout, container, false);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // Material's default FAB tint is stateful and can paint circular surfaces above the
+      // shared rail even when the XML app:backgroundTint is transparent.
+      for (int id : new int[] {R.id.nav_zoom_in, R.id.nav_zoom_out, R.id.my_position,
+                               R.id.in_car_camera_view_recenter})
+      {
+        final View cell = mFrame.findViewById(id);
+        if (cell instanceof FloatingActionButton button)
+        {
+          button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+          button.setUseCompatPadding(false);
+          button.setCompatElevation(0f);
+        }
+      }
+    }
 
     mInnerLeftButtonsFrame = mFrame.findViewById(R.id.map_buttons_inner_left);
     mInnerRightButtonsFrame = mFrame.findViewById(R.id.map_buttons_inner_right);
