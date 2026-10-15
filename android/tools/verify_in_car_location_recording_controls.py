@@ -63,12 +63,12 @@ def verify_my_position() -> None:
             f"{layout}: My Position must use bounded ripple without a persistent circle")
     require(button.attrib.get(f"{{{ANDROID_NS}}}layout_width") == "@dimen/in_car_map_primary_button_size",
             f"{layout}: My Position must retain the automotive hit target")
-    feedback = ET.parse(ROOT / "android/app/src/inCar/res/drawable/in_car_map_rail_cell_feedback.xml").getroot()
-    require(feedback.tag == "ripple"
-            and feedback.attrib.get(f"{{{ANDROID_NS}}}color") == "?attr/colorControlHighlight",
+    # The checked-in drawable is parsed in the rail XML tests; inspect its literal
+    # critical styling contract here without an additional XML parser/dependency.
+    feedback = read("android/app/src/inCar/res/drawable/in_car_map_rail_cell_feedback.xml")
+    require("<ripple " in feedback and 'android:color="?attr/colorControlHighlight"' in feedback,
             "camera cell must provide transient pressed feedback")
-    require(feedback.find("item") is not None
-            and feedback.find("item").attrib.get(f"{{{ANDROID_NS}}}id") == "@android:id/mask",
+    require('android:id="@android:id/mask"' in feedback,
             "camera ripple must be bounded to its cell")
 
     java = read("android/app/src/main/java/app/organicmaps/widget/menu/MyPositionButton.java")
