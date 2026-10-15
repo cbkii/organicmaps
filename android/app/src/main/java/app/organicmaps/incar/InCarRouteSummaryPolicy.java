@@ -8,6 +8,19 @@ public final class InCarRouteSummaryPolicy
 {
   private InCarRouteSummaryPolicy() {}
 
+  /** Width in density-independent units: content may expand the ordinary footprint, never exceed bounds. */
+  public static float footerWidth(float available, float distanceWidth, float timeWidth)
+  {
+    return Math.max(1, Math.min(available, Math.max(460, Math.min(540, distanceWidth + timeWidth + 180))));
+  }
+
+  /** Last-resort whole-expression compacting retains every value and translated unit. */
+  @NonNull
+  public static String compactExpression(@NonNull CharSequence expression)
+  {
+    return expression.toString().replace("\u00a0", "");
+  }
+
   @NonNull
   public static String distance(@NonNull String value, @NonNull String units)
   {

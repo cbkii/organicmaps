@@ -4,6 +4,9 @@ import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.util.Pair;
 import android.view.View;
+import android.view.ViewGroup;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -55,6 +58,7 @@ public class NavMenu implements DefaultLifecycleObserver
   private final Runnable mTtsStateListener = this::refreshTts;
 
   private int currentPeekHeight = 0;
+  private Boolean mFooterControlsOnLeft;
 
   public interface OnMenuSizeChangedListener
   {
@@ -118,6 +122,12 @@ public class NavMenu implements DefaultLifecycleObserver
         more.setOnClickListener(this::showInCarMoreMenu);
     }
 
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final View parent = (View) mActivity.findViewById(R.id.nav_bottom_sheet).getParent();
+      parent.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateInCarFooterWidth());
+    }
+
     // Bottom frame.
     mSpeedViewContainer = bottomFrame.findViewById(R.id.speed_view_container);
     mSpeedValue = bottomFrame.findViewById(R.id.speed_value);
@@ -153,6 +163,8 @@ public class NavMenu implements DefaultLifecycleObserver
 
   private void showInCarMoreMenu(@NonNull View anchor)
   {
+    if (mActivity instanceof app.organicmaps.MwmActivity map)
+      map.cancelInCarNavigationCountdown();
     InCarActionMenu.show(
         anchor,
         Arrays.asList(mActivity.getString(R.string.in_car_navigation_voice), mActivity.getString(R.string.settings)),
@@ -166,16 +178,22 @@ public class NavMenu implements DefaultLifecycleObserver
 
   private void onStopClicked()
   {
+    if (mActivity instanceof app.organicmaps.MwmActivity map)
+      map.cancelInCarNavigationCountdown();
     mNavMenuListener.onStopClicked();
   }
 
   private void onSettingsClicked()
   {
+    if (mActivity instanceof app.organicmaps.MwmActivity map)
+      map.cancelInCarNavigationCountdown();
     mNavMenuListener.onSettingsClicked();
   }
 
   private void onTtsClicked()
   {
+    if (mActivity instanceof app.organicmaps.MwmActivity map)
+      map.cancelInCarNavigationCountdown();
     switch (TtsPlayer.getState())
     {
     case INITIALIZING: return;
@@ -314,7 +332,73 @@ public class NavMenu implements DefaultLifecycleObserver
       mDistanceValue.setText(info.distToTarget.mDistanceStr);
       mDistanceUnits.setText(units);
     }
+    updateInCarFooterWidth();
+    compactInCarExpressions();
     mRouteProgress.setProgressCompat((int) info.completionPercent, true);
+  }
+
+  private void compactInCarExpressions()
+  {
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+    // Wait for current width/weights to settle; no timer or repeated action dispatch is involved.
+    mHeaderFrame.post(() -> {
+      for (TextView value : new TextView[] {mDistanceValue, mTimeMinuteValue})
+      {
+        final android.graphics.Paint minimum = new android.graphics.Paint(value.getPaint());
+        minimum.setTextSize(18 * mActivity.getResources().getDisplayMetrics().scaledDensity);
+        final int available = value.getWidth() - value.getPaddingLeft() - value.getPaddingRight();
+        if (available > 0 && minimum.measureText(value.getText().toString()) > available)
+          value.setText(InCarRouteSummaryPolicy.compactExpression(value.getText()));
+      }
+    });
+  }
+
+  private void updateInCarFooterWidth()
+  {
+    if (!BuildConfig.IS_IN_CAR || mDistanceValue == null || mTimeMinuteValue == null)
+      return;
+    final View footer = mActivity.findViewById(R.id.nav_bottom_sheet);
+    final View parent = (View) footer.getParent();
+    if (parent.getWidth() <= 0)
+      return;
+    final float density = mActivity.getResources().getDisplayMetrics().density;
+    final android.graphics.Paint text = new android.graphics.Paint(mDistanceValue.getPaint());
+    text.setTextSize(30 * mActivity.getResources().getDisplayMetrics().scaledDensity);
+    final float distanceWidth = text.measureText(mDistanceValue.getText().toString());
+    final float timeWidth = text.measureText(mTimeMinuteValue.getText().toString());
+    final WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(parent);
+    final androidx.core.graphics.Insets safe = insets == null ? androidx.core.graphics.Insets.NONE
+      : insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+    final int available = parent.getWidth() - safe.left - safe.right - parent.getPaddingLeft() - parent.getPaddingRight();
+    final int desired = Math.round(InCarRouteSummaryPolicy.footerWidth(available / density,
+        distanceWidth / density, timeWidth / density) * density);
+    final boolean controlsOnLeft = app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(mActivity);
+    if (mFooterControlsOnLeft == null || mFooterControlsOnLeft != controlsOnLeft)
+    {
+      mFooterControlsOnLeft = controlsOnLeft;
+      app.organicmaps.incar.InCarControlPositionPolicy.apply(footer, controlsOnLeft);
+    }
+    final ViewGroup.LayoutParams params = footer.getLayoutParams();
+    final int width = Math.max(1, Math.min(available, desired));
+    if (params.width != width)
+    {
+      params.width = width;
+      footer.setLayoutParams(params);
+    }
+    if (mDistanceValue.getLayoutParams() instanceof android.widget.LinearLayout.LayoutParams distanceParams
+        && mTimeMinuteValue.getLayoutParams() instanceof android.widget.LinearLayout.LayoutParams timeParams)
+    {
+      final float sum = Math.max(1, distanceWidth + timeWidth);
+      final float share = Math.max(0.30f, Math.min(0.55f, distanceWidth / sum));
+      if (Math.abs(distanceParams.weight - share) > 0.01f)
+      {
+        distanceParams.weight = share;
+        timeParams.weight = 1 - share;
+        mDistanceValue.setLayoutParams(distanceParams);
+        mTimeMinuteValue.setLayoutParams(timeParams);
+      }
+    }
   }
 
   public interface NavMenuListener

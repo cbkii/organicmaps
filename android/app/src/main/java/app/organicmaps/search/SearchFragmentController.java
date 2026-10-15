@@ -334,7 +334,6 @@ public class SearchFragmentController extends Fragment implements SearchFragment
       if (!BuildConfig.IS_IN_CAR && toolbarH != null && toolbarH > 0)
         mBottomSheetBehavior.setPeekHeight(Math.max(toolbarH, mMinCollapsedPeekHeight) + navH);
       final boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
-      applyInCarSearchPanelWidth();
       updateExpandedOffset();
       if (imeVisible && Boolean.TRUE.equals(mViewModel.getSearchEnabled().getValue())
           && !mViewModel.isHiddenByPlacePage() && !mViewModel.isInCarMapMode())
@@ -343,6 +342,7 @@ public class SearchFragmentController extends Fragment implements SearchFragment
           insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
       searchBottomContainer.setPadding(horizontalInsets.left, searchBottomContainer.getPaddingTop(),
                                        horizontalInsets.right, searchBottomContainer.getPaddingBottom());
+      applyInCarSearchPanelWidth();
       ViewCompat.dispatchApplyWindowInsets(mSearchPageContainer, insets);
       return insets;
     });
@@ -383,7 +383,10 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   {
     if (!BuildConfig.IS_IN_CAR || mSearchPageContainer == null)
       return;
-    int available = getResources().getDisplayMetrics().widthPixels;
+    int available = mMapView != null && mMapView.getWidth() > 0 ? mMapView.getWidth()
+                    : requireActivity().findViewById(android.R.id.content).getWidth();
+    if (available <= 0)
+      return;
     if (mCurrentWindowInsets != null)
     {
       final Insets bars = mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
@@ -397,8 +400,21 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     final ViewGroup.LayoutParams raw = mSearchPageContainer.getLayoutParams();
     raw.width = target;
     if (raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
-      params.gravity = Gravity.BOTTOM | Gravity.LEFT;
+      params.gravity = Gravity.BOTTOM | app.organicmaps.incar.InCarControlPositionPolicy.horizontalGravity(
+          app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext()));
     mSearchPageContainer.setLayoutParams(raw);
+    // In landscape the inner sheet belongs to a width-fraction outer container. Move
+    // that container to the selected physical edge, not merely the sheet within it.
+    final View outer = (View) mSearchPageContainer.getParent();
+    if (outer.getLayoutParams() instanceof androidx.constraintlayout.widget.ConstraintLayout.LayoutParams position)
+    {
+      position.width = target + outer.getPaddingLeft() + outer.getPaddingRight();
+      position.startToStart = position.startToEnd = position.endToStart = position.endToEnd = -1;
+      final boolean left = app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext());
+      position.leftToLeft = left ? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID : -1;
+      position.rightToRight = left ? -1 : androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+      outer.setLayoutParams(position);
+    }
   }
 
   private void applyInCarPanelSurface(boolean mapMode)

@@ -192,14 +192,26 @@ public final class InCarDrivingUi
 
   private static void renderRibbon(@NonNull MwmActivity activity, boolean warning, float strength)
   {
+    final int red = ContextCompat.getColor(activity, InCarSpeedDisplayPolicy.severity() == InCarSpeedDisplayPolicy.Severity.SEVERE
+                                                     ? R.color.in_car_nav_warning : R.color.in_car_nav_warning_orange);
+    final View underline = activity.findViewById(R.id.in_car_nav_warning_underline);
+    if (underline != null)
+    {
+      underline.setBackgroundColor(red);
+      underline.setVisibility(warning ? View.VISIBLE : View.INVISIBLE);
+    }
     final View group = activity.findViewById(R.id.in_car_nav_guidance_group);
     if (group == null)
-      return; // Dedicated landscape resource only; portrait keeps its established appearance.
+      return;
     final View ribbon = activity.findViewById(R.id.nav_next_turn_container);
     final int normal = ContextCompat.getColor(activity, R.color.bg_cards);
-    final int red = ContextCompat.getColor(activity, R.color.in_car_nav_warning);
     ribbon.setBackgroundColor(warning ? ColorUtils.blendARGB(normal, red, strength) : normal);
-    final int foreground = ContextCompat.getColor(activity, R.color.in_car_nav_foreground);
+    final LanesView lanes = ribbon.findViewById(R.id.lanes);
+    final boolean hasLanes = lanes.getVisibility() == View.VISIBLE;
+    final int foreground = ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
+                                                                    : R.color.in_car_nav_after_foreground);
+    group.setBackgroundColor(ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_background
+                                                                      : R.color.in_car_nav_after_background));
     final int secondary = ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
     final View immediateGroup = ribbon.findViewById(R.id.in_car_nav_immediate_group);
     final int immediateBackground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
@@ -214,11 +226,8 @@ public final class InCarDrivingUi
     ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
                                      ColorStateList.valueOf(immediateForeground));
     ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
-    final LanesView lanes = ribbon.findViewById(R.id.lanes);
-    // Half-strength day warnings are light red: keep dark guidance rather than forcing white.
-    // In warning state, use the same high-contrast theme foreground for the active lane.
-    lanes.setLaneColors(warning ? foreground : ContextCompat.getColor(activity, R.color.base_accent),
-                        warning ? ColorUtils.setAlphaComponent(foreground, 180) : secondary);
+    // Lane semantics remain separate from the speed-warning surface.
+    lanes.setLaneColors(ContextCompat.getColor(activity, R.color.in_car_nav_lanes_foreground), secondary);
   }
 
   public static void refresh(@NonNull MwmActivity activity)

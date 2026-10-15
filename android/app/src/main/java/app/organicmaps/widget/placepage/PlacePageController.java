@@ -261,16 +261,18 @@ public class PlacePageController
   public ArrayList<MenuBottomSheetItem> getMenuBottomSheetItems(String id)
   {
     final List<PlacePageButtons.ButtonType> currentItems = mViewModel.getCurrentButtons().getValue();
-    if (currentItems == null || currentItems.size() <= mMaxButtons)
+    if (currentItems == null)
       return null;
     ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
-    for (int i = mMaxButtons - 1; i < currentItems.size(); i++)
+    for (PlacePageButtons.ButtonType type :
+         PlacePageActionProjection.project(currentItems, BuildConfig.IS_IN_CAR ? mViewModel.getActionSlots() : mMaxButtons,
+                                         BuildConfig.IS_IN_CAR).overflow())
     {
-      final PlacePageButton bsItem = PlacePageButtonFactory.createButton(currentItems.get(i), requireActivity());
+      final PlacePageButton bsItem = PlacePageButtonFactory.createButton(type, requireActivity());
       items.add(
           new MenuBottomSheetItem(bsItem.getTitle(), bsItem.getIcon(), () -> onPlacePageButtonClick(bsItem.getType())));
     }
-    return items;
+    return items.isEmpty() ? null : items;
   }
 
   private void setPlacePageInteractions(boolean enabled)
@@ -521,6 +523,7 @@ public class PlacePageController
   @Override
   public void onPlacePageRequestToggleState()
   {
+    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     if (BuildConfig.IS_IN_CAR)
       return;
 
@@ -536,12 +539,14 @@ public class PlacePageController
   @Override
   public void onPlacePageRequestClose()
   {
+    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
   }
 
   @Override
   public void onPlacePageButtonClick(PlacePageButtons.ButtonType item)
   {
+    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     switch (item)
     {
     case BOOKMARK_SAVE, BOOKMARK_DELETE -> onBookmarkBtnClicked();

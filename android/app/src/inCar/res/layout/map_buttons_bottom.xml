@@ -7,10 +7,11 @@
   android:layout_height="wrap_content">
 
   <androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@+id/in_car_browsing_controls"
     style="@style/MwmWidget.MapButton.Bottom"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_centerInParent="true"
+    android:layout_alignParentLeft="true"
     android:clipChildren="false"
     android:clipToPadding="false">
 
@@ -28,8 +29,8 @@
       android:layout_height="wrap_content"
       android:visibility="gone" />
 
-    <!-- Physical-right driver actions. Search stays adjacent to More/Menu, while Quick grows upward
-         above this row and zoom/recentre remain on the same right-edge interaction spine. -->
+    <!-- Search stays adjacent to Main Menu. The shared physical-side policy moves the group
+         as one unit, preserving its internal order independently of language direction. -->
     <include
       layout="@layout/map_buttons_search_square"
       android:layout_width="wrap_content"

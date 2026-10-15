@@ -1,5 +1,7 @@
 # InCar screenshot and TS18 qualification bundle
 
+For the consolidated UI candidate, use [the current beginner walkthrough](TS18_CONSOLIDATED_UI_VALIDATION.md). Its four-control rail, handedness, three-state warnings and countdown requirements supersede the historical three-control/recenter-only acceptance statements below. Historical results remain tied to their original commits.
+
 This playbook separates deterministic repository checks from physical TS18 qualification. A green build or emulator/static check is not physical-device proof.
 
 ## Prerequisites

@@ -81,15 +81,17 @@ def main() -> int:
         palette = read_values(palette_path, VAR)
         style_colours = read_values(style_path, STYLE_COLOR)
         background = require_colour(palette, "background", palette_path)
-        route = require_colour(style_colours, "Route", style_path)
+        route = require_colour(style_colours, "RouteOutline", style_path)
+        core = require_colour(style_colours, "Route", style_path)
+        require_ratio("Route/RouteOutline", core, route, 4.0)
         roads = {name: require_colour(palette, name, palette_path) for name in ROAD_NAMES}
 
-        # The old qualified palette only guaranteed 3.0:1 road/base and 3.5:1 route/road.
+        # Cyan route identity uses a deep-blue casing for the qualified road-edge contrast.
         # The revised warm fills deliberately lift both floors without darkening the base and
         # thereby sacrificing the existing dark-label/base relationship.
         for name, road in roads.items():
             require_ratio(f"{name}/background", road, background, 3.35)
-            require_ratio(f"Route/{name}", route, road, 3.90)
+            require_ratio(f"RouteOutline/{name}", route, road, 3.90)
 
         for casing_name in ("casing_road_major", "casing_road_local"):
             casing = require_colour(palette, casing_name, palette_path)

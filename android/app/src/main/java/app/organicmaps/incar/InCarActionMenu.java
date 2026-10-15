@@ -39,6 +39,7 @@ public final class InCarActionMenu
     popup.setAnchorView(anchor);
     popup.setAdapter(adapter);
     popup.setModal(true);
+    popup.setDropDownGravity(InCarControlPositionPolicy.horizontalGravity(InCarSettingsStore.controlsOnLeft(context)));
     popup.setWidth(context.getResources().getDimensionPixelSize(R.dimen.in_car_action_menu_width));
     popup.setOnItemClickListener((parent, view, position, id) -> {
       popup.dismiss();

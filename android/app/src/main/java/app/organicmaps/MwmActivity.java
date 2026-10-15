@@ -446,6 +446,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   public void showSearch(String query)
   {
+    cancelInCarNavigationCountdown();
     showSearch(query, null, false);
   }
 
@@ -522,6 +523,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   public void onConfigurationChanged(@NonNull Configuration newConfig)
   {
+    cancelInCarNavigationCountdown();
     super.onConfigurationChanged(newConfig);
 
     if (BuildConfig.IS_IN_CAR)
@@ -587,6 +589,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mIntentConsumed = isIntentConsumed(savedInstanceState, getIntent());
 
     setContentView(R.layout.activity_map);
+    installInCarAccessibilityCancellation();
     makeNavigationBarTransparentInLightMode();
 
     mRoutingPlanViewModel = new ViewModelProvider(this).get(RoutingPlanViewModel.class);
@@ -848,6 +851,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   public void onMapButtonClick(MapButtonsController.MapButtons button)
   {
+    cancelInCarNavigationCountdown();
     switch (button)
     {
     case zoomIn -> Map.zoomIn();
@@ -855,16 +859,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
     case myPosition ->
     {
       Logger.i(LOCATION_TAG, "The location button pressed");
-      if (BuildConfig.IS_IN_CAR)
-      {
-        if (!Map.isEngineCreated())
-          return;
-        final MwmApplication application = MwmApplication.from(this);
-        LocationState.nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery);
+      if (!Map.isEngineCreated())
         return;
-      }
-      // Calls onMyPositionModeChanged(mode + 1).
       LocationState.nativeSwitchToNextMode();
+    }
+    case cameraViewRecenter ->
+    {
+      if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
+        return;
+      final MwmApplication application = MwmApplication.from(this);
+      LocationState.nativeToggleCameraViewAndRecenter(application::requestInCarRecenterRecovery);
     }
     case toggleMapLayer -> toggleMapLayerBottomSheet();
     case bookmarks -> showBookmarks();
@@ -1053,6 +1057,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onNewIntent(Intent intent)
   {
+    cancelInCarNavigationCountdown();
     setIntent(intent);
     mIntentConsumed = false;
     super.onNewIntent(intent);
@@ -1104,8 +1109,79 @@ public class MwmActivity extends BaseMwmFragmentActivity
   }
 
   @Override
+  public void onMultiWindowModeChanged(boolean inMultiWindowMode, Configuration newConfig)
+  {
+    cancelInCarNavigationCountdown();
+    super.onMultiWindowModeChanged(inMultiWindowMode, newConfig);
+  }
+
+  private app.organicmaps.incar.InCarNavigationCountdown mInCarNavigationCountdown;
+  private boolean mInCarTouchActive;
+  private long mInCarInteractionGeneration;
+
+  private void installInCarAccessibilityCancellation()
+  {
+    if (!BuildConfig.IS_IN_CAR || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q
+        || !(getWindow().getDecorView() instanceof android.view.ViewGroup root))
+      return;
+    final android.view.View.AccessibilityDelegate existing = root.getAccessibilityDelegate();
+    root.setAccessibilityDelegate(new app.organicmaps.incar.InCarAccessibilityDelegate(
+        existing != null ? existing : new android.view.View.AccessibilityDelegate(),
+        this::cancelInCarNavigationCountdown,
+        () -> mInCarNavigationCountdown != null && mInCarNavigationCountdown.hasPendingAction(), this::isDestroyed));
+  }
+
+  public long getInCarInteractionGeneration() { return mInCarInteractionGeneration; }
+
+  public boolean isInCarTouchActive() { return mInCarTouchActive; }
+
+  @Override
+  public boolean dispatchTouchEvent(android.view.MotionEvent event)
+  {
+    if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN)
+    {
+      mInCarTouchActive = true;
+      cancelInCarNavigationCountdown();
+    }
+    boolean handled = super.dispatchTouchEvent(event);
+    if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
+        || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL)
+      mInCarTouchActive = false;
+    if (event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) cancelInCarNavigationCountdown();
+    return handled;
+  }
+
+  public app.organicmaps.incar.InCarNavigationCountdown getInCarNavigationCountdown()
+  {
+    if (mInCarNavigationCountdown == null)
+      mInCarNavigationCountdown = new app.organicmaps.incar.InCarNavigationCountdown(this);
+    return mInCarNavigationCountdown;
+  }
+
+  public void cancelInCarNavigationCountdown()
+  {
+    ++mInCarInteractionGeneration;
+    if (mInCarNavigationCountdown != null) mInCarNavigationCountdown.cancel();
+  }
+
+  @Override
+  public void onUserInteraction()
+  {
+    if (!mInCarTouchActive) cancelInCarNavigationCountdown();
+    super.onUserInteraction();
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus)
+  {
+    super.onWindowFocusChanged(hasFocus);
+    if (!hasFocus) cancelInCarNavigationCountdown();
+  }
+
+  @Override
   protected void onPause()
   {
+    cancelInCarNavigationCountdown();
     if (mOnmapDownloader != null)
       mOnmapDownloader.onPause();
     MwmApplication.from(this).getSensorHelper().removeListener(this);
@@ -1163,6 +1239,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onSafeDestroy()
   {
+    cancelInCarNavigationCountdown();
     cancelInCarLocationRecovery();
     super.onSafeDestroy();
     mLocationPermissionRequest.unregister();
@@ -1182,6 +1259,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   public void onBackPressed()
   {
+    cancelInCarNavigationCountdown();
     if (!handleBackPress())
     {
       try

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="in_car_nav_immediate_background">#FF161A1D</color>
+  <color name="in_car_nav_immediate_foreground">#FFF1F3F4</color>
+  <color name="in_car_nav_lanes_background">#FF16333B</color>
+  <color name="in_car_nav_lanes_foreground">#FF80D8EB</color>
+  <color name="in_car_nav_after_background">#FF242A2F</color>
+  <color name="in_car_nav_after_foreground">#FFB2BBC2</color>
+</resources>

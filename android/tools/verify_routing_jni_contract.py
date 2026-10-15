@@ -119,6 +119,10 @@ def verify_sources() -> None:
     for required in ("jobject onNeedsLocation", "jni::make_global_ref_safe(onNeedsLocation)", "Platform::Thread::Gui"):
         if required not in location_jni:
             fail(f"LocationState recenter JNI completion bridge drifted: missing {required}")
+    if not re.search(r"public\s+static\s+native\s+void\s+nativeToggleCameraViewAndRecenter\s*\(\s*@NonNull\s+Runnable\s+\w+\s*\)", location_java):
+        fail("LocationState camera toggle JNI declaration drifted from (Ljava/lang/Runnable;)V")
+    if not re.search(r"JNIEXPORT\s+void\s+Java_app_organicmaps_sdk_location_LocationState_nativeToggleCameraViewAndRecenter\s*\(\s*JNIEnv\s*\*,\s*jclass,\s*jobject\s+onNeedsLocation\s*\)", location_jni):
+        fail("LocationState camera toggle JNI export is missing or has the wrong signature")
 
     for enum_name, contract in CONTRACTS.items():
         path = contract["path"]
@@ -275,6 +279,8 @@ def verify_apk(apk: Path) -> None:
                    ("Lapp/organicmaps/sdk/Framework;", "nativeGetCurrentRoadSpeedLimit",
                     "()Lapp/organicmaps/sdk/routing/RoadSpeedLimitInfo;"),
                    ("Lapp/organicmaps/sdk/location/LocationState;", "nativeRecenterToCurrentPosition",
+                    "(Ljava/lang/Runnable;)V"),
+                   ("Lapp/organicmaps/sdk/location/LocationState;", "nativeToggleCameraViewAndRecenter",
                     "(Ljava/lang/Runnable;)V")):
         if method not in defined_methods:
             fail(f"Post-R8 APK is missing JNI method definition: {method}")

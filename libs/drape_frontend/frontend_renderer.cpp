@@ -591,7 +591,8 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       m_routeRenderer->SetFollowingEnabled(false);
       m_routeRenderer->Clear();
       ++m_lastRecacheRouteId;
-      m_myPositionController->DeactivateRouting();
+      m_manualCameraPresentation = false;
+    m_myPositionController->DeactivateRouting();
       m_postprocessRenderer->OnChangedRouteFollowingMode(m_context, false /* active */);
       if (m_enablePerspectiveInNavigation)
         DisablePerspective();
@@ -630,6 +631,7 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
 
   case Message::Type::DeactivateRouteFollowing:
   {
+    m_manualCameraPresentation = false;
     m_myPositionController->DeactivateRouting();
     CHECK(m_context != nullptr, ());
     m_postprocessRenderer->OnChangedRouteFollowingMode(m_context, false /* active */);
@@ -688,7 +690,9 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
 
   case Message::Type::EnablePerspective:
   {
-    AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(true /* isAutoPerspective */));
+    if (!m_manualCameraPresentation
+        && (!m_myPositionController->IsInRouting() || m_enablePerspectiveInNavigation))
+      AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(true /* isAutoPerspective */));
     break;
   }
 
@@ -712,13 +716,7 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       m_forceUpdateScene = true;
     }
 
-    if (m_enablePerspectiveInNavigation != msg->AllowPerspective())
-    {
-      m_enablePerspectiveInNavigation = msg->AllowPerspective();
-      m_myPositionController->EnablePerspectiveInRouting(m_enablePerspectiveInNavigation);
-      if (m_myPositionController->IsInRouting())
-        AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(m_enablePerspectiveInNavigation));
-    }
+    ApplyPerspectivePermission(msg->AllowPerspective());
     break;
   }
   case Message::Type::SetMapLangIndex:
@@ -1137,9 +1135,39 @@ void FrontendRenderer::UpdateContextDependentResources()
   m_gpsTrackRenderer->Update();
 }
 
+void FrontendRenderer::ApplyPerspectivePermission(bool allowed)
+{
+  bool const changed = m_enablePerspectiveInNavigation != allowed;
+  if (changed)
+  {
+    m_enablePerspectiveInNavigation = allowed;
+    m_myPositionController->EnablePerspectiveInRouting(allowed);
+  }
+  // An explicit disallow outranks the session override; repeated same-value synchronisation
+  // otherwise cannot undo the driver's camera choice.
+  if (m_myPositionController->IsInRouting() && !allowed)
+  {
+    m_manualCameraPresentation = false;
+    m_userEventStream.ApplyCameraPresentation(false);
+  }
+  else if (changed && m_myPositionController->IsInRouting() && !m_manualCameraPresentation)
+    AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(allowed));
+}
+
+bool FrontendRenderer::ToggleCameraViewAndRecenter()
+{
+  // Resolve the actual render-owned screen; a Java-side toggle could be stale after a route handover.
+  bool const perspective = !m_userEventStream.GetCurrentScreen().isPerspective()
+                           && (!m_myPositionController->IsInRouting() || m_enablePerspectiveInNavigation);
+  m_manualCameraPresentation = true;
+  m_userEventStream.ApplyCameraPresentation(perspective);
+  return m_myPositionController->RecenterPreservingMode();
+}
+
 void FrontendRenderer::FollowRoute(int preferredZoomLevel, int preferredZoomLevelIn3d, bool enableAutoZoom,
                                    bool isArrowGlued)
 {
+  m_manualCameraPresentation = false;
   m_myPositionController->ActivateRouting(
       !m_enablePerspectiveInNavigation ? preferredZoomLevel : preferredZoomLevelIn3d, enableAutoZoom, isArrowGlued);
 

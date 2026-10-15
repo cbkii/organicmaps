@@ -15,6 +15,8 @@ import android.webkit.WebView;
 import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.ImageView;
+import app.organicmaps.incar.InCarControlPositionPolicy;
+import app.organicmaps.incar.InCarSettingsStore;
 import android.widget.ScrollView;
 import androidx.annotation.DimenRes;
 import androidx.annotation.NonNull;
@@ -805,10 +807,23 @@ public final class InCarVisuals
   private static void apply(@NonNull Activity activity, @NonNull View scope, boolean enabled,
                             @NonNull ControlSizeTier controlSizeTier)
   {
+    applyControlPosition(activity, scope);
     applyMapButtons(activity, scope, enabled, controlSizeTier);
     applyRoutingControls(activity, scope, enabled, controlSizeTier);
     applyNavigationControls(activity, scope, enabled, controlSizeTier);
     applyPlacePageControls(activity, scope, controlSizeTier);
+  }
+
+  private static void applyControlPosition(@NonNull Activity activity, @NonNull View scope)
+  {
+    final boolean left = InCarSettingsStore.controlsOnLeft(activity);
+    for (int id : new int[] {R.id.map_buttons_inner_right, R.id.in_car_browsing_controls, R.id.in_car_quick_destinations,
+                             R.id.nav_bottom_frame, R.id.pp_bottom_container, R.id.routing_bottom_container})
+    {
+      final View view = scope.findViewById(id);
+      if (view != null)
+        InCarControlPositionPolicy.apply(view, left);
+    }
   }
 
   private static void applyMapButtons(@NonNull Activity activity, @NonNull View scope, boolean enabled,
@@ -834,12 +849,13 @@ public final class InCarVisuals
         activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
         R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
-    for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.layers_button,
+    for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.in_car_camera_view_recenter, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
       resizeFab(root.findViewById(id), buttonSize, iconSize, minTouchTarget);
 
     resizeFab(root.findViewById(R.id.nav_zoom_in), buttonSize, zoomIconSize, minTouchTarget);
     resizeFab(root.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
+
   }
 
   private static void applyRoutingControls(@NonNull Activity activity, @NonNull View scope, boolean enabled,
@@ -996,6 +1012,12 @@ public final class InCarVisuals
   {
     if (!(view instanceof FloatingActionButton button))
       return;
+    // Rail cells share the container surface; their native state feedback remains controller-owned.
+    if (button.getId() != R.id.my_position && button.getId() != R.id.in_car_camera_view_recenter
+        && button.getId() != R.id.nav_zoom_in && button.getId() != R.id.nav_zoom_out)
+      button.setShapeAppearanceModel(button.getShapeAppearanceModel().toBuilder()
+                                        .setAllCornerSizes(16 * button.getResources().getDisplayMetrics().density)
+                                        .build());
     button.setCustomSize(buttonSize);
     button.setMaxImageSize(iconSize);
     button.setMinimumWidth(minTouchTarget);

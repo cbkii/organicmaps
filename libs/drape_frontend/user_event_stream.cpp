@@ -695,6 +695,32 @@ bool UserEventStream::SetFollowAndRotate(m2::PointD const & userPos, m2::PointD 
   return true;
 }
 
+void UserEventStream::ApplyCameraPresentation(bool perspective)
+{
+  // Invalidate auto-perspective commands queued before the driver's explicit choice.
+  // The render thread owns presentation; the queue is protected for cross-thread producers.
+  {
+    std::lock_guard guard(m_lock);
+    m_events.remove_if([](drape_ptr<UserEvent> const & event)
+    { return event->GetType() == UserEvent::EventType::AutoPerspective; });
+  }
+  // Session-scoped presentation, independent of heading/follow mode and automatic zoom tilt.
+  ResetMapPlaneAnimations();
+  ScreenBase screen = m_navigator.Screen();
+  screen.SetAutoPerspective(false);
+  if (perspective)
+  {
+    double constexpr kDrivingAngle = 0.7853981633974483;  // 45 degrees.
+    screen.ApplyPerspective(kDrivingAngle, kDrivingAngle, screen.GetAngleFOV());
+  }
+  else
+    screen.ResetPerspective();
+  m_navigator.SetFromScreen(screen);
+  // ProcessEvents derives model-view dirtiness from its queue. Even when stale GPS prevents
+  // recentering from producing a camera event, publish this changed presentation to the scene.
+  AddEvent(make_unique_dp<ActiveFrameEvent>());
+}
+
 void UserEventStream::SetAutoPerspective(bool isAutoPerspective)
 {
   if (isAutoPerspective)

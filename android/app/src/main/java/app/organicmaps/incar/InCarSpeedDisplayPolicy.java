@@ -13,7 +13,10 @@ public final class InCarSpeedDisplayPolicy
   // mathematically identical threshold (for example 42 / 3.6 versus 40 / 3.6 * 1.05).
   private static final double SPEED_BOUNDARY_TOLERANCE_MPS = 1.0e-9;
 
+  public enum Severity { NORMAL, WARNING, SEVERE }
+
   private static boolean sSpeeding;
+  private static Severity sSeverity = Severity.NORMAL;
   private static double sSpeedLimitMps = Double.NaN;
 
   public interface Formatter
@@ -63,7 +66,10 @@ public final class InCarSpeedDisplayPolicy
   public static synchronized boolean updateSpeedLimit(double speedLimitMps)
   {
     if (Double.compare(sSpeedLimitMps, speedLimitMps) != 0)
+    {
       sSpeeding = false;
+      sSeverity = Severity.NORMAL;
+    }
     sSpeedLimitMps = speedLimitMps;
     return evaluate();
   }
@@ -86,11 +92,25 @@ public final class InCarSpeedDisplayPolicy
     if (!isFinite(sCurrentSpeedMps) || sCurrentSpeedMps < 0.0 || !isFinite(sSpeedLimitMps) || sSpeedLimitMps <= 0.0)
     {
       sSpeeding = false;
+      sSeverity = Severity.NORMAL;
       return false;
     }
     final double factor = sSpeeding ? SPEED_WARNING_CLEAR_FACTOR : SPEED_WARNING_ENTER_FACTOR;
     sSpeeding = sCurrentSpeedMps + SPEED_BOUNDARY_TOLERANCE_MPS >= sSpeedLimitMps * factor;
+    if (!sSpeeding)
+      sSeverity = Severity.NORMAL;
+    else
+    {
+      final double severeFactor = sSeverity == Severity.SEVERE ? 1.08 : 1.10;
+      sSeverity = sCurrentSpeedMps + SPEED_BOUNDARY_TOLERANCE_MPS >= sSpeedLimitMps * severeFactor
+                    ? Severity.SEVERE : Severity.WARNING;
+    }
     return sSpeeding;
+  }
+
+  public static synchronized Severity severity()
+  {
+    return sSeverity;
   }
 
   public static synchronized double currentLimitMps()
@@ -115,6 +135,7 @@ public final class InCarSpeedDisplayPolicy
   public static synchronized void resetSpeeding()
   {
     sSpeeding = false;
+    sSeverity = Severity.NORMAL;
     sSpeedLimitMps = Double.NaN;
     sCurrentSpeedMps = Double.NaN;
   }

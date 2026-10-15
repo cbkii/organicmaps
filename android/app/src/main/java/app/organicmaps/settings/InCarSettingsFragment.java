@@ -36,6 +36,21 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   {
     super.onViewCreated(view, savedInstanceState);
 
+    final ListPreference position = getPreference("in_car_control_position");
+    position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
+    position.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+    position.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setControlPosition(requireContext(), (String) value);
+      return true;
+    });
+    final ListPreference delay = getPreference("in_car_navigation_action_delay");
+    delay.setValue(Integer.toString(InCarSettingsStore.getAutomaticNavigationActionDelaySeconds(requireContext())));
+    delay.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+    delay.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setAutomaticNavigationActionDelaySeconds(requireContext(), Integer.parseInt((String) value));
+      return true;
+    });
+
     final TwoStatePreference warning = getPreference(getString(R.string.pref_in_car_location_disabled_warning));
     warning.setChecked(InCarSettingsStore.showLocationDisabledWarning(requireContext()));
     warning.setOnPreferenceChangeListener((preference, value) -> {

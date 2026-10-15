@@ -24,6 +24,26 @@ public final class InCarSettingsStore
 
   private static final String KEY_ROUTE_RESUME_MINUTES = "InCarRouteResumeMinutes";
 
+  public static boolean controlsOnLeft(@NonNull Context context)
+  {
+    return InCarControlPositionPolicy.isLeft(prefs(context).getString("InCarControlPosition", "RHD"));
+  }
+
+  public static void setControlPosition(@NonNull Context context, @NonNull String position)
+  {
+    prefs(context).edit().putString("InCarControlPosition", "LHD".equals(position) ? "LHD" : "RHD").apply();
+  }
+
+  public static int getAutomaticNavigationActionDelaySeconds(@NonNull Context context)
+  {
+    return InCarNavigationCountdownPolicy.normaliseDelaySeconds(prefs(context).getInt("InCarNavigationActionDelay", 10));
+  }
+
+  public static void setAutomaticNavigationActionDelaySeconds(@NonNull Context context, int seconds)
+  {
+    prefs(context).edit().putInt("InCarNavigationActionDelay", InCarNavigationCountdownPolicy.normaliseDelaySeconds(seconds)).apply();
+  }
+
   private InCarSettingsStore() {}
 
   public static int routeResumeMinutes(@NonNull Context context)

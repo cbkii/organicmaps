@@ -206,6 +206,25 @@ public class InCarSpeedDisplayPolicyTest
     assertEquals(0.0f, InCarSpeedDisplayPolicy.warningStrength(), 0.0f);
   }
 
+  @Test
+  public void severityHasIndependentEntryAndClearHysteresis()
+  {
+    InCarSpeedDisplayPolicy.isSpeeding(kph(105), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.WARNING, InCarSpeedDisplayPolicy.severity());
+    InCarSpeedDisplayPolicy.isSpeeding(kph(109.9), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.WARNING, InCarSpeedDisplayPolicy.severity());
+    InCarSpeedDisplayPolicy.isSpeeding(kph(110), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.SEVERE, InCarSpeedDisplayPolicy.severity());
+    InCarSpeedDisplayPolicy.isSpeeding(kph(108), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.SEVERE, InCarSpeedDisplayPolicy.severity());
+    InCarSpeedDisplayPolicy.isSpeeding(kph(107.9), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.WARNING, InCarSpeedDisplayPolicy.severity());
+    InCarSpeedDisplayPolicy.isSpeeding(kph(103), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.WARNING, InCarSpeedDisplayPolicy.severity());
+    InCarSpeedDisplayPolicy.isSpeeding(kph(102.9), kph(100));
+    assertEquals(InCarSpeedDisplayPolicy.Severity.NORMAL, InCarSpeedDisplayPolicy.severity());
+  }
+
   private static double kph(double value)
   {
     return value / 3.6;

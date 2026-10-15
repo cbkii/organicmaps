@@ -181,6 +181,9 @@ public class RoutingController
 
   private final RouteStartGate mRouteStartGate = new RouteStartGate();
   private BuildState mBuildState = BuildState.NONE;
+  private long mBuildGeneration;
+
+  public long getBuildGeneration() { return mBuildGeneration; }
   private State mState = State.NONE;
   @Nullable
   private RouteMarkType mWaitingPoiPickType = null;
@@ -412,6 +415,7 @@ public class RoutingController
 
   private void build()
   {
+    ++mBuildGeneration;
     mRouteStartGate.invalidate();
     mRouteCommands.removeRoute();
 

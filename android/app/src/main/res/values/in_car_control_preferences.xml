@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="in_car_control_position">Control position</string>
+  <string name="in_car_navigation_action_delay">Automatic navigation action delay</string>
+  <string-array name="in_car_control_position_entries">
+    <item>Right-hand drive — controls on left</item>
+    <item>Left-hand drive — controls on right</item>
+  </string-array>
+  <string-array name="in_car_control_position_values"><item>RHD</item><item>LHD</item></string-array>
+  <string-array name="in_car_navigation_action_delay_entries">
+    <item>2 seconds</item><item>3 seconds</item><item>5 seconds</item><item>10 seconds</item>
+    <item>15 seconds</item><item>20 seconds</item><item>30 seconds</item>
+  </string-array>
+  <string-array name="in_car_navigation_action_delay_values">
+    <item>2</item><item>3</item><item>5</item><item>10</item><item>15</item><item>20</item><item>30</item>
+  </string-array>
+</resources>

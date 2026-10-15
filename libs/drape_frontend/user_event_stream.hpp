@@ -463,6 +463,8 @@ public:
   void SetTestBridge(TTestBridge const & fn) { m_testFn = fn; }
 #endif
 
+  void ApplyCameraPresentation(bool perspective);
+
 private:
   bool OnSetScale(ref_ptr<ScaleEvent> scaleEvent);
   bool OnMove(ref_ptr<MoveEvent> moveEvent);

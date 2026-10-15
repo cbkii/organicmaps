@@ -77,6 +77,11 @@ final class RoutingBottomMenuController
     }
   }
 
+  static void dispatchStart(StartGate gate, boolean planning, boolean built, Runnable start)
+  {
+    if (gate.canDispatch(planning, built)) start.run();
+  }
+
   private static final String STATE_ALTITUDE_CHART_SHOWN = "altitude_chart_shown";
   private static final String STATE_ERROR = "error";
   private static final float SAVE_BUTTON_DISABLED_ALPHA = 0.5f;
@@ -233,11 +238,11 @@ final class RoutingBottomMenuController
     mSaveButton.setOnClickListener(v -> saveRoute());
     mStart.setEnabled(false);
     mStart.setOnClickListener(v -> {
+      if (BuildConfig.IS_IN_CAR) ((MwmActivity) mContext).cancelInCarNavigationCountdown();
       // Ignore the event if the back and start buttons are pressed at the same time.
       // https://github.com/organicmaps/organicmaps/issues/6628
       RoutingController controller = RoutingController.get();
-      if (mStartGate.canDispatch(controller.isPlanning(), controller.isBuilt()))
-        mListener.onRoutingStart();
+      dispatchStart(mStartGate, controller.isPlanning(), controller.isBuilt(), mListener::onRoutingStart);
     });
     mTransitRecyclerView = altitudeChartFrame.findViewById(R.id.transit_recycler_view);
     mTransitAdapter = new TransitStepAdapter();
@@ -398,6 +403,26 @@ final class RoutingBottomMenuController
     mStart.setBuildProgress(0);
     mStartGate.setState(state);
     mStart.setEnabled(state == StartState.ENABLED);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      if (state != StartState.ENABLED) ((MwmActivity) mContext).cancelInCarNavigationCountdown();
+      else
+      {
+        final RoutingController route = RoutingController.get();
+        final long generation = route.getBuildGeneration();
+        final long interactionGeneration = ((MwmActivity) mContext).getInCarInteractionGeneration();
+        mStart.post(() -> {
+          if (!mStart.isAttachedToWindow() || mContext.isFinishing() || mContext.isDestroyed()
+              || ((MwmActivity) mContext).getInCarInteractionGeneration() != interactionGeneration) return;
+          ((MwmActivity) mContext).getInCarNavigationCountdown().arm(
+            "START", generation, mStart,
+            () -> route.getBuildGeneration() == generation
+                && mStartGate.canDispatch(route.isPlanning(), route.isBuilt()) && !isManageRouteEditing(),
+            seconds -> mStart.setText(seconds < 0 ? mContext.getString(R.string.p2p_start)
+                                                  : mContext.getString(R.string.p2p_start) + " · " + seconds));
+        });
+      }
+    }
     notifyVisibilityChanged();
   }
 

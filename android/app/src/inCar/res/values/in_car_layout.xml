@@ -39,4 +39,5 @@
 
   <!-- 76dp route actions plus 10dp top/bottom bar padding require a 96dp peek allowance. -->
   <dimen name="routing_bottom_buttons_max_height">96dp</dimen>
+  <dimen name="nav_menu_landscape_width">460dp</dimen>
 </resources>

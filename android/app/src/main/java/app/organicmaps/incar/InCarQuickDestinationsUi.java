@@ -233,7 +233,7 @@ public final class InCarQuickDestinationsUi
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, @Nullable String key)
     {
-      if (InCarQuickDestinationsStore.isQuickPreferenceKey(key))
+      if (InCarQuickDestinationsStore.isQuickPreferenceKey(key) || "InCarControlPosition".equals(key))
         rebuildButtons();
     }
 
@@ -310,7 +310,7 @@ public final class InCarQuickDestinationsUi
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
       button.setContentDescription(label);
-      button.setOnClickListener(v -> click.run());
+      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); click.run(); });
       mDirectActions.add(new QuickActionBinding(button, label, iconRes, click));
     }
 
@@ -330,7 +330,7 @@ public final class InCarQuickDestinationsUi
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
       button.setContentDescription(label);
-      button.setOnClickListener(v -> click.run());
+      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); click.run(); });
       mDirectActions.add(new QuickActionBinding(button, label, iconRes, click));
     }
 
@@ -353,7 +353,7 @@ public final class InCarQuickDestinationsUi
               : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
       final Runnable actionRun = () -> mActivity.startLocationToPoint(destination.toMapObject());
       button.setContentDescription(description);
-      button.setOnClickListener(v -> actionRun.run());
+      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); actionRun.run(); });
       mDirectActions.add(new QuickActionBinding(button, description, iconRes, actionRun));
     }
 
@@ -391,7 +391,7 @@ public final class InCarQuickDestinationsUi
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);
       button.setContentDescription(label);
-      button.setOnClickListener(v -> click.run());
+      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); click.run(); });
       mDirectActions.add(new QuickActionBinding(button, label, iconRes, click));
     }
 
@@ -505,7 +505,7 @@ public final class InCarQuickDestinationsUi
       {
         mMoreButton = createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
         mMoreButton.setContentDescription(mActivity.getString(R.string.in_car_quick_more));
-        mMoreButton.setOnClickListener(v -> showOverflowChoice(mRenderedOverflowActions));
+        mMoreButton.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); showOverflowChoice(mRenderedOverflowActions); });
       }
       resizeButton(mMoreButton);
       return mMoreButton;
@@ -753,6 +753,20 @@ public final class InCarQuickDestinationsUi
 
     private void updateRootBounds()
     {
+      InCarControlPositionPolicy.apply(mRoot, InCarSettingsStore.controlsOnLeft(mActivity));
+      // Keep the existing vertical action order, alongside the camera rail rather than over it.
+      if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams margins)
+      {
+        final View cameraRail = mActivity.findViewById(R.id.zoom_buttons_container);
+        final boolean horizontalCamera = cameraRail != null && cameraRail.getWidth() > cameraRail.getHeight();
+        final int cameraColumn = horizontalCamera ? dp(6) : InCarVisuals.currentQuickActionSizePx(mActivity) + dp(18);
+        margins.bottomMargin = navigationFooterHeightPx() + mSystemBottomInset + dp(12)
+                             + (horizontalCamera ? cameraRail.getHeight() + dp(12) : 0);
+        // Physical margins are authoritative; resolving zero start/end margins can override them.
+        margins.leftMargin = InCarSettingsStore.controlsOnLeft(mActivity) ? cameraColumn : dp(6);
+        margins.rightMargin = InCarSettingsStore.controlsOnLeft(mActivity) ? dp(6) : cameraColumn;
+        mRoot.setLayoutParams(margins);
+      }
       final ViewGroup.LayoutParams params = mRoot.getLayoutParams();
       boolean changed = false;
       if (params.width != ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -796,7 +810,10 @@ public final class InCarQuickDestinationsUi
       final ViewGroup.LayoutParams rawParams = mRoot.getLayoutParams();
       if (!(rawParams instanceof ViewGroup.MarginLayoutParams params))
         return;
-      final int bottom = navigationFooterHeightPx() + mSystemBottomInset + dp(12);
+      final View cameraRail = mActivity.findViewById(R.id.zoom_buttons_container);
+      final int cameraReserve = cameraRail != null && cameraRail.getWidth() > cameraRail.getHeight()
+                                    ? cameraRail.getHeight() + dp(12) : 0;
+      final int bottom = navigationFooterHeightPx() + mSystemBottomInset + dp(12) + cameraReserve;
       if (params.bottomMargin == bottom)
       {
         scheduleActionLayout();

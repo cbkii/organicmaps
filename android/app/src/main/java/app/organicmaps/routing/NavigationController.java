@@ -240,8 +240,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
       return;
     final TextView label = mTopFrame.findViewById(R.id.in_car_nav_guidance_label);
     label.setText(hasLanes ? R.string.in_car_nav_lanes : R.string.in_car_nav_after);
-    label.setAlpha(hasLanes ? 1.0f : 0.70f);
-    mNextNextTurnFrame.setAlpha(0.70f);
+    label.setAlpha(1.0f);
+    mNextNextTurnFrame.setAlpha(1.0f);
     // Preserve the stable section width without suggesting an unavailable future instruction.
     UiUtils.visibleIf(hasLanes || hasAfter, label);
   }

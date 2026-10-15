@@ -12,6 +12,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
@@ -30,6 +31,7 @@ import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.downloader.MapManager;
 import app.organicmaps.sdk.downloader.UpdateInfo;
 import app.organicmaps.sdk.location.TrackRecorder;
+import app.organicmaps.sdk.location.LocationState;
 import app.organicmaps.sdk.maplayer.isolines.IsolinesManager;
 import app.organicmaps.sdk.maplayer.subway.SubwayManager;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
@@ -142,6 +144,13 @@ public class MapButtonsController extends Fragment
     mNavMyPosition =
         new MyPositionButton(myPosition, v -> mMapButtonClickListener.onMapButtonClick(MapButtons.myPosition));
 
+    final View cameraView = mFrame.findViewById(R.id.in_car_camera_view_recenter);
+    if (cameraView != null)
+      cameraView.setOnClickListener(v -> {
+        mMapButtonClickListener.onMapButtonClick(MapButtons.cameraViewRecenter);
+        updateCameraPresentation();
+      });
+
     // Some buttons do not exist in navigation mode.
     mToggleMapLayerButton = mFrame.findViewById(R.id.layers_button);
     if (mToggleMapLayerButton != null)
@@ -182,10 +191,17 @@ public class MapButtonsController extends Fragment
 
     // Used to get the maximum height the buttons will evolve in.
     mFrame.addOnLayoutChangeListener(new ContentViewLayoutChangeListener(mFrame));
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
+      zoomFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
+    }
 
     mButtonsMap = new HashMap<>();
     mButtonsMap.put(MapButtons.zoom, zoomFrame);
     mButtonsMap.put(MapButtons.myPosition, myPosition);
+    if (cameraView != null)
+      mButtonsMap.put(MapButtons.cameraViewRecenter, cameraView);
     mButtonsMap.put(MapButtons.bookmarks, bookmarksButton);
     mButtonsMap.put(MapButtons.search, searchButton);
 
@@ -206,6 +222,53 @@ public class MapButtonsController extends Fragment
     return mFrame;
   }
 
+  private void fitCameraRail()
+  {
+    final View candidate = mFrame.findViewById(R.id.zoom_buttons_container);
+    if (!(candidate instanceof LinearLayout rail) || mInnerRightButtonsFrame == null)
+      return;
+    final View cell = rail.findViewById(R.id.my_position);
+    if (cell == null || cell.getHeight() == 0)
+      return;
+    final int available = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
+                          - mInnerRightButtonsFrame.getPaddingBottom();
+    if (available <= 0)
+      return;
+    // Very shallow task windows use one horizontal four-cell rail; no camera/zoom action is dropped.
+    final boolean horizontal = available < cell.getHeight() * 4 + 3;
+    final int orientation = horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL;
+    if (rail.getOrientation() != orientation)
+      rail.setOrientation(orientation);
+    final ViewGroup.LayoutParams frameParams = rail.getLayoutParams();
+    final int targetWidth = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : cell.getWidth();
+    if (frameParams.width != targetWidth || frameParams.height != ViewGroup.LayoutParams.WRAP_CONTENT)
+    {
+      frameParams.width = targetWidth;
+      frameParams.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+      rail.setLayoutParams(frameParams);
+    }
+    for (int i = 0; i < rail.getChildCount(); ++i)
+    {
+      final View child = rail.getChildAt(i);
+      if (child instanceof FloatingActionButton)
+        continue;
+      final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) child.getLayoutParams();
+      final int thickness = Math.max(1, dpToPx(1, requireContext()));
+      final int width = horizontal ? thickness : ViewGroup.LayoutParams.MATCH_PARENT;
+      final int height = horizontal ? cell.getHeight() : thickness;
+      final int inset = horizontal ? 0 : getResources().getDimensionPixelSize(R.dimen.in_car_camera_rail_divider_inset);
+      if (params.width != width || params.height != height || params.getMarginStart() != inset
+          || params.getMarginEnd() != inset)
+      {
+        params.width = width;
+        params.height = height;
+        params.setMarginStart(inset);
+        params.setMarginEnd(inset);
+        child.setLayoutParams(params);
+      }
+    }
+  }
+
   // For disabling bottom buttons which are visible in tablets.
   private void setBottomButtonsHidden(boolean hide)
   {
@@ -213,11 +276,11 @@ public class MapButtonsController extends Fragment
       UiUtils.showIf(!hide, mBottomButtonsFrame);
   }
 
-  // The quick rail owns Search/Places in active InCar navigation; planning and normal Android
-  // retain their original map controls. Use the layout contract, not transient native route state.
+  // Saved Places belongs to the InCar menu in every mode. The quick rail owns Search during
+  // navigation. Apply this policy to every visibility request, including inflation and observers.
   static boolean shouldSuppressLegacyButton(boolean inCar, @Nullable LayoutMode mode, MapButtons button)
   {
-    return inCar && mode == LayoutMode.navigation && (button == MapButtons.search || button == MapButtons.bookmarks);
+    return inCar && (button == MapButtons.bookmarks || (mode == LayoutMode.navigation && button == MapButtons.search));
   }
 
   public void showButton(boolean show, MapButtons button)
@@ -238,7 +301,7 @@ public class MapButtonsController extends Fragment
     }
     switch (button)
     {
-    case zoom: UiUtils.showIf(show && Config.showZoomButtons(), buttonView); break;
+    case zoom: UiUtils.showIf(show && (BuildConfig.IS_IN_CAR || Config.showZoomButtons()), buttonView); break;
     case toggleMapLayer:
       if (mToggleMapLayerButton != null)
         UiUtils.showIf(show && !isInNavigationMode(), mToggleMapLayerButton);
@@ -249,6 +312,7 @@ public class MapButtonsController extends Fragment
       break;
     case search: mSearchWheel.show(show);
     case bookmarks:
+    case cameraViewRecenter:
     case menu: UiUtils.showIf(show, buttonView); break;
     case trackRecordingStatus:
       UiUtils.showIf(show, buttonView);
@@ -491,6 +555,7 @@ public class MapButtonsController extends Fragment
   {
     if (mNavMyPosition != null)
       mNavMyPosition.update(newMode);
+    updateCameraPresentation();
   }
 
   private int getViewTopOffset(float translation, View v)
@@ -533,6 +598,24 @@ public class MapButtonsController extends Fragment
       });
   }
 
+  private void updateCameraPresentation()
+  {
+    if (!BuildConfig.IS_IN_CAR || !app.organicmaps.sdk.Map.isEngineCreated())
+      return;
+    final View frame = mFrame;
+    LocationState.nativeQueryCameraPresentation(perspective -> {
+      if (getView() != frame || !isAdded())
+        return;
+      final View button = frame.findViewById(R.id.in_car_camera_view_recenter);
+      if (button != null)
+      {
+        button.setActivated(perspective);
+        button.setContentDescription(getString(perspective ? R.string.in_car_camera_driving
+                                                         : R.string.in_car_camera_top_down));
+      }
+    });
+  }
+
   @Override
   public void onResume()
   {
@@ -543,6 +626,7 @@ public class MapButtonsController extends Fragment
     mTrackRecorderObserver.onChanged(TrackRecorder.nativeIsTrackRecordingEnabled());
     updateLayerButton();
     updateHelpButtonIcon();
+    updateCameraPresentation();
     // A returning launcher/search window may already have focus; keep the old Android fallback.
     if (mFrame.hasWindowFocus())
       ViewCompat.requestApplyInsets(mFrame);
@@ -575,6 +659,7 @@ public class MapButtonsController extends Fragment
   public enum MapButtons
   {
     myPosition,
+    cameraViewRecenter,
     toggleMapLayer,
     zoomIn,
     zoomOut,

@@ -16,8 +16,8 @@ colors
   MyPositionAccuracy-opacity: 0.06;
   Selection-color: #8AB4F8;
   Selection-opacity: 0.64;
-  Route-color: #8AB4F8;
-  RouteOutline-color: #174EA6;
+  Route-color: #55BAC8;
+  RouteOutline-color: #103A60;
   RouteTrafficG0-color: #5E0F0D;
   RouteTrafficG1-color: #7F1311;
   RouteTrafficG2-color: #7F1311;

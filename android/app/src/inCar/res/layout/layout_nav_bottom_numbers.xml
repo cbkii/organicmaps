@@ -32,12 +32,12 @@
     <TextView android:id="@+id/distance_dimen" android:layout_width="0dp" android:layout_height="0dp" />
   </LinearLayout>
 
-  <!-- Each expression auto-sizes as one unit, with equal shares of the actual available footer width. -->
+  <!-- Each expression auto-sizes as one unit, with content-aware shares of the actual available footer width. -->
   <androidx.appcompat.widget.AppCompatTextView
     android:id="@+id/distance_value"
     android:layout_width="0dp"
     android:layout_height="match_parent"
-    android:layout_weight="1"
+    android:layout_weight="42"
     android:layout_marginEnd="@dimen/margin_half"
     android:gravity="center"
     android:includeFontPadding="false"
@@ -53,7 +53,7 @@
     android:id="@+id/time_minute_value"
     android:layout_width="0dp"
     android:layout_height="match_parent"
-    android:layout_weight="1"
+    android:layout_weight="58"
     android:gravity="center"
     android:includeFontPadding="false"
     android:maxLines="1"

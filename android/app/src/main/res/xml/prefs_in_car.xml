@@ -60,6 +60,23 @@
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_map_display">
 
+    <ListPreference
+      android:key="in_car_control_position"
+      android:title="@string/in_car_control_position"
+      android:entries="@array/in_car_control_position_entries"
+      android:entryValues="@array/in_car_control_position_values"
+      android:defaultValue="RHD"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    <ListPreference
+      android:key="in_car_navigation_action_delay"
+      android:title="@string/in_car_navigation_action_delay"
+      android:entries="@array/in_car_navigation_action_delay_entries"
+      android:entryValues="@array/in_car_navigation_action_delay_values"
+      android:defaultValue="10"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
     <SwitchPreferenceCompat
       android:key="@string/pref_in_car_optimised_visuals"
       android:title="@string/in_car_optimised_visuals_title"
