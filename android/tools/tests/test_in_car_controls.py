@@ -421,6 +421,51 @@ public class AccessibilityTest {
         self.assertIn("ThemeUtils.isDarkTheme(context)", theme)
         self.assertIn("calculateMapStyle(isDarkMode)", theme)
 
+    def test_map_dock_two_column_geometry_and_transparent_camera_cells(self):
+        import xml.etree.ElementTree as ET
+        base = ROOT / "android/app/src"
+        ns = "{http://schemas.android.com/apk/res/android}"
+        values = ET.parse(base / "main/res/values/in_car_runtime_ui.xml").getroot()
+        dims = {node.get("name"): (node.text or "").strip() for node in values if node.tag == "dimen"}
+        self.assertEqual("69dp", dims["in_car_map_rail_cell_size"])
+        self.assertEqual("8dp", dims["in_car_map_dock_edge"])
+        self.assertEqual("12dp", dims["in_car_map_dock_column_gap"])
+        self.assertEqual("8dp", dims["in_car_map_dock_footer_gap"])
+        self.assertEqual("77dp", dims["in_car_map_dock_browse_reserve"])
+        for layout in ("layout", "layout-land"):
+            path = base / f"inCar/res/{layout}/map_buttons_bottom.xml"
+            footer = ET.parse(path).getroot()
+            dock = next(x for x in footer if x.get(ns+"id") == "@+id/in_car_browsing_controls")
+            self.assertEqual("LinearLayout", dock.tag)
+            self.assertEqual("@dimen/in_car_map_dock_edge", dock.get(ns+"paddingBottom"))
+            search = next(x for x in dock if x.get("layout") == "@layout/map_buttons_search_square")
+            menu = next(x for x in dock if x.get("layout") == "@layout/map_buttons_menu")
+            self.assertEqual("wrap_content", search.get(ns+"layout_width"))
+            self.assertEqual("wrap_content", menu.get(ns+"layout_width"))
+            self.assertEqual("@dimen/in_car_map_dock_column_gap", search.get(ns+"layout_marginRight"))
+            self.assertIsNone(menu.get(ns+"layout_marginRight"))
+        camera = ET.parse(base / "inCar/res/layout/map_buttons_zoom.xml").getroot()
+        rail = next(x for x in camera if x.get(ns+"id") == "@+id/zoom_buttons_container")
+        for child in rail:
+            if child.get(ns+"id") in ("@+id/nav_zoom_in", "@+id/nav_zoom_out",
+                                      "@+id/in_car_camera_view_recenter"):
+                self.assertEqual("androidx.appcompat.widget.AppCompatImageButton", child.tag)
+                self.assertEqual("@drawable/in_car_map_rail_cell_feedback", child.get(ns+"background"))
+        policy = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarMapDockPolicy.java")
+        quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")
+        controller = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+        self.assertIn("quickBottomMarginPx", policy)
+        self.assertIn("quickPhysicalOffsetPx", quick)
+        self.assertIn("positionCameraFrame", controller)
+        self.assertNotIn("cameraColumn = horizontalCamera", quick)
+        self.assertNotIn("mBottomButtonsHeight + mSystemBottomInset", quick)
+        # Same size/gap/edge gives identical centre X and rail/footer bottom Y.
+        for size in (55, 69):
+            edge, gap, footer_gap = 8, 12, 8
+            self.assertEqual(edge + size + gap, edge + size + gap)
+            self.assertEqual(size + footer_gap + edge, size + edge + footer_gap)
+            self.assertGreaterEqual(gap, 8)
+
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
         dump = ROOT / "data/drules_in_car.txt"

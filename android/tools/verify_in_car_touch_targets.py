@@ -301,14 +301,30 @@ def verify_camera_control_rail(root):
             f"{zoom_layout}: grouped rail must contain exactly one My Position control include"
         )
 
-    for view_id in ("in_car_driving_view_button", "nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
+    # The hidden compatibility view remains a FAB; visible camera cells are true
+    # transparent ImageButtons so Material cannot paint opaque circles over the rail.
+    require_layout_attr(
+        zoom_layout, "in_car_driving_view_button", APP_NS, "fabCustomSize",
+        "@dimen/in_car_map_primary_button_size",
+    )
+    for view_id in ("nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
         require_layout_attr(
-            zoom_layout,
-            view_id,
-            APP_NS,
-            "fabCustomSize",
+            zoom_layout, view_id, ANDROID_NS, "background",
+            "@drawable/in_car_map_rail_cell_feedback",
+        )
+        require_layout_attr(
+            zoom_layout, view_id, ANDROID_NS, "layout_width",
             "@dimen/in_car_map_primary_button_size",
         )
+    for node in zoom_container:
+        if resource_id(node, id_attr) in ("nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
+            if node.tag != "androidx.appcompat.widget.AppCompatImageButton":
+                raise VerificationError("InCar camera rail cells must not render Material FAB circles")
+    my_position = parse_xml(root / "android/app/src/inCar/res/layout/map_buttons_myposition.xml")
+    if my_position.tag != "androidx.appcompat.widget.AppCompatImageButton":
+        raise VerificationError("InCar My Position must use the same transparent rail cell")
+    if my_position.get(f"{{{ANDROID_NS}}}background") != "@drawable/in_car_map_rail_cell_feedback":
+        raise VerificationError("InCar My Position must not draw an opaque separate surface")
     require_layout_attr(
         zoom_layout,
         "in_car_driving_view_button",

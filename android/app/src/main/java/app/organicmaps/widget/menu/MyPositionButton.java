@@ -112,6 +112,18 @@ public class MyPositionButton
 
   private void updatePadding(int mode)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // The icon lives in a transparent full-width rail cell, not a Material FAB.
+      // Retain the optical inset when location mode changes at runtime.
+      final int size = mButton.getWidth() > 0 ? mButton.getWidth()
+                       : mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size);
+      final int icon = mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_icon_size);
+      final int pad = Math.max(0, (size - icon) / 2);
+      final int followShift = mode == LocationState.FOLLOW ? mFollowPaddingShift : 0;
+      mButton.setPadding(pad, pad + followShift, pad + followShift, pad);
+      return;
+    }
     if (mode == LocationState.FOLLOW)
       mButton.setPadding(0, mFollowPaddingShift, mFollowPaddingShift, 0);
     else
