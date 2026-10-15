@@ -763,14 +763,14 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   // departure needs a coherent low-speed course swivel when a strong public-road match
   // still exists; road mismatch or mapped parking aisles remain valid exceptions.
   bool const plausiblePublicRoad = previous != nullptr &&
-      ((current != nullptr && !current->m_parkingRoad && IsAcceptable(*current, policyInfo, true)) ||
-       (bestAcceptable && !bestParkingRoad && best->m_relation != free_driving_snap::RoadRelation::Unrelated));
+      ((current != nullptr && !current->m_metadata.m_parkingAisle && IsAcceptable(*current, policyInfo, true)) ||
+       (bestAcceptable && !bestParkingAisle && best->m_relation != free_driving_snap::RoadRelation::Unrelated));
   bool const trustworthyParkingTurn = previous != nullptr && free_driving_snap::HasTrustworthyParkingTurn(
       motionEvidence.HasDirection(), motionEvidence.m_confidence, motionEvidence.m_displacementM,
       stationaryHold, effectiveSpeedMps);
   double departureTurnDegrees = trustworthyParkingTurn
       ? DirectionAngleDegrees(motionEvidence.m_direction, previous->m_edge.GetDirection()) : 0.0;
-  if (trustworthyParkingTurn && bestAcceptable && !bestParkingRoad &&
+  if (trustworthyParkingTurn && bestAcceptable && !bestParkingAisle &&
       best->m_relation != free_driving_snap::RoadRelation::Unrelated)
   {
     // A connected bend/roundabout is still public-road travel, not a parking swivel.

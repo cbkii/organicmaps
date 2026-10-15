@@ -20,6 +20,9 @@ class MenuContractTests(unittest.TestCase):
             self.skipTest("C++ compiler unavailable")
         def without_local_includes(path):
             return re.sub(r'^#include "[^"\n]+"\n|^#pragma once\n', '', controls.read(path), flags=re.M)
+        session = controls.read("libs/routing/routing_session_free_driving.cpp")
+        start = session.index("  bool const plausiblePublicRoad =")
+        predicate = session[start:session.index(";", start) + 1]
         source = r'''
 #include <cassert>
 namespace m2 { struct PointD { double x=0,y=0; }; }
@@ -33,8 +36,23 @@ namespace location { struct GpsInfo {
 ''' + without_local_includes("libs/routing/free_driving_road_snap_policy.hpp") + without_local_includes(
     "libs/routing/free_driving_road_matcher.hpp") + without_local_includes(
     "libs/routing/free_driving_road_matcher.cpp") + r'''
+using namespace routing::free_driving_snap;
+namespace free_driving_snap = routing::free_driving_snap;
+struct Candidate { RoadMetadata m_metadata; RoadRelation m_relation=RoadRelation::Connected; bool acceptable=true; };
+bool IsAcceptable(Candidate const & c,location::GpsInfo const &,bool){return c.acceptable;}
+bool plausible(Candidate const * current,Candidate const * best,bool bestAcceptable,bool bestParkingAisle){
+ int previousValue=1; auto previous=&previousValue; location::GpsInfo policyInfo;
+''' + predicate + r'''
+ return plausiblePublicRoad;
+}
 int main() {
- using namespace routing::free_driving_snap;
+ Candidate serviceRoad;
+ assert(plausible(&serviceRoad,nullptr,false,false));
+ serviceRoad.m_metadata.m_parkingAisle=true;
+ assert(!plausible(&serviceRoad,nullptr,false,false));
+ Candidate weakConnected;
+ assert(plausible(nullptr,&weakConnected,true,false));
+ assert(!plausible(nullptr,&weakConnected,true,true));
  assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,69));
  assert(HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70));
  assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90));
