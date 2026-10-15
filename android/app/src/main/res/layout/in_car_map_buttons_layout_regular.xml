@@ -15,7 +15,7 @@
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
     android:layout_marginTop="@dimen/action_bar_extended_height"
-    android:layout_marginBottom="@dimen/nav_menu_height"
+    android:layout_marginBottom="@dimen/in_car_map_dock_browse_reserve"
     android:layout_alignParentRight="true"
     android:clipChildren="false"
     android:clipToPadding="false"

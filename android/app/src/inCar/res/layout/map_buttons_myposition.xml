@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.floatingactionbutton.FloatingActionButton
-  xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:app="http://schemas.android.com/apk/res-auto"
+<androidx.appcompat.widget.AppCompatImageButton xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/my_position"
-  style="@style/MwmWidget.MapButton"
-  android:contentDescription="@string/in_car_follow_stopped"
-  app:backgroundTint="@android:color/transparent"
-  app:borderWidth="0dp"
-  app:elevation="0dp"
-  app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-  app:maxImageSize="@dimen/in_car_map_primary_icon_size"
-  app:pressedTranslationZ="0dp"
-  app:rippleColor="?attr/colorControlHighlight" />
+  android:layout_width="@dimen/in_car_map_primary_button_size"
+  android:layout_height="@dimen/in_car_map_primary_button_size"
+  android:background="@drawable/in_car_map_rail_cell_feedback"
+  android:clickable="true" android:focusable="true" android:scaleType="centerInside"
+  android:padding="@dimen/in_car_map_rail_icon_padding"
+  android:contentDescription="@string/in_car_follow_stopped" />

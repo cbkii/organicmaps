@@ -7,6 +7,11 @@
   <dimen name="in_car_touch_target_extra_compact">55dp</dimen>
 
   <dimen name="in_car_map_rail_cell_size">69dp</dimen>
+  <dimen name="in_car_map_dock_edge">8dp</dimen>
+  <dimen name="in_car_map_dock_column_gap">12dp</dimen>
+  <dimen name="in_car_map_dock_footer_gap">8dp</dimen>
+  <dimen name="in_car_map_dock_browse_reserve">77dp</dimen>
+  <dimen name="in_car_map_rail_icon_padding">16dp</dimen>
   <!-- Shared direct-display sizing tokens. Keep map, Quick and place-page controls aligned. -->
   <dimen name="in_car_runtime_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>

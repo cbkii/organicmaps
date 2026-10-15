@@ -12,6 +12,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,6 +26,7 @@ import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarMapDockPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.Framework;
@@ -143,6 +145,9 @@ public class MapButtonsController extends Fragment
 
     mInnerLeftButtonsFrame = mFrame.findViewById(R.id.map_buttons_inner_left);
     mInnerRightButtonsFrame = mFrame.findViewById(R.id.map_buttons_inner_right);
+    if (BuildConfig.IS_IN_CAR)
+      InCarMapDockPolicy.positionCameraFrame(mInnerRightButtonsFrame, getResources(), navigation,
+                                             InCarMapDockPolicy.railSizePx(getResources()));
     mBottomButtonsFrame = mFrame.findViewById(R.id.map_buttons_bottom);
 
     final FloatingActionButton helpButton = mFrame.findViewById(R.id.help_button);
@@ -246,6 +251,8 @@ public class MapButtonsController extends Fragment
     final View cell = rail.findViewById(R.id.my_position);
     if (cell == null || cell.getHeight() == 0)
       return;
+    InCarMapDockPolicy.positionCameraFrame(mInnerRightButtonsFrame, getResources(),
+        mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cell.getHeight());
     final int available = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
                           - mInnerRightButtonsFrame.getPaddingBottom();
     if (available <= 0)
@@ -266,7 +273,7 @@ public class MapButtonsController extends Fragment
     for (int i = 0; i < rail.getChildCount(); ++i)
     {
       final View child = rail.getChildAt(i);
-      if (child instanceof FloatingActionButton)
+      if (child instanceof ImageView)
         continue;
       final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) child.getLayoutParams();
       final int thickness = Math.max(1, dpToPx(1, requireContext()));

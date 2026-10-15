@@ -859,16 +859,18 @@ public final class InCarVisuals
         activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
         R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
-    for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.layers_button,
-                             R.id.menu_button, R.id.help_button, R.id.track_recording_status})
+    for (int id : new int[] {R.id.btn_bookmarks, R.id.layers_button, R.id.help_button,
+                             R.id.track_recording_status})
       resizeFab(root.findViewById(id), buttonSize, iconSize, minTouchTarget);
 
-    // The two overlay rails are 69dp; other map controls remain at their original size.
+    // Footer buttons and both map rails share one responsive cell-size contract.
     final int railSize = Math.min(buttonSize, dimen(activity, R.dimen.in_car_map_rail_cell_size));
-    for (int id : new int[] {R.id.my_position, R.id.in_car_camera_view_recenter})
+    for (int id : new int[] {R.id.btn_search, R.id.menu_button})
       resizeFab(root.findViewById(id), railSize, iconSize, railSize);
-    resizeFab(root.findViewById(R.id.nav_zoom_in), railSize, zoomIconSize, railSize);
-    resizeFab(root.findViewById(R.id.nav_zoom_out), railSize, zoomIconSize, railSize);
+    for (int id : new int[] {R.id.my_position, R.id.in_car_camera_view_recenter})
+      resizeRailCell(root.findViewById(id), railSize, iconSize);
+    resizeRailCell(root.findViewById(R.id.nav_zoom_in), railSize, zoomIconSize);
+    resizeRailCell(root.findViewById(R.id.nav_zoom_out), railSize, zoomIconSize);
 
 
   }
@@ -1020,6 +1022,30 @@ public final class InCarVisuals
   private static int dimen(@NonNull Activity activity, @DimenRes int resId)
   {
     return activity.getResources().getDimensionPixelSize(resId);
+  }
+
+  private static void resizeRailCell(@Nullable View view, int size, int iconSize)
+  {
+    if (view instanceof FloatingActionButton)
+    {
+      resizeFab(view, size, iconSize, size);
+      return;
+    }
+    if (!(view instanceof ImageView image))
+      return;
+    final ViewGroup.LayoutParams params = image.getLayoutParams();
+    if (params != null && (params.width != size || params.height != size))
+    {
+      params.width = size;
+      params.height = size;
+      image.setLayoutParams(params);
+    }
+    image.setMinimumWidth(size);
+    image.setMinimumHeight(size);
+    final int pad = Math.max(0, (size - iconSize) / 2);
+    if (image.getPaddingLeft() != pad || image.getPaddingTop() != pad
+        || image.getPaddingRight() != pad || image.getPaddingBottom() != pad)
+      image.setPadding(pad, pad, pad, pad);
   }
 
   private static void resizeFab(@Nullable View view, int buttonSize, int iconSize, int minTouchTarget)
