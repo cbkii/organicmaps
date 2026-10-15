@@ -20,7 +20,7 @@
   <!-- Opaque black remains legible when light/translucent map chrome is washed out by glare. -->
   <color name="in_car_map_control_outline">#66000000</color>
 
-  <color name="in_car_quick_foreground">@color/in_car_selection_accent</color>
+  <color name="in_car_quick_foreground">@color/in_car_action_primary</color>
   <color name="in_car_selection_accent">#FF0072B1</color>
   <color name="in_car_selection_foreground">#FFFFFFFF</color>
   <color name="in_car_action_primary">#FF0067A8</color>
