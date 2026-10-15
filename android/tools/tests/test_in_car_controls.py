@@ -121,6 +121,34 @@ public class AccessibilityTest {
             subprocess.run([runtime, str(compiler), "-d", tmp, *sources], check=True, timeout=30)
             subprocess.run([runtime, "-cp", tmp, "AccessibilityTest"], check=True, timeout=10)
 
+    def test_incar_map_overlays_share_day_night_palette_and_warning_tint(self):
+        import xml.etree.ElementTree as ET
+        base = ROOT / "android/app/src/inCar/res"
+        def colours(path):
+            return {x.get("name"): (x.text or "").strip()
+                    for x in ET.parse(base / path).getroot() if x.tag == "color"}
+        day = colours("values/colors.xml")
+        night = colours("values-night/colors.xml")
+        for token in ("in_car_camera_rail_surface", "in_car_quick_foreground",
+                      "in_car_map_control_outline", "in_car_surface_overlay",
+                      "in_car_selection_accent"):
+            self.assertIn(token, day)
+            self.assertIn(token, night)
+            self.assertNotEqual(day[token], night[token])
+        self.assertEqual("@color/in_car_selection_accent", day["in_car_quick_foreground"])
+        self.assertEqual("@color/in_car_selection_accent", night["in_car_quick_foreground"])
+        camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
+        quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
+        for expected in ("@color/in_car_camera_rail_surface", "@color/in_car_map_control_outline"):
+            self.assertIn(expected, camera)
+            self.assertIn(expected, quick)
+        overlay = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("group.setBackgroundColor(warning ? ColorUtils.blendARGB(afterBackground, red, strength)", overlay)
+        self.assertIn("immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB(immediateBackground, red, strength)", overlay)
+        theme = controls.read("android/app/src/main/java/app/organicmaps/util/ThemeSwitcher.java")
+        self.assertIn("ThemeUtils.isDarkTheme(context)", theme)
+        self.assertIn("calculateMapStyle(isDarkMode)", theme)
+
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
         dump = ROOT / "data/drules_in_car.txt"
