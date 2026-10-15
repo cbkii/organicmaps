@@ -740,11 +740,22 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
       evidenceStepM = rawStepM;
   }
 
+  auto const currentState = m_freeDrivingRoadMatcher.GetState();
+  // A car moving slowly around an ordinary bend/roundabout must not drop a confirmed road
+  // lock merely because parking geometry also overlaps the raw GPS fix. A real parking
+  // departure needs a coherent low-speed course swivel when a strong public-road match
+  // still exists; road mismatch or mapped parking aisles remain valid exceptions.
+  bool const trustworthyParkingTurn =
+      previous != nullptr && motionEvidence.HasDirection() && motionEvidence.m_confidence >= 0.35 &&
+      rawStepM >= 3.0 && effectiveSpeedMps <= free_driving_snap::kParkingFreeMaxSpeedMps;
+  double const departureTurnDegrees = trustworthyParkingTurn
+      ? DirectionAngleDegrees(motionEvidence.m_direction, previous->m_edge.GetDirection()) : 0.0;
   bool const parkingReleaseEligible =
       free_driving_snap::ParkingReleaseEligible(policyInfo, m_freeDrivingAreaContext, roadMismatch || weakRoadMatch,
-                                                bestParkingRoad, stationaryHold, motionEstablished);
-
-  auto const currentState = m_freeDrivingRoadMatcher.GetState();
+                                                bestParkingRoad, stationaryHold, motionEstablished) &&
+      free_driving_snap::HasConfirmedParkingDepartureFromRoad(
+          currentState == free_driving_snap::MatchState::Road, bestStrong, bestParkingRoad,
+          trustworthyParkingTurn, departureTurnDegrees);
   bool allowFreeStateRoadReacquire = false;
   if (best != nullptr && bestAcceptable && bestStrong && bestUnambiguous && motionEstablished)
   {
@@ -954,7 +965,20 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
 
   double const distanceM = mercator::DistanceOnEarth(rawPoint, bestProjection.m_point);
   double const maxDisplayDistanceM = std::max(20.0, free_driving_snap::AcceptanceDistanceM(displayInput) * 1.6);
-  if (distanceM > maxDisplayDistanceM)
+  // The matcher can remain in Road while the raw fix briefly drifts from the local
+  // projection (for example a slow roundabout). Preserve its bounded road projection
+  // instead of flashing unsnapped, provided a recent accepted road and no free-area signal.
+  double const displayTime = ObservationTimestamp(displayInput);
+  bool const recentlyRoadAccepted =
+      m_freeDrivingLastAcceptedRoadTimestamp > 0.0 && displayTime >= m_freeDrivingLastAcceptedRoadTimestamp &&
+      displayTime - m_freeDrivingLastAcceptedRoadTimestamp <= free_driving_snap::kMaxAcceptedObservationGapSeconds;
+  bool const freeArea = m_freeDrivingAreaContext.HasParkingArea() ||
+                        m_freeDrivingAreaContext.m_insideStrongOpenArea ||
+                        m_freeDrivingAreaContext.m_insideWeakOpenArea;
+  if (distanceM > maxDisplayDistanceM &&
+      !free_driving_snap::RetainFreshRoadDisplay(
+          state, free_driving_snap::GetAccuracyBand(displayInput), recentlyRoadAccepted,
+          freeArea, distanceM, maxDisplayDistanceM))
     return false;
 
   ApplyProjection(bestProjection, displayOutput);
