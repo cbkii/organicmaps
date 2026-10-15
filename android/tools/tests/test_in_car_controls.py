@@ -14,6 +14,68 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_production_location_hold_keeps_metadata_and_rejects_older_fixes(self):
+        compiler = shutil.which("c++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable")
+        body = controls.method_body(controls.read("libs/drape_frontend/my_position_controller.cpp"),
+                                    "void MyPositionController::OnLocationUpdate(")
+        # Execute the production acceptance/hold prefix, before unrelated animation/rendering.
+        prefix = body[:body.index("  bool const isMovingFast")]
+        source = r'''
+#include <cstdint>
+#include <cassert>
+struct Point { double x=0,y=0; };
+struct Rect { double SizeX() const { return 20; } };
+namespace m2 { using PointD=Point; using RectD=Rect; }
+namespace mercator {
+Point FromLatLon(double x,double y) { return {x,y}; }
+double DistanceOnEarth(Point,Point) { return 1; }
+Rect MetersToXY(double,double,double) { return {}; }
+}
+namespace location { struct GpsInfo {
+ double m_monotonicTimestamp=20,m_timestamp=20,m_latitude=42,m_longitude=0;
+ double m_horizontalAccuracy=5,m_speed=1;
+ bool HasMonotonicTimestamp() const { return m_monotonicTimestamp>0; }
+ bool HasSpeed() const { return true; }
+}; }
+namespace driving_policy { bool ShouldHoldFreeDrivingCamera(bool,bool,bool,bool,double,double) { return true; } }
+constexpr double kUnknownAutoZoom=-1;
+struct Owner {
+ bool m_isInRouting=false,m_isDrivingView=true,m_isPositionAssigned=true;
+ bool m_hasLastHeldDrivingPosition=false;
+ int64_t m_lastRecenterObservationNanos=19000000000;
+ Point m_position{7,0},m_lastHeldDrivingPosition;
+ double m_errorRadius=0,m_horizontalAccuracy=100,m_autoScale2d=0,m_autoScale3d=0;
+ double CalculateZoomBySpeed(double,bool) { return 2; }
+ Point GetDrawablePosition() { return m_position; }
+ double GetDrawableAzimut() { return 0; }
+ void RefreshLocationFreshness(location::GpsInfo const & info) {
+   m_lastRecenterObservationNanos=static_cast<int64_t>(info.m_monotonicTimestamp*1e9);
+ }
+ void update(location::GpsInfo const & info) {
+''' + prefix + r'''
+ }
+};
+int main() {
+ Owner o; location::GpsInfo fix;
+ o.update(fix);
+ assert(o.m_position.x==7 && o.m_lastHeldDrivingPosition.x==42);
+ assert(o.m_horizontalAccuracy==5 && o.m_errorRadius==10 && o.m_autoScale2d==4);
+ fix.m_monotonicTimestamp=19; fix.m_latitude=99; fix.m_horizontalAccuracy=70;
+ o.update(fix);
+ assert(o.m_lastHeldDrivingPosition.x==42 && o.m_horizontalAccuracy==5);
+ assert(o.m_lastRecenterObservationNanos==20000000000);
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "held.cpp"
+            binary = Path(tmp) / "held"
+            src.write_text(source)
+            subprocess.run([compiler, "-D__ANDROID__", "-std=c++17", str(src), "-o", str(binary)],
+                           check=True, timeout=30)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
     def test_accessibility_interaction_cancels_without_swallowing_events(self):
         runtime = shutil.which("java")
         if not runtime:
@@ -473,8 +535,9 @@ struct Point { int value=0; };
 struct Rect { Point Center() const { return {}; } };
 namespace location { constexpr int FollowAndRotate=3; }
 constexpr int kDoNotChangeZoom=-1;
-int64_t PositionClockNanos() { return 200; }
-bool IsFreshPositionObservation(int64_t observation,int64_t) { return observation==200; }
+int64_t nowNanos=20000000000;
+int64_t PositionClockNanos() { return nowNanos; }
+""" + controls.read("libs/drape_frontend/current_position_freshness.hpp").replace("#pragma once", "") + r"""
 struct Listener {
  int events=0,last=-1;
  void PositionChanged(Point p,bool) { ++events; last=p.value; }
@@ -485,7 +548,7 @@ public:
  Point m_position={7},m_lastHeldDrivingPosition={42};
  bool m_isPositionAssigned=true,m_positionIsObsolete=false,m_recenterPending=false;
  bool m_hasLastHeldDrivingPosition=true;
- int64_t m_lastRecenterObservationNanos=200;
+ int64_t m_lastRecenterObservationNanos=20000000000;
  int m_mode=location::FollowAndRotate;
  double m_drawDirection=0;
  Rect m_visiblePixelRect;
@@ -512,9 +575,18 @@ int main() {
  stale.m_listener=&listener;
  stale.m_lastRecenterObservationNanos=100;
  if (stale.RecenterPreservingMode() || stale.m_position.value!=7 ||
-     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1) return 2;
+     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1 ||
+     listener.events!=1 || listener.last!=42) return 2;
  MyPositionController noListener;
  if (noListener.RecenterPreservingMode()) return 3;
+ MyPositionController future;
+ future.m_listener=&listener;
+ nowNanos=19999999999;
+ if (future.RecenterPreservingMode() || listener.events!=1) return 4;
+ nowNanos=30000000001;
+ if (future.RecenterPreservingMode() || listener.events!=1) return 5;
+ nowNanos=30000000000;
+ if (!future.RecenterPreservingMode() || listener.events!=2) return 6;
  return 0;
 }
 """
