@@ -35,10 +35,7 @@
         android:layout_height="@dimen/nav_button_height"
         android:background="?selectableItemBackgroundBorderless"
         android:contentDescription="@string/in_car_navigation_more"
-        android:paddingLeft="8dp"
-        android:paddingRight="8dp"
-        android:paddingTop="0dp"
-        android:paddingBottom="0dp"
+        android:padding="@dimen/margin_base"
         android:scaleType="centerInside"
         app:srcCompat="@drawable/ic_menu_settings"
         app:tint="?iconTint" />
@@ -59,7 +56,10 @@
         android:minHeight="@dimen/in_car_touch_target_min"
         android:fontFamily="@string/robotoMedium"
         android:minWidth="0dp"
-        android:padding="@dimen/margin_base"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
+        android:paddingTop="0dp"
+        android:paddingBottom="0dp"
         android:text="@string/in_car_end_navigation"
         android:textAppearance="@style/MwmTextAppearance.Button"
         android:textColor="@android:color/white" />
