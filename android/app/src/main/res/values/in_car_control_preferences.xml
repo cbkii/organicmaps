@@ -17,4 +17,5 @@
   <string-array name="in_car_navigation_action_delay_values">
     <item>2</item><item>3</item><item>5</item><item>10</item><item>15</item><item>20</item><item>30</item>
   </string-array>
+  <string name="in_car_navigation_add_stop">Search / Add stop</string>
 </resources>
