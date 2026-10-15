@@ -364,6 +364,16 @@ bool MyPositionController::RecenterPreservingMode()
     return false;
 
   m_recenterPending = false;
+  // Free-driving camera jitter suppression retains the newest accepted raw fix separately.
+  // Recentring on the old camera position after refreshing the observation timestamp could
+  // jump back to an unrelated viewport while Follow already sees the current location.
+  // Consume the fresh held fix only for an explicit recenter, never for background camera drift.
+  if (m_hasLastHeldDrivingPosition)
+  {
+    m_position = m_lastHeldDrivingPosition;
+    m_hasLastHeldDrivingPosition = false;
+    m_listener->PositionChanged(Position(), IsModeHasPosition());
+  }
   if (m_mode == location::FollowAndRotate)
     ChangeModelView(m_position, m_drawDirection,
                     IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
