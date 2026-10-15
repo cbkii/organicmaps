@@ -866,3 +866,85 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
         self.assertIn("getString(R.string.in_car_navigation_countdown_seconds, seconds)", place_page)
         self.assertIn("mContext.getString(R.string.in_car_navigation_start_countdown,", start)
 
+class InCarNativeCameraProductionProbeTests(unittest.TestCase):
+    """Compile the actual C++ production method against minimal seam fakes."""
+
+    def test_repeated_permission_messages_preserve_camera_animation(self):
+        compiler = shutil.which("c++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: native renderer probe NOT_RUN")
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        method = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
+        method = "void FrontendRenderer::ApplyPerspectivePermission(bool allowed)" + (
+            method.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0])
+        fixture = r"""
+#include <cassert>
+#include <memory>
+#include <utility>
+
+struct SetAutoPerspectiveEvent { explicit SetAutoPerspectiveEvent(bool) {} };
+template <typename T, typename... A>
+std::unique_ptr<T> make_unique_dp(A&&... a) {
+  return std::make_unique<T>(std::forward<A>(a)...);
+}
+struct PositionController {
+  bool routing = true;
+  int updates = 0;
+  bool IsInRouting() const { return routing; }
+  void EnablePerspectiveInRouting(bool) { ++updates; }
+};
+struct Screen { bool perspective = false; bool isPerspective() const { return perspective; } };
+struct UserEvents {
+  Screen screen;
+  int applied = 0;
+  Screen const & GetCurrentScreen() const { return screen; }
+  void ApplyCameraPresentation(bool perspective) { ++applied; screen.perspective = perspective; }
+};
+struct FrontendRenderer {
+  bool m_enablePerspectiveInNavigation = false;
+  bool m_manualCameraPresentation = false;
+  PositionController position;
+  PositionController * m_myPositionController = &position;
+  UserEvents m_userEventStream;
+  int queued = 0;
+  void AddUserEvent(std::unique_ptr<SetAutoPerspectiveEvent>) { ++queued; }
+  void ApplyPerspectivePermission(bool allowed);
+};
+""" + method + r"""
+int main() {
+  FrontendRenderer renderer;
+  renderer.ApplyPerspectivePermission(false);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 0);
+  assert(renderer.position.updates == 0);
+  renderer.m_userEventStream.screen.perspective = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 1);
+  assert(!renderer.m_userEventStream.screen.perspective);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 1);
+  renderer.m_manualCameraPresentation = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(!renderer.m_manualCameraPresentation);
+  assert(renderer.m_userEventStream.applied == 2);
+  renderer.m_enablePerspectiveInNavigation = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.position.updates == 1);
+  assert(renderer.m_userEventStream.applied == 3);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 3);
+  renderer.ApplyPerspectivePermission(true);
+  assert(renderer.position.updates == 2);
+  assert(renderer.queued == 1);
+  renderer.ApplyPerspectivePermission(true);
+  assert(renderer.queued == 1);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "probe.cpp"
+            executable = Path(tmp) / "probe"
+            source.write_text(fixture)
+            subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                            str(source), "-o", str(executable)], check=True, capture_output=True, text=True)
+            subprocess.run([str(executable)], check=True, capture_output=True, text=True)
+
