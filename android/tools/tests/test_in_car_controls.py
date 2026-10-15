@@ -467,7 +467,7 @@ public class AccessibilityTest {
         if java:
             methods = []
             for method in ("cameraBottomFor", "quickBottomFor", "quickPhysicalOffsetFor"):
-                match = re.search(r"  static int " + method + r"\\([^)]*\\)\\s*\\{", policy)
+                match = re.search(r"  static int " + method + r"\([^)]*\)\s*\{", policy)
                 self.assertIsNotNone(match, method)
                 opening = policy.index("{", match.start())
                 depth, end = 1, opening + 1
@@ -475,7 +475,7 @@ public class AccessibilityTest {
                     depth += (policy[end] == "{") - (policy[end] == "}")
                     end += 1
                 methods.append(policy[match.start():end])
-            harness = ("class DockGeometryTest {\\n" + "\\n".join(methods) +
+            harness = ("class DockGeometryTest {\n" + "\n".join(methods) +
                        """\npublic static void main(String[] ignored) {
   for (int size : new int[] {55, 69}) {
     int edge=8, gap=12, footerGap=8, width=1280;
@@ -493,7 +493,7 @@ public class AccessibilityTest {
             with tempfile.TemporaryDirectory() as tmp:
                 path = Path(tmp) / "DockGeometryTest.java"
                 path.write_text(harness)
-                subprocess.run([java, str(path)], check=True, timeout=30)
+                subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
         driving = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
         self.assertIn("final View zoomIn = scope.findViewById(R.id.nav_zoom_in)", driving)
         self.assertIn("final FloatingActionButton drivingView = scope.findViewById", driving)
