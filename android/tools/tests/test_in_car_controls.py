@@ -848,11 +848,19 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
         self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
         self.assertIn("if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective())", body)
         self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
+        self.assertIn("m_userEventStream.DiscardPendingAutoPerspective();", body)
+        queue = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        self.assertIn("void UserEventStream::DiscardPendingAutoPerspective()", queue)
+        self.assertIn("m_events.remove_if", queue)
 
     def test_place_page_redraw_cache_is_incar_only(self):
         source = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
         self.assertIn("if (BuildConfig.IS_IN_CAR && buttons.equals(mRenderedButtons)", source)
         self.assertIn("selectionGeneration == mRenderedSelectionGeneration", source)
+        self.assertIn("restoreAvailable == mRenderedRestoreAvailable", source)
+        self.assertIn("nativeHasRecentlyDeletedBookmark()", source)
+        factory = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtonFactory.java")
+        self.assertIn("nativeHasRecentlyDeletedBookmark() ? R.string.restore : R.string.save", factory)
 
     def test_countdown_text_is_resource_format_driven(self):
         from xml.etree import ElementTree
@@ -869,7 +877,7 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
 class InCarNativeCameraProductionProbeTests(unittest.TestCase):
     """Compile the actual C++ production method against minimal seam fakes."""
 
-    def test_repeated_permission_messages_preserve_camera_animation(self):
+    def test_repeated_permission_messages_avoid_resets_and_discard_stale_events(self):
         compiler = shutil.which("c++")
         if not compiler:
             self.skipTest("C++ compiler unavailable: native renderer probe NOT_RUN")
@@ -897,8 +905,13 @@ struct Screen { bool perspective = false; bool isPerspective() const { return pe
 struct UserEvents {
   Screen screen;
   int applied = 0;
+  int purged = 0;
   Screen const & GetCurrentScreen() const { return screen; }
-  void ApplyCameraPresentation(bool perspective) { ++applied; screen.perspective = perspective; }
+  void DiscardPendingAutoPerspective() { ++purged; }
+  void ApplyCameraPresentation(bool perspective) {
+    DiscardPendingAutoPerspective();
+    ++applied; screen.perspective = perspective;
+  }
 };
 struct FrontendRenderer {
   bool m_enablePerspectiveInNavigation = false;
@@ -916,13 +929,16 @@ int main() {
   renderer.ApplyPerspectivePermission(false);
   renderer.ApplyPerspectivePermission(false);
   assert(renderer.m_userEventStream.applied == 0);
+  assert(renderer.m_userEventStream.purged == 2);
   assert(renderer.position.updates == 0);
   renderer.m_userEventStream.screen.perspective = true;
   renderer.ApplyPerspectivePermission(false);
   assert(renderer.m_userEventStream.applied == 1);
+  assert(renderer.m_userEventStream.purged == 3);
   assert(!renderer.m_userEventStream.screen.perspective);
   renderer.ApplyPerspectivePermission(false);
   assert(renderer.m_userEventStream.applied == 1);
+  assert(renderer.m_userEventStream.purged == 4);
   renderer.m_manualCameraPresentation = true;
   renderer.ApplyPerspectivePermission(false);
   assert(!renderer.m_manualCameraPresentation);
