@@ -15,6 +15,7 @@ import android.webkit.WebView;
 import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import app.organicmaps.incar.InCarControlPositionPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import android.widget.ScrollView;
@@ -832,7 +833,12 @@ public final class InCarVisuals
     {
       final View view = scope.findViewById(id);
       if (view != null)
+      {
         InCarControlPositionPolicy.apply(view, left);
+        // Physical LHD mirror reverses the two footer cells, not only the group's anchor.
+        if (id == R.id.in_car_browsing_controls && view instanceof LinearLayout footer)
+          footer.setLayoutDirection(left ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL);
+      }
     }
   }
 

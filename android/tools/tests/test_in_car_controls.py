@@ -442,8 +442,8 @@ public class AccessibilityTest {
             menu = next(x for x in dock if x.get("layout") == "@layout/map_buttons_menu")
             self.assertEqual("wrap_content", search.get(ns+"layout_width"))
             self.assertEqual("wrap_content", menu.get(ns+"layout_width"))
-            self.assertEqual("@dimen/in_car_map_dock_column_gap", search.get(ns+"layout_marginRight"))
-            self.assertIsNone(menu.get(ns+"layout_marginRight"))
+            self.assertEqual("@dimen/in_car_map_dock_column_gap", search.get(ns+"layout_marginEnd"))
+            self.assertIsNone(menu.get(ns+"layout_marginEnd"))
         camera = ET.parse(base / "inCar/res/layout/map_buttons_zoom.xml").getroot()
         rail = next(x for x in camera if x.get(ns+"id") == "@+id/zoom_buttons_container")
         for child in rail:
@@ -459,12 +459,20 @@ public class AccessibilityTest {
         self.assertIn("positionCameraFrame", controller)
         self.assertNotIn("cameraColumn = horizontalCamera", quick)
         self.assertNotIn("mBottomButtonsHeight + mSystemBottomInset", quick)
-        # Same size/gap/edge gives identical centre X and rail/footer bottom Y.
+        visuals = controls.read("android/app/src/main/java/app/organicmaps/util/InCarVisuals.java")
+        self.assertIn("footer.setLayoutDirection(left ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL)", visuals)
+        # Explicit physical co-ordinates for both LHD/RHD, all supported cell tiers.
         for size in (55, 69):
-            edge, gap, footer_gap = 8, 12, 8
-            self.assertEqual(edge + size + gap, edge + size + gap)
-            self.assertEqual(size + footer_gap + edge, size + edge + footer_gap)
-            self.assertGreaterEqual(gap, 8)
+            edge, gap, footer_gap, width = 8, 12, 8, 1280
+            for controls_left in (False, True):
+                camera_x = edge if controls_left else width - edge - size
+                quick_x = camera_x + size + gap if controls_left else camera_x - size - gap
+                order = ("search", "menu") if controls_left else ("menu", "search")
+                positions = dict(zip(order, sorted((camera_x, quick_x))))
+                self.assertEqual(camera_x, positions["search"])
+                self.assertEqual(quick_x, positions["menu"])
+                self.assertGreaterEqual(abs(quick_x-camera_x), size+gap)
+                self.assertEqual(size+footer_gap+edge, size+edge+footer_gap)
 
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
