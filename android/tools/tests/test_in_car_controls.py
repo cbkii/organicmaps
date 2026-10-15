@@ -15,7 +15,7 @@ spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
     def test_production_road_matcher_and_parking_departure_boundaries(self):
-        compiler = shutil.which("c++")
+        compiler = shutil.which("c++") or shutil.which("g++")
         if not compiler:
             self.skipTest("C++ compiler unavailable")
         def without_local_includes(path):
@@ -207,7 +207,7 @@ class RibbonTest {
             subprocess.run([runtime, "-cp", tmp, "RibbonTest"], check=True, timeout=10)
 
     def test_production_location_hold_keeps_metadata_and_rejects_older_fixes(self):
-        compiler = shutil.which("c++")
+        compiler = shutil.which("c++") or shutil.which("g++")
         if not compiler:
             self.skipTest("C++ compiler unavailable")
         body = controls.method_body(controls.read("libs/drape_frontend/my_position_controller.cpp"),
@@ -252,11 +252,11 @@ struct Owner {
 int main() {
  Owner o; location::GpsInfo fix;
  o.update(fix);
- assert(o.m_position.x==7 && o.m_lastHeldDrivingPosition.x==42);
+ assert(o.m_position.x==7 && o.m_lastHeldDrivingPosition.x==42 && o.m_hasLastHeldDrivingPosition);
  assert(o.m_horizontalAccuracy==5 && o.m_errorRadius==10 && o.m_autoScale2d==4);
  fix.m_monotonicTimestamp=19; fix.m_latitude=99; fix.m_horizontalAccuracy=70;
  o.update(fix);
- assert(o.m_lastHeldDrivingPosition.x==42 && o.m_horizontalAccuracy==5);
+ assert(o.m_lastHeldDrivingPosition.x==42 && o.m_horizontalAccuracy==5 && o.m_hasLastHeldDrivingPosition);
  assert(o.m_lastRecenterObservationNanos==20000000000);
 }
 '''
@@ -1248,7 +1248,7 @@ class InCarNativeCameraProductionProbeTests(unittest.TestCase):
     """Compile the actual C++ production method against minimal seam fakes."""
 
     def test_repeated_permission_messages_avoid_resets_and_discard_stale_events(self):
-        compiler = shutil.which("c++")
+        compiler = shutil.which("c++") or shutil.which("g++")
         if not compiler:
             self.skipTest("C++ compiler unavailable: native renderer probe NOT_RUN")
         renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
