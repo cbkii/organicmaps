@@ -167,11 +167,14 @@ public class NavMenu implements DefaultLifecycleObserver
       map.cancelInCarNavigationCountdown();
     InCarActionMenu.show(
         anchor,
-        Arrays.asList(mActivity.getString(R.string.in_car_navigation_voice), mActivity.getString(R.string.settings)),
+        Arrays.asList(mActivity.getString(R.string.in_car_navigation_voice),
+                      mActivity.getString(R.string.in_car_navigation_add_stop), mActivity.getString(R.string.settings)),
         position -> {
           if (position == 0)
             onTtsClicked();
-          else if (position == 1)
+          else if (position == 1 && mActivity instanceof app.organicmaps.MwmActivity map)
+            map.addInCarNavigationStop();
+          else if (position == 2)
             onSettingsClicked();
         });
   }
