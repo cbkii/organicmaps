@@ -27,6 +27,7 @@ import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarMapDockPolicy;
+import app.organicmaps.incar.InCarQuickDestinationsUi;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.Framework;
@@ -63,6 +64,8 @@ public class MapButtonsController extends Fragment
   private View mBottomButtonsFrame;
   @Nullable
   private View mZoomMovementFrame;
+  private int mLastCameraRailWidth = -1;
+  private int mLastCameraRailHeight = -1;
   @Nullable
   private LayersButton mToggleMapLayerButton;
   @Nullable
@@ -260,7 +263,8 @@ public class MapButtonsController extends Fragment
     // Very shallow task windows use one horizontal four-cell rail; no camera/zoom action is dropped.
     final boolean horizontal = available < cell.getHeight() * 4 + 3;
     final int orientation = horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL;
-    if (rail.getOrientation() != orientation)
+    final boolean orientationChanged = rail.getOrientation() != orientation;
+    if (orientationChanged)
       rail.setOrientation(orientation);
     final ViewGroup.LayoutParams frameParams = rail.getLayoutParams();
     final int targetWidth = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : cell.getWidth();
@@ -289,6 +293,18 @@ public class MapButtonsController extends Fragment
         params.setMarginEnd(inset);
         child.setLayoutParams(params);
       }
+    }
+    // Camera may turn horizontal after Quick measured its vertical column.
+    // Notify once per real geometry change; the sibling never re-owns camera layout.
+    if (orientationChanged || mLastCameraRailWidth != rail.getWidth()
+        || mLastCameraRailHeight != rail.getHeight())
+    {
+      mLastCameraRailWidth = rail.getWidth();
+      mLastCameraRailHeight = rail.getHeight();
+      rail.postOnAnimation(() -> {
+        if (getActivity() instanceof MwmActivity activity && getView() == mFrame)
+          InCarQuickDestinationsUi.refreshDockGeometry(activity);
+      });
     }
   }
 

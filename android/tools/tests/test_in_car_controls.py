@@ -457,6 +457,8 @@ public class AccessibilityTest {
         self.assertIn("quickBottomMarginPx", policy)
         self.assertIn("quickPhysicalOffsetPx", quick)
         self.assertIn("positionCameraFrame", controller)
+        self.assertIn("InCarQuickDestinationsUi.refreshDockGeometry(activity)", controller)
+        self.assertIn("public static void refreshDockGeometry(", quick)
         self.assertNotIn("cameraColumn = horizontalCamera", quick)
         self.assertNotIn("mBottomButtonsHeight + mSystemBottomInset", quick)
         visuals = controls.read("android/app/src/main/java/app/organicmaps/util/InCarVisuals.java")

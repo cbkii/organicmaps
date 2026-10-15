@@ -61,8 +61,9 @@ def verify_my_position() -> None:
             f"{layout}: My Position must use a transparent rail cell, not a Material FAB")
     require(button.attrib.get(f"{{{ANDROID_NS}}}background") == "@drawable/in_car_map_rail_cell_feedback",
             f"{layout}: My Position must use bounded ripple without a persistent circle")
-    require(button.attrib.get(f"{{{ANDROID_NS}}}layout_width") == "@dimen/in_car_map_primary_button_size",
-            f"{layout}: My Position must retain the automotive hit target")
+    for dimension in ("layout_width", "layout_height"):
+        require(button.attrib.get(f"{{{ANDROID_NS}}}{dimension}") == "@dimen/in_car_map_primary_button_size",
+                f"{layout}: My Position must retain the automotive hit target in {dimension}")
     # The checked-in drawable is parsed in the rail XML tests; inspect its literal
     # critical styling contract here without an additional XML parser/dependency.
     feedback = read("android/app/src/inCar/res/drawable/in_car_map_rail_cell_feedback.xml")

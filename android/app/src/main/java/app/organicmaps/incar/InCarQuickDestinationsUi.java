@@ -85,6 +85,14 @@ public final class InCarQuickDestinationsUi
     controller.attach();
   }
 
+  /** Reconcile the sibling rail after a camera orientation/size transition. */
+  public static void refreshDockGeometry(@NonNull MwmActivity activity)
+  {
+    final View root = activity.findViewById(R.id.in_car_quick_destinations);
+    if (root != null && root.getTag() instanceof Controller controller)
+      controller.updateBottomMargin();
+  }
+
   private static final class Controller
       implements DefaultLifecycleObserver, SharedPreferences.OnSharedPreferenceChangeListener
   {
