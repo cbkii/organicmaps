@@ -1049,9 +1049,15 @@ public final class InCarVisuals
     image.setMinimumWidth(size);
     image.setMinimumHeight(size);
     final int pad = Math.max(0, (size - iconSize) / 2);
-    if (image.getPaddingLeft() != pad || image.getPaddingTop() != pad
-        || image.getPaddingRight() != pad || image.getPaddingBottom() != pad)
-      image.setPadding(pad, pad, pad, pad);
+    // MyPositionButton owns the asymmetric 1dp Follow arrow shift; a window
+    // resize may adjust the base padding, but must not erase that mode cue.
+    final int shiftTop = image.getId() == R.id.my_position
+                         ? Math.max(0, image.getPaddingTop() - image.getPaddingLeft()) : 0;
+    final int shiftRight = image.getId() == R.id.my_position
+                           ? Math.max(0, image.getPaddingRight() - image.getPaddingLeft()) : 0;
+    if (image.getPaddingLeft() != pad || image.getPaddingTop() != pad + shiftTop
+        || image.getPaddingRight() != pad + shiftRight || image.getPaddingBottom() != pad)
+      image.setPadding(pad, pad + shiftTop, pad + shiftRight, pad);
   }
 
   private static void resizeFab(@Nullable View view, int buttonSize, int iconSize, int minTouchTarget)

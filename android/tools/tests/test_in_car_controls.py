@@ -461,18 +461,49 @@ public class AccessibilityTest {
         self.assertNotIn("mBottomButtonsHeight + mSystemBottomInset", quick)
         visuals = controls.read("android/app/src/main/java/app/organicmaps/util/InCarVisuals.java")
         self.assertIn("footer.setLayoutDirection(left ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL)", visuals)
-        # Explicit physical co-ordinates for both LHD/RHD, all supported cell tiers.
-        for size in (55, 69):
-            edge, gap, footer_gap, width = 8, 12, 8, 1280
-            for controls_left in (False, True):
-                camera_x = edge if controls_left else width - edge - size
-                quick_x = camera_x + size + gap if controls_left else camera_x - size - gap
-                order = ("search", "menu") if controls_left else ("menu", "search")
-                positions = dict(zip(order, sorted((camera_x, quick_x))))
-                self.assertEqual(camera_x, positions["search"])
-                self.assertEqual(quick_x, positions["menu"])
-                self.assertGreaterEqual(abs(quick_x-camera_x), size+gap)
-                self.assertEqual(size+footer_gap+edge, size+edge+footer_gap)
+        # Compile and run the actual production pure geometry methods rather
+        # than merely comparing numbers manufactured by this Python test.
+        java = shutil.which("java")
+        if java:
+            methods = []
+            for method in ("cameraBottomFor", "quickBottomFor", "quickPhysicalOffsetFor"):
+                match = re.search(r"  static int " + method + r"\\([^)]*\\)\\s*\\{", policy)
+                self.assertIsNotNone(match, method)
+                opening = policy.index("{", match.start())
+                depth, end = 1, opening + 1
+                while depth:
+                    depth += (policy[end] == "{") - (policy[end] == "}")
+                    end += 1
+                methods.append(policy[match.start():end])
+            harness = ("class DockGeometryTest {\\n" + "\\n".join(methods) +
+                       """\npublic static void main(String[] ignored) {
+  for (int size : new int[] {55, 69}) {
+    int edge=8, gap=12, footerGap=8, width=1280;
+    assert quickPhysicalOffsetFor(edge,size,gap,false)==edge+size+gap;
+    assert quickPhysicalOffsetFor(edge,size,gap,true)==edge;
+    assert cameraBottomFor(size,footerGap)==size+footerGap;
+    assert quickBottomFor(size,footerGap,edge,0)==size+footerGap+edge;
+    assert quickBottomFor(size,footerGap,edge,size)==size+2*footerGap+edge+size;
+    int rightCamera=width-edge-size;
+    int leftQuick=rightCamera-size-gap;
+    assert leftQuick>=0 && leftQuick+size+gap==rightCamera;
+  }
+}
+}""")
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "DockGeometryTest.java"
+                path.write_text(harness)
+                subprocess.run([java, str(path)], check=True, timeout=30)
+        driving = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("final View zoomIn = scope.findViewById(R.id.nav_zoom_in)", driving)
+        self.assertIn("final FloatingActionButton drivingView = scope.findViewById", driving)
+        ids = {child.get(ns+"id") for child in rail if child.get(ns+"id")}
+        self.assertEqual({"@+id/nav_zoom_in", "@+id/nav_zoom_out",
+                          "@+id/in_car_camera_view_recenter"}, ids)
+        follow = ET.parse(base / "inCar/res/layout/map_buttons_myposition.xml").getroot()
+        self.assertEqual("androidx.appcompat.widget.AppCompatImageButton", follow.tag)
+        self.assertEqual("@drawable/in_car_map_rail_cell_feedback", follow.get(ns+"background"))
+        self.assertEqual("fitCenter", follow.get(ns+"scaleType"))
 
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette

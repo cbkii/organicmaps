@@ -312,10 +312,11 @@ def verify_camera_control_rail(root):
             zoom_layout, view_id, ANDROID_NS, "background",
             "@drawable/in_car_map_rail_cell_feedback",
         )
-        require_layout_attr(
-            zoom_layout, view_id, ANDROID_NS, "layout_width",
-            "@dimen/in_car_map_primary_button_size",
-        )
+        for dimen in ("layout_width", "layout_height"):
+            require_layout_attr(
+                zoom_layout, view_id, ANDROID_NS, dimen,
+                "@dimen/in_car_map_primary_button_size",
+            )
     for node in zoom_container:
         if resource_id(node, id_attr) in ("nav_zoom_in", "nav_zoom_out", "in_car_camera_view_recenter"):
             if node.tag != "androidx.appcompat.widget.AppCompatImageButton":

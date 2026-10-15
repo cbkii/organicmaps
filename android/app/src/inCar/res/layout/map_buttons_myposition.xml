@@ -4,6 +4,6 @@
   android:layout_width="@dimen/in_car_map_primary_button_size"
   android:layout_height="@dimen/in_car_map_primary_button_size"
   android:background="@drawable/in_car_map_rail_cell_feedback"
-  android:clickable="true" android:focusable="true" android:scaleType="centerInside"
+  android:clickable="true" android:focusable="true" android:scaleType="fitCenter"
   android:padding="@dimen/in_car_map_rail_icon_padding"
   android:contentDescription="@string/in_car_follow_stopped" />

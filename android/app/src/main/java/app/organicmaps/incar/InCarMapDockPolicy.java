@@ -32,22 +32,39 @@ public final class InCarMapDockPolicy
     return res.getDimensionPixelSize(R.dimen.in_car_map_dock_footer_gap);
   }
 
+  // Pure geometry: compiled directly in host regression tests without Android framework mocks.
+  static int cameraBottomFor(int footerPx, int gapPx)
+  {
+    return footerPx + gapPx;
+  }
+
+  static int quickBottomFor(int footerPx, int gapPx, int edgePx, int horizontalCameraHeightPx)
+  {
+    return cameraBottomFor(footerPx, gapPx) + edgePx
+           + (horizontalCameraHeightPx > 0 ? horizontalCameraHeightPx + gapPx : 0);
+  }
+
+  static int quickPhysicalOffsetFor(int edgePx, int cellPx, int gapPx, boolean horizontalCamera)
+  {
+    return edgePx + (horizontalCamera ? 0 : cellPx + gapPx);
+  }
+
   public static int cameraBottomMarginPx(@NonNull Resources res, boolean navigation, int cellPx)
   {
     final int footer = navigation ? res.getDimensionPixelSize(R.dimen.nav_menu_height) : cellPx;
-    return footer + footerGapPx(res);
+    return cameraBottomFor(footer, footerGapPx(res));
   }
 
   public static int quickBottomMarginPx(@NonNull Resources res, boolean navigation,
                                         int cellPx, int horizontalCameraHeightPx)
   {
-    return cameraBottomMarginPx(res, navigation, cellPx) + edgePx(res)
-           + (horizontalCameraHeightPx > 0 ? horizontalCameraHeightPx + footerGapPx(res) : 0);
+    final int footer = navigation ? res.getDimensionPixelSize(R.dimen.nav_menu_height) : cellPx;
+    return quickBottomFor(footer, footerGapPx(res), edgePx(res), horizontalCameraHeightPx);
   }
 
   public static int quickPhysicalOffsetPx(@NonNull Resources res, int cellPx, boolean horizontalCamera)
   {
-    return edgePx(res) + (horizontalCamera ? 0 : cellPx + columnGapPx(res));
+    return quickPhysicalOffsetFor(edgePx(res), cellPx, columnGapPx(res), horizontalCamera);
   }
 
   public static void positionCameraFrame(@Nullable View frame, @NonNull Resources res,
