@@ -419,7 +419,8 @@ final class RoutingBottomMenuController
             () -> route.getBuildGeneration() == generation
                 && mStartGate.canDispatch(route.isPlanning(), route.isBuilt()) && !isManageRouteEditing(),
             seconds -> mStart.setText(seconds < 0 ? mContext.getString(R.string.p2p_start)
-                                                  : mContext.getString(R.string.p2p_start) + " · " + seconds));
+                                                  : mContext.getString(R.string.in_car_navigation_start_countdown,
+                                                      mContext.getString(R.string.p2p_start), seconds)));
         });
       }
     }

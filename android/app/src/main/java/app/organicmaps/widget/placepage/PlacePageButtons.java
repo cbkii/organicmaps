@@ -139,8 +139,9 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     if (buttons == null)
       return;
     final long selectionGeneration = mViewModel.getSelectionGeneration();
-    if (buttons.equals(mRenderedButtons) && selectionGeneration == mRenderedSelectionGeneration
-        && mButtonsContainer.getChildCount() > 0)
+    // Only InCar owns this redraw cache. Preserve upstream-style rebuilds in other flavours.
+    if (BuildConfig.IS_IN_CAR && buttons.equals(mRenderedButtons)
+        && selectionGeneration == mRenderedSelectionGeneration && mButtonsContainer.getChildCount() > 0)
       return;
     mRenderedButtons = new ArrayList<>(buttons);
     mRenderedSelectionGeneration = selectionGeneration;
@@ -221,9 +222,10 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     return parent;
   }
 
-  private static CharSequence countdownLabel(String label, int seconds)
+  private CharSequence countdownLabel(String label, int seconds)
   {
-    android.text.SpannableString text = new android.text.SpannableString(label + "\n" + seconds + "s");
+    final String countdown = getString(R.string.in_car_navigation_countdown_seconds, seconds);
+    android.text.SpannableString text = new android.text.SpannableString(label + "\n" + countdown);
     text.setSpan(new android.text.style.RelativeSizeSpan(0.65f), label.length() + 1, text.length(),
                  android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     return text;

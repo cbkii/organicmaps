@@ -837,3 +837,32 @@ public class RecordingTest {
         with patch.object(controls, "read", altered):
             with self.assertRaisesRegex(SystemExit, "still reach the Activity"):
                 controls.verify_track_recording()
+
+class PostMergeAuditRegressionTests(unittest.TestCase):
+    """Source contracts complement, but do not replace, Android/TS18 runtime tests."""
+
+    def test_repeated_flat_perspective_sync_avoids_restarting_renderer(self):
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        body = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
+        body = body.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0]
+        self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
+        self.assertIn("if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective())", body)
+        self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
+
+    def test_place_page_redraw_cache_is_incar_only(self):
+        source = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
+        self.assertIn("if (BuildConfig.IS_IN_CAR && buttons.equals(mRenderedButtons)", source)
+        self.assertIn("selectionGeneration == mRenderedSelectionGeneration", source)
+
+    def test_countdown_text_is_resource_format_driven(self):
+        from xml.etree import ElementTree
+        resources = ElementTree.fromstring(
+            controls.read("android/app/src/main/res/values/in_car_control_preferences.xml"))
+        strings = {item.attrib["name"]: item.text for item in resources.findall("string")}
+        self.assertEqual("%1$ds", strings["in_car_navigation_countdown_seconds"])
+        self.assertEqual("%1$s · %2$d", strings["in_car_navigation_start_countdown"])
+        place_page = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
+        start = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java")
+        self.assertIn("getString(R.string.in_car_navigation_countdown_seconds, seconds)", place_page)
+        self.assertIn("mContext.getString(R.string.in_car_navigation_start_countdown,", start)
+
