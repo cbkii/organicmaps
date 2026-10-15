@@ -219,7 +219,7 @@ public final class InCarVisuals
     {
       case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_touch_target_extra_compact);
       case COMPACT -> dimen(activity, R.dimen.in_car_touch_target_min);
-      case PREFERRED -> dimen(activity, R.dimen.in_car_touch_target_preferred);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_map_rail_cell_size);
     };
   }
 
@@ -849,12 +849,17 @@ public final class InCarVisuals
         activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
         R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
-    for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.in_car_camera_view_recenter, R.id.layers_button,
+    for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.layers_button,
                              R.id.menu_button, R.id.help_button, R.id.track_recording_status})
       resizeFab(root.findViewById(id), buttonSize, iconSize, minTouchTarget);
 
-    resizeFab(root.findViewById(R.id.nav_zoom_in), buttonSize, zoomIconSize, minTouchTarget);
-    resizeFab(root.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
+    // The two overlay rails are 69dp; other map controls remain at their original size.
+    final int railSize = Math.min(buttonSize, dimen(activity, R.dimen.in_car_map_rail_cell_size));
+    for (int id : new int[] {R.id.my_position, R.id.in_car_camera_view_recenter})
+      resizeFab(root.findViewById(id), railSize, iconSize, railSize);
+    resizeFab(root.findViewById(R.id.nav_zoom_in), railSize, zoomIconSize, railSize);
+    resizeFab(root.findViewById(R.id.nav_zoom_out), railSize, zoomIconSize, railSize);
+
 
   }
 
