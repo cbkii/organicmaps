@@ -408,6 +408,7 @@ struct SetAutoPerspectiveEvent { bool p; explicit SetAutoPerspectiveEvent(bool v
 template<typename T, typename... Args> auto make_unique_dp(Args&&... args) { return std::make_unique<T>(std::forward<Args>(args)...); }
 struct Screen { bool tilted=false; bool isPerspective() const { return tilted; } };
 struct Stream { Screen screen; const Screen & GetCurrentScreen() const { return screen; }
+ void DiscardPendingAutoPerspective() {}
  void ApplyCameraPresentation(bool p) { screen.tilted=p; } };
 struct Position { bool routing=false, fresh=true; int calls=0, mode=3;
  bool IsInRouting() const { return routing; }
@@ -455,15 +456,18 @@ int main() {
             source = Path(tmp) / "camera.cpp"
             binary = Path(tmp) / "camera"
             source.write_text(harness)
-            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
     def test_camera_presentation_invalidates_scene_without_fresh_location(self):
         compiler = shutil.which("g++")
         if compiler is None:
             self.skipTest("C++ compiler unavailable: camera scene invalidation NOT_RUN")
-        body = controls.method_body(controls.read("libs/drape_frontend/user_event_stream.cpp"),
-                                    "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        stream_source = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        body = controls.method_body(stream_source, "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        discard = controls.method_body(stream_source, "void UserEventStream::DiscardPendingAutoPerspective()")
         harness = r"""#include <cassert>
 #include <memory>
 #include <list>
@@ -494,6 +498,7 @@ struct Stream { Navigator m_navigator; int events=0; bool redraw=false;
   ++events; m_events.push_back(std::move(event));
  }
  void queueStaleAuto() { m_events.push_back(std::make_unique<SetAutoPerspectiveEvent>()); }
+ void DiscardPendingAutoPerspective() {""" + discard + r"""}
  void apply(bool perspective) {""" + body + r"""}
  void process() { redraw=events!=0; events=0; m_events.clear(); }
 };
@@ -512,7 +517,9 @@ int main() {
             source = Path(tmp) / "camera_scene.cpp"
             binary = Path(tmp) / "camera_scene"
             source.write_text(harness)
-            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
     def test_missing_or_reordered_detach_is_rejected(self):
@@ -837,3 +844,130 @@ public class RecordingTest {
         with patch.object(controls, "read", altered):
             with self.assertRaisesRegex(SystemExit, "still reach the Activity"):
                 controls.verify_track_recording()
+
+class PostMergeAuditRegressionTests(unittest.TestCase):
+    """Source contracts complement, but do not replace, Android/TS18 runtime tests."""
+
+    def test_repeated_flat_perspective_sync_avoids_restarting_renderer(self):
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        body = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
+        body = body.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0]
+        self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
+        self.assertIn("if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective())", body)
+        self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
+        self.assertIn("m_userEventStream.DiscardPendingAutoPerspective();", body)
+        queue = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        self.assertIn("void UserEventStream::DiscardPendingAutoPerspective()", queue)
+        self.assertIn("m_events.remove_if", queue)
+
+    def test_place_page_redraw_cache_is_incar_only(self):
+        source = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
+        self.assertIn("if (BuildConfig.IS_IN_CAR && buttons.equals(mRenderedButtons)", source)
+        self.assertIn("selectionGeneration == mRenderedSelectionGeneration", source)
+        self.assertIn("restoreAvailable == mRenderedRestoreAvailable", source)
+        self.assertIn("nativeHasRecentlyDeletedBookmark()", source)
+        factory = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtonFactory.java")
+        self.assertIn("nativeHasRecentlyDeletedBookmark() ? R.string.restore : R.string.save", factory)
+
+    def test_countdown_text_is_resource_format_driven(self):
+        from xml.etree import ElementTree
+        resources = ElementTree.fromstring(
+            controls.read("android/app/src/main/res/values/in_car_control_preferences.xml"))
+        strings = {item.attrib["name"]: item.text for item in resources.findall("string")}
+        self.assertEqual("%1$ds", strings["in_car_navigation_countdown_seconds"])
+        self.assertEqual("%1$s · %2$d", strings["in_car_navigation_start_countdown"])
+        place_page = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
+        start = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java")
+        self.assertIn("getString(R.string.in_car_navigation_countdown_seconds, seconds)", place_page)
+        self.assertIn("mContext.getString(R.string.in_car_navigation_start_countdown,", start)
+
+class InCarNativeCameraProductionProbeTests(unittest.TestCase):
+    """Compile the actual C++ production method against minimal seam fakes."""
+
+    def test_repeated_permission_messages_avoid_resets_and_discard_stale_events(self):
+        compiler = shutil.which("c++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: native renderer probe NOT_RUN")
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        method = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
+        method = "void FrontendRenderer::ApplyPerspectivePermission(bool allowed)" + (
+            method.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0])
+        fixture = r"""
+#include <cassert>
+#include <memory>
+#include <utility>
+
+struct SetAutoPerspectiveEvent { explicit SetAutoPerspectiveEvent(bool) {} };
+template <typename T, typename... A>
+std::unique_ptr<T> make_unique_dp(A&&... a) {
+  return std::make_unique<T>(std::forward<A>(a)...);
+}
+struct PositionController {
+  bool routing = true;
+  int updates = 0;
+  bool IsInRouting() const { return routing; }
+  void EnablePerspectiveInRouting(bool) { ++updates; }
+};
+struct Screen { bool perspective = false; bool isPerspective() const { return perspective; } };
+struct UserEvents {
+  Screen screen;
+  int applied = 0;
+  int purged = 0;
+  Screen const & GetCurrentScreen() const { return screen; }
+  void DiscardPendingAutoPerspective() { ++purged; }
+  void ApplyCameraPresentation(bool perspective) {
+    DiscardPendingAutoPerspective();
+    ++applied; screen.perspective = perspective;
+  }
+};
+struct FrontendRenderer {
+  bool m_enablePerspectiveInNavigation = false;
+  bool m_manualCameraPresentation = false;
+  PositionController position;
+  PositionController * m_myPositionController = &position;
+  UserEvents m_userEventStream;
+  int queued = 0;
+  void AddUserEvent(std::unique_ptr<SetAutoPerspectiveEvent>) { ++queued; }
+  void ApplyPerspectivePermission(bool allowed);
+};
+""" + method + r"""
+int main() {
+  FrontendRenderer renderer;
+  renderer.ApplyPerspectivePermission(false);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 0);
+  assert(renderer.m_userEventStream.purged == 2);
+  assert(renderer.position.updates == 0);
+  renderer.m_userEventStream.screen.perspective = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 1);
+  assert(renderer.m_userEventStream.purged == 3);
+  assert(!renderer.m_userEventStream.screen.perspective);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 1);
+  assert(renderer.m_userEventStream.purged == 4);
+  renderer.m_manualCameraPresentation = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(!renderer.m_manualCameraPresentation);
+  assert(renderer.m_userEventStream.applied == 2);
+  renderer.m_enablePerspectiveInNavigation = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.position.updates == 1);
+  assert(renderer.m_userEventStream.applied == 3);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 3);
+  renderer.ApplyPerspectivePermission(true);
+  assert(renderer.position.updates == 2);
+  assert(renderer.queued == 1);
+  renderer.ApplyPerspectivePermission(true);
+  assert(renderer.queued == 1);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "probe.cpp"
+            executable = Path(tmp) / "probe"
+            source.write_text(fixture)
+            subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                            str(source), "-o", str(executable)], check=True, capture_output=True, text=True)
+            subprocess.run([str(executable)], check=True, capture_output=True, text=True)
+

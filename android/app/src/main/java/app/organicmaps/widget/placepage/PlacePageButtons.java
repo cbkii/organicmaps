@@ -33,6 +33,7 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
   private View.OnLayoutChangeListener mWidthListener;
   private List<ButtonType> mRenderedButtons;
   private long mRenderedSelectionGeneration = -1;
+  private boolean mRenderedRestoreAvailable;
 
   private PlacePageButtonClickListener mItemListener;
   private ViewGroup mButtonsContainer;
@@ -139,11 +140,18 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     if (buttons == null)
       return;
     final long selectionGeneration = mViewModel.getSelectionGeneration();
-    if (buttons.equals(mRenderedButtons) && selectionGeneration == mRenderedSelectionGeneration
-        && mButtonsContainer.getChildCount() > 0)
+    // BOOKMARK_SAVE can display Save or Restore without its button type/selection changing.
+    final boolean restoreAvailable =
+        BuildConfig.IS_IN_CAR && buttons.contains(ButtonType.BOOKMARK_SAVE)
+        && app.organicmaps.sdk.widget.placepage.PlacePageButtonFactory.nativeHasRecentlyDeletedBookmark();
+    // Only InCar owns this redraw cache. Preserve upstream-style rebuilds in other flavours.
+    if (BuildConfig.IS_IN_CAR && buttons.equals(mRenderedButtons)
+        && selectionGeneration == mRenderedSelectionGeneration
+        && restoreAvailable == mRenderedRestoreAvailable && mButtonsContainer.getChildCount() > 0)
       return;
     mRenderedButtons = new ArrayList<>(buttons);
     mRenderedSelectionGeneration = selectionGeneration;
+    mRenderedRestoreAvailable = restoreAvailable;
     List<PlacePageButton> shownButtons = collectButtons(buttons);
     mButtonsContainer.removeAllViews();
     for (PlacePageButton button : shownButtons)
@@ -221,9 +229,10 @@ public final class PlacePageButtons extends Fragment implements Observer<List<Pl
     return parent;
   }
 
-  private static CharSequence countdownLabel(String label, int seconds)
+  private CharSequence countdownLabel(String label, int seconds)
   {
-    android.text.SpannableString text = new android.text.SpannableString(label + "\n" + seconds + "s");
+    final String countdown = getString(R.string.in_car_navigation_countdown_seconds, seconds);
+    android.text.SpannableString text = new android.text.SpannableString(label + "\n" + countdown);
     text.setSpan(new android.text.style.RelativeSizeSpan(0.65f), label.length() + 1, text.length(),
                  android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     return text;

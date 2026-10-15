@@ -127,7 +127,9 @@ def verify_my_position() -> None:
     toggle = method_body(renderer, "bool FrontendRenderer::ToggleCameraViewAndRecenter()")
     for token in ("GetCurrentScreen().isPerspective()", "ApplyCameraPresentation", "RecenterPreservingMode()"):
         require(token in toggle, f"renderer camera command missing {token}")
-    require("m_events.remove_if" in presentation and "AutoPerspective" in presentation,
+    discard = method_body(events, "void UserEventStream::DiscardPendingAutoPerspective()")
+    require("DiscardPendingAutoPerspective();" in presentation
+            and "m_events.remove_if" in discard and "AutoPerspective" in discard,
             "manual camera presentation must discard older queued automatic-perspective events")
     perspective_request = method_body(renderer, "case Message::Type::EnablePerspective:")
     require("!m_manualCameraPresentation" in perspective_request,

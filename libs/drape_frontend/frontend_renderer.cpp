@@ -1147,8 +1147,14 @@ void FrontendRenderer::ApplyPerspectivePermission(bool allowed)
   // otherwise cannot undo the driver's camera choice.
   if (m_myPositionController->IsInRouting() && !allowed)
   {
+    bool const hadManualOverride = m_manualCameraPresentation;
     m_manualCameraPresentation = false;
-    m_userEventStream.ApplyCameraPresentation(false);
+    // Always invalidate queued auto-perspective events on explicit disallow.
+    // Only reset animations/publish a frame when a visible camera reconciliation is needed.
+    if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective())
+      m_userEventStream.ApplyCameraPresentation(false);
+    else
+      m_userEventStream.DiscardPendingAutoPerspective();
   }
   else if (changed && m_myPositionController->IsInRouting() && !m_manualCameraPresentation)
     AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(allowed));
