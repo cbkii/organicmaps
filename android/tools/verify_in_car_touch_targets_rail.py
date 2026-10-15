@@ -177,13 +177,27 @@ def verify_navigation_refinements(root):
     if not (now == 72 and 0.92 <= after / now < 1 and 0.95 <= road / distance < 1):
         raise base.VerificationError("navigation hierarchy must use only modest optical size steps")
     base.require_value(values, "in_car_nav_icon_gap", "12dp", values_path)
-    for element in parsed.iter("ImageView"):
+    # The driver-side NOW section uses a fixed physical order; labels grow from the left.
+    children = [base.resource_id(e, android("id")) for e in list(group)]
+    if children != ["street_frame", "nav_next_turn_frame"]:
+        raise base.VerificationError("NOW must present road name, then distance and turn glyph")
+    manoeuvre = list(by_id["nav_next_turn_frame"])
+    if [base.resource_id(e, android("id")) for e in manoeuvre] != ["distance", "turn"]:
+        raise base.VerificationError("NOW distance must precede the turn glyph")
+    base.require_layout_attr(layout, "in_car_nav_immediate_group",
+                             base.ANDROID_NS, "paddingRight", "10dp")
+    # AFTER retains its original stable icon margins; the NOW glyph is flush inside the
+    # 10dp shared section right inset and no longer has independent horizontal margins.
+    after = by_id["nav_next_next_turn_frame"]
+    for element in after.iter("ImageView"):
         if base.resource_id(element, android("id")) == "turn":
             for edge in ("Left", "Right"):
                 if element.attrib.get(android(f"layout_margin{edge}")) != "@dimen/in_car_nav_icon_gap":
-                    raise base.VerificationError("manoeuvre icons need 12dp on both horizontal edges")
-            if any(android(f"layout_margin{edge}") in element.attrib for edge in ("Top", "Bottom")):
-                raise base.VerificationError("manoeuvre icons must not consume extra vertical margins")
+                    raise base.VerificationError("AFTER glyph must retain 12dp inner spacing")
+    if any(android(f"layout_margin{edge}") in manoeuvre[-1].attrib
+           for edge in ("Left", "Right", "Top", "Bottom")):
+        raise base.VerificationError("NOW glyph must rely on the shared right inset")
+
     ribbon = by_id["nav_next_turn_container"]
     sections = list(ribbon)
     if not sections or not any(base.resource_id(element, android("id")) == "in_car_nav_speed"
@@ -201,20 +215,24 @@ def verify_navigation_refinements(root):
                              "complete lanes must take precedence over AFTER")
 
     footer = root / "android/app/src/inCar/res/layout-land/layout_nav_bottom.xml"
-    for edge in ("Top", "Bottom", "Right"):
+    for edge in ("Top", "Bottom"):
         base.require_layout_attr(footer, "stop", base.ANDROID_NS, f"layout_margin{edge}",
                                  "@dimen/in_car_nav_end_outer_gap")
+    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "layout_marginRight", "6dp")
     base.require_layout_attr(footer, "stop", base.ANDROID_NS, "background", "@drawable/in_car_navigation_end")
     base.require_layout_attr(footer, "stop", base.ANDROID_NS, "textColor", "@android:color/white")
-    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "padding", "@dimen/margin_base")
+    for edge in ("Left", "Right"):
+        base.require_layout_attr(footer, "stop", base.ANDROID_NS, f"padding{edge}", "8dp")
     base.require_layout_attr(footer, "stop", base.ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_min")
     height = float(values["in_car_nav_end_height"][:-2])
     gap = float(values["in_car_nav_end_outer_gap"][:-2])
     if height < 69 or height + 2 * gap != 76:
-        raise base.VerificationError("END touch target and equal inset must fit the 76dp footer")
+        raise base.VerificationError("END touch target must fit the 76dp footer")
     drawable = base.parse_xml(root / "android/app/src/inCar/res/drawable/in_car_navigation_end.xml")
     if drawable.find(".//solid").attrib.get(android("color")) != "#FF000000":
         raise base.VerificationError("END must have a true-black fill")
+    if drawable.find(".//corners").attrib.get(android("radius")) != "16dp":
+        raise base.VerificationError("END corner radius must match the 16dp compact action design")
 
     owner = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java"
     base.require_method_text(owner, "static boolean shouldSuppressLegacyButton(",
