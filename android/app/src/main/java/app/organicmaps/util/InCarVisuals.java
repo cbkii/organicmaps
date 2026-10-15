@@ -233,6 +233,16 @@ public final class InCarVisuals
     };
   }
 
+  public static int currentSpeedCircleSizePx(@NonNull FragmentActivity activity)
+  {
+    return switch (currentControlSizeTier(activity))
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_touch_target_extra_compact);
+      case COMPACT -> dimen(activity, R.dimen.in_car_touch_target_min);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_touch_target_preferred);
+    };
+  }
+
   @NonNull
   private static ControlSizeTier currentControlSizeTier(@NonNull FragmentActivity activity)
   {
@@ -942,8 +952,7 @@ public final class InCarVisuals
                     R.dimen.in_car_compact_nav_stop_min_width, R.dimen.in_car_extra_compact_nav_stop_min_width);
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
-    stop.setMinWidth(fixedInCarEnd ? Math.max(stopMinWidth, activity.getResources().getDimensionPixelSize(
-                                                                R.dimen.in_car_touch_target_min))
+    stop.setMinWidth(fixedInCarEnd ? activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min)
                                    : stopMinWidth);
     root.requestLayout();
   }

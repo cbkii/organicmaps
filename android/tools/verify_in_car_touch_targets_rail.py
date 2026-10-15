@@ -194,6 +194,8 @@ def verify_navigation_refinements(root):
             for edge in ("Left", "Right"):
                 if element.attrib.get(android(f"layout_margin{edge}")) != "@dimen/in_car_nav_icon_gap":
                     raise base.VerificationError("AFTER glyph must retain 12dp inner spacing")
+            if any(android(f"layout_margin{edge}") in element.attrib for edge in ("Top", "Bottom")):
+                raise base.VerificationError("AFTER glyph must not consume extra vertical margins")
     if any(android(f"layout_margin{edge}") in manoeuvre[-1].attrib
            for edge in ("Left", "Right", "Top", "Bottom")):
         raise base.VerificationError("NOW glyph must rely on the shared right inset")
@@ -263,15 +265,20 @@ def verify_warning_foreground_contrast(root):
                 for stage, background_token, ink_token in stages:
                     normal_background = contrast.resolve_color(background_token, palette)
                     ink = contrast.resolve_color(ink_token, palette)
-                    # AFTER/LANES have opaque semantic surfaces; only NOW is warning-blended.
-                    background = (contrast.composite(contrast.Rgba(warning.red, warning.green, warning.blue, strength), normal_background)
-                                  if stage == "IMMEDIATE" else normal_background)
+                    # Every section receives the warning wash. Runtime chooses the higher-
+                    # contrast black/white foreground while the warning is active.
+                    background = contrast.composite(
+                        contrast.Rgba(warning.red, warning.green, warning.blue, strength), normal_background)
+                    if strength > 0.0:
+                        candidates = (contrast.Rgba(0, 0, 0, 1), contrast.Rgba(1, 1, 1, 1))
+                        ink = max(candidates, key=lambda c: contrast.contrast_ratio(c, background))
                     ratio = contrast.contrast_ratio(ink, background)
                     if ratio < 4.5:
                         raise base.VerificationError(f"{qualifier} {stage} {severity} foreground contrast is only {ratio:.2f}:1")
     renderer = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
     body = base.java_method_body(renderer, "private static void renderRibbon(")
-    if "immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB" not in body:
+    if ("immediateGroup.setBackgroundColor(immediateBackground)" not in body or
+        "warning ? ColorUtils.blendARGB(immediateBase, red, strength)" not in body):
         raise base.VerificationError("near-black immediate group must participate in warning blending")
     if "Color.WHITE" in body:
         raise base.VerificationError("half-strength warning must retain theme-appropriate foregrounds")
