@@ -80,7 +80,7 @@ jobs:
       - name: Lint
         shell: bash
         working-directory: android
-        run: ./gradlew lintAllModules
+        run: ./gradlew lintAllModules detektCheckAll
 
       - name: Install reviewdog
         uses: reviewdog/action-setup@v1
@@ -133,6 +133,9 @@ jobs:
       - name: Parallel submodules checkout
         shell: bash
         run: git submodule update --depth 1 --init --recursive --jobs=$(($(nproc) * 20))
+
+      - name: Verify Android-only repository scope
+        run: python3 tools/ci/verify_android_repo_scope.py
 
       - name: Configure repository
         shell: bash

@@ -73,6 +73,7 @@ import app.organicmaps.help.HelpActivity;
 import app.organicmaps.incar.InCarBackPolicy;
 import app.organicmaps.incar.InCarRouterPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
+import app.organicmaps.incar.InCarUiModePolicy;
 import app.organicmaps.intent.Factory;
 import app.organicmaps.intent.IntentProcessor;
 import app.organicmaps.location.LocationPromptCoordinator;
@@ -244,6 +245,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   private boolean mRemoveDisplayListener = true;
   private static int mLastUiMode = Configuration.UI_MODE_TYPE_UNDEFINED;
+  private int mInCarLastUiMode;
 
   public static Intent createShowMapIntent(@NonNull Context context, @Nullable String countryId)
   {
@@ -522,6 +524,15 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     super.onConfigurationChanged(newConfig);
 
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final int previousUiMode = mInCarLastUiMode;
+      mInCarLastUiMode = newConfig.uiMode;
+      if (InCarUiModePolicy.shouldRecreate(previousUiMode, newConfig.uiMode))
+        recreate();
+      return;
+    }
+
     final int newType = newConfig.uiMode & Configuration.UI_MODE_TYPE_MASK;
     final int oldType = mLastUiMode & Configuration.UI_MODE_TYPE_MASK;
 
@@ -571,6 +582,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   protected void onSafeCreate(@Nullable Bundle savedInstanceState)
   {
     super.onSafeCreate(savedInstanceState);
+    mInCarLastUiMode = getResources().getConfiguration().uiMode;
 
     mIntentConsumed = isIntentConsumed(savedInstanceState, getIntent());
 
