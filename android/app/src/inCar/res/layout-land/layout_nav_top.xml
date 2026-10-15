@@ -46,7 +46,7 @@
       <FrameLayout
         android:id="@+id/street_frame"
         android:layout_width="0dp"
-        android:layout_height="match_parent"
+        android:layout_height="@dimen/in_car_nav_instruction_height"
         android:layout_weight="1"
         android:paddingLeft="6dp"
         android:paddingRight="8dp">
