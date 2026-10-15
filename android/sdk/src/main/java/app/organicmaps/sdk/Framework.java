@@ -264,6 +264,9 @@ public class Framework
   public static native void nativeRemoveIntermediateRoutePoints();
 
   public static native boolean nativeCouldAddIntermediatePoint();
+
+  /** Checks mark capacity even after a failed build. */
+  public static native boolean nativeIsRoutePointsLimitReached();
   @NonNull
   public static native RouteMarkData[] nativeGetRoutePoints();
 

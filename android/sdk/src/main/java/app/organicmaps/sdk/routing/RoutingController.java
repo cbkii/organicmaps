@@ -12,11 +12,72 @@ import app.organicmaps.sdk.bookmarks.data.MapObject;
 import app.organicmaps.sdk.location.LocationHelper;
 import app.organicmaps.sdk.util.concurrency.UiThread;
 import app.organicmaps.sdk.util.log.Logger;
+import java.util.ArrayList;
+import java.util.List;
 
 @androidx.annotation.UiThread
 public class RoutingController
 {
   private static final String TAG = RoutingController.class.getSimpleName();
+
+  interface RouteCommands
+  {
+    void disableFollowing();
+    void removeRoute();
+    void buildRoute();
+    void saveRoutePoints();
+    @Nullable
+    MapObject getStartPoint();
+    boolean hasCompleteRoutePoints();
+  }
+
+  private final RouteCommands mRouteCommands;
+
+  public RoutingController()
+  {
+    this(null);
+  }
+
+  RoutingController(@Nullable RouteCommands commands)
+  {
+    mRouteCommands = commands != null ? commands : new RouteCommands() {
+      @Override
+      public void disableFollowing()
+      {
+        Framework.nativeDisableFollowing();
+      }
+
+      @Override
+      public void removeRoute()
+      {
+        Framework.nativeRemoveRoute();
+      }
+
+      @Override
+      public void buildRoute()
+      {
+        Framework.nativeBuildRoute();
+      }
+
+      @Override
+      public void saveRoutePoints()
+      {
+        Framework.nativeSaveRoutePoints();
+      }
+
+      @Override
+      public MapObject getStartPoint()
+      {
+        return RoutingController.this.getStartPoint();
+      }
+
+      @Override
+      public boolean hasCompleteRoutePoints()
+      {
+        return RoutingController.this.getStartPoint() != null && RoutingController.this.getEndPoint() != null;
+      }
+    };
+  }
 
   private enum State
   {
@@ -57,6 +118,38 @@ public class RoutingController
      * */
     default void updateBuildProgress(@IntRange(from = 0, to = 100) int progress, Router router) {}
     default void onStartRouteBuilding() {}
+  }
+
+  public interface NavigationStateListener
+  {
+    void onNavigationStateChanged(boolean navigating);
+
+    default void onPlanningRouteReady() {}
+
+    default void onPlanningRouteSaved()
+    {
+      onPlanningRouteReady();
+    }
+  }
+
+  private final List<NavigationStateListener> mNavigationStateListeners = new ArrayList<>();
+
+  public void addNavigationStateListener(@NonNull NavigationStateListener listener)
+  {
+    if (!mNavigationStateListeners.contains(listener))
+      mNavigationStateListeners.add(listener);
+  }
+
+  public void removeNavigationStateListener(@NonNull NavigationStateListener listener)
+  {
+    mNavigationStateListeners.remove(listener);
+  }
+
+  private void notifyPlanningRouteReady()
+  {
+    if (isPlanning() && isBuilt())
+      for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
+        listener.onPlanningRouteReady();
   }
 
   // A disclaimer may outlive the route whose START tap opened it. Invalidate its
@@ -121,7 +214,7 @@ public class RoutingController
       mLastMissingMaps = missingMaps;
       mContainsCachedResult = true;
 
-      if (mLastResultCode == ResultCodes.NO_ERROR || resultCode == ResultCodes.NEED_MORE_MAPS)
+      if (mLastResultCode == ResultCodes.NO_ERROR)
       {
         onBuiltRoute();
       }
@@ -197,7 +290,8 @@ public class RoutingController
       return;
     }
 
-    if (mLastResultCode != ResultCodes.NEED_MORE_MAPS)
+    // NEED_MORE_MAPS comes after a found route when the missing maps may give a better one, or instead of it.
+    if (mLastResultCode != ResultCodes.NEED_MORE_MAPS || !isBuilt())
     {
       setBuildState(BuildState.ERROR);
       mLastBuildProgress = 0;
@@ -218,7 +312,12 @@ public class RoutingController
   private void setState(State newState)
   {
     Logger.d(TAG, "[S] State: " + mState + " -> " + newState + ", BuildState: " + mBuildState);
+    final boolean navigationChanged = (mState == State.NAVIGATION) != (newState == State.NAVIGATION);
     mState = newState;
+
+    if (navigationChanged)
+      for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
+        listener.onNavigationStateChanged(newState == State.NAVIGATION);
 
     if (mContainer != null)
       mContainer.updateMenu();
@@ -229,9 +328,13 @@ public class RoutingController
     Logger.d(TAG, "[B] State: " + mState + ", BuildState: " + mBuildState + " -> " + newState);
     mBuildState = newState;
 
-    final MapObject startPoint = getStartPoint();
-    if (mBuildState == BuildState.BUILT && (startPoint == null || !startPoint.isMyPosition()))
-      Framework.nativeDisableFollowing();
+    if (mBuildState == BuildState.BUILT)
+    {
+      final MapObject startPoint = mRouteCommands.getStartPoint();
+      if (startPoint == null || !startPoint.isMyPosition())
+        mRouteCommands.disableFollowing();
+      notifyPlanningRouteReady();
+    }
 
     if (mContainer != null)
       mContainer.updateMenu();
@@ -310,7 +413,7 @@ public class RoutingController
   private void build()
   {
     mRouteStartGate.invalidate();
-    Framework.nativeRemoveRoute();
+    mRouteCommands.removeRoute();
 
     Logger.d(TAG, "build");
     mLastBuildProgress = 0;
@@ -322,7 +425,7 @@ public class RoutingController
 
     updatePlan();
 
-    Framework.nativeBuildRoute();
+    mRouteCommands.buildRoute();
   }
 
   public void restoreRoute()
@@ -348,8 +451,15 @@ public class RoutingController
 
   public void saveRoute()
   {
-    if (isNavigating() || (isPlanning() && isBuilt()))
-      Framework.nativeSaveRoutePoints();
+    if (isNavigating() || isPlanning())
+    {
+      if (isPlanning() && (isBuilt() || mRouteCommands.hasCompleteRoutePoints()))
+        for (NavigationStateListener listener : new ArrayList<>(mNavigationStateListeners))
+          listener.onPlanningRouteSaved();
+      // Native saves the current edited marks and deletes invalid/incomplete points itself.
+      // A building route must survive process death without restoring its previous destination.
+      mRouteCommands.saveRoutePoints();
+    }
   }
 
   public void deleteSavedRoute()
@@ -446,20 +556,22 @@ public class RoutingController
   {
     RouteMarkType type = mWaitingPoiPickType != null ? mWaitingPoiPickType : RouteMarkType.Intermediate;
     replaceRoutePoint(type, mapObject, mReplaceStopIndex);
+    if (isNavigating())
+      transitionToPlanning();
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    resetToPlanningStateIfNavigating();
     resetPoiPickState();
   }
 
   public void addStop(@NonNull MapObject mapObject)
   {
     addRoutePoint(RouteMarkType.Intermediate, mapObject);
+    if (isNavigating())
+      transitionToPlanning();
     build();
     if (mContainer != null)
       mContainer.onAddedStop();
-    resetToPlanningStateIfNavigating();
     resetPoiPickState();
   }
 
@@ -471,10 +583,11 @@ public class RoutingController
 
     applyRemovingIntermediatePointsTransaction();
     Framework.nativeRemoveRoutePoint(info.mMarkType, info.mIntermediateIndex);
+    if (isNavigating())
+      transitionToPlanning();
     build();
     if (mContainer != null)
       mContainer.onRemovedStop();
-    resetToPlanningStateIfNavigating();
   }
 
   public void launchPlanning()
@@ -495,17 +608,25 @@ public class RoutingController
   {
     if (isNavigating())
     {
+      transitionToPlanning();
       build();
-      setState(State.PREPARE);
-      cancelNavigation(false);
-      startPlanning();
-      if (mContainer != null)
-        mContainer.updateMenu();
-      if (mContainer != null)
-        mContainer.onResetToPlanningState();
       return true;
     }
     return false;
+  }
+
+  // Leave routed following before the one rebuild so planning can calculate fresh alternatives.
+  private void transitionToPlanning()
+  {
+    mRouteCommands.disableFollowing();
+    setState(State.PREPARE);
+    cancelNavigation(false);
+    startPlanning();
+    if (mContainer != null)
+    {
+      mContainer.updateMenu();
+      mContainer.onResetToPlanningState();
+    }
   }
 
   @NonNull
@@ -687,6 +808,11 @@ public class RoutingController
   {
     mReplaceStopIndex = index;
     isPoiPickReplaceStop = true;
+  }
+
+  public void cancelPoiPick()
+  {
+    resetPoiPickState();
   }
 
   private void finalizePendingPoiPick()
