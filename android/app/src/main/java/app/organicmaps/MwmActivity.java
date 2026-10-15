@@ -444,6 +444,24 @@ public class MwmActivity extends BaseMwmFragmentActivity
     startActivity(intent);
   }
 
+  /** Route-aware Search entry from the in-navigation cog. The routing controller owns the
+   *  subsequent POI pick, transition-to-planning, rebuild and original START action. */
+  public void addInCarNavigationStop()
+  {
+    if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
+      return;
+    final RoutingController route = RoutingController.get();
+    if (!route.isNavigating())
+      return;
+    if (!route.isStopPointAllowed() || Framework.nativeIsRoutePointsLimitReached())
+    {
+      Toast.makeText(this, R.string.routing_stops_limit_reached, Toast.LENGTH_SHORT).show();
+      return;
+    }
+    route.waitForPoiPick(app.organicmaps.sdk.routing.RouteMarkType.Intermediate);
+    showSearch("");
+  }
+
   public void showSearch(String query)
   {
     cancelInCarNavigationCountdown();

@@ -172,7 +172,8 @@ def verify_resources(root: Path) -> None:
     for name in compact_visuals:
         require_value(visuals, name, "@dimen/in_car_touch_target_min", visuals_path)
 
-    require_value(automotive, "in_car_map_primary_button_size", "@dimen/in_car_runtime_button_size", automotive_path)
+    require_value(runtime, "in_car_map_rail_cell_size", "69dp", runtime_path)
+    require_value(automotive, "in_car_map_primary_button_size", "@dimen/in_car_map_rail_cell_size", automotive_path)
     require_value(automotive, "in_car_map_zoom_gap", "10dp", automotive_path)
 
     preferred_overrides = (
@@ -231,14 +232,12 @@ def verify_start_end_controls(root: Path) -> None:
     nav = root / "android/app/src/inCar/res/layout/layout_nav_bottom.xml"
     strings = root / "android/app/src/inCar/res/values/strings_runtime_overrides.xml"
 
-    require_layout_attr(start, "start", ANDROID_NS, "layout_width", "0dp")
-    require_layout_attr(start, "start", ANDROID_NS, "layout_weight", "1")
-    require_layout_attr(start, "start", ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_preferred")
-    require_text(
-        start,
-        r'<Space\b(?=[^>]*android:layout_width="0dp")(?=[^>]*android:layout_weight="1")[^>]*>',
-        "equal spacer for half-width START",
-    )
+    require_layout_attr(start, "start", ANDROID_NS, "layout_width", "wrap_content")
+    require_layout_attr(start, "start", ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_min")
+    require_layout_attr(start, "start", ANDROID_NS, "minWidth", "110dp")
+    reject_text(start, r"<Space\b", "empty START spacer")
+    require_layout_attr(root / "android/app/src/main/res/layout/routing_bottom_sheet.xml",
+                        "in_car_route_summary", ANDROID_NS, "layout_weight", "1")
 
     require_layout_attr(nav, "stop", ANDROID_NS, "layout_height", "@dimen/nav_button_height")
     require_layout_attr(nav, "stop", ANDROID_NS, "minWidth", "@dimen/in_car_nav_stop_min_width")
@@ -420,8 +419,8 @@ def verify_code(root: Path) -> None:
 
     require_text(
         quick_policy,
-        rf"PREFERRED_ACTION_SIZE_DP\s*=\s*{PREFERRED_DP}\s*;",
-        f"{PREFERRED_DP}dp Quick Destination preferred target",
+        r"PREFERRED_ACTION_SIZE_DP\s*=\s*69\s*;",
+        "69dp shared Quick Destination rail size",
     )
     require_text(
         quick_policy,

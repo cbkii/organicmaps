@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <!-- Normal direct-display contract: prefer 76dp and compact to the established 69dp floor. -->
+  <!-- Preserve 76dp general controls; compact only the two map overlay rails to 69dp. -->
   <dimen name="in_car_touch_target_preferred">76dp</dimen>
   <dimen name="in_car_touch_target_min">69dp</dimen>
   <!-- Emergency reduced-height tier only; InCarVisuals gates this to live content height below 360dp. -->
   <dimen name="in_car_touch_target_extra_compact">55dp</dimen>
 
+  <dimen name="in_car_map_rail_cell_size">69dp</dimen>
   <!-- Shared direct-display sizing tokens. Keep map, Quick and place-page controls aligned. -->
   <dimen name="in_car_runtime_button_size">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_button_icon_size">34dp</dimen>
@@ -27,7 +28,7 @@
   <integer name="in_car_quick_focused_feedback_alpha">61</integer>
   <dimen name="in_car_quick_elevation">2dp</dimen>
 
-  <!-- A 38dp radius gives rendered Quick search markers a 76dp in-car tap target. -->
+  <!-- Keep direct-map search hit regions larger than the visible 69dp rail cells. -->
   <dimen name="in_car_quick_marker_touch_radius">38dp</dimen>
 
   <!-- Place-page actions are deliberately larger and visibly separated for direct-display use. -->

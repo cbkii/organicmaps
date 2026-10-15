@@ -298,6 +298,20 @@ final class RoutingBottomMenuController
       UiUtils.hide(mError, mAltitudeChart, mAltitudeDifference, mTransitTime, mTimeRuler, mTransitRecyclerView,
                    mSaveButton);
       showRoutingDetails();
+      final TextView compactSummary = mContext.findViewById(R.id.in_car_route_summary);
+      if (compactSummary != null)
+      {
+        final boolean vehicleSummary = RoutingController.get().isVehicleRouterType()
+                                       && RoutingController.get().getCachedRoutingInfo() != null;
+        compactSummary.setVisibility(vehicleSummary ? View.VISIBLE : View.GONE);
+        if (vehicleSummary)
+        {
+          compactSummary.setText(mTimeVehicle.getText());
+          // The same summary is already available in the compact START rail; do not render a
+          // detached second text row in the InCar vehicle-planning presentation.
+          UiUtils.hide(mAltitudeChartFrame);
+        }
+      }
       refreshManageRoute();
       notifyVisibilityChanged();
       return;
@@ -331,6 +345,7 @@ final class RoutingBottomMenuController
 
   void hideAltitudeChartAndRoutingDetails()
   {
+    hideCompactSummary();
     UiUtils.hide(mAltitudeChart, mTimeVehicle, mTimeElevationLine, mTransitTime, mTimeRuler, mTransitRecyclerView);
     notifyVisibilityChanged();
   }
@@ -398,6 +413,8 @@ final class RoutingBottomMenuController
   // Single entry point for the Start button visual state. The button itself is always visible.
   void setStartState(@NonNull StartState state)
   {
+    if (state != StartState.ENABLED)
+      hideCompactSummary();
     if (state == mStartGate.getState())
       return;
     mStart.setBuildProgress(0);
@@ -446,6 +463,18 @@ final class RoutingBottomMenuController
     mError.setVisibility(View.VISIBLE);
     setStartState(StartState.DISABLED);
     notifyVisibilityChanged();
+  }
+
+  private void hideCompactSummary()
+  {
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+    final TextView summary = mContext.findViewById(R.id.in_car_route_summary);
+    if (summary != null)
+    {
+      summary.setText("");
+      summary.setVisibility(View.GONE);
+    }
   }
 
   void saveRoutingPanelState(@NonNull Bundle outState)

@@ -190,6 +190,13 @@ public final class InCarDrivingUi
     render(activity, binding, binding.controller.getSnapshot().getValue());
   }
 
+  private static int ribbonForeground(int background)
+  {
+    return ColorUtils.calculateContrast(android.graphics.Color.BLACK, background)
+               >= ColorUtils.calculateContrast(android.graphics.Color.WHITE, background)
+           ? android.graphics.Color.BLACK : android.graphics.Color.WHITE;
+  }
+
   private static void renderRibbon(@NonNull MwmActivity activity, boolean warning, float strength)
   {
     final int red = ContextCompat.getColor(activity, InCarSpeedDisplayPolicy.severity() == InCarSpeedDisplayPolicy.Severity.SEVERE
@@ -200,34 +207,62 @@ public final class InCarDrivingUi
       underline.setBackgroundColor(red);
       underline.setVisibility(warning ? View.VISIBLE : View.INVISIBLE);
     }
-    final View group = activity.findViewById(R.id.in_car_nav_guidance_group);
-    if (group == null)
-      return;
     final View ribbon = activity.findViewById(R.id.nav_next_turn_container);
+    if (ribbon == null)
+      return;
+    final View group = activity.findViewById(R.id.in_car_nav_guidance_group);
+    final View immediate = activity.findViewById(R.id.nav_next_turn_frame);
+    final View then = activity.findViewById(R.id.nav_next_next_turn_frame);
+    final View immediateGroup = activity.findViewById(R.id.in_car_nav_immediate_group);
+    final LanesView lanes = activity.findViewById(R.id.lanes);
+    final boolean hasLanes = lanes != null && lanes.getVisibility() == View.VISIBLE;
     final int normal = ContextCompat.getColor(activity, R.color.bg_cards);
+    final int immediateBase = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
+    final int afterBase = ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_background
+                                                                   : R.color.in_car_nav_after_background);
+    final int immediateBackground = warning ? ColorUtils.blendARGB(immediateBase, red, strength) : immediateBase;
+    final int afterBackground = warning ? ColorUtils.blendARGB(afterBase, red, strength) : afterBase;
+    final int immediateForeground = warning ? ribbonForeground(immediateBackground)
+        : ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
+    final int foreground = warning ? ribbonForeground(afterBackground)
+        : ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
+                                                   : R.color.in_car_nav_after_foreground);
+    // Paint every section itself: child surfaces must not cover the parent's warning wash.
+    // The speed circles retain their own separate severity/limit presentation.
     ribbon.setBackgroundColor(warning ? ColorUtils.blendARGB(normal, red, strength) : normal);
-    final LanesView lanes = ribbon.findViewById(R.id.lanes);
-    final boolean hasLanes = lanes.getVisibility() == View.VISIBLE;
-    final int foreground = ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
-                                                                    : R.color.in_car_nav_after_foreground);
-    group.setBackgroundColor(ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_background
-                                                                      : R.color.in_car_nav_after_background));
-    final int secondary = ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
-    final View immediateGroup = ribbon.findViewById(R.id.in_car_nav_immediate_group);
-    final int immediateBackground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
-    final int immediateForeground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
-    immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB(immediateBackground, red, strength)
-                                              : immediateBackground);
-    for (int id : new int[] {R.id.distance, R.id.street})
-      ((TextView) immediateGroup.findViewById(id)).setTextColor(immediateForeground);
-    ((TextView) ribbon.findViewById(R.id.in_car_nav_guidance_label)).setTextColor(foreground);
-    final View immediate = ribbon.findViewById(R.id.nav_next_turn_frame);
-    final View then = ribbon.findViewById(R.id.nav_next_next_turn_frame);
-    ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
-                                     ColorStateList.valueOf(immediateForeground));
-    ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
-    // Lane semantics remain separate from the speed-warning surface.
-    lanes.setLaneColors(ContextCompat.getColor(activity, R.color.in_car_nav_lanes_foreground), secondary);
+    if (immediateGroup != null)
+      immediateGroup.setBackgroundColor(immediateBackground);
+    if (immediate != null)
+    {
+      immediate.setBackgroundColor(immediateBackground);
+      ((TextView) immediate.findViewById(R.id.distance)).setTextColor(immediateForeground);
+      ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
+                                       ColorStateList.valueOf(immediateForeground));
+    }
+    final View streetFrame = activity.findViewById(R.id.street_frame);
+    if (streetFrame != null)
+    {
+      streetFrame.setBackgroundColor(immediateBackground);
+      ((TextView) streetFrame.findViewById(R.id.street)).setTextColor(immediateForeground);
+    }
+    if (group != null)
+      group.setBackgroundColor(afterBackground);
+    if (then != null)
+    {
+      then.setBackgroundColor(afterBackground);
+      ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
+    }
+    final TextView label = activity.findViewById(R.id.in_car_nav_guidance_label);
+    if (label != null)
+      label.setTextColor(foreground);
+    if (lanes != null)
+    {
+      lanes.setBackgroundColor(afterBackground);
+      final int active = warning ? foreground : ContextCompat.getColor(activity, R.color.in_car_nav_lanes_foreground);
+      final int secondary = warning ? ColorUtils.blendARGB(afterBackground, active, 0.75f)
+          : ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
+      lanes.setLaneColors(active, secondary);
+    }
   }
 
   public static void refresh(@NonNull MwmActivity activity)
@@ -479,3 +514,4 @@ public final class InCarDrivingUi
       Snackbar.make(coordinator, R.string.in_car_maps_may_be_outdated, Snackbar.LENGTH_LONG).show();
   }
 }
+

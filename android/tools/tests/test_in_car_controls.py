@@ -14,6 +14,123 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_production_ribbon_warning_surfaces_and_contrast(self):
+        import xml.etree.ElementTree as ET
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable")
+        source = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        render = controls.method_body(source, "private static void renderRibbon(")
+        foreground = controls.method_body(source, "private static int ribbonForeground(")
+        self.assertIn("renderRibbon(activity, snapshot.navigating && warning,", source)
+        colours = {}
+        for path in ("android/app/src/main/res/values/in_car_shared_fallbacks.xml",
+                     "android/app/src/inCar/res/values/colors.xml",
+                     "android/app/src/inCar/res/values/in_car_navigation_colours.xml"):
+            colours.update({x.get("name"): x.text for x in ET.parse(ROOT / path).getroot() if x.tag == "color"})
+        palettes = []
+        for night in (False, True):
+            values = dict(colours)
+            if night:
+                for path in ("values-night/colors.xml", "values-night/in_car_navigation_colours.xml"):
+                    values.update({x.get("name"): x.text for x in ET.parse(
+                        ROOT / "android/app/src/inCar/res" / path).getroot() if x.tag == "color"})
+            def resolve(token):
+                value = values[token].strip()
+                return resolve(value[7:]) if value.startswith("@color/") else value
+            names = sorted(set(re.findall(r"R\.color\.(\w+)", render)))
+            palettes.append("new int[]{" + ",".join("(int)0x" + resolve(n).removeprefix("#") for n in names) + "}")
+        ids = sorted(set(re.findall(r"R\.id\.(\w+)", render)) | {"in_car_nav_speed", "nav_speed_limit"})
+        resources = "class R { static class id {" + "".join(
+            f"static final int {n}={i};" for i, n in enumerate(ids)) + "} static class color {" + "".join(
+            f"static final int {n}={i};" for i, n in enumerate(names)) + "}}"
+        harness = r'''
+import java.util.*;
+class View {
+ static final int VISIBLE=0,INVISIBLE=4;
+ int background=0x12345678,visibility=VISIBLE;
+ Map<Integer,View> children=new HashMap<>();
+ @SuppressWarnings("unchecked") <T extends View> T findViewById(int id){return (T)children.get(id);}
+ void setBackgroundColor(int c){background=c;}
+ void setVisibility(int v){visibility=v;}
+ int getVisibility(){return visibility;}
+}
+class TextView extends View { int color; void setTextColor(int c){color=c;} }
+class ImageView extends View { int tint; }
+class LanesView extends View { int active,inactive; void setLaneColors(int a,int b){active=a;inactive=b;} }
+class MwmActivity extends View { int[] colors; }
+class ColorStateList { int color; static ColorStateList valueOf(int c){var r=new ColorStateList();r.color=c;return r;} }
+class ImageViewCompat { static void setImageTintList(ImageView v,ColorStateList c){v.tint=c.color;} }
+class ContextCompat { static int getColor(MwmActivity a,int id){return a.colors[id];} }
+class InCarSpeedDisplayPolicy {
+ enum Severity { WARNING,SEVERE }
+ static Severity current=Severity.SEVERE;
+ static Severity severity(){return current;}
+}
+class ColorUtils {
+ static int blendARGB(int a,int b,float f){
+  int c=0; for(int shift:new int[]{0,8,16,24})c|=((int)(((a>>>shift)&255)*(1-f)+((b>>>shift)&255)*f))<<shift;
+  return c;
+ }
+ static double channel(int n){double v=n/255.0;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);}
+ static double luminance(int c){return .2126*channel((c>>>16)&255)+.7152*channel((c>>>8)&255)+.0722*channel(c&255);}
+ static double calculateContrast(int a,int b){double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
+}
+''' + resources + r'''
+class RibbonTest {
+ static int ribbonForeground(int background){''' + foreground + r'''}
+ static void renderRibbon(MwmActivity activity,boolean warning,float strength){''' + render + r'''}
+ static void check(boolean ok){if(!ok)throw new AssertionError();}
+ public static void main(String[] args){
+  int[][] palettes={''' + ",".join(palettes) + r'''};
+  for(int[] palette:palettes)for(boolean landscape:new boolean[]{false,true})for(boolean hasLanes:new boolean[]{false,true}){
+   MwmActivity a=new MwmActivity(); a.colors=palette;
+   for(int id=0;id<''' + str(len(ids)) + r''';id++)a.children.put(id,new View());
+   for(int id:new int[]{R.id.nav_next_turn_frame,R.id.nav_next_next_turn_frame}){
+    a.children.get(id).children.put(R.id.turn,new ImageView());
+    a.children.get(id).children.put(R.id.distance,new TextView());
+   }
+   a.children.get(R.id.street_frame).children.put(R.id.street,new TextView());
+   a.children.put(R.id.in_car_nav_guidance_label,new TextView());
+   LanesView lanes=new LanesView(); lanes.visibility=hasLanes?View.VISIBLE:View.INVISIBLE;
+   a.children.put(R.id.lanes,lanes);
+   if(!landscape){a.children.remove(R.id.in_car_nav_guidance_group);a.children.remove(R.id.in_car_nav_immediate_group);}
+   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{.18f,.5f,.8f,1f}){
+    InCarSpeedDisplayPolicy.current=severity;
+    renderRibbon(a,false,0);
+    int original=a.children.get(R.id.nav_next_next_turn_frame).background;
+    renderRibbon(a,true,strength);
+    View after=a.children.get(R.id.nav_next_next_turn_frame),now=a.children.get(R.id.nav_next_turn_frame);
+    check(after.background!=original);
+    check(lanes.background==after.background);
+    TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
+    TextView distance=now.findViewById(R.id.distance);
+    check(ColorUtils.calculateContrast(label.color,after.background)>=4.5);
+    check(ColorUtils.calculateContrast(distance.color,now.background)>=4.5);
+    check(ColorUtils.calculateContrast(lanes.active,lanes.background)>=4.5);
+    check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
+    check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
+    renderRibbon(a,false,0);
+    check(after.background==original);
+   }
+  }
+ }
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "RibbonTest.java"
+            src.write_text(harness)
+            color = Path(tmp) / "android/graphics/Color.java"
+            color.parent.mkdir(parents=True)
+            color.write_text("package android.graphics; public class Color { public static final int BLACK=0xff000000,WHITE=0xffffffff; }")
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            result = subprocess.run([runtime, str(compiler), "-d", tmp, str(src), str(color)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([runtime, "-cp", tmp, "RibbonTest"], check=True, timeout=10)
+
     def test_production_location_hold_keeps_metadata_and_rejects_older_fixes(self):
         compiler = shutil.which("c++") or shutil.which("g++")
         if not compiler:
@@ -182,6 +299,34 @@ public class AccessibilityTest {
                                 "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
             subprocess.run([runtime, str(compiler), "-d", tmp, *sources], check=True, timeout=30)
             subprocess.run([runtime, "-cp", tmp, "AccessibilityTest"], check=True, timeout=10)
+
+    def test_incar_map_overlays_share_day_night_palette_and_warning_tint(self):
+        import xml.etree.ElementTree as ET
+        base = ROOT / "android/app/src/inCar/res"
+        def colours(path):
+            return {x.get("name"): (x.text or "").strip()
+                    for x in ET.parse(base / path).getroot() if x.tag == "color"}
+        day = colours("values/colors.xml")
+        night = colours("values-night/colors.xml")
+        for token in ("in_car_camera_rail_surface", "in_car_quick_foreground",
+                      "in_car_map_control_outline", "in_car_surface_overlay",
+                      "in_car_selection_accent"):
+            self.assertIn(token, day)
+            self.assertIn(token, night)
+            self.assertNotEqual(day[token], night[token])
+        self.assertEqual("@color/in_car_action_primary", day["in_car_quick_foreground"])
+        self.assertEqual("@color/in_car_selection_accent", night["in_car_quick_foreground"])
+        camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
+        quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
+        for expected in ("@color/in_car_camera_rail_surface", "@color/in_car_map_control_outline"):
+            self.assertIn(expected, camera)
+            self.assertIn(expected, quick)
+        overlay = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("group.setBackgroundColor(afterBackground)", overlay)
+        self.assertIn("immediateGroup.setBackgroundColor(immediateBackground)", overlay)
+        theme = controls.read("android/app/src/main/java/app/organicmaps/util/ThemeSwitcher.java")
+        self.assertIn("ThemeUtils.isDarkTheme(context)", theme)
+        self.assertIn("calculateMapStyle(isDarkMode)", theme)
 
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
@@ -1113,4 +1258,3 @@ int main() {
             subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
                             str(source), "-o", str(executable)], check=True, capture_output=True, text=True)
             subprocess.run([str(executable)], check=True, capture_output=True, text=True)
-
