@@ -177,7 +177,7 @@ public final class InCarQuickDestinationsUi
         mAnchorParent = parent;
         parent.addOnLayoutChangeListener(mLayoutListener);
       }
-      ViewCompat.setElevation(mRoot, dp(8));
+      ViewCompat.setElevation(mRoot, mActivity.getResources().getDimension(R.dimen.in_car_quick_elevation));
       applyInsets();
 
       mMapButtonsViewModel.getLayoutMode().observe(mActivity, layoutMode -> {
