@@ -419,7 +419,7 @@ def verify_code(root: Path) -> None:
 
     require_text(
         quick_policy,
-        rf"PREFERRED_ACTION_SIZE_DP\s*=\s*{PREFERRED_DP}\s*;",
+        r"PREFERRED_ACTION_SIZE_DP\s*=\s*69\s*;",
         "69dp shared Quick Destination rail size",
     )
     require_text(
