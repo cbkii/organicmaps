@@ -135,7 +135,7 @@ public class AccessibilityTest {
             self.assertIn(token, day)
             self.assertIn(token, night)
             self.assertNotEqual(day[token], night[token])
-        self.assertEqual("@color/in_car_selection_accent", day["in_car_quick_foreground"])
+        self.assertEqual("@color/in_car_action_primary", day["in_car_quick_foreground"])
         self.assertEqual("@color/in_car_selection_accent", night["in_car_quick_foreground"])
         camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
         quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
