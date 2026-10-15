@@ -645,11 +645,17 @@ int main() {
 namespace location { enum Mode { NotFollow, Follow, FollowAndRotate, PendingPosition, NotFollowNoPosition }; }
 struct Point { int value; };
 struct Rect { Point Center() const { return {42}; } };
+struct Listener { int notifications=0; void PositionChanged(Point,bool) { ++notifications; } };
 int constexpr kDoNotChangeZoom = -1;
 int64_t now = 2000000000;
 int64_t PositionClockNanos() { return now; }
 struct Owner {
- bool m_listener=true;
+ Listener listener;
+ Listener * m_listener=&listener;
+ bool m_hasLastHeldDrivingPosition=false;
+ Point m_lastHeldDrivingPosition{7};
+ Point Position() const { return m_position; }
+ bool IsModeHasPosition() const { return true; }
  bool m_isPositionAssigned=true, m_positionIsObsolete=false, m_recenterPending=false, routing=false, driving=false;
  int64_t m_lastRecenterObservationNanos=1000000000;
  location::Mode m_mode=location::NotFollow;
