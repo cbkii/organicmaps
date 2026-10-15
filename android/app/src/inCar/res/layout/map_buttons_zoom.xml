@@ -31,17 +31,16 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <androidx.appcompat.widget.AppCompatImageButton
       android:id="@+id/nav_zoom_in"
-      style="@style/MwmWidget.MapButton.Zoom"
+      android:layout_width="@dimen/in_car_map_primary_button_size"
+      android:layout_height="@dimen/in_car_map_primary_button_size"
+      android:background="@drawable/in_car_map_rail_cell_feedback"
+      android:clickable="true" android:focusable="true"
+      android:scaleType="fitCenter"
+      android:tint="?attr/iconTint"
+      android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/zoom_in"
-      app:backgroundTint="@android:color/transparent"
-      app:borderWidth="0dp"
-      app:elevation="0dp"
-      app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-      app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-      app:pressedTranslationZ="0dp"
-      app:rippleColor="?attr/colorControlHighlight"
       app:srcCompat="@drawable/ic_plus" />
 
     <View
@@ -52,17 +51,16 @@
       android:alpha="1.0"
       android:background="@color/in_car_divider" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <androidx.appcompat.widget.AppCompatImageButton
       android:id="@+id/nav_zoom_out"
-      style="@style/MwmWidget.MapButton.Zoom"
+      android:layout_width="@dimen/in_car_map_primary_button_size"
+      android:layout_height="@dimen/in_car_map_primary_button_size"
+      android:background="@drawable/in_car_map_rail_cell_feedback"
+      android:clickable="true" android:focusable="true"
+      android:scaleType="fitCenter"
+      android:tint="?attr/iconTint"
+      android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/zoom_out"
-      app:backgroundTint="@android:color/transparent"
-      app:borderWidth="0dp"
-      app:elevation="0dp"
-      app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-      app:maxImageSize="@dimen/in_car_map_zoom_icon_size"
-      app:pressedTranslationZ="0dp"
-      app:rippleColor="?attr/colorControlHighlight"
       app:srcCompat="@drawable/ic_minus" />
 
     <View
@@ -83,17 +81,16 @@
       android:layout_marginStart="@dimen/in_car_camera_rail_divider_inset"
       android:layout_marginEnd="@dimen/in_car_camera_rail_divider_inset"
       android:background="@color/in_car_divider" />
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <androidx.appcompat.widget.AppCompatImageButton
       android:id="@+id/in_car_camera_view_recenter"
-      style="@style/MwmWidget.MapButton.Zoom"
+      android:layout_width="@dimen/in_car_map_primary_button_size"
+      android:layout_height="@dimen/in_car_map_primary_button_size"
+      android:background="@drawable/in_car_map_rail_cell_feedback"
+      android:clickable="true" android:focusable="true"
+      android:scaleType="fitCenter"
+      android:tint="?attr/iconTint"
+      android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/in_car_camera_view_recenter"
-      app:backgroundTint="@android:color/transparent"
-      app:borderWidth="0dp"
-      app:elevation="0dp"
-      app:fabCustomSize="@dimen/in_car_map_primary_button_size"
-      app:maxImageSize="@dimen/in_car_map_primary_icon_size"
-      app:pressedTranslationZ="0dp"
-      app:rippleColor="?attr/colorControlHighlight"
       app:srcCompat="@drawable/ic_not_follow" />
   </LinearLayout>
 

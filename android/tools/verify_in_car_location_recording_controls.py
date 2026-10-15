@@ -57,12 +57,20 @@ def by_id(path: str, wanted: str) -> ET.Element:
 def verify_my_position() -> None:
     layout = "android/app/src/inCar/res/layout/map_buttons_myposition.xml"
     button = by_id(layout, "my_position")
-    require(button.attrib.get(f"{{{APP_NS}}}backgroundTint") == "@android:color/transparent",
-            f"{layout}: My Position must have no visible button background")
-    require(button.attrib.get(f"{{{APP_NS}}}rippleColor") == "?attr/colorControlHighlight",
-            f"{layout}: My Position must retain transient pressed feedback")
-    require(button.attrib.get(f"{{{APP_NS}}}fabCustomSize") == "@dimen/in_car_map_primary_button_size",
-            f"{layout}: icon-only My Position must retain the automotive hit target")
+    require(button.tag == "androidx.appcompat.widget.AppCompatImageButton",
+            f"{layout}: My Position must use a transparent rail cell, not a Material FAB")
+    require(button.attrib.get(f"{{{ANDROID_NS}}}background") == "@drawable/in_car_map_rail_cell_feedback",
+            f"{layout}: My Position must use bounded ripple without a persistent circle")
+    for dimension in ("layout_width", "layout_height"):
+        require(button.attrib.get(f"{{{ANDROID_NS}}}{dimension}") == "@dimen/in_car_map_primary_button_size",
+                f"{layout}: My Position must retain the automotive hit target in {dimension}")
+    # The checked-in drawable is parsed in the rail XML tests; inspect its literal
+    # critical styling contract here without an additional XML parser/dependency.
+    feedback = read("android/app/src/inCar/res/drawable/in_car_map_rail_cell_feedback.xml")
+    require("<ripple " in feedback and 'android:color="?attr/colorControlHighlight"' in feedback,
+            "camera cell must provide transient pressed feedback")
+    require('android:id="@android:id/mask"' in feedback,
+            "camera ripple must be bounded to its cell")
 
     java = read("android/app/src/main/java/app/organicmaps/widget/menu/MyPositionButton.java")
     activity = read("android/app/src/main/java/app/organicmaps/MwmActivity.java")

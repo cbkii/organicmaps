@@ -58,7 +58,7 @@ public final class InCarDrivingUi
     @Nullable
     FloatingActionButton drivingView;
     @Nullable
-    FloatingActionButton zoomIn;
+    View zoomIn;
     @Nullable
     View.OnLayoutChangeListener zoomSizeListener;
     @Nullable
@@ -293,7 +293,7 @@ public final class InCarDrivingUi
       return;
 
     final FloatingActionButton drivingView = scope.findViewById(R.id.in_car_driving_view_button);
-    final FloatingActionButton zoomIn = scope.findViewById(R.id.nav_zoom_in);
+    final View zoomIn = scope.findViewById(R.id.nav_zoom_in);
     if (drivingView == null || zoomIn == null)
       return;
 
