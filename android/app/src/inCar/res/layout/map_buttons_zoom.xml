@@ -38,6 +38,7 @@
       android:background="@drawable/in_car_map_rail_cell_feedback"
       android:clickable="true" android:focusable="true"
       android:scaleType="centerInside"
+      android:tint="?attr/iconTint"
       android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/zoom_in"
       app:srcCompat="@drawable/ic_plus" />
@@ -57,6 +58,7 @@
       android:background="@drawable/in_car_map_rail_cell_feedback"
       android:clickable="true" android:focusable="true"
       android:scaleType="centerInside"
+      android:tint="?attr/iconTint"
       android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/zoom_out"
       app:srcCompat="@drawable/ic_minus" />
@@ -86,6 +88,7 @@
       android:background="@drawable/in_car_map_rail_cell_feedback"
       android:clickable="true" android:focusable="true"
       android:scaleType="centerInside"
+      android:tint="?attr/iconTint"
       android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/in_car_camera_view_recenter"
       app:srcCompat="@drawable/ic_not_follow" />
