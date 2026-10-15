@@ -298,6 +298,20 @@ final class RoutingBottomMenuController
       UiUtils.hide(mError, mAltitudeChart, mAltitudeDifference, mTransitTime, mTimeRuler, mTransitRecyclerView,
                    mSaveButton);
       showRoutingDetails();
+      final TextView compactSummary = mContext.findViewById(R.id.in_car_route_summary);
+      if (compactSummary != null)
+      {
+        final boolean vehicleSummary = RoutingController.get().isVehicleRouterType()
+                                       && RoutingController.get().getCachedRoutingInfo() != null;
+        compactSummary.setVisibility(vehicleSummary ? View.VISIBLE : View.GONE);
+        if (vehicleSummary)
+        {
+          compactSummary.setText(mTimeVehicle.getText());
+          // The same summary is already available in the compact START rail; do not render a
+          // detached second text row in the InCar vehicle-planning presentation.
+          UiUtils.hide(mAltitudeChartFrame);
+        }
+      }
       refreshManageRoute();
       notifyVisibilityChanged();
       return;
