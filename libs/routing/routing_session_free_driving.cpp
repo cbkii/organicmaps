@@ -11,6 +11,7 @@
 #include "geometry/parametrized_segment.hpp"
 
 #include "base/logging.hpp"
+#include "base/timer.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -21,6 +22,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <time.h>
 
 namespace routing
 {
@@ -190,6 +192,21 @@ void AddUniqueEdge(std::vector<Edge> & edges, Edge const & edge)
 double ObservationTimestamp(location::GpsInfo const & info)
 {
   return free_driving_snap::LowSpeedMotionEstimator::ObservationTimestamp(info);
+}
+
+double CurrentObservationClock(location::GpsInfo const & info)
+{
+#if defined(__ANDROID__)
+  if (info.HasMonotonicTimestamp())
+  {
+    // Android elapsedRealtimeNanos includes suspend; steady_clock/CLOCK_MONOTONIC does not.
+    timespec now{};
+    if (clock_gettime(CLOCK_BOOTTIME, &now) != 0)
+      return -1.0;
+    return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_nsec) * 1.0e-9;
+  }
+#endif
+  return base::Timer::LocalTime();
 }
 
 double ObservationIntervalSeconds(double previousTimestamp, double currentTimestamp)
@@ -745,17 +762,27 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   // lock merely because parking geometry also overlaps the raw GPS fix. A real parking
   // departure needs a coherent low-speed course swivel when a strong public-road match
   // still exists; road mismatch or mapped parking aisles remain valid exceptions.
-  bool const trustworthyParkingTurn =
-      previous != nullptr && motionEvidence.HasDirection() && motionEvidence.m_confidence >= 0.35 &&
-      rawStepM >= 3.0 && effectiveSpeedMps <= free_driving_snap::kParkingFreeMaxSpeedMps;
-  double const departureTurnDegrees = trustworthyParkingTurn
+  bool const plausiblePublicRoad = previous != nullptr &&
+      ((current != nullptr && !current->m_parkingRoad && IsAcceptable(*current, policyInfo, true)) ||
+       (bestAcceptable && !bestParkingRoad && best->m_relation != free_driving_snap::RoadRelation::Unrelated));
+  bool const trustworthyParkingTurn = previous != nullptr && free_driving_snap::HasTrustworthyParkingTurn(
+      motionEvidence.HasDirection(), motionEvidence.m_confidence, motionEvidence.m_displacementM,
+      stationaryHold, effectiveSpeedMps);
+  double departureTurnDegrees = trustworthyParkingTurn
       ? DirectionAngleDegrees(motionEvidence.m_direction, previous->m_edge.GetDirection()) : 0.0;
+  if (trustworthyParkingTurn && bestAcceptable && !bestParkingRoad &&
+      best->m_relation != free_driving_snap::RoadRelation::Unrelated)
+  {
+    // A connected bend/roundabout is still public-road travel, not a parking swivel.
+    departureTurnDegrees = std::min(departureTurnDegrees,
+        DirectionAngleDegrees(motionEvidence.m_direction, best->m_projection.m_edge.GetDirection()));
+  }
   bool const parkingReleaseEligible =
       free_driving_snap::ParkingReleaseEligible(policyInfo, m_freeDrivingAreaContext, roadMismatch || weakRoadMatch,
                                                 bestParkingRoad, stationaryHold, motionEstablished) &&
       free_driving_snap::HasConfirmedParkingDepartureFromRoad(
-          currentState == free_driving_snap::MatchState::Road, bestStrong, bestParkingRoad,
-          trustworthyParkingTurn, departureTurnDegrees);
+          currentState == free_driving_snap::MatchState::Road, plausiblePublicRoad, bestParkingAisle,
+          roadMismatch || weakRoadMatch, trustworthyParkingTurn, departureTurnDegrees);
   bool allowFreeStateRoadReacquire = false;
   if (best != nullptr && bestAcceptable && bestStrong && bestUnambiguous && motionEstablished)
   {
@@ -969,10 +996,11 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
   // projection (for example a slow roundabout). Preserve its bounded road projection
   // instead of flashing unsnapped, provided a recent accepted road and no free-area signal.
   double const displayTime = ObservationTimestamp(displayInput);
-  bool const recentlyRoadAccepted =
-      m_freeDrivingLastAcceptedRoadTimestamp > 0.0 && displayTime >= m_freeDrivingLastAcceptedRoadTimestamp &&
-      displayTime - m_freeDrivingLastAcceptedRoadTimestamp <= free_driving_snap::kMaxAcceptedObservationGapSeconds;
-  bool const freeArea = m_freeDrivingAreaContext.HasParkingArea() ||
+  bool const recentlyRoadAccepted = free_driving_snap::RoadDisplayEvidenceIsFresh(
+      m_freeDrivingLastAcceptedRoadTimestamp, displayTime, CurrentObservationClock(displayInput));
+  // Parking geometry alone cannot bypass the departure gate. ParkingFree was handled above;
+  // a public-road lock overlapping a parking polygon still belongs to the road matcher.
+  bool const freeArea = m_freeDrivingAreaContext.m_insideLargeBuilding ||
                         m_freeDrivingAreaContext.m_insideStrongOpenArea ||
                         m_freeDrivingAreaContext.m_insideWeakOpenArea;
   if (distanceM > maxDisplayDistanceM &&
@@ -985,3 +1013,4 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
   return true;
 }
 }  // namespace routing
+

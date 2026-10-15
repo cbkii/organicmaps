@@ -14,6 +14,260 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_production_road_matcher_and_parking_departure_boundaries(self):
+        compiler = shutil.which("c++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable")
+        def without_local_includes(path):
+            return re.sub(r'^#include "[^"\n]+"\n|^#pragma once\n', '', controls.read(path), flags=re.M)
+        source = r'''
+#include <cassert>
+namespace m2 { struct PointD { double x=0,y=0; }; }
+namespace location { struct GpsInfo {
+ double m_horizontalAccuracy=5,m_speed=1,m_speedAccuracy=-1,m_bearing=-1,m_bearingAccuracy=-1;
+ bool HasSpeed() const { return m_speed>=0; }
+ bool HasSpeedAccuracy() const { return m_speedAccuracy>=0; }
+ bool HasBearing() const { return m_bearing>=0; }
+ bool HasBearingAccuracy() const { return m_bearingAccuracy>=0; }
+}; }
+''' + without_local_includes("libs/routing/free_driving_road_snap_policy.hpp") + without_local_includes(
+    "libs/routing/free_driving_road_matcher.hpp") + without_local_includes(
+    "libs/routing/free_driving_road_matcher.cpp") + r'''
+int main() {
+ using namespace routing::free_driving_snap;
+ assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,69));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70));
+ assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,false,true,false,0));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,true,false,false,0));
+ // Accumulated crawl displacement is useful even when each 1Hz step is below 3m.
+ assert(HasTrustworthyParkingTurn(true,.6,4,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,4,true,0));
+ assert(!HasTrustworthyParkingTurn(true,.2,4,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,2,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,4,false,8));
+ assert(RoadDisplayEvidenceIsFresh(100,100,105));
+ assert(!RoadDisplayEvidenceIsFresh(100,100,105.001));
+ assert(!RoadDisplayEvidenceIsFresh(100,100,99));
+ assert(!RoadDisplayEvidenceIsFresh(100,99,101));
+ assert(!RoadDisplayEvidenceIsFresh(0,100,101));
+ assert(RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,false,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,false,false,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,true,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,false,36,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Poor,true,false,30,20));
+ AreaContext context; FreeDrivingRoadMatcher matcher; MatcherEvidence e;
+ e.m_hasBestRoad=e.m_bestAcceptable=e.m_bestStrong=e.m_bestUnambiguous=true;
+ e.m_accuracy=AccuracyBand::Good;e.m_candidateToken=1;e.m_deltaSeconds=1;
+ e.m_relation=RoadRelation::SameDirectedEdge;
+ matcher.Update(e,context);matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::Road);
+ context.m_insideParking=true;
+ e.m_stationaryHold=true;
+ for(int i=0;i<10;i++) {
+  e.m_parkingReleaseEligible=HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90);
+  assert(matcher.Update(e,context).m_state==MatchState::Road);
+ }
+ // Traffic-light stop, then a connected low-speed bend: same road authority survives.
+ e.m_stationaryHold=false;e.m_motionEstablished=true;e.m_relation=RoadRelation::Connected;e.m_candidateToken=2;
+ assert(matcher.Update(e,context).m_state==MatchState::Road);
+ e.m_parkingReleaseEligible=HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70);
+ for(int i=0;i<4;i++)matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::ParkingFree);
+ assert(!RetainFreshRoadDisplay(matcher.GetState(),AccuracyBand::Good,true,false,30,20));
+ e.m_parkingReleaseEligible=false;e.m_allowFreeStateRoadReacquire=true;e.m_candidateToken=3;
+ matcher.Update(e,context);matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::Road);
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "roads.cpp"
+            binary = Path(tmp) / "roads"
+            src.write_text(source)
+            result = subprocess.run([compiler, "-std=c++17", str(src), "-o", str(binary)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
+    def test_production_ribbon_warning_surfaces_and_contrast(self):
+        import xml.etree.ElementTree as ET
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable")
+        source = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        render = controls.method_body(source, "private static void renderRibbon(")
+        foreground = controls.method_body(source, "private static int ribbonForeground(")
+        self.assertIn("renderRibbon(activity, snapshot.navigating && warning,", source)
+        colours = {}
+        for path in ("android/app/src/main/res/values/in_car_shared_fallbacks.xml",
+                     "android/app/src/inCar/res/values/colors.xml",
+                     "android/app/src/inCar/res/values/in_car_navigation_colours.xml"):
+            colours.update({x.get("name"): x.text for x in ET.parse(ROOT / path).getroot() if x.tag == "color"})
+        palettes = []
+        for night in (False, True):
+            values = dict(colours)
+            if night:
+                for path in ("values-night/colors.xml", "values-night/in_car_navigation_colours.xml"):
+                    values.update({x.get("name"): x.text for x in ET.parse(
+                        ROOT / "android/app/src/inCar/res" / path).getroot() if x.tag == "color"})
+            def resolve(token):
+                value = values[token].strip()
+                return resolve(value[7:]) if value.startswith("@color/") else value
+            names = sorted(set(re.findall(r"R\.color\.(\w+)", render)))
+            palettes.append("new int[]{" + ",".join("(int)0x" + resolve(n).removeprefix("#") for n in names) + "}")
+        ids = sorted(set(re.findall(r"R\.id\.(\w+)", render)) | {"in_car_nav_speed", "nav_speed_limit"})
+        resources = "class R { static class id {" + "".join(
+            f"static final int {n}={i};" for i, n in enumerate(ids)) + "} static class color {" + "".join(
+            f"static final int {n}={i};" for i, n in enumerate(names)) + "}}"
+        harness = r'''
+import java.util.*;
+class View {
+ static final int VISIBLE=0,INVISIBLE=4;
+ int background=0x12345678,visibility=VISIBLE;
+ Map<Integer,View> children=new HashMap<>();
+ @SuppressWarnings("unchecked") <T extends View> T findViewById(int id){return (T)children.get(id);}
+ void setBackgroundColor(int c){background=c;}
+ void setVisibility(int v){visibility=v;}
+ int getVisibility(){return visibility;}
+}
+class TextView extends View { int color; void setTextColor(int c){color=c;} }
+class ImageView extends View { int tint; }
+class LanesView extends View { int active,inactive; void setLaneColors(int a,int b){active=a;inactive=b;} }
+class MwmActivity extends View { int[] colors; }
+class ColorStateList { int color; static ColorStateList valueOf(int c){var r=new ColorStateList();r.color=c;return r;} }
+class ImageViewCompat { static void setImageTintList(ImageView v,ColorStateList c){v.tint=c.color;} }
+class ContextCompat { static int getColor(MwmActivity a,int id){return a.colors[id];} }
+class InCarSpeedDisplayPolicy {
+ enum Severity { WARNING,SEVERE }
+ static Severity current=Severity.SEVERE;
+ static Severity severity(){return current;}
+}
+class ColorUtils {
+ static int blendARGB(int a,int b,float f){
+  int c=0; for(int shift:new int[]{0,8,16,24})c|=((int)(((a>>>shift)&255)*(1-f)+((b>>>shift)&255)*f))<<shift;
+  return c;
+ }
+ static double channel(int n){double v=n/255.0;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);}
+ static double luminance(int c){return .2126*channel((c>>>16)&255)+.7152*channel((c>>>8)&255)+.0722*channel(c&255);}
+ static double calculateContrast(int a,int b){double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
+}
+''' + resources + r'''
+class RibbonTest {
+ static int ribbonForeground(int background){''' + foreground + r'''}
+ static void renderRibbon(MwmActivity activity,boolean warning,float strength){''' + render + r'''}
+ static void check(boolean ok){if(!ok)throw new AssertionError();}
+ public static void main(String[] args){
+  int[][] palettes={''' + ",".join(palettes) + r'''};
+  for(int[] palette:palettes)for(boolean landscape:new boolean[]{false,true})for(boolean hasLanes:new boolean[]{false,true}){
+   MwmActivity a=new MwmActivity(); a.colors=palette;
+   for(int id=0;id<''' + str(len(ids)) + r''';id++)a.children.put(id,new View());
+   for(int id:new int[]{R.id.nav_next_turn_frame,R.id.nav_next_next_turn_frame}){
+    a.children.get(id).children.put(R.id.turn,new ImageView());
+    a.children.get(id).children.put(R.id.distance,new TextView());
+   }
+   a.children.get(R.id.street_frame).children.put(R.id.street,new TextView());
+   a.children.put(R.id.in_car_nav_guidance_label,new TextView());
+   LanesView lanes=new LanesView(); lanes.visibility=hasLanes?View.VISIBLE:View.INVISIBLE;
+   a.children.put(R.id.lanes,lanes);
+   if(!landscape){a.children.remove(R.id.in_car_nav_guidance_group);a.children.remove(R.id.in_car_nav_immediate_group);}
+   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{.18f,.5f,.8f,1f}){
+    InCarSpeedDisplayPolicy.current=severity;
+    renderRibbon(a,false,0);
+    int original=a.children.get(R.id.nav_next_next_turn_frame).background;
+    renderRibbon(a,true,strength);
+    View after=a.children.get(R.id.nav_next_next_turn_frame),now=a.children.get(R.id.nav_next_turn_frame);
+    check(after.background!=original);
+    check(lanes.background==after.background);
+    TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
+    TextView distance=now.findViewById(R.id.distance);
+    check(ColorUtils.calculateContrast(label.color,after.background)>=4.5);
+    check(ColorUtils.calculateContrast(distance.color,now.background)>=4.5);
+    check(ColorUtils.calculateContrast(lanes.active,lanes.background)>=4.5);
+    check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
+    check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
+    renderRibbon(a,false,0);
+    check(after.background==original);
+   }
+  }
+ }
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "RibbonTest.java"
+            src.write_text(harness)
+            color = Path(tmp) / "android/graphics/Color.java"
+            color.parent.mkdir(parents=True)
+            color.write_text("package android.graphics; public class Color { public static final int BLACK=0xff000000,WHITE=0xffffffff; }")
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            result = subprocess.run([runtime, str(compiler), "-d", tmp, str(src), str(color)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([runtime, "-cp", tmp, "RibbonTest"], check=True, timeout=10)
+
+    def test_production_location_hold_keeps_metadata_and_rejects_older_fixes(self):
+        compiler = shutil.which("c++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable")
+        body = controls.method_body(controls.read("libs/drape_frontend/my_position_controller.cpp"),
+                                    "void MyPositionController::OnLocationUpdate(")
+        # Execute the production acceptance/hold prefix, before unrelated animation/rendering.
+        prefix = body[:body.index("  bool const isMovingFast")]
+        source = r'''
+#include <cstdint>
+#include <cassert>
+struct Point { double x=0,y=0; };
+struct Rect { double SizeX() const { return 20; } };
+namespace m2 { using PointD=Point; using RectD=Rect; }
+namespace mercator {
+Point FromLatLon(double x,double y) { return {x,y}; }
+double DistanceOnEarth(Point,Point) { return 1; }
+Rect MetersToXY(double,double,double) { return {}; }
+}
+namespace location { struct GpsInfo {
+ double m_monotonicTimestamp=20,m_timestamp=20,m_latitude=42,m_longitude=0;
+ double m_horizontalAccuracy=5,m_speed=1;
+ bool HasMonotonicTimestamp() const { return m_monotonicTimestamp>0; }
+ bool HasSpeed() const { return true; }
+}; }
+namespace driving_policy { bool ShouldHoldFreeDrivingCamera(bool,bool,bool,bool,double,double) { return true; } }
+constexpr double kUnknownAutoZoom=-1;
+struct Owner {
+ bool m_isInRouting=false,m_isDrivingView=true,m_isPositionAssigned=true;
+ bool m_hasLastHeldDrivingPosition=false;
+ int64_t m_lastRecenterObservationNanos=19000000000;
+ Point m_position{7,0},m_lastHeldDrivingPosition;
+ double m_errorRadius=0,m_horizontalAccuracy=100,m_autoScale2d=0,m_autoScale3d=0;
+ double CalculateZoomBySpeed(double,bool) { return 2; }
+ Point GetDrawablePosition() { return m_position; }
+ double GetDrawableAzimut() { return 0; }
+ void RefreshLocationFreshness(location::GpsInfo const & info) {
+   m_lastRecenterObservationNanos=static_cast<int64_t>(info.m_monotonicTimestamp*1e9);
+ }
+ void update(location::GpsInfo const & info) {
+''' + prefix + r'''
+ }
+};
+int main() {
+ Owner o; location::GpsInfo fix;
+ o.update(fix);
+ assert(o.m_position.x==7 && o.m_lastHeldDrivingPosition.x==42);
+ assert(o.m_horizontalAccuracy==5 && o.m_errorRadius==10 && o.m_autoScale2d==4);
+ fix.m_monotonicTimestamp=19; fix.m_latitude=99; fix.m_horizontalAccuracy=70;
+ o.update(fix);
+ assert(o.m_lastHeldDrivingPosition.x==42 && o.m_horizontalAccuracy==5);
+ assert(o.m_lastRecenterObservationNanos==20000000000);
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "held.cpp"
+            binary = Path(tmp) / "held"
+            src.write_text(source)
+            subprocess.run([compiler, "-D__ANDROID__", "-std=c++17", str(src), "-o", str(binary)],
+                           check=True, timeout=30)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
     def test_accessibility_interaction_cancels_without_swallowing_events(self):
         runtime = shutil.which("java")
         if not runtime:
@@ -143,8 +397,8 @@ public class AccessibilityTest {
             self.assertIn(expected, camera)
             self.assertIn(expected, quick)
         overlay = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
-        self.assertIn("group.setBackgroundColor(warning ? ColorUtils.blendARGB(afterBackground, red, strength)", overlay)
-        self.assertIn("immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB(immediateBackground, red, strength)", overlay)
+        self.assertIn("group.setBackgroundColor(afterBackground)", overlay)
+        self.assertIn("immediateGroup.setBackgroundColor(immediateBackground)", overlay)
         theme = controls.read("android/app/src/main/java/app/organicmaps/util/ThemeSwitcher.java")
         self.assertIn("ThemeUtils.isDarkTheme(context)", theme)
         self.assertIn("calculateMapStyle(isDarkMode)", theme)
@@ -501,8 +755,9 @@ struct Point { int value=0; };
 struct Rect { Point Center() const { return {}; } };
 namespace location { constexpr int FollowAndRotate=3; }
 constexpr int kDoNotChangeZoom=-1;
-int64_t PositionClockNanos() { return 200; }
-bool IsFreshPositionObservation(int64_t observation,int64_t) { return observation==200; }
+int64_t nowNanos=20000000000;
+int64_t PositionClockNanos() { return nowNanos; }
+""" + controls.read("libs/drape_frontend/current_position_freshness.hpp").replace("#pragma once", "") + r"""
 struct Listener {
  int events=0,last=-1;
  void PositionChanged(Point p,bool) { ++events; last=p.value; }
@@ -513,7 +768,7 @@ public:
  Point m_position={7},m_lastHeldDrivingPosition={42};
  bool m_isPositionAssigned=true,m_positionIsObsolete=false,m_recenterPending=false;
  bool m_hasLastHeldDrivingPosition=true;
- int64_t m_lastRecenterObservationNanos=200;
+ int64_t m_lastRecenterObservationNanos=20000000000;
  int m_mode=location::FollowAndRotate;
  double m_drawDirection=0;
  Rect m_visiblePixelRect;
@@ -540,9 +795,18 @@ int main() {
  stale.m_listener=&listener;
  stale.m_lastRecenterObservationNanos=100;
  if (stale.RecenterPreservingMode() || stale.m_position.value!=7 ||
-     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1) return 2;
+     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1 ||
+     listener.events!=1 || listener.last!=42) return 2;
  MyPositionController noListener;
  if (noListener.RecenterPreservingMode()) return 3;
+ MyPositionController future;
+ future.m_listener=&listener;
+ nowNanos=19999999999;
+ if (future.RecenterPreservingMode() || listener.events!=1) return 4;
+ nowNanos=30000000001;
+ if (future.RecenterPreservingMode() || listener.events!=1) return 5;
+ nowNanos=30000000000;
+ if (!future.RecenterPreservingMode() || listener.events!=2) return 6;
  return 0;
 }
 """
@@ -1069,4 +1333,3 @@ int main() {
             subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
                             str(source), "-o", str(executable)], check=True, capture_output=True, text=True)
             subprocess.run([str(executable)], check=True, capture_output=True, text=True)
-

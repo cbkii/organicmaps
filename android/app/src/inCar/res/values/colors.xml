@@ -17,7 +17,7 @@
   <color name="in_car_icon_primary">#FF3C4043</color>
   <color name="in_car_icon_secondary">#FF5F6368</color>
   <color name="in_car_divider">#FF80868B</color>
-  <!-- Opaque black remains legible when light/translucent map chrome is washed out by glare. -->
+  <!-- Translucent locator edge follows the shared map-rail surface. -->
   <color name="in_car_map_control_outline">#66000000</color>
 
   <color name="in_car_quick_foreground">@color/in_car_action_primary</color>

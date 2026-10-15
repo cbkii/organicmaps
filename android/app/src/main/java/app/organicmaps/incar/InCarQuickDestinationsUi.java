@@ -500,7 +500,7 @@ public final class InCarQuickDestinationsUi
           final View divider = new View(mActivity);
           divider.setBackgroundColor(ContextCompat.getColor(mActivity, R.color.divider));
           final LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(
-              ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+              Math.max(1, button.getLayoutParams().width - dp(24)), dp(1));
           line.setMargins(dp(12), 0, dp(12), 0);
           mContainer.addView(divider, line);
         }

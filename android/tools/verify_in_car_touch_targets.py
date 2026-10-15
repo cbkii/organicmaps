@@ -235,7 +235,7 @@ def verify_start_end_controls(root: Path) -> None:
     require_layout_attr(start, "start", ANDROID_NS, "layout_width", "wrap_content")
     require_layout_attr(start, "start", ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_min")
     require_layout_attr(start, "start", ANDROID_NS, "minWidth", "110dp")
-    reject_text(start, r"<Space\\b", "empty START spacer")
+    reject_text(start, r"<Space\b", "empty START spacer")
     require_layout_attr(root / "android/app/src/main/res/layout/routing_bottom_sheet.xml",
                         "in_car_route_summary", ANDROID_NS, "layout_weight", "1")
 

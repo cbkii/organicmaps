@@ -120,8 +120,8 @@ def main() -> int:
         require_value(quick_values, "in_car_quick_surface", "@color/bg_menu", quick_colours)
         require_value(quick_values, "in_car_quick_foreground", "@color/icon_tint", quick_colours)
         require_value(quick_values, "in_car_map_control_outline", "#E6FFFFFF", quick_colours)
-        require_value(day_values, "in_car_map_control_outline", "#FF000000", day_colours)
-        require_value(night_values, "in_car_map_control_outline", "#E6FFFFFF", night_colours)
+        require_value(day_values, "in_car_map_control_outline", "#66000000", day_colours)
+        require_value(night_values, "in_car_map_control_outline", "#66FFFFFF", night_colours)
         verify_map_selector(map_selector)
 
         require_text(visual_source, "static final int EXTRA_COMPACT_HEIGHT_DP = 360;", "360dp live-height threshold")

@@ -345,6 +345,7 @@ final class RoutingBottomMenuController
 
   void hideAltitudeChartAndRoutingDetails()
   {
+    hideCompactSummary();
     UiUtils.hide(mAltitudeChart, mTimeVehicle, mTimeElevationLine, mTransitTime, mTimeRuler, mTransitRecyclerView);
     notifyVisibilityChanged();
   }
@@ -412,6 +413,8 @@ final class RoutingBottomMenuController
   // Single entry point for the Start button visual state. The button itself is always visible.
   void setStartState(@NonNull StartState state)
   {
+    if (state != StartState.ENABLED)
+      hideCompactSummary();
     if (state == mStartGate.getState())
       return;
     mStart.setBuildProgress(0);
@@ -460,6 +463,18 @@ final class RoutingBottomMenuController
     mError.setVisibility(View.VISIBLE);
     setStartState(StartState.DISABLED);
     notifyVisibilityChanged();
+  }
+
+  private void hideCompactSummary()
+  {
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+    final TextView summary = mContext.findViewById(R.id.in_car_route_summary);
+    if (summary != null)
+    {
+      summary.setText("");
+      summary.setVisibility(View.GONE);
+    }
   }
 
   void saveRoutingPanelState(@NonNull Bundle outState)

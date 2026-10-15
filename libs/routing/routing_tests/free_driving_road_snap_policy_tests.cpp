@@ -306,13 +306,34 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_FreshRoadLockSurvivesTurnProjectionGapAtAnyS
 UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingNeedsConfirmedSwivelUnderStrongRoadLock)
 {
   // A public road beside/inside mapped parking must not unsnap at walking speed on its own.
-  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, 90.0), ());
-  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, true, 69.0), ());
-  TEST(HasConfirmedParkingDepartureFromRoad(true, true, false, true, 70.0), ());
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, false, 90.0), ());
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, true, 69.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, false, false, true, 70.0), ());
   // Legitimate exceptions remain: an actual road mismatch, or a mapped parking aisle.
-  TEST(HasConfirmedParkingDepartureFromRoad(true, false, false, false, 0.0), ());
-  TEST(HasConfirmedParkingDepartureFromRoad(true, true, true, false, 0.0), ());
-  TEST(HasConfirmedParkingDepartureFromRoad(false, true, false, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, false, false, true, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, true, false, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(false, true, false, false, false, 0.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingUsesRetainedRoadAndAccumulatedMotion)
+{
+  // A weaker winning candidate cannot release the still-plausible public-road lock.
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, false, 90.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, false, true, false, 0.0), ());
+  TEST(HasTrustworthyParkingTurn(true, 0.6, 4.0, false, 1.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.6, 4.0, true, 0.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.2, 4.0, false, 1.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.6, 2.0, false, 1.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.6, 4.0, false, 8.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ExtrapolatedTimestampDoesNotRefreshRoadLifetime)
+{
+  TEST(RoadDisplayEvidenceIsFresh(100.0, 100.0, 105.0), ());
+  TEST(!RoadDisplayEvidenceIsFresh(100.0, 100.0, 105.01), ());
+  TEST(!RoadDisplayEvidenceIsFresh(100.0, 100.0, 99.0), ());
+  TEST(!RoadDisplayEvidenceIsFresh(100.0, 99.0, 101.0), ());
+  TEST(!RoadDisplayEvidenceIsFresh(0.0, 100.0, 101.0), ());
 }
 
 }  // namespace free_driving_road_snap_policy_tests
