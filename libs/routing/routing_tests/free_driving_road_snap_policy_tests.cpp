@@ -289,4 +289,30 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingAreaConstraintPreservesInsidePosition
   TEST_LESS(std::abs(constrained.x - 0.5), 1e-9, ());
   TEST_LESS(std::abs(constrained.y - 0.5), 1e-9, ());
 }
+UNIT_TEST(FreeDrivingRoadSnapPolicy_FreshRoadLockSurvivesTurnProjectionGapAtAnySpeed)
+{
+  // Retention is deliberately speed-independent, but never a raw-GPS override of free-area state.
+  TEST(RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, true, false, 30.0, 20.0), ());
+  TEST(RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Moderate, true, false, 49.0, 32.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, true, false, 36.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Moderate, true, false, 56.0, 32.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Poor, true, false, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, false, false, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, true, true, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::ParkingFree, AccuracyBand::Good, true, false, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::OffRoadFree, AccuracyBand::Good, true, false, 25.0, 20.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingNeedsConfirmedSwivelUnderStrongRoadLock)
+{
+  // A public road beside/inside mapped parking must not unsnap at walking speed on its own.
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, 90.0), ());
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, true, 69.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, false, true, 70.0), ());
+  // Legitimate exceptions remain: an actual road mismatch, or a mapped parking aisle.
+  TEST(HasConfirmedParkingDepartureFromRoad(true, false, false, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, true, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(false, true, false, false, 0.0), ());
+}
+
 }  // namespace free_driving_road_snap_policy_tests
