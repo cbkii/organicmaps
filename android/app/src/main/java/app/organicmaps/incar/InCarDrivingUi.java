@@ -210,8 +210,11 @@ public final class InCarDrivingUi
     final boolean hasLanes = lanes.getVisibility() == View.VISIBLE;
     final int foreground = ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
                                                                     : R.color.in_car_nav_after_foreground);
-    group.setBackgroundColor(ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_background
-                                                                      : R.color.in_car_nav_after_background));
+    final int afterBackground = ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_background
+                                                                            : R.color.in_car_nav_after_background);
+    // AFTER and lane captions must be under the same warning wash as NOW; speed circles are excluded.
+    group.setBackgroundColor(warning ? ColorUtils.blendARGB(afterBackground, red, strength)
+                                     : afterBackground);
     final int secondary = ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
     final View immediateGroup = ribbon.findViewById(R.id.in_car_nav_immediate_group);
     final int immediateBackground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
