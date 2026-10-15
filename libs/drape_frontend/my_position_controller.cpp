@@ -364,6 +364,16 @@ bool MyPositionController::RecenterPreservingMode()
     return false;
 
   m_recenterPending = false;
+  // Free-driving camera jitter suppression retains the newest accepted raw fix separately.
+  // Recentring on the old camera position after refreshing the observation timestamp could
+  // jump back to an unrelated viewport while Follow already sees the current location.
+  // Consume the fresh held fix only for an explicit recenter, never for background camera drift.
+  if (m_hasLastHeldDrivingPosition)
+  {
+    m_position = m_lastHeldDrivingPosition;
+    m_hasLastHeldDrivingPosition = false;
+    m_listener->PositionChanged(Position(), IsModeHasPosition());
+  }
   if (m_mode == location::FollowAndRotate)
     ChangeModelView(m_position, m_drawDirection,
                     IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
@@ -425,25 +435,20 @@ void MyPositionController::NextMode(ScreenBase const & screen)
 
 void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool isNavigable, ScreenBase const & screen)
 {
+#if defined(__ANDROID__)
+  int64_t const observationNanos =
+      static_cast<int64_t>((info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0) * 1.0e9);
+#else
+  int64_t const observationNanos = static_cast<int64_t>(info.m_timestamp * 1.0e9);
+#endif
+  // Reject out-of-order provider/display events before replacing either a held point or
+  // its freshness/accuracy. Equal timestamps are legitimate extrapolated display ticks.
+  if (observationNanos > 0 && m_lastRecenterObservationNanos > observationNanos)
+    return;
+
   m2::PointD const newPosition = mercator::FromLatLon(info.m_latitude, info.m_longitude);
   double const displacementMeters = m_isPositionAssigned ? mercator::DistanceOnEarth(m_position, newPosition) : 0.0;
-  if (driving_policy::ShouldHoldFreeDrivingCamera(m_isInRouting, m_isDrivingView, m_isPositionAssigned, info.HasSpeed(),
-                                                  info.m_speed, displacementMeters))
-  {
-    // Framework/routing/search already received the raw fix. Keep nearby low-speed jitter out of the camera, but
-    // retain the newest raw position for a later meaningful move, Driving View exit or route start.
-    m_lastHeldDrivingPosition = newPosition;
-    m_hasLastHeldDrivingPosition = true;
-    RefreshLocationFreshness(info);
-    return;
-  }
-
-  m_hasLastHeldDrivingPosition = false;
-  m2::PointD const oldPos = GetDrawablePosition();
-  double const oldAzimut = GetDrawableAzimut();
-
   m2::RectD const rect = mercator::MetersToXY(info.m_longitude, info.m_latitude, info.m_horizontalAccuracy);
-  m_position = newPosition;
   m_errorRadius = rect.SizeX() * 0.5;
   m_horizontalAccuracy = info.m_horizontalAccuracy;
 
@@ -457,6 +462,22 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
   {
     m_autoScale2d = m_autoScale3d = kUnknownAutoZoom;
   }
+
+  if (driving_policy::ShouldHoldFreeDrivingCamera(m_isInRouting, m_isDrivingView, m_isPositionAssigned, info.HasSpeed(),
+                                                  info.m_speed, displacementMeters))
+  {
+    // Keep position jitter out of the camera, but accuracy and zoom belong to the latest
+    // accepted fix, including when recenter/route start consumes the held position.
+    m_lastHeldDrivingPosition = newPosition;
+    m_hasLastHeldDrivingPosition = true;
+    RefreshLocationFreshness(info);
+    return;
+  }
+
+  m_hasLastHeldDrivingPosition = false;
+  m2::PointD const oldPos = GetDrawablePosition();
+  double const oldAzimut = GetDrawableAzimut();
+  m_position = newPosition;
 
   bool const isMovingFast = info.HasSpeed() && info.m_speed > kMinSpeedThresholdMps;
   bool const glueArrowInRouting = isNavigable && m_isArrowGluedInRouting;
