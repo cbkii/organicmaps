@@ -65,7 +65,9 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     if (warning)
     {
       // Use a coloured solid instead of tinting the whole drawable: preserve the dark outline.
-      setTextColor(severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
+      // Severe red is bright with black text in daylight, dark with white text at night.
+      final boolean night = app.organicmaps.util.ThemeUtils.isDarkTheme(getContext());
+      setTextColor(!night || severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
     }
     else
     {
