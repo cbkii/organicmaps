@@ -529,7 +529,6 @@ public class AccessibilityTest {
         if not java:
             self.skipTest("Java source launcher unavailable")
         method_start = vis.index("  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,\\n")
-        method_start = vis.index("  public static boolean shouldShowSurface(", method_start + 3)
         body_start = vis.index("{", method_start)
         depth, end = 1, body_start + 1
         while depth:
