@@ -4,6 +4,8 @@
 
 This checklist qualifies **app-side** map UI for the exact installed `app.organicmaps.incar` TESTING APK. GitHub build/check success is **not** TS18 acceptance. Verify the test APK's release-note PR/head/built SHA, package, signer and SHA-256 before interpreting screenshots; reject stale/mixed snapshots. Stop if the installed package is a different build. Do not remove or reset stock Topway packages, edit SystemUI, or test manoeuvres while driving. Park the vehicle safely.
 
+For the canonical **install, provenance and rollback** procedure, follow [TS18 consolidated UI validation — Install and rollback](../../docs/TS18_CONSOLIDATED_UI_VALIDATION.md#install-and-rollback). Before collecting results, record the exact PR/head and **built SHA** from the draft TESTING release notes, plus APK filename, SHA-256, installed package identity, versionCode/versionName and signing-certificate SHA-256. On a host with Android build tools, `sha256sum candidate.apk` and `apksigner verify --print-certs candidate.apk` can independently confirm the archive and signing identity. Do not infer the installed signer from the filename. Keep the manifest together with the screenshot/result set; if the installed build cannot be matched, mark the run **BLOCKED**.
+
 Use the existing read-only Termux collector (`android/tools/ts18_termux_in_car_ux_capture.sh`), or the ADB-side `capture_in_car_validation.py`. Both collect a labelled screenshot plus window/device evidence; neither infers a test result. If a probe cannot run, mark it **BLOCKED** rather than treating missing data as a UI failure.
 
 ### One-time preparation
@@ -46,5 +48,7 @@ For each row, inspect **the visual pixels and the matching window/activity dump*
 ### Sign-off gate
 
 No unintended overlap among **actionable** controls; START/END, active guidance and modal actions always win over optional Quick buttons; no missed taps/gesture interception in clear map areas; all screenshots tied to the **same installed final-head TESTING APK**. Mark native selected-POI camera padding, road geometry and SystemUI-owned insets **NOT_RUN/UNKNOWN** until those owning contracts are measured.
+
+**Privacy gate before sharing:** these captures may contain saved destinations, precise coordinates, recent searches, personal addresses, serials, account details, notification text and logcat context. Review files locally, redact or omit sensitive screenshot regions and logs, and share only the necessary scoped evidence. Keep original private capture hashes separate from hashes of any redacted copies; never publish unreviewed raw diagnostic archives. This applies even when the collector succeeded.
 
 Bring the capture directory, screenshot(s), results and build provenance back into the PR review. A green CI check alone does not authorise merging.
