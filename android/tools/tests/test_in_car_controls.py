@@ -528,7 +528,7 @@ public class AccessibilityTest {
         java = shutil.which("java")
         if not java:
             self.skipTest("Java source launcher unavailable")
-        method_start = vis.index("  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,\\n")
+        method_start = vis.index("  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,")
         body_start = vis.index("{", method_start)
         depth, end = 1, body_start + 1
         while depth:
@@ -544,7 +544,7 @@ public class AccessibilityTest {
         rect_method = occupied[rect_start:rect_end].replace("@NonNull ", "")
         harness = """class OverlayPolicyTest {
 static class Rect {int left,right; Rect(int l,int r){left=l;right=r;}}
-""" + method + "\\n" + rect_method + """
+""" + method + "\n" + rect_method + """
 public static void main(String[] args) {
   for (int mask=0;mask<256;mask++) {
     boolean car=(mask&1)!=0,search=(mask&2)!=0,place=(mask&4)!=0;
