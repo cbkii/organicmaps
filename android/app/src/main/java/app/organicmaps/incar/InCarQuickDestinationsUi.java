@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -136,6 +137,10 @@ public final class InCarQuickDestinationsUi
     @NonNull
     private final View.OnLayoutChangeListener mLayoutListener;
     @NonNull
+    private final ViewTreeObserver.OnGlobalLayoutListener mOccupiedRegionListener;
+    private int mLastOccupiedTop = -1;
+    private int mLastOccupiedBottom = -1;
+    @NonNull
     private final List<QuickActionBinding> mDirectActions = new ArrayList<>();
     @NonNull
     private final List<QuickActionBinding> mOverflowActions = new ArrayList<>();
@@ -168,8 +173,22 @@ public final class InCarQuickDestinationsUi
       mPrefs = MwmApplication.prefs(activity);
       mLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
       {
-        if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)
+        if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
           scheduleActionLayout();
+      };
+      // Re-check only after Android layout changes; never poll geometry per frame/gesture.
+      // This catches independent guidance, speed, panel and footer visibility/size changes.
+      mOccupiedRegionListener = () -> {
+        final InCarOverlayCoordinator.Snapshot measured = measureCandidateOccupancy();
+        if (!measured.hasMapBounds())
+          return;
+        if (measured.topClearancePx() != mLastOccupiedTop
+            || measured.bottomClearancePx() != mLastOccupiedBottom)
+        {
+          mLastOccupiedTop = measured.topClearancePx();
+          mLastOccupiedBottom = measured.bottomClearancePx();
+          updateBottomMargin();
+        }
       };
       final ViewModelProvider provider = new ViewModelProvider(activity);
       mMapButtonsViewModel = provider.get(MapButtonsViewModel.class);
@@ -187,6 +206,7 @@ public final class InCarQuickDestinationsUi
       {
         mAnchorParent = parent;
         parent.addOnLayoutChangeListener(mLayoutListener);
+        parent.getViewTreeObserver().addOnGlobalLayoutListener(mOccupiedRegionListener);
       }
       ViewCompat.setElevation(mContainer, mActivity.getResources().getDimension(R.dimen.in_car_quick_elevation));
       applyInsets();
@@ -246,7 +266,12 @@ public final class InCarQuickDestinationsUi
       mPrefs.unregisterOnSharedPreferenceChangeListener(this);
       mRoot.removeOnLayoutChangeListener(mLayoutListener);
       if (mAnchorParent != null)
+      {
         mAnchorParent.removeOnLayoutChangeListener(mLayoutListener);
+        final ViewTreeObserver tree = mAnchorParent.getViewTreeObserver();
+        if (tree.isAlive())
+          tree.removeOnGlobalLayoutListener(mOccupiedRegionListener);
+      }
       ViewCompat.setOnApplyWindowInsetsListener(mRoot, null);
       mRoot.setTag(null);
     }
@@ -553,6 +578,16 @@ public final class InCarQuickDestinationsUi
       });
     }
 
+    @NonNull
+    private InCarOverlayCoordinator.Snapshot measureCandidateOccupancy()
+    {
+      final boolean left = InCarSettingsStore.controlsOnLeft(mActivity);
+      final View camera = mActivity.findViewById(R.id.zoom_buttons_container);
+      final boolean horizontal = camera != null && camera.getWidth() > camera.getHeight();
+      return InCarOverlayCoordinator.measureQuickColumn(
+          mActivity, left, horizontal, InCarVisuals.currentQuickActionSizePx(mActivity));
+    }
+
     private int availableHeightDp()
     {
       int parentHeight = mAnchorParent == null ? 0 : mAnchorParent.getHeight();
@@ -564,14 +599,7 @@ public final class InCarQuickDestinationsUi
       int bottomMargin = 0;
       if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
         bottomMargin = Math.max(0, params.bottomMargin);
-      final boolean left = InCarSettingsStore.controlsOnLeft(mActivity);
-      final View camera = mActivity.findViewById(R.id.zoom_buttons_container);
-      final boolean horizontal = camera != null && camera.getWidth() > camera.getHeight();
-      final int profileSize = InCarVisuals.currentQuickActionSizePx(mActivity);
-      final int offset = InCarMapDockPolicy.quickPhysicalOffsetPx(
-          mActivity.getResources(), profileSize, horizontal);
-      final InCarOverlayCoordinator.Snapshot occupied =
-          InCarOverlayCoordinator.measure(mActivity, left, offset, profileSize);
+      final InCarOverlayCoordinator.Snapshot occupied = measureCandidateOccupancy();
       // The map container is already clipped to the host's real content bounds.
       // Prefer its measured rectangles to a second subtraction of system-bar insets.
       int topReserved;
@@ -740,7 +768,15 @@ public final class InCarQuickDestinationsUi
                               -> openCategory(which == 0 ? InCarQuickCategoryPolicy.Category.FUEL
                                                          : InCarQuickCategoryPolicy.Category.CHARGING))
               .create();
-      dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(mActivity, dialog));
+      dialog.setOnDismissListener(ignored -> {
+        mOverflowDialogOpen = false;
+        renderVisibility();
+      });
+      dialog.setOnShowListener(ignored -> {
+        mOverflowDialogOpen = true;
+        renderVisibility();
+        InCarDialogSizing.applyCompactWidth(mActivity, dialog);
+      });
       dialog.show();
     }
 

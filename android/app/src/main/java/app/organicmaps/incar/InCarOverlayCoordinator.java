@@ -34,6 +34,30 @@ public final class InCarOverlayCoordinator
     public int bottomClearancePx() { return mBottom; }
   }
 
+  /**
+   * Measure both the preferred and extra-compact column footprints. Navigation
+   * can choose a 55dp cell after capacity calculation; checking both footprints
+   * avoids a circular sizing dependency and misses no narrow intersecting UI.
+   */
+  @NonNull
+  public static Snapshot measureQuickColumn(@NonNull MwmActivity activity, boolean left,
+                                            boolean horizontal, int profileSizePx)
+  {
+    final int mainOffset = InCarMapDockPolicy.quickPhysicalOffsetPx(
+        activity.getResources(), profileSizePx, horizontal);
+    final Snapshot primary = measure(activity, left, mainOffset, profileSizePx);
+    final int compact = Math.min(profileSizePx,
+        activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
+    if (compact == profileSizePx)
+      return primary;
+    final int compactOffset = InCarMapDockPolicy.quickPhysicalOffsetPx(
+        activity.getResources(), compact, horizontal);
+    final Snapshot fallback = measure(activity, left, compactOffset, compact);
+    return new Snapshot(primary.mMeasured || fallback.mMeasured,
+                        Math.max(primary.mTop, fallback.mTop),
+                        Math.max(primary.mBottom, fallback.mBottom));
+  }
+
   /** Maximal top and bottom occupied bands in the Quick Destinations physical column. */
   @NonNull
   public static Snapshot measure(@NonNull MwmActivity activity, boolean controlsLeft, int columnOffsetPx,
@@ -50,7 +74,8 @@ public final class InCarOverlayCoordinator
 
     int top = 0;
     for (int id : new int[] {R.id.street_frame, R.id.nav_next_turn_container, R.id.lanes,
-                             R.id.in_car_driving_speed_cluster})
+                             R.id.in_car_driving_speed_cluster, R.id.nav_speed_limit,
+                             R.id.in_car_nav_speed})
     {
       final Rect rect = visibleRect(activity.findViewById(id));
       if (rect != null && overlapsColumn(rect, columnLeft, columnRight)
