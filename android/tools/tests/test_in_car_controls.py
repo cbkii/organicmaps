@@ -507,6 +507,36 @@ public class AccessibilityTest {
         self.assertEqual("@drawable/in_car_map_rail_cell_feedback", follow.get(ns+"background"))
         self.assertEqual("fitCenter", follow.get(ns+"scaleType"))
 
+
+    def test_incar_quick_icon_contrast_on_extreme_map_tiles(self):
+        """Verify rendered icon contrast at the 75%-opaque map-rail extremes."""
+        day = controls.read("android/app/src/inCar/res/values/colors.xml")
+        night = controls.read("android/app/src/inCar/res/values-night/colors.xml")
+        for source in (day, night):
+            self.assertIn('<color name="in_car_quick_foreground">@color/in_car_icon_primary</color>', source)
+
+        def linear(v):
+            c = v / 255.0
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+        def lum(rgb):
+            return sum(w * linear(c) for w, c in zip((0.2126, 0.7152, 0.0722), rgb))
+
+        def ratio(a, b):
+            hi, lo = sorted((lum(a), lum(b)), reverse=True)
+            return (hi + 0.05) / (lo + 0.05)
+
+        # Same literal ARGB tokens as inCar theme resources, against black/white
+        # map extremes (real screenshots remain a separate acceptance gate).
+        cases = (
+            ((60, 64, 67), (255, 255, 255)),  # day ink / rail
+            ((241, 243, 244), (43, 45, 48)),  # night ink / rail
+        )
+        for ink, rail in cases:
+            for tile in (0, 255):
+                composited = tuple(round((192 * x + 63 * tile) / 255) for x in rail)
+                self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
+
     def test_incar_overlay_visibility_and_occupancy_contracts(self):
         """Execute actual production state predicate and rectangle intersection."""
         quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")
