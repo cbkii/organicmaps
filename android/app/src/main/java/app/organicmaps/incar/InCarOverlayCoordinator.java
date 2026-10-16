@@ -109,6 +109,78 @@ public final class InCarOverlayCoordinator
     return new Snapshot(true, Math.max(0, top), Math.max(0, bottom));
   }
 
+  /**
+   * Compute the map engine's visible viewport, in SurfaceView-local pixels.
+   * A bottom place page owns the bottom band; a genuine edge-mounted page owns
+   * its side. Invisible/off-screen panels own no map area.
+   *
+   * The existing PlacePageUtils callback remains the *only* writer to
+   * Framework.nativeSetVisibleRect. Do not change native Follow or route state.
+   */
+  @NonNull
+  public static Rect placePageViewport(@NonNull View map, @Nullable View placePage,
+                                       @Nullable View camera, int minimumHeightPx, int gapPx)
+  {
+    final int width = map.getWidth();
+    final int height = map.getHeight();
+    final Rect full = new Rect(0, 0, Math.max(0, width), Math.max(0, height));
+    final Rect mapScreen = visibleRect(map);
+    final Rect pageScreen = visibleRect(placePage);
+    if (mapScreen == null || pageScreen == null || width <= 0 || height <= 0
+        || !Rect.intersects(mapScreen, pageScreen))
+      return full;
+
+    final Rect covered = new Rect(pageScreen);
+    if (!covered.intersect(mapScreen))
+      return full;
+    final int padding = Math.max(0, gapPx);
+    int left = 0;
+    int right = width;
+    int bottom = height;
+    // Prefer the actual sheet's width and edge instead of treating every
+    // narrow/side-mounted panel as a full-width bottom sheet.
+    final boolean bottomSheet = covered.width() * 2 >= mapScreen.width()
+                                && covered.bottom >= mapScreen.bottom - padding;
+    if (bottomSheet)
+      bottom = covered.top - mapScreen.top - padding;
+    else if (covered.height() * 2 >= mapScreen.height())
+    {
+      if (covered.left <= mapScreen.left + padding)
+        left = covered.right - mapScreen.left + padding;
+      else if (covered.right >= mapScreen.right - padding)
+        right = covered.left - mapScreen.left - padding;
+    }
+
+    // Camera controls remain actionable above the sheet in browsing mode.
+    // Constrain the selected POI to their *actual* physical edge only when a
+    // place page is present; active navigation is not a place-page owner.
+    final Rect rail = visibleRect(camera);
+    if (rail != null && Rect.intersects(rail, mapScreen))
+    {
+      if (rail.centerX() < mapScreen.centerX())
+        left = Math.max(left, rail.right - mapScreen.left + padding);
+      else
+        right = Math.min(right, rail.left - mapScreen.left - padding);
+    }
+    final int[] bounded = boundedViewport(width, height, left, 0, right, bottom,
+                                          Math.max(100, minimumHeightPx));
+    return new Rect(bounded[0], bounded[1], bounded[2], bounded[3]);
+  }
+
+  /** The C++ viewport contract ignores rectangles narrower or shorter than 100px. */
+  static int[] boundedViewport(int width, int height, int left, int top, int right, int bottom, int minPx)
+  {
+    final int w = Math.max(0, width);
+    final int h = Math.max(0, height);
+    final int l = Math.max(0, Math.min(w, left));
+    final int t = Math.max(0, Math.min(h, top));
+    final int rr = Math.max(l, Math.min(w, right));
+    final int b = Math.max(t, Math.min(h, bottom));
+    if (rr - l < Math.max(100, minPx) || b - t < Math.max(100, minPx))
+      return new int[] {0, 0, w, h};
+    return new int[] {l, t, rr, b};
+  }
+
   /** Interval intersection only; touching edges are not an overlap. */
   public static boolean overlapsColumn(@NonNull Rect rect, int left, int right)
   {

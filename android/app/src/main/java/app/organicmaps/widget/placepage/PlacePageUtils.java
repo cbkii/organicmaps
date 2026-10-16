@@ -3,12 +3,16 @@ package app.organicmaps.widget.placepage;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.os.Build;
+import android.graphics.Rect;
 import android.view.Menu;
 import android.view.View;
 import android.widget.PopupMenu;
 import androidx.annotation.NonNull;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
+import app.organicmaps.incar.InCarOverlayCoordinator;
+import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.util.Utils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -23,6 +27,25 @@ public class PlacePageUtils
       // visibleRect configuration
       if (MwmApplication.from(parent.getContext()).getDisplayManager().isCarDisplayUsed())
         return;
+      if (BuildConfig.IS_IN_CAR)
+      {
+        // InCar runs in a genuine Android 10 task window: screen pixels and
+        // renderer-local pixels are not interchangeable. Keep native viewport
+        // ownership here, but use measured panel/camera bounds and restore the
+        // full renderer when the panel is off-screen. Never call before Drape.
+        if (!parent.isAttachedToWindow() || !Map.isEngineCreated())
+          return;
+        final View map = parent.findViewById(R.id.map);
+        if (map == null || map.getWidth() <= 0 || map.getHeight() <= 0)
+          return;
+        final Rect rect = InCarOverlayCoordinator.placePageViewport(
+            map, parent.findViewById(R.id.placepage),
+            parent.findViewById(R.id.zoom_buttons_container),
+            viewportMinHeight, parent.getResources().getDimensionPixelSize(R.dimen.margin_half));
+        if (rect.width() >= 100 && rect.height() >= 100)
+          Framework.nativeSetVisibleRect(rect.left, rect.top, rect.right, rect.bottom);
+        return;
+      }
       final int screenWidth = parent.getWidth();
       if (placePageDistanceToTop >= viewportMinHeight)
         Framework.nativeSetVisibleRect(0, 0, screenWidth, placePageDistanceToTop);
