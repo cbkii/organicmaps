@@ -293,8 +293,9 @@ public class MapButtonsController extends Fragment
                                 frameAvailable, mapContainer.getHeight(), occupied.topClearancePx(),
                                 occupied.bottomClearancePx())
                           : frameAvailable;
-    if (available <= 0)
-      return;
+    // Zero vertical clearance is a valid short-window state: the orientation
+    // still needs to collapse. Do not leave a stale vertical hit area on top of
+    // navigation chrome. The host's clipped window owns final visibility.
     // Keep the four native zoom/follow/camera actions; rotate the rail to horizontal
     // when the measured ribbon/footer leave insufficient vertical space.
     final boolean horizontal = available < cell.getHeight() * 4 + 3;

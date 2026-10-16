@@ -536,6 +536,8 @@ public class AccessibilityTest {
         camera = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
         self.assertIn("InCarOverlayCoordinator.usableColumnHeight(", camera)
         self.assertIn("mCameraOccupancyListener = () ->", camera)
+        self.assertNotIn("if (available <= 0)\\n      return;", camera)
+        self.assertIn("final boolean horizontal = available < cell.getHeight() * 4 + 3;", camera)
         self.assertIn("removeOnGlobalLayoutListener(mCameraOccupancyListener)", camera)
         self.assertIn("R.id.nav_speed_limit", occupied)
         self.assertIn("R.id.in_car_nav_speed", occupied)

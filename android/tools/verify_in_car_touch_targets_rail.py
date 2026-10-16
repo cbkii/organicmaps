@@ -318,7 +318,7 @@ def verify_navigation_quick_actions(root):
     base.require_method_text(
         sizing,
         "public static void applyNavigationOverflowBounds(",
-        r"bottomControlsHeightPx[\s\S]*?headerHeightPx[\s\S]*?InCarSettingsStore\.controlsOnLeft\(activity\)[\s\S]*?Gravity\.LEFT[\s\S]*?Gravity\.RIGHT[\s\S]*?Gravity\.BOTTOM",
+        r"bottomControlsHeightPx[\s\S]*?headerHeightPx[\s\S]*?attributes\.gravity\s*=\s*\(\s*InCarSettingsStore\.controlsOnLeft\(activity\)\s*\?\s*Gravity\.LEFT\s*:\s*Gravity\.RIGHT\s*\)\s*\|\s*Gravity\.BOTTOM\s*;",
         "navigation overflow bounds and mirrored physical-side placement",
     )
     base.require_method_text(
