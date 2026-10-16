@@ -280,10 +280,12 @@ public class MapButtonsController extends Fragment
     if (!(candidate instanceof LinearLayout rail) || mInnerRightButtonsFrame == null)
       return;
     final View cell = rail.findViewById(R.id.my_position);
-    if (cell == null || cell.getHeight() == 0)
+    if (cell == null || mFrame.getWidth() <= 0 || !mFrame.isShown())
       return;
+    final int cellWidth = cell.getWidth() > 0 ? cell.getWidth() : InCarMapDockPolicy.railSizePx(getResources());
+    final int cellHeight = cell.getHeight() > 0 ? cell.getHeight() : InCarMapDockPolicy.railSizePx(getResources());
     InCarMapDockPolicy.positionCameraFrame(mInnerRightButtonsFrame, getResources(),
-        mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cell.getHeight());
+        mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cellHeight);
     final int frameAvailable = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
                                - mInnerRightButtonsFrame.getPaddingBottom();
     final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
@@ -298,13 +300,24 @@ public class MapButtonsController extends Fragment
     // navigation chrome. The host's clipped window owns final visibility.
     // Keep the four native zoom/follow/camera actions; rotate the rail to horizontal
     // when the measured ribbon/footer leave insufficient vertical space.
-    final boolean horizontal = available < cell.getHeight() * 4 + 3;
+    final int divider = Math.max(1, dpToPx(1, requireContext()));
+    final boolean horizontal = available < cellHeight * 4 + divider * 3;
+    // A task too narrow for all four 55/69dp cells must not put invisible
+    // touch targets across START/END. Restore the full rail on a fitting window.
+    final int usableWidth = Math.max(0, mFrame.getWidth() - 2 * InCarMapDockPolicy.edgePx(getResources()));
+    final boolean fits = !horizontal || usableWidth >= cellWidth * 4 + divider * 3;
+    final int targetVisibility = fits ? View.VISIBLE : View.GONE;
+    final boolean visibilityChanged = rail.getVisibility() != targetVisibility;
+    if (visibilityChanged)
+      rail.setVisibility(targetVisibility);
+    if (!fits)
+      return;
     final int orientation = horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL;
     final boolean orientationChanged = rail.getOrientation() != orientation;
     if (orientationChanged)
       rail.setOrientation(orientation);
     final ViewGroup.LayoutParams frameParams = rail.getLayoutParams();
-    final int targetWidth = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : cell.getWidth();
+    final int targetWidth = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : cellWidth;
     if (frameParams.width != targetWidth || frameParams.height != ViewGroup.LayoutParams.WRAP_CONTENT)
     {
       frameParams.width = targetWidth;
@@ -319,7 +332,7 @@ public class MapButtonsController extends Fragment
       final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) child.getLayoutParams();
       final int thickness = Math.max(1, dpToPx(1, requireContext()));
       final int width = horizontal ? thickness : ViewGroup.LayoutParams.MATCH_PARENT;
-      final int height = horizontal ? cell.getHeight() : thickness;
+      final int height = horizontal ? cellHeight : thickness;
       final int inset = horizontal ? 0 : getResources().getDimensionPixelSize(R.dimen.in_car_camera_rail_divider_inset);
       if (params.width != width || params.height != height || params.getMarginStart() != inset
           || params.getMarginEnd() != inset)
@@ -333,7 +346,7 @@ public class MapButtonsController extends Fragment
     }
     // Camera may turn horizontal after Quick measured its vertical column.
     // Notify once per real geometry change; the sibling never re-owns camera layout.
-    if (orientationChanged || mLastCameraRailWidth != rail.getWidth()
+    if (orientationChanged || visibilityChanged || mLastCameraRailWidth != rail.getWidth()
         || mLastCameraRailHeight != rail.getHeight())
     {
       mLastCameraRailWidth = rail.getWidth();
