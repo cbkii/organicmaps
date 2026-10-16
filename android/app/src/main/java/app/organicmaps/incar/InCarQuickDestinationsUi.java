@@ -523,7 +523,8 @@ public final class InCarQuickDestinationsUi
           mContainer.addView(divider, line);
         }
       }
-      mRoot.bringToFront();
+      // Preserve activity_map.xml ordering: navigation/sheets own the higher
+      // surfaces. Elevation is applied only within the Quick rail container.
       updateRootBounds();
       renderVisibility();
     }

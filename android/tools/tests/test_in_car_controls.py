@@ -507,6 +507,64 @@ public class AccessibilityTest {
         self.assertEqual("@drawable/in_car_map_rail_cell_feedback", follow.get(ns+"background"))
         self.assertEqual("fitCenter", follow.get(ns+"scaleType"))
 
+    def test_incar_overlay_visibility_and_occupancy_contracts(self):
+        """Execute actual production state predicate and rectangle intersection."""
+        quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")
+        vis = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsPolicy.java")
+        occupied = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarOverlayCoordinator.java")
+        self.assertIn("mButtonsHidden = Boolean.TRUE.equals(hidden)", quick)
+        self.assertIn("mBottomButtonsHidden = Boolean.TRUE.equals(hidden)", quick)
+        self.assertIn("mOverflowDialogOpen = true", quick)
+        self.assertIn("mOverflowDialogOpen = false", quick)
+        self.assertIn("RoutingController.get().isPlanning()", quick)
+        self.assertIn("InCarOverlayCoordinator.measure(mActivity, left, offset, profileSize)", quick)
+        self.assertIn("InCarOverlayCoordinator.measure(mActivity, left, side, cell)", quick)
+        self.assertNotIn("InCarOverlayCoordinator.measure(mActivity, left, currentActionSizePx())", quick)
+        self.assertNotIn("mRoot.bringToFront()", quick)
+        self.assertIn("getGlobalVisibleRect(rect)", occupied)
+        self.assertIn("R.id.routing_bottom_buttons", occupied)
+        self.assertIn("R.id.nav_bottom_frame", occupied)
+        self.assertIn("R.id.nav_next_turn_container", occupied)
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java source launcher unavailable")
+        method_start = vis.index("  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,\\n")
+        method_start = vis.index("  public static boolean shouldShowSurface(", method_start + 3)
+        body_start = vis.index("{", method_start)
+        depth, end = 1, body_start + 1
+        while depth:
+            depth += (vis[end] == "{") - (vis[end] == "}")
+            end += 1
+        method = vis[method_start:end]
+        rect_start = occupied.index("  public static boolean overlapsColumn(")
+        rect_body = occupied.index("{", rect_start)
+        depth, rect_end = 1, rect_body + 1
+        while depth:
+            depth += (occupied[rect_end] == "{") - (occupied[rect_end] == "}")
+            rect_end += 1
+        rect_method = occupied[rect_start:rect_end].replace("@NonNull ", "")
+        harness = """class OverlayPolicyTest {
+static class Rect {int left,right; Rect(int l,int r){left=l;right=r;}}
+""" + method + "\\n" + rect_method + """
+public static void main(String[] args) {
+  for (int mask=0;mask<256;mask++) {
+    boolean car=(mask&1)!=0,search=(mask&2)!=0,place=(mask&4)!=0;
+    boolean planning=(mask&8)!=0,nav=(mask&16)!=0,buttons=(mask&32)!=0;
+    boolean bottom=(mask&64)!=0,modal=(mask&128)!=0;
+    boolean expected=car&&!search&&!place&&!modal&&(nav||(!planning&&!buttons&&!bottom));
+    assert shouldShowSurface(car,search,place,planning,nav,buttons,bottom,modal)==expected;
+  }
+  assert overlapsColumn(new Rect(10,30),29,40);
+  assert !overlapsColumn(new Rect(10,30),30,40);
+  assert !overlapsColumn(new Rect(40,50),10,40);
+  assert overlapsColumn(new Rect(0,100),10,40);
+}
+}"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "OverlayPolicyTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
         dump = ROOT / "data/drules_in_car.txt"
