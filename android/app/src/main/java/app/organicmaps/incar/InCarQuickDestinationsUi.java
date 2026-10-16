@@ -927,11 +927,20 @@ public final class InCarQuickDestinationsUi
       }
     }
 
+    /** Query the actual window root: hidden Quick views may not receive IME inset dispatch. */
+    private boolean isImeActive()
+    {
+      final View owner = mAnchorParent != null ? mAnchorParent : mActivity.findViewById(R.id.coordinator);
+      final WindowInsetsCompat insets = owner == null ? null : ViewCompat.getRootWindowInsets(owner);
+      return insets != null ? insets.isVisible(WindowInsetsCompat.Type.ime()) : mImeVisible;
+    }
+
     private void renderVisibility()
     {
       final boolean planning = !mNavigationMode && RoutingController.get().isPlanning();
+      final boolean imeVisible = isImeActive();
       final boolean visible = mContainer.getChildCount() > 0
-          && !mImeVisible && !mRoutingSheetOpen
+          && !imeVisible && !mRoutingSheetOpen
           && InCarQuickDestinationsPolicy.shouldShowSurface(
               BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen, planning,
               mNavigationMode, mButtonsHidden, mBottomButtonsHidden, mOverflowDialogOpen);
