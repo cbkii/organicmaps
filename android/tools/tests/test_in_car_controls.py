@@ -601,6 +601,55 @@ public static void main(String[] args) {
             path.write_text(harness)
             subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
 
+    def test_incar_quick_zero_capacity_and_overflow_are_actual_policy(self):
+        """Execute production compact policy at and below the 55dp interaction floor."""
+        src = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsLayoutPolicy.java")
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java source launcher unavailable")
+        methods = []
+        for kind, name in (("int", "requiredHeightDp"), ("int", "maxVisibleActions"),
+                           ("int", "navigationActionSizeDp"), ("int", "directActionCountForCapacity"),
+                           ("boolean", "shouldShowMore")):
+            match = re.search(r"  static " + kind + " " + name + r"\([^)]*\)\s*\{", src)
+            self.assertIsNotNone(match, name)
+            start = src.index("{", match.start())
+            depth, end = 1, start + 1
+            while depth:
+                depth += (src[end] == "{") - (src[end] == "}")
+                end += 1
+            methods.append(src[match.start():end])
+        harness = (
+            "class QuickCapacityTest {\n"
+            "static final int NAVIGATION_ACTION_COUNT=4;\n"
+            "static final int PREFERRED_ACTION_SIZE_DP=69;\n"
+            "static final int MIN_ACTION_SIZE_DP=69;\n"
+            "static final int EXTRA_COMPACT_ACTION_SIZE_DP=55;\n"
+            "static final int MIN_ACTION_GAP_DP=1;\n"
+            "static final int PREFERRED_ACTION_GAP_DP=1;\n"
+            + "\n".join(methods) +
+            "\npublic static void main(String[] args) {\n"
+            " assert maxVisibleActions(-1,55,1)==0;\n"
+            " assert maxVisibleActions(0,55,1)==0;\n"
+            " assert maxVisibleActions(54,55,1)==0;\n"
+            " assert maxVisibleActions(55,55,1)==1;\n"
+            " assert maxVisibleActions(110,55,1)==1;\n"
+            " assert maxVisibleActions(111,55,1)==2;\n"
+            " assert navigationActionSizeDp(278)==55;\n"
+            " assert navigationActionSizeDp(279)==69;\n"
+            " assert directActionCountForCapacity(0,4,0)==0;\n"
+            " assert directActionCountForCapacity(1,4,0)==0;\n"
+            " assert shouldShowMore(1,4,0,4);\n"
+            " assert directActionCountForCapacity(2,4,0)==1;\n"
+            " assert shouldShowMore(2,4,1,3);\n"
+            " assert directActionCountForCapacity(4,3,0)==3;\n"
+            " assert !shouldShowMore(4,3,3,0);\n"
+            "}\n}\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "QuickCapacityTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
         dump = ROOT / "data/drules_in_car.txt"
