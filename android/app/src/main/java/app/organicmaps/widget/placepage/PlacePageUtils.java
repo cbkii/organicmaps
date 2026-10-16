@@ -2,6 +2,7 @@ package app.organicmaps.widget.placepage;
 
 import android.app.KeyguardManager;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.os.Build;
 import android.graphics.Rect;
 import android.view.Menu;
@@ -62,7 +63,21 @@ public class PlacePageUtils
         // Search, place page and routing all call this established method.
         // Resolve the currently active panel, not the caller's name: a hidden
         // fragment's stale bounds must never win over the frontmost sheet.
-        if (!(parent.getContext() instanceof MwmActivity activity))
+        // A fragment may inflate its root with an AppCompat theme wrapper
+        // rather than the Activity directly; resolve the owning task without
+        // assuming a particular Context implementation.
+        Context context = parent.getContext();
+        MwmActivity activity = null;
+        for (int depth = 0; depth < 8 && context != null; ++depth)
+        {
+          if (context instanceof MwmActivity owner)
+          {
+            activity = owner;
+            break;
+          }
+          context = context instanceof ContextWrapper wrapper ? wrapper.getBaseContext() : null;
+        }
+        if (activity == null)
           return;
         final ViewModelProvider models = new ViewModelProvider(activity);
         final boolean searching = Boolean.TRUE.equals(
