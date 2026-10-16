@@ -517,7 +517,7 @@ public class AccessibilityTest {
         self.assertIn("mOverflowDialogOpen = true", quick)
         self.assertIn("mOverflowDialogOpen = false", quick)
         self.assertIn("RoutingController.get().isPlanning()", quick)
-        self.assertIn("InCarOverlayCoordinator.measure(mActivity, left, offset, profileSize)", quick)
+        self.assertIn("InCarOverlayCoordinator.measureQuickColumn(", quick)
         self.assertIn("InCarOverlayCoordinator.measure(mActivity, left, side, cell)", quick)
         self.assertNotIn("InCarOverlayCoordinator.measure(mActivity, left, currentActionSizePx())", quick)
         self.assertNotIn("mRoot.bringToFront()", quick)
