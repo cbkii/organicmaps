@@ -156,6 +156,8 @@ public final class InCarQuickDestinationsUi
     private boolean mButtonsHidden;
     private boolean mBottomButtonsHidden;
     private boolean mOverflowDialogOpen;
+    private boolean mImeVisible;
+    private boolean mRoutingSheetOpen;
     private boolean mNavigationMode;
     private boolean mLayoutPassScheduled;
     private int mBottomButtonsHeight;
@@ -236,6 +238,10 @@ public final class InCarQuickDestinationsUi
       });
       mMapButtonsViewModel.getTopHeaderHeight().observe(mActivity, height -> scheduleActionLayout());
       mRoutingPlanViewModel.getMenuUpdateTrigger().observe(mActivity, ignored -> recordConfirmedDestination());
+      mRoutingPlanViewModel.getShowRoutingBottomSheet().observe(mActivity, open -> {
+        mRoutingSheetOpen = Boolean.TRUE.equals(open);
+        renderVisibility();
+      });
       mSearchPageViewModel.getSearchEnabled().observe(mActivity, enabled -> {
         mSearchOpen = Boolean.TRUE.equals(enabled);
         renderVisibility();
@@ -612,9 +618,11 @@ public final class InCarQuickDestinationsUi
         if (mNavigationMode)
           topReserved += navigationHeaderHeightPx();
       }
-      final int minimum = mNavigationMode ? 1 : InCarVisuals.currentQuickActionSizePx(mActivity);
-      final int availablePx = Math.max(minimum, parentHeight - topReserved - bottomMargin);
-      return Math.max(1, pxToDp(availablePx));
+      // Do not invent one cell of space when the task is shorter than a cell.
+      // Capacity zero deliberately removes optional Quick shortcuts rather than
+      // clipping their touch targets into the navigation header or footer.
+      final int availablePx = Math.max(0, parentHeight - topReserved - bottomMargin);
+      return Math.max(0, pxToDp(availablePx));
     }
 
     private int navigationHeaderHeightPx()
@@ -877,6 +885,7 @@ public final class InCarQuickDestinationsUi
     {
       final boolean planning = !mNavigationMode && RoutingController.get().isPlanning();
       final boolean visible = mContainer.getChildCount() > 0
+          && !mImeVisible && (mNavigationMode || !mRoutingSheetOpen)
           && InCarQuickDestinationsPolicy.shouldShowSurface(
               BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen, planning,
               mNavigationMode, mButtonsHidden, mBottomButtonsHidden, mOverflowDialogOpen);
@@ -892,6 +901,12 @@ public final class InCarQuickDestinationsUi
             windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
         mSystemTopInset = bars.top;
         mSystemBottomInset = bars.bottom;
+        final boolean imeVisible = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
+        if (mImeVisible != imeVisible)
+        {
+          mImeVisible = imeVisible;
+          renderVisibility();
+        }
         updateBottomMargin();
         scheduleActionLayout();
         return windowInsets;
