@@ -564,8 +564,13 @@ public final class InCarQuickDestinationsUi
       if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
         bottomMargin = Math.max(0, params.bottomMargin);
       final boolean left = InCarSettingsStore.controlsOnLeft(mActivity);
+      final View camera = mActivity.findViewById(R.id.zoom_buttons_container);
+      final boolean horizontal = camera != null && camera.getWidth() > camera.getHeight();
+      final int profileSize = InCarVisuals.currentQuickActionSizePx(mActivity);
+      final int offset = InCarMapDockPolicy.quickPhysicalOffsetPx(
+          mActivity.getResources(), profileSize, horizontal);
       final InCarOverlayCoordinator.Snapshot occupied =
-          InCarOverlayCoordinator.measure(mActivity, left, currentActionSizePx());
+          InCarOverlayCoordinator.measure(mActivity, left, offset, profileSize);
       // The map container is already clipped to the host's real content bounds.
       // Prefer its measured rectangles to a second subtraction of system-bar insets.
       int topReserved;
@@ -806,7 +811,7 @@ public final class InCarQuickDestinationsUi
         final int baseline = InCarMapDockPolicy.quickBottomMarginPx(
             res, mNavigationMode, cell, horizontal ? camera.getHeight() : 0);
         final InCarOverlayCoordinator.Snapshot occupied =
-            InCarOverlayCoordinator.measure(mActivity, left, cell);
+            InCarOverlayCoordinator.measure(mActivity, left, side, cell);
         final int bottom = occupied.hasMapBounds()
                            ? Math.max(baseline, occupied.bottomClearancePx() + InCarMapDockPolicy.footerGapPx(res))
                            : baseline;

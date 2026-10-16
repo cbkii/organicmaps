@@ -36,17 +36,16 @@ public final class InCarOverlayCoordinator
 
   /** Maximal top and bottom occupied bands in the Quick Destinations physical column. */
   @NonNull
-  public static Snapshot measure(@NonNull MwmActivity activity, boolean controlsLeft, int cellPx)
+  public static Snapshot measure(@NonNull MwmActivity activity, boolean controlsLeft, int columnOffsetPx,
+                                 int cellPx)
   {
     final View map = activity.findViewById(R.id.map_container);
     final Rect bounds = visibleRect(map);
     if (bounds == null || bounds.isEmpty())
       return new Snapshot(false, 0, 0);
 
-    final int edge = activity.getResources().getDimensionPixelSize(R.dimen.in_car_map_dock_edge);
-    final int gap = activity.getResources().getDimensionPixelSize(R.dimen.in_car_map_dock_column_gap);
-    final int offset = edge + cellPx + gap;
-    final int columnLeft = controlsLeft ? bounds.left + offset : bounds.right - offset - cellPx;
+    final int columnLeft = controlsLeft ? bounds.left + columnOffsetPx
+                                        : bounds.right - columnOffsetPx - cellPx;
     final int columnRight = columnLeft + cellPx;
 
     int top = 0;
