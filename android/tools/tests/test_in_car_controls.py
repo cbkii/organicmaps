@@ -582,9 +582,16 @@ public class AccessibilityTest {
             depth += (occupied[cap_end] == "{") - (occupied[cap_end] == "}")
             cap_end += 1
         cap_method = occupied[cap_start:cap_end]
+        viewport_start = occupied.index("  static int[] boundedViewport(")
+        viewport_body = occupied.index("{", viewport_start)
+        depth, viewport_end = 1, viewport_body + 1
+        while depth:
+            depth += (occupied[viewport_end] == "{") - (occupied[viewport_end] == "}")
+            viewport_end += 1
+        viewport_method = occupied[viewport_start:viewport_end]
         harness = """class OverlayPolicyTest {
 static class Rect {int left,right; Rect(int l,int r){left=l;right=r;}}
-""" + method + "\n" + rect_method + "\n" + cap_method + """
+""" + method + "\n" + rect_method + "\n" + cap_method + "\n" + viewport_method + """
 public static void main(String[] args) {
   for (int mask=0;mask<256;mask++) {
     boolean car=(mask&1)!=0,search=(mask&2)!=0,place=(mask&4)!=0;
@@ -602,6 +609,12 @@ public static void main(String[] args) {
   assert usableColumnHeight(410,480,350,140)==0;
   assert usableColumnHeight(200,480,0,0)==200;
   assert usableColumnHeight(200,480,-15,-5)==200;
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,540,100),new int[]{0,0,1280,540});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1110,500,100),new int[]{0,0,1110,500});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,190,0,1280,520,100),new int[]{190,0,1280,520});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,80,100),new int[]{0,0,1280,720});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,1200,0,1280,620,100),new int[]{0,0,1280,720});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,-4,-10,1400,820,100),new int[]{0,0,1280,720});
 }
 }"""
         with tempfile.TemporaryDirectory() as tmp:
