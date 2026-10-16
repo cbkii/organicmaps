@@ -58,6 +58,20 @@ public final class InCarOverlayCoordinator
                         Math.max(primary.mBottom, fallback.mBottom));
   }
 
+  /** Fail-open snapshot for fragment creation before the map is measured. */
+  @NonNull
+  public static Snapshot unmeasured()
+  {
+    return new Snapshot(false, 0, 0);
+  }
+
+  /** Smallest available vertical band in the frame and real uncluttered map column. */
+  public static int usableColumnHeight(int frameAvailable, int mapHeight, int topClearance, int bottomClearance)
+  {
+    return Math.max(0, Math.min(Math.max(0, frameAvailable),
+        Math.max(0, mapHeight - Math.max(0, topClearance) - Math.max(0, bottomClearance))));
+  }
+
   /** Maximal top and bottom occupied bands in the Quick Destinations physical column. */
   @NonNull
   public static Snapshot measure(@NonNull MwmActivity activity, boolean controlsLeft, int columnOffsetPx,

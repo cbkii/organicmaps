@@ -27,6 +27,7 @@ import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarMapDockPolicy;
+import app.organicmaps.incar.InCarOverlayCoordinator;
 import app.organicmaps.incar.InCarQuickDestinationsUi;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.routing.RoutingPlanViewModel;
@@ -66,6 +67,10 @@ public class MapButtonsController extends Fragment
   private View mZoomMovementFrame;
   private int mLastCameraRailWidth = -1;
   private int mLastCameraRailHeight = -1;
+  private int mLastCameraOccupiedTop = -1;
+  private int mLastCameraOccupiedBottom = -1;
+  @Nullable
+  private ViewTreeObserver.OnGlobalLayoutListener mCameraOccupancyListener;
   @Nullable
   private LayersButton mToggleMapLayerButton;
   @Nullable
@@ -219,6 +224,19 @@ public class MapButtonsController extends Fragment
     {
       mFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
       zoomFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
+      mCameraOccupancyListener = () -> {
+        final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
+        if (!occupied.hasMapBounds())
+          return;
+        if (occupied.topClearancePx() != mLastCameraOccupiedTop
+            || occupied.bottomClearancePx() != mLastCameraOccupiedBottom)
+        {
+          mLastCameraOccupiedTop = occupied.topClearancePx();
+          mLastCameraOccupiedBottom = occupied.bottomClearancePx();
+          fitCameraRail();
+        }
+      };
+      mFrame.getViewTreeObserver().addOnGlobalLayoutListener(mCameraOccupancyListener);
     }
 
     mButtonsMap = new HashMap<>();
@@ -246,6 +264,16 @@ public class MapButtonsController extends Fragment
     return mFrame;
   }
 
+  @NonNull
+  private InCarOverlayCoordinator.Snapshot cameraOccupiedRegions()
+  {
+    if (!(getActivity() instanceof MwmActivity activity))
+      return InCarOverlayCoordinator.unmeasured();
+    return InCarOverlayCoordinator.measure(
+        activity, InCarSettingsStore.controlsOnLeft(activity),
+        InCarMapDockPolicy.edgePx(getResources()), InCarMapDockPolicy.railSizePx(getResources()));
+  }
+
   private void fitCameraRail()
   {
     final View candidate = mFrame.findViewById(R.id.zoom_buttons_container);
@@ -256,11 +284,19 @@ public class MapButtonsController extends Fragment
       return;
     InCarMapDockPolicy.positionCameraFrame(mInnerRightButtonsFrame, getResources(),
         mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cell.getHeight());
-    final int available = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
-                          - mInnerRightButtonsFrame.getPaddingBottom();
+    final int frameAvailable = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
+                               - mInnerRightButtonsFrame.getPaddingBottom();
+    final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
+    final View mapContainer = requireActivity().findViewById(R.id.map_container);
+    final int available = occupied.hasMapBounds() && mapContainer != null && mapContainer.getHeight() > 0
+                          ? InCarOverlayCoordinator.usableColumnHeight(
+                                frameAvailable, mapContainer.getHeight(), occupied.topClearancePx(),
+                                occupied.bottomClearancePx())
+                          : frameAvailable;
     if (available <= 0)
       return;
-    // Very shallow task windows use one horizontal four-cell rail; no camera/zoom action is dropped.
+    // Keep the four native zoom/follow/camera actions; rotate the rail to horizontal
+    // when the measured ribbon/footer leave insufficient vertical space.
     final boolean horizontal = available < cell.getHeight() * 4 + 3;
     final int orientation = horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL;
     final boolean orientationChanged = rail.getOrientation() != orientation;
@@ -669,6 +705,21 @@ public class MapButtonsController extends Fragment
     // A returning launcher/search window may already have focus; keep the old Android fallback.
     if (mFrame.hasWindowFocus())
       ViewCompat.requestApplyInsets(mFrame);
+  }
+
+  @Override
+  public void onDestroyView()
+  {
+    if (mFrame != null && mCameraOccupancyListener != null)
+    {
+      final ViewTreeObserver tree = mFrame.getViewTreeObserver();
+      if (tree.isAlive())
+        tree.removeOnGlobalLayoutListener(mCameraOccupancyListener);
+      mCameraOccupancyListener = null;
+    }
+    mLastCameraOccupiedTop = -1;
+    mLastCameraOccupiedBottom = -1;
+    super.onDestroyView();
   }
 
   @Override

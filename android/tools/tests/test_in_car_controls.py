@@ -532,6 +532,11 @@ public class AccessibilityTest {
         self.assertIn("R.id.routing_bottom_buttons", occupied)
         self.assertIn("R.id.nav_bottom_frame", occupied)
         self.assertIn("R.id.nav_next_turn_container", occupied)
+        self.assertIn("usableColumnHeight(", occupied)
+        camera = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+        self.assertIn("InCarOverlayCoordinator.usableColumnHeight(", camera)
+        self.assertIn("mCameraOccupancyListener = () ->", camera)
+        self.assertIn("removeOnGlobalLayoutListener(mCameraOccupancyListener)", camera)
         self.assertIn("R.id.nav_speed_limit", occupied)
         self.assertIn("R.id.in_car_nav_speed", occupied)
         self.assertIn("measureQuickColumn(", occupied)
@@ -557,9 +562,16 @@ public class AccessibilityTest {
             depth += (occupied[rect_end] == "{") - (occupied[rect_end] == "}")
             rect_end += 1
         rect_method = occupied[rect_start:rect_end].replace("@NonNull ", "")
+        cap_start = occupied.index("  public static int usableColumnHeight(")
+        cap_body = occupied.index("{", cap_start)
+        depth, cap_end = 1, cap_body + 1
+        while depth:
+            depth += (occupied[cap_end] == "{") - (occupied[cap_end] == "}")
+            cap_end += 1
+        cap_method = occupied[cap_start:cap_end]
         harness = """class OverlayPolicyTest {
 static class Rect {int left,right; Rect(int l,int r){left=l;right=r;}}
-""" + method + "\n" + rect_method + """
+""" + method + "\n" + rect_method + "\n" + cap_method + """
 public static void main(String[] args) {
   for (int mask=0;mask<256;mask++) {
     boolean car=(mask&1)!=0,search=(mask&2)!=0,place=(mask&4)!=0;
@@ -572,6 +584,11 @@ public static void main(String[] args) {
   assert !overlapsColumn(new Rect(10,30),30,40);
   assert !overlapsColumn(new Rect(40,50),10,40);
   assert overlapsColumn(new Rect(0,100),10,40);
+  assert usableColumnHeight(410,480,120,76)==284;
+  assert usableColumnHeight(410,480,180,76)==224;
+  assert usableColumnHeight(410,480,350,140)==0;
+  assert usableColumnHeight(200,480,0,0)==200;
+  assert usableColumnHeight(200,480,-15,-5)==200;
 }
 }"""
         with tempfile.TemporaryDirectory() as tmp:
