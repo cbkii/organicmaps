@@ -28,7 +28,7 @@ For non-ADB Termux captures that cannot access another UID or screenshot service
 | 5 | search-results | Open Search, type a short non-sensitive query, show keyboard/results | Search keyboard and result actions reachable; competing Quick controls absent |
 | 6 | route-preview | Select a place and request a route, but do not START yet | Place/route controls including START unobstructed; optional Quick hidden |
 | 7 | active-navigation | Start a stationary safe test route or suitable route simulation | Navigation ribbon, lane/speed state and END readable; secondary Quick never covers END |
-| 8 | compact-windowed | Use intended TS18 map-window mode; repeat browse and navigation | Camera rail changes orientation when needed; Quick fits or collapses without overlap |
+| 8 | compact-windowed | Use intended TS18 map-window mode; repeat browse and navigation, especially near 360dp height | Camera rail changes orientation when needed; Quick fits or collapses without overlap; at zero capacity no optional cell intercepts taps |
 | 9 | my-position-free | Pan/zoom/rotate map manually | Gestures reach map outside controls; camera control remains responsive |
 | 10 | my-position-follow | Tap Follow and recenter, then pan and restore Follow | Correct mode/label changes; single action per tap; no disappearing 55dp cell |
 | 11 | pip-active | Enter the supported task/window reduced or PiP presentation, if available | No malformed hit targets or overlay crash; if app PiP unsupported, mark N |

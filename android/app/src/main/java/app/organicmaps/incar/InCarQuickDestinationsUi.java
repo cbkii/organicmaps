@@ -538,20 +538,37 @@ public final class InCarQuickDestinationsUi
 
     private void renderButtons(@NonNull List<InCarQuickActionButton> rendered, int gapDp)
     {
-      mContainer.removeAllViews();
-      for (int i = 0; i < rendered.size(); ++i)
+      // Geometry changes are common during route guidance. Rebuilding identical
+      // button children on each global layout drops TalkBack focus and forces an
+      // additional layout; preserve the stable views whenever their order matches.
+      final int expectedChildren = rendered.isEmpty() ? 0 : rendered.size() * 2 - 1;
+      boolean changed = mContainer.getChildCount() != expectedChildren;
+      if (!changed)
       {
-        final InCarQuickActionButton button = rendered.get(i);
-        setBottomGap(button, 0);
-        mContainer.addView(button);
-        if (i + 1 < rendered.size())
+        for (int i = 0; i < rendered.size(); ++i)
+          if (mContainer.getChildAt(i * 2) != rendered.get(i))
+          {
+            changed = true;
+            break;
+          }
+      }
+      if (changed)
+      {
+        mContainer.removeAllViews();
+        for (int i = 0; i < rendered.size(); ++i)
         {
-          final View divider = new View(mActivity);
-          divider.setBackgroundColor(ContextCompat.getColor(mActivity, R.color.divider));
-          final LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(
-              Math.max(1, button.getLayoutParams().width - dp(24)), dp(1));
-          line.setMargins(dp(12), 0, dp(12), 0);
-          mContainer.addView(divider, line);
+          final InCarQuickActionButton button = rendered.get(i);
+          setBottomGap(button, 0);
+          mContainer.addView(button);
+          if (i + 1 < rendered.size())
+          {
+            final View divider = new View(mActivity);
+            divider.setBackgroundColor(ContextCompat.getColor(mActivity, R.color.divider));
+            final LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(
+                Math.max(1, button.getLayoutParams().width - dp(24)), dp(1));
+            line.setMargins(dp(12), 0, dp(12), 0);
+            mContainer.addView(divider, line);
+          }
         }
       }
       // Preserve activity_map.xml ordering: navigation/sheets own the higher
@@ -702,12 +719,19 @@ public final class InCarQuickDestinationsUi
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
                                                  ? layoutParams
                                                  : new LinearLayout.LayoutParams(size, size);
-      params.width = size;
-      params.height = size;
-      button.setLayoutParams(params);
-      button.setMinimumWidth(size);
-      button.setMinimumHeight(size);
-      button.setPadding(iconPadding, iconPadding, iconPadding, iconPadding);
+      if (params.width != size || params.height != size)
+      {
+        params.width = size;
+        params.height = size;
+        button.setLayoutParams(params);
+      }
+      if (button.getMinimumWidth() != size)
+        button.setMinimumWidth(size);
+      if (button.getMinimumHeight() != size)
+        button.setMinimumHeight(size);
+      if (button.getPaddingLeft() != iconPadding || button.getPaddingTop() != iconPadding
+          || button.getPaddingRight() != iconPadding || button.getPaddingBottom() != iconPadding)
+        button.setPadding(iconPadding, iconPadding, iconPadding, iconPadding);
     }
 
     private void showOverflowChoice(@NonNull List<QuickActionBinding> actions)
@@ -837,8 +861,13 @@ public final class InCarQuickDestinationsUi
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
                                                  ? layoutParams
                                                  : new LinearLayout.LayoutParams(size, size);
-      params.setMargins(0, 0, 0, dp(Math.max(0, gapDp)));
-      button.setLayoutParams(params);
+      final int bottom = dp(Math.max(0, gapDp));
+      if (params.leftMargin != 0 || params.topMargin != 0 || params.rightMargin != 0
+          || params.bottomMargin != bottom)
+      {
+        params.setMargins(0, 0, 0, bottom);
+        button.setLayoutParams(params);
+      }
     }
 
     private void updateRootBounds()
