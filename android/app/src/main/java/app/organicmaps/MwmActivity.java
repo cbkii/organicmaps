@@ -71,6 +71,7 @@ import app.organicmaps.editor.FeatureCategoryActivity;
 import app.organicmaps.editor.OsmLoginActivity;
 import app.organicmaps.help.HelpActivity;
 import app.organicmaps.incar.InCarBackPolicy;
+import app.organicmaps.incar.InCarMapDockPolicy;
 import app.organicmaps.incar.InCarRouterPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.incar.InCarUiModePolicy;
@@ -1427,6 +1428,22 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   public void updateBottomWidgetsOffset(int offsetX)
   {
+    // The native ruler/copyright are anchored at physical map-left. With a
+    // left-side InCar dock, move those legal widgets beyond BOTH button columns
+    // rather than covering the attribution with a tappable footer cell.
+    // The map controller remains the sole native widget-placement owner.
+    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.controlsOnLeft(this))
+    {
+      final int clearance = 2 * InCarMapDockPolicy.edgePx(getResources())
+                            + 2 * InCarMapDockPolicy.railSizePx(getResources())
+                            + InCarMapDockPolicy.columnGapPx(getResources());
+      final View map = findViewById(R.id.map);
+      final int maximum = map != null && map.getWidth() > 0
+                          ? Math.max(0, map.getWidth()
+                                      - getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact))
+                          : clearance;
+      offsetX = Math.max(offsetX < 0 ? 0 : offsetX, Math.min(clearance, maximum));
+    }
     int offsetY = mNavBarHeight;
     final Float bottomButtonHeight = mMapButtonsViewModel.getBottomButtonsHeight().getValue();
     if (bottomButtonHeight != null)

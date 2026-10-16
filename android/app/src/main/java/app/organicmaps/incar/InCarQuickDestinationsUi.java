@@ -287,6 +287,8 @@ public final class InCarQuickDestinationsUi
     {
       if (InCarQuickDestinationsStore.isQuickPreferenceKey(key) || "InCarControlPosition".equals(key))
         rebuildButtons();
+      if ("InCarControlPosition".equals(key))
+        mActivity.updateBottomWidgetsOffset(0); // Also reset left clearance after switching back to right.
     }
 
     private void recordConfirmedDestination()
