@@ -406,9 +406,14 @@ public class AccessibilityTest {
                       "in_car_selection_accent"):
             self.assertIn(token, day)
             self.assertIn(token, night)
-            self.assertNotEqual(day[token], night[token])
-        self.assertEqual("@color/in_car_action_primary", day["in_car_quick_foreground"])
-        self.assertEqual("@color/in_car_selection_accent", night["in_car_quick_foreground"])
+            if token == "in_car_quick_foreground":
+                # Both flavours resolve the same semantic role to opposite
+                # colour values; comparing the raw alias cannot prove contrast.
+                self.assertEqual("@color/in_car_icon_primary", day[token])
+                self.assertEqual("@color/in_car_icon_primary", night[token])
+                self.assertNotEqual(day["in_car_icon_primary"], night["in_car_icon_primary"])
+            else:
+                self.assertNotEqual(day[token], night[token])
         camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
         quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
         for expected in ("@color/in_car_camera_rail_surface", "@color/in_car_map_control_outline"):
