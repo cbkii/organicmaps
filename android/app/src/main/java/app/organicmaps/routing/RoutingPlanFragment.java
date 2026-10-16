@@ -252,7 +252,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
           mViewModel.setBottomSheetState(newState);
         if (newState == BottomSheetBehavior.STATE_HIDDEN)
           UiUtils.hide(mButtonsLayout);
-        if (BuildConfig.IS_IN_CAR && newState != BottomSheetBehavior.STATE_DRAGGING
+        if (BuildConfig.IS_IN_CAR && isAdded() && getView() != null
+            && newState != BottomSheetBehavior.STATE_DRAGGING
             && newState != BottomSheetBehavior.STATE_SETTLING)
         {
           // Use the existing native viewport writer also called by Search and
@@ -350,7 +351,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     updateSheetHeights();
     final int newDistanceTop = mFrame.getTop();
     mViewModel.setRoutingBottomDistanceToTop(newDistanceTop);
-    if (BuildConfig.IS_IN_CAR)
+    if (BuildConfig.IS_IN_CAR && isAdded() && getView() != null)
     {
       final View root = requireActivity().findViewById(R.id.coordinator);
       if (root != null)
