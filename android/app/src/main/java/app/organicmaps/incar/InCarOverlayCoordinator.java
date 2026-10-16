@@ -111,21 +111,21 @@ public final class InCarOverlayCoordinator
 
   /**
    * Compute the map engine's visible viewport, in SurfaceView-local pixels.
-   * A bottom place page owns the bottom band; a genuine edge-mounted page owns
+   * An active bottom sheet owns the bottom band; a genuine edge-mounted panel owns
    * its side. Invisible/off-screen panels own no map area.
    *
    * The existing PlacePageUtils callback remains the *only* writer to
    * Framework.nativeSetVisibleRect. Do not change native Follow or route state.
    */
   @NonNull
-  public static Rect placePageViewport(@NonNull View map, @Nullable View placePage,
+  public static Rect placePageViewport(@NonNull View map, @Nullable View activePanel,
                                        @Nullable View camera, int minimumHeightPx, int gapPx)
   {
     final int width = map.getWidth();
     final int height = map.getHeight();
     final Rect full = new Rect(0, 0, Math.max(0, width), Math.max(0, height));
     final Rect mapScreen = visibleRect(map);
-    final Rect pageScreen = visibleRect(placePage);
+    final Rect pageScreen = visibleRect(activePanel);
     if (mapScreen == null || pageScreen == null || width <= 0 || height <= 0
         || !Rect.intersects(mapScreen, pageScreen))
       return full;

@@ -24,6 +24,7 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
+import app.organicmaps.widget.placepage.PlacePageUtils;
 import app.organicmaps.incar.InCarActionMenu;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.sdk.Framework;
@@ -251,6 +252,16 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
           mViewModel.setBottomSheetState(newState);
         if (newState == BottomSheetBehavior.STATE_HIDDEN)
           UiUtils.hide(mButtonsLayout);
+        if (BuildConfig.IS_IN_CAR && newState != BottomSheetBehavior.STATE_DRAGGING
+            && newState != BottomSheetBehavior.STATE_SETTLING)
+        {
+          // Use the existing native viewport writer also called by Search and
+          // PlacePage; never issue a competing JNI write during sheet movement.
+          final View mapRoot = requireActivity().findViewById(R.id.coordinator);
+          if (mapRoot != null)
+            PlacePageUtils.updateMapViewport(mapRoot, mapRoot.getHeight(),
+                getResources().getDimensionPixelSize(R.dimen.viewport_min_height));
+        }
       }
 
       @Override
@@ -339,6 +350,13 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     updateSheetHeights();
     final int newDistanceTop = mFrame.getTop();
     mViewModel.setRoutingBottomDistanceToTop(newDistanceTop);
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final View root = requireActivity().findViewById(R.id.coordinator);
+      if (root != null)
+        PlacePageUtils.updateMapViewport(root, root.getHeight(),
+            getResources().getDimensionPixelSize(R.dimen.viewport_min_height));
+    }
   }
 
   private void updateSheetHeights()

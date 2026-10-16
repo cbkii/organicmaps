@@ -9,9 +9,14 @@ import android.view.View;
 import android.widget.PopupMenu;
 import androidx.annotation.NonNull;
 import app.organicmaps.BuildConfig;
+import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarOverlayCoordinator;
+import app.organicmaps.routing.RoutingPlanViewModel;
+import app.organicmaps.widget.placepage.PlacePageViewModel;
+import app.organicmaps.search.SearchPageViewModel;
+import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.sdk.Map;
 import app.organicmaps.sdk.MapView;
 import app.organicmaps.sdk.routing.RoutingController;
@@ -54,9 +59,22 @@ public class PlacePageUtils
           Framework.nativeSetVisibleRect(0, 0, mapView.getWidth(), mapView.getHeight());
           return;
         }
+        // Search, place page and routing all call this established method.
+        // Resolve the currently active panel, not the caller's name: a hidden
+        // fragment's stale bounds must never win over the frontmost sheet.
+        if (!(parent.getContext() instanceof MwmActivity activity))
+          return;
+        final ViewModelProvider models = new ViewModelProvider(activity);
+        final boolean searching = Boolean.TRUE.equals(
+            models.get(SearchPageViewModel.class).getSearchEnabled().getValue());
+        final boolean selected = models.get(PlacePageViewModel.class).getMapObject().getValue() != null;
+        final boolean routing = Boolean.TRUE.equals(
+            models.get(RoutingPlanViewModel.class).getShowRoutingBottomSheet().getValue());
+        final View activePanel = searching ? parent.findViewById(R.id.search_page_container)
+                               : selected ? parent.findViewById(R.id.placepage)
+                               : routing ? parent.findViewById(R.id.routing_sheet_frame) : null;
         final Rect rect = InCarOverlayCoordinator.placePageViewport(
-            map, parent.findViewById(R.id.placepage),
-            parent.findViewById(R.id.zoom_buttons_container),
+            map, activePanel, parent.findViewById(R.id.zoom_buttons_container),
             viewportMinHeight, parent.getResources().getDimensionPixelSize(R.dimen.margin_half));
         if (rect.width() >= 100 && rect.height() >= 100)
           Framework.nativeSetVisibleRect(rect.left, rect.top, rect.right, rect.bottom);
