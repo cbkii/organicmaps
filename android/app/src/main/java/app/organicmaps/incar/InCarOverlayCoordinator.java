@@ -176,9 +176,21 @@ public final class InCarOverlayCoordinator
     final int t = Math.max(0, Math.min(h, top));
     final int rr = Math.max(l, Math.min(w, right));
     final int b = Math.max(t, Math.min(h, bottom));
-    if (rr - l < Math.max(100, minPx) || b - t < Math.max(100, minPx))
+    // Native ignores a viewport smaller than 100px. Keep the visible portion
+    // adjacent to the occupied edge instead of silently restoring the full map.
+    final int nativeMinimum = 100;
+    if (w < nativeMinimum || h < nativeMinimum)
       return new int[] {0, 0, w, h};
-    return new int[] {l, t, rr, b};
+    final int resolvedLeft = Math.min(l, w - nativeMinimum);
+    final int resolvedTop = Math.min(t, h - nativeMinimum);
+    return new int[] {resolvedLeft, resolvedTop,
+                      Math.max(rr, resolvedLeft + nativeMinimum),
+                      Math.max(b, resolvedTop + nativeMinimum)};
+  }
+
+  public static boolean visiblePanel(@Nullable View panel)
+  {
+    return visibleRect(panel) != null;
   }
 
   /** Interval intersection only; touching edges are not an overlap. */

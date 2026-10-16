@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import re
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -517,8 +518,22 @@ public class AccessibilityTest {
         """Verify rendered icon contrast at the 75%-opaque map-rail extremes."""
         day = controls.read("android/app/src/inCar/res/values/colors.xml")
         night = controls.read("android/app/src/inCar/res/values-night/colors.xml")
-        for source in (day, night):
-            self.assertIn('<color name="in_car_quick_foreground">@color/in_car_icon_primary</color>', source)
+        rail = ET.fromstring(controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml"))
+        ns = "{http://schemas.android.com/apk/res/android}"
+        self.assertEqual("@color/in_car_camera_rail_surface", rail.find("solid").get(ns + "color"))
+
+        def resolve(source, name):
+            resources = {node.get("name"): (node.text or "").strip()
+                         for node in ET.fromstring(source).findall("color")}
+            visited = set()
+            while name not in visited:
+                visited.add(name)
+                value = resources[name]
+                if not value.startswith("@color/"):
+                    self.assertRegex(value, r"^#[0-9A-Fa-f]{8}$")
+                    return tuple(bytes.fromhex(value[1:]))
+                name = value.split("/", 1)[1]
+            self.fail("circular colour alias")
 
         def linear(v):
             c = v / 255.0
@@ -531,15 +546,12 @@ public class AccessibilityTest {
             hi, lo = sorted((lum(a), lum(b)), reverse=True)
             return (hi + 0.05) / (lo + 0.05)
 
-        # Same literal ARGB tokens as inCar theme resources, against black/white
-        # map extremes (real screenshots remain a separate acceptance gate).
-        cases = (
-            ((60, 64, 67), (255, 255, 255)),  # day ink / rail
-            ((241, 243, 244), (43, 45, 48)),  # night ink / rail
-        )
-        for ink, rail in cases:
+        for source in (day, night):
+            _, *ink = resolve(source, "in_car_quick_foreground")
+            alpha, *surface = resolve(source, "in_car_camera_rail_surface")
             for tile in (0, 255):
-                composited = tuple(round((192 * x + 63 * tile) / 255) for x in rail)
+                composited = tuple(round((alpha * x + (255 - alpha) * tile) / 255)
+                                   for x in surface)
                 self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
 
     def test_incar_overlay_visibility_and_occupancy_contracts(self):
@@ -571,7 +583,7 @@ public class AccessibilityTest {
         self.assertIn("R.id.nav_bottom_frame", occupied)
         self.assertIn("R.id.nav_next_turn_container", occupied)
         activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
-        self.assertIn("2 * InCarMapDockPolicy.railSizePx(getResources())", activity)
+        self.assertIn("R.id.in_car_quick_destinations_container", activity)
         self.assertIn("InCarSettingsStore.controlsOnLeft(this)", activity)
         self.assertIn("mActivity.updateBottomWidgetsOffset(0)", quick)
         self.assertIn("placePageViewport(", occupied)
@@ -666,8 +678,8 @@ public static void main(String[] args) {
   assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,540,100),new int[]{0,0,1280,540});
   assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1110,500,100),new int[]{0,0,1110,500});
   assert java.util.Arrays.equals(boundedViewport(1280,720,190,0,1280,520,100),new int[]{190,0,1280,520});
-  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,80,100),new int[]{0,0,1280,720});
-  assert java.util.Arrays.equals(boundedViewport(1280,720,1200,0,1280,620,100),new int[]{0,0,1280,720});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,80,100),new int[]{0,0,1280,100});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,1200,0,1280,620,100),new int[]{1180,0,1280,620});
   assert java.util.Arrays.equals(boundedViewport(1280,720,-4,-10,1400,820,100),new int[]{0,0,1280,720});
 }
 }"""

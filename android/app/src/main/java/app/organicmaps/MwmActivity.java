@@ -710,8 +710,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
       if (mCurrentWindowInsets == null)
         updateCompassOffset(trackRecorderOffset + systemBars.top, systemBars.right);
       refreshLightStatusBar();
-      updateBottomWidgetsOffset(systemBars.left);
       mCurrentWindowInsets = windowInsets;
+      updateBottomWidgetsOffset(systemBars.left);
       return windowInsets;
     });
 
@@ -1428,21 +1428,38 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   public void updateBottomWidgetsOffset(int offsetX)
   {
-    // The native ruler/copyright are anchored at physical map-left. With a
-    // left-side InCar dock, move those legal widgets beyond BOTH button columns
-    // rather than covering the attribution with a tappable footer cell.
-    // The map controller remains the sole native widget-placement owner.
-    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.controlsOnLeft(this))
+    if (BuildConfig.IS_IN_CAR)
     {
-      final int clearance = 2 * InCarMapDockPolicy.edgePx(getResources())
-                            + 2 * InCarMapDockPolicy.railSizePx(getResources())
-                            + InCarMapDockPolicy.columnGapPx(getResources());
+      // The map controller is the native widget-placement owner. Recompute the
+      // inset even when the dock changes sides without a new inset dispatch.
+      final int leftInset = mCurrentWindowInsets == null ? 0
+          : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
+      offsetX = Math.max(0, leftInset);
       final View map = findViewById(R.id.map);
-      final int maximum = map != null && map.getWidth() > 0
-                          ? Math.max(0, map.getWidth()
-                                      - getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact))
-                          : clearance;
-      offsetX = Math.max(offsetX < 0 ? 0 : offsetX, Math.min(clearance, maximum));
+      if (map != null && map.getWidth() > 0)
+      {
+        final int maximum = Math.max(0, map.getWidth()
+            - getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
+        if (InCarSettingsStore.controlsOnLeft(this))
+        {
+          final android.graphics.Rect mapBounds = new android.graphics.Rect();
+          if (map.getGlobalVisibleRect(mapBounds))
+          {
+            for (int id : new int[] {R.id.zoom_buttons_container, R.id.in_car_quick_destinations_container,
+                                     R.id.map_buttons_bottom})
+            {
+              final View control = findViewById(id);
+              final android.graphics.Rect bounds = new android.graphics.Rect();
+              if (control != null && control.isShown() && control.getGlobalVisibleRect(bounds)
+                  && android.graphics.Rect.intersects(mapBounds, bounds)
+                  && bounds.left < mapBounds.centerX())
+                offsetX = Math.max(offsetX, bounds.right - mapBounds.left
+                    + InCarMapDockPolicy.edgePx(getResources()));
+            }
+          }
+        }
+        offsetX = Math.min(offsetX, maximum);
+      }
     }
     int offsetY = mNavBarHeight;
     final Float bottomButtonHeight = mMapButtonsViewModel.getBottomButtonsHeight().getValue();

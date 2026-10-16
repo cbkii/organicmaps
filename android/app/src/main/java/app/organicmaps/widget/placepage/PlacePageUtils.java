@@ -30,6 +30,12 @@ public class PlacePageUtils
 {
   public static void updateMapViewport(@NonNull View parent, int placePageDistanceToTop, int viewportMinHeight)
   {
+    updateMapViewport(parent, placePageDistanceToTop, viewportMinHeight, 4);
+  }
+
+  private static void updateMapViewport(@NonNull View parent, int placePageDistanceToTop,
+                                        int viewportMinHeight, int surfaceRetries)
+  {
     parent.post(() -> {
       // Because of the post(), this lambda is called after the car.SurfaceRenderer.onStableAreaChanged() and breaks the
       // visibleRect configuration
@@ -53,7 +59,12 @@ public class PlacePageUtils
             || mapView.getSurfaceFrameHeight() != mapView.getHeight()
             || mapView.getLastAppliedSurfaceWidth() != mapView.getWidth()
             || mapView.getLastAppliedSurfaceHeight() != mapView.getHeight())
+        {
+          if (surfaceRetries > 0)
+            parent.postDelayed(() -> updateMapViewport(parent, placePageDistanceToTop,
+                                                       viewportMinHeight, surfaceRetries - 1), 75);
           return;
+        }
         if (RoutingController.get().isNavigating())
         {
           // Follow/navigation continues to own map positioning and heading.
@@ -85,9 +96,12 @@ public class PlacePageUtils
         final boolean selected = models.get(PlacePageViewModel.class).getMapObject().getValue() != null;
         final boolean routing = Boolean.TRUE.equals(
             models.get(RoutingPlanViewModel.class).getShowRoutingBottomSheet().getValue());
-        final View activePanel = searching ? parent.findViewById(R.id.search_page_container)
-                               : selected ? parent.findViewById(R.id.placepage)
-                               : routing ? parent.findViewById(R.id.routing_sheet_frame) : null;
+        final View routePanel = parent.findViewById(R.id.routing_sheet_frame);
+        final View placePanel = parent.findViewById(R.id.placepage);
+        final View searchPanel = parent.findViewById(R.id.search_page_container);
+        final View activePanel = routing && InCarOverlayCoordinator.visiblePanel(routePanel) ? routePanel
+                               : selected && InCarOverlayCoordinator.visiblePanel(placePanel) ? placePanel
+                               : searching && InCarOverlayCoordinator.visiblePanel(searchPanel) ? searchPanel : null;
         final Rect rect = InCarOverlayCoordinator.placePageViewport(
             map, activePanel, parent.findViewById(R.id.zoom_buttons_container),
             viewportMinHeight, parent.getResources().getDimensionPixelSize(R.dimen.margin_half));
