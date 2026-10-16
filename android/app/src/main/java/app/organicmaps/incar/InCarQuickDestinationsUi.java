@@ -552,6 +552,21 @@ public final class InCarQuickDestinationsUi
             break;
           }
       }
+      if (!changed)
+      {
+        // Reused dividers still need to follow the 69dp -> 55dp cell tier.
+        for (int i = 0; i + 1 < rendered.size(); ++i)
+        {
+          final View divider = mContainer.getChildAt(i * 2 + 1);
+          final int width = Math.max(1, rendered.get(i).getLayoutParams().width - dp(24));
+          final ViewGroup.LayoutParams dividerParams = divider.getLayoutParams();
+          if (dividerParams.width != width)
+          {
+            dividerParams.width = width;
+            divider.setLayoutParams(dividerParams);
+          }
+        }
+      }
       if (changed)
       {
         mContainer.removeAllViews();
@@ -719,7 +734,7 @@ public final class InCarQuickDestinationsUi
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
                                                  ? layoutParams
                                                  : new LinearLayout.LayoutParams(size, size);
-      if (params.width != size || params.height != size)
+      if (!(raw instanceof LinearLayout.LayoutParams) || params.width != size || params.height != size)
       {
         params.width = size;
         params.height = size;
