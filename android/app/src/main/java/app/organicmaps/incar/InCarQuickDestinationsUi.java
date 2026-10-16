@@ -929,7 +929,7 @@ public final class InCarQuickDestinationsUi
     {
       final boolean planning = !mNavigationMode && RoutingController.get().isPlanning();
       final boolean visible = mContainer.getChildCount() > 0
-          && !mImeVisible && (mNavigationMode || !mRoutingSheetOpen)
+          && !mImeVisible && !mRoutingSheetOpen
           && InCarQuickDestinationsPolicy.shouldShowSurface(
               BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen, planning,
               mNavigationMode, mButtonsHidden, mBottomButtonsHidden, mOverflowDialogOpen);

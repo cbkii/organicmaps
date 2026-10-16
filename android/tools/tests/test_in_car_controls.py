@@ -517,7 +517,7 @@ public class AccessibilityTest {
         self.assertIn("mOverflowDialogOpen = true", quick)
         self.assertIn("mOverflowDialogOpen = false", quick)
         self.assertIn("mImeVisible = imeVisible", quick)
-        self.assertIn("!mImeVisible && (mNavigationMode || !mRoutingSheetOpen)", quick)
+        self.assertIn("!mImeVisible && !mRoutingSheetOpen", quick)
         self.assertIn("getShowRoutingBottomSheet().observe(", quick)
         self.assertIn("final int availablePx = Math.max(0, parentHeight - topReserved - bottomMargin)", quick)
         self.assertNotIn("Math.max(minimum, parentHeight - topReserved - bottomMargin)", quick)
