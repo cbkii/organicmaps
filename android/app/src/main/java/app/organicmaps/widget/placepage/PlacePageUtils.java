@@ -13,6 +13,8 @@ import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarOverlayCoordinator;
 import app.organicmaps.sdk.Map;
+import app.organicmaps.sdk.MapView;
+import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.util.Utils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -36,8 +38,22 @@ public class PlacePageUtils
         if (!parent.isAttachedToWindow() || !Map.isEngineCreated())
           return;
         final View map = parent.findViewById(R.id.map);
-        if (map == null || map.getWidth() <= 0 || map.getHeight() <= 0)
+        if (!(map instanceof MapView mapView) || mapView.getWidth() <= 0 || mapView.getHeight() <= 0)
           return;
+        // TS18 task changes can transiently leave the SurfaceHolder dimensions
+        // behind the View. Pixel geometry is authoritative only after the native
+        // map has actually accepted the current Surface frame.
+        if (mapView.getSurfaceFrameWidth() != mapView.getWidth()
+            || mapView.getSurfaceFrameHeight() != mapView.getHeight()
+            || mapView.getLastAppliedSurfaceWidth() != mapView.getWidth()
+            || mapView.getLastAppliedSurfaceHeight() != mapView.getHeight())
+          return;
+        if (RoutingController.get().isNavigating())
+        {
+          // Follow/navigation continues to own map positioning and heading.
+          Framework.nativeSetVisibleRect(0, 0, mapView.getWidth(), mapView.getHeight());
+          return;
+        }
         final Rect rect = InCarOverlayCoordinator.placePageViewport(
             map, parent.findViewById(R.id.placepage),
             parent.findViewById(R.id.zoom_buttons_container),
