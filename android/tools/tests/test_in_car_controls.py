@@ -593,6 +593,8 @@ public class AccessibilityTest {
         self.assertIn("final boolean horizontal = available < cellHeight * 4 + divider * 3;", camera)
         self.assertIn("usableWidth >= cellWidth * 4 + divider * 3", camera)
         self.assertIn("final int targetVisibility = fits ? View.VISIBLE : View.GONE;", camera)
+        self.assertIn("if (!fits)", camera)
+        self.assertIn("camera.isShown() && camera.getWidth() > camera.getHeight()", quick)
         self.assertIn("removeOnGlobalLayoutListener(mCameraOccupancyListener)", camera)
         self.assertIn("R.id.nav_speed_limit", occupied)
         self.assertIn("R.id.in_car_nav_speed", occupied)

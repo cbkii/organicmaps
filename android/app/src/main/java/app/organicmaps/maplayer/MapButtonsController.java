@@ -311,7 +311,14 @@ public class MapButtonsController extends Fragment
     if (visibilityChanged)
       rail.setVisibility(targetVisibility);
     if (!fits)
+    {
+      if (visibilityChanged)
+        rail.postOnAnimation(() -> {
+          if (getActivity() instanceof MwmActivity activity && getView() == mFrame)
+            InCarQuickDestinationsUi.refreshDockGeometry(activity);
+        });
       return;
+    }
     final int orientation = horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL;
     final boolean orientationChanged = rail.getOrientation() != orientation;
     if (orientationChanged)

@@ -623,7 +623,7 @@ public final class InCarQuickDestinationsUi
     {
       final boolean left = InCarSettingsStore.controlsOnLeft(mActivity);
       final View camera = mActivity.findViewById(R.id.zoom_buttons_container);
-      final boolean horizontal = camera != null && camera.getWidth() > camera.getHeight();
+      final boolean horizontal = camera != null && camera.isShown() && camera.getWidth() > camera.getHeight();
       return InCarOverlayCoordinator.measureQuickColumn(
           mActivity, left, horizontal, InCarVisuals.currentQuickActionSizePx(mActivity));
     }
@@ -895,7 +895,7 @@ public final class InCarQuickDestinationsUi
       {
         final Resources res = mActivity.getResources();
         final View camera = mActivity.findViewById(R.id.zoom_buttons_container);
-        final boolean horizontal = camera != null && camera.getWidth() > camera.getHeight();
+        final boolean horizontal = camera != null && camera.isShown() && camera.getWidth() > camera.getHeight();
         final int cell = currentActionSizePx();
         final int side = InCarMapDockPolicy.quickPhysicalOffsetPx(res, cell, horizontal);
         final int edge = InCarMapDockPolicy.edgePx(res);
