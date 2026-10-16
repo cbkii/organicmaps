@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import re
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -406,9 +407,14 @@ public class AccessibilityTest {
                       "in_car_selection_accent"):
             self.assertIn(token, day)
             self.assertIn(token, night)
-            self.assertNotEqual(day[token], night[token])
-        self.assertEqual("@color/in_car_action_primary", day["in_car_quick_foreground"])
-        self.assertEqual("@color/in_car_selection_accent", night["in_car_quick_foreground"])
+            if token == "in_car_quick_foreground":
+                # Both flavours resolve the same semantic role to opposite
+                # colour values; comparing the raw alias cannot prove contrast.
+                self.assertEqual("@color/in_car_icon_primary", day[token])
+                self.assertEqual("@color/in_car_icon_primary", night[token])
+                self.assertNotEqual(day["in_car_icon_primary"], night["in_car_icon_primary"])
+            else:
+                self.assertNotEqual(day[token], night[token])
         camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
         quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
         for expected in ("@color/in_car_camera_rail_surface", "@color/in_car_map_control_outline"):
@@ -506,6 +512,230 @@ public class AccessibilityTest {
         self.assertEqual("androidx.appcompat.widget.AppCompatImageButton", follow.tag)
         self.assertEqual("@drawable/in_car_map_rail_cell_feedback", follow.get(ns+"background"))
         self.assertEqual("fitCenter", follow.get(ns+"scaleType"))
+
+
+    def test_incar_quick_icon_contrast_on_extreme_map_tiles(self):
+        """Verify rendered icon contrast at the 75%-opaque map-rail extremes."""
+        day = controls.read("android/app/src/inCar/res/values/colors.xml")
+        night = controls.read("android/app/src/inCar/res/values-night/colors.xml")
+        rail = ET.fromstring(controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml"))
+        ns = "{http://schemas.android.com/apk/res/android}"
+        self.assertEqual("@color/in_car_camera_rail_surface", rail.find("solid").get(ns + "color"))
+
+        def resolve(source, name):
+            resources = {node.get("name"): (node.text or "").strip()
+                         for node in ET.fromstring(source).findall("color")}
+            visited = set()
+            while name not in visited:
+                visited.add(name)
+                value = resources[name]
+                if not value.startswith("@color/"):
+                    self.assertRegex(value, r"^#[0-9A-Fa-f]{8}$")
+                    return tuple(bytes.fromhex(value[1:]))
+                name = value.split("/", 1)[1]
+            self.fail("circular colour alias")
+
+        def linear(v):
+            c = v / 255.0
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+        def lum(rgb):
+            return sum(w * linear(c) for w, c in zip((0.2126, 0.7152, 0.0722), rgb))
+
+        def ratio(a, b):
+            hi, lo = sorted((lum(a), lum(b)), reverse=True)
+            return (hi + 0.05) / (lo + 0.05)
+
+        for source in (day, night):
+            _, *ink = resolve(source, "in_car_quick_foreground")
+            alpha, *surface = resolve(source, "in_car_camera_rail_surface")
+            for tile in (0, 255):
+                composited = tuple(round((alpha * x + (255 - alpha) * tile) / 255)
+                                   for x in surface)
+                self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
+
+    def test_incar_overlay_visibility_and_occupancy_contracts(self):
+        """Execute actual production state predicate and rectangle intersection."""
+        quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")
+        vis = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsPolicy.java")
+        occupied = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarOverlayCoordinator.java")
+        self.assertIn("mButtonsHidden = Boolean.TRUE.equals(hidden)", quick)
+        self.assertIn("mBottomButtonsHidden = Boolean.TRUE.equals(hidden)", quick)
+        self.assertIn("mOverflowDialogOpen = true", quick)
+        self.assertIn("mOverflowDialogOpen = false", quick)
+        self.assertIn("mImeVisible = imeVisible", quick)
+        self.assertIn("!imeVisible && !mRoutingSheetOpen", quick)
+        self.assertIn("private boolean isImeActive()", quick)
+        self.assertIn("ViewCompat.getRootWindowInsets(owner)", quick)
+        self.assertIn("WindowInsetsCompat.Type.ime()", quick)
+        self.assertIn("getShowRoutingBottomSheet().observe(", quick)
+        self.assertIn("final int availablePx = Math.max(0, parentHeight - topReserved - bottomMargin)", quick)
+        self.assertNotIn("Math.max(minimum, parentHeight - topReserved - bottomMargin)", quick)
+        sizing = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDialogSizing.java")
+        self.assertIn("InCarSettingsStore.controlsOnLeft(activity) ? Gravity.LEFT : Gravity.RIGHT", sizing)
+        self.assertIn("RoutingController.get().isPlanning()", quick)
+        self.assertIn("InCarOverlayCoordinator.measureQuickColumn(", quick)
+        self.assertIn("InCarOverlayCoordinator.measure(mActivity, left, side, cell)", quick)
+        self.assertNotIn("InCarOverlayCoordinator.measure(mActivity, left, currentActionSizePx())", quick)
+        self.assertNotIn("mRoot.bringToFront()", quick)
+        self.assertIn("getGlobalVisibleRect(rect)", occupied)
+        self.assertIn("R.id.routing_bottom_buttons", occupied)
+        self.assertIn("R.id.nav_bottom_frame", occupied)
+        self.assertIn("R.id.nav_next_turn_container", occupied)
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        self.assertIn("R.id.in_car_quick_destinations_container", activity)
+        self.assertIn("InCarSettingsStore.controlsOnLeft(this)", activity)
+        self.assertIn("mActivity.updateBottomWidgetsOffset(0)", quick)
+        self.assertIn("placePageViewport(", occupied)
+        self.assertIn("boundedViewport(", occupied)
+        place = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageUtils.java")
+        self.assertIn("InCarOverlayCoordinator.placePageViewport(", place)
+        self.assertIn("models.get(SearchPageViewModel.class).getSearchEnabled()", place)
+        self.assertIn("models.get(PlacePageViewModel.class).getMapObject()", place)
+        self.assertIn("models.get(RoutingPlanViewModel.class).getShowRoutingBottomSheet()", place)
+        plan = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java")
+        self.assertIn("PlacePageUtils.updateMapViewport(mapRoot,", plan)
+        self.assertIn("Map.isEngineCreated()", place)
+        self.assertIn("mapView.getSurfaceFrameWidth() != mapView.getWidth()", place)
+        self.assertIn("mapView.getLastAppliedSurfaceWidth() != mapView.getWidth()", place)
+        self.assertIn("RoutingController.get().isNavigating()", place)
+        self.assertIn("Framework.nativeSetVisibleRect(rect.left, rect.top, rect.right, rect.bottom)", place)
+        self.assertIn("usableColumnHeight(", occupied)
+        camera = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+        self.assertIn("InCarOverlayCoordinator.usableColumnHeight(", camera)
+        self.assertIn("mCameraOccupancyListener = () ->", camera)
+        self.assertNotIn("if (available <= 0)\n      return;", camera)
+        self.assertIn("final boolean horizontal = available < cellHeight * 4 + divider * 3;", camera)
+        self.assertIn("usableWidth >= cellWidth * 4 + divider * 3", camera)
+        self.assertIn("final int targetVisibility = fits ? View.VISIBLE : View.GONE;", camera)
+        self.assertIn("if (!fits)", camera)
+        self.assertIn("camera.isShown() && camera.getWidth() > camera.getHeight()", quick)
+        self.assertIn("removeOnGlobalLayoutListener(mCameraOccupancyListener)", camera)
+        self.assertIn("R.id.nav_speed_limit", occupied)
+        self.assertIn("R.id.in_car_nav_speed", occupied)
+        self.assertIn("measureQuickColumn(", occupied)
+        self.assertIn("mOccupiedRegionListener = () ->", quick)
+        self.assertIn("removeOnGlobalLayoutListener(mOccupiedRegionListener)", quick)
+        self.assertIn("mContainer.getChildAt(i * 2) != rendered.get(i)", quick)
+        self.assertIn("if (changed)", quick)
+        self.assertIn("if (!(raw instanceof LinearLayout.LayoutParams) || params.width != size || params.height != size)", quick)
+        self.assertIn("mContainer.getChildAt(i * 2 + 1)", quick)
+        self.assertIn("dividerParams.width != width", quick)
+        self.assertIn("final InCarOverlayCoordinator.Snapshot occupied = measureCandidateOccupancy()", quick)
+        self.assertIn("private void showFuelChargingChoice()", quick)
+        self.assertIn("mOverflowDialogOpen = true", quick)
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java source launcher unavailable")
+        method_start = vis.index("  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,")
+        body_start = vis.index("{", method_start)
+        depth, end = 1, body_start + 1
+        while depth:
+            depth += (vis[end] == "{") - (vis[end] == "}")
+            end += 1
+        method = vis[method_start:end]
+        rect_start = occupied.index("  public static boolean overlapsColumn(")
+        rect_body = occupied.index("{", rect_start)
+        depth, rect_end = 1, rect_body + 1
+        while depth:
+            depth += (occupied[rect_end] == "{") - (occupied[rect_end] == "}")
+            rect_end += 1
+        rect_method = occupied[rect_start:rect_end].replace("@NonNull ", "")
+        cap_start = occupied.index("  public static int usableColumnHeight(")
+        cap_body = occupied.index("{", cap_start)
+        depth, cap_end = 1, cap_body + 1
+        while depth:
+            depth += (occupied[cap_end] == "{") - (occupied[cap_end] == "}")
+            cap_end += 1
+        cap_method = occupied[cap_start:cap_end]
+        viewport_start = occupied.index("  static int[] boundedViewport(")
+        viewport_body = occupied.index("{", viewport_start)
+        depth, viewport_end = 1, viewport_body + 1
+        while depth:
+            depth += (occupied[viewport_end] == "{") - (occupied[viewport_end] == "}")
+            viewport_end += 1
+        viewport_method = occupied[viewport_start:viewport_end]
+        harness = """class OverlayPolicyTest {
+static class Rect {int left,right; Rect(int l,int r){left=l;right=r;}}
+""" + method + "\n" + rect_method + "\n" + cap_method + "\n" + viewport_method + """
+public static void main(String[] args) {
+  for (int mask=0;mask<256;mask++) {
+    boolean car=(mask&1)!=0,search=(mask&2)!=0,place=(mask&4)!=0;
+    boolean planning=(mask&8)!=0,nav=(mask&16)!=0,buttons=(mask&32)!=0;
+    boolean bottom=(mask&64)!=0,modal=(mask&128)!=0;
+    boolean expected=car&&!search&&!place&&!modal&&(nav||(!planning&&!buttons&&!bottom));
+    assert shouldShowSurface(car,search,place,planning,nav,buttons,bottom,modal)==expected;
+  }
+  assert overlapsColumn(new Rect(10,30),29,40);
+  assert !overlapsColumn(new Rect(10,30),30,40);
+  assert !overlapsColumn(new Rect(40,50),10,40);
+  assert overlapsColumn(new Rect(0,100),10,40);
+  assert usableColumnHeight(410,480,120,76)==284;
+  assert usableColumnHeight(410,480,180,76)==224;
+  assert usableColumnHeight(410,480,350,140)==0;
+  assert usableColumnHeight(200,480,0,0)==200;
+  assert usableColumnHeight(200,480,-15,-5)==200;
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,540,100),new int[]{0,0,1280,540});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1110,500,100),new int[]{0,0,1110,500});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,190,0,1280,520,100),new int[]{190,0,1280,520});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,80,100),new int[]{0,0,1280,100});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,1200,0,1280,620,100),new int[]{1180,0,1280,620});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,-4,-10,1400,820,100),new int[]{0,0,1280,720});
+}
+}"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "OverlayPolicyTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
+    def test_incar_quick_zero_capacity_and_overflow_are_actual_policy(self):
+        """Execute production compact policy at and below the 55dp interaction floor."""
+        src = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsLayoutPolicy.java")
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java source launcher unavailable")
+        methods = []
+        for kind, name in (("int", "requiredHeightDp"), ("int", "maxVisibleActions"),
+                           ("int", "navigationActionSizeDp"), ("int", "directActionCountForCapacity"),
+                           ("boolean", "shouldShowMore")):
+            match = re.search(r"  static " + kind + " " + name + r"\([^)]*\)\s*\{", src)
+            self.assertIsNotNone(match, name)
+            start = src.index("{", match.start())
+            depth, end = 1, start + 1
+            while depth:
+                depth += (src[end] == "{") - (src[end] == "}")
+                end += 1
+            methods.append(src[match.start():end])
+        harness = (
+            "class QuickCapacityTest {\n"
+            "static final int NAVIGATION_ACTION_COUNT=4;\n"
+            "static final int PREFERRED_ACTION_SIZE_DP=69;\n"
+            "static final int MIN_ACTION_SIZE_DP=69;\n"
+            "static final int EXTRA_COMPACT_ACTION_SIZE_DP=55;\n"
+            "static final int MIN_ACTION_GAP_DP=1;\n"
+            "static final int PREFERRED_ACTION_GAP_DP=1;\n"
+            + "\n".join(methods) +
+            "\npublic static void main(String[] args) {\n"
+            " assert maxVisibleActions(-1,55,1)==0;\n"
+            " assert maxVisibleActions(0,55,1)==0;\n"
+            " assert maxVisibleActions(54,55,1)==0;\n"
+            " assert maxVisibleActions(55,55,1)==1;\n"
+            " assert maxVisibleActions(110,55,1)==1;\n"
+            " assert maxVisibleActions(111,55,1)==2;\n"
+            " assert navigationActionSizeDp(278)==55;\n"
+            " assert navigationActionSizeDp(279)==69;\n"
+            " assert directActionCountForCapacity(0,4,0)==0;\n"
+            " assert directActionCountForCapacity(1,4,0)==0;\n"
+            " assert shouldShowMore(1,4,0,4);\n"
+            " assert directActionCountForCapacity(2,4,0)==1;\n"
+            " assert shouldShowMore(2,4,1,3);\n"
+            " assert directActionCountForCapacity(4,3,0)==3;\n"
+            " assert !shouldShowMore(4,3,3,0);\n"
+            "}\n}\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "QuickCapacityTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
 
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette

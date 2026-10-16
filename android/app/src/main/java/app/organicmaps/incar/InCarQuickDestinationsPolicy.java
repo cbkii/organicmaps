@@ -17,7 +17,20 @@ public final class InCarQuickDestinationsPolicy
 
   public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen)
   {
-    return inCarFlavor && !searchOpen && !placePageOpen;
+    return shouldShowSurface(inCarFlavor, searchOpen, placePageOpen, false,
+                             false, false, false, false);
+  }
+
+  /** Browsing chrome follows its host; active navigation retains its own Quick rail. */
+  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,
+                                          boolean routePlanning, boolean navigation, boolean buttonsHidden,
+                                          boolean bottomButtonsHidden, boolean modalOpen)
+  {
+    if (!inCarFlavor || searchOpen || placePageOpen || modalOpen)
+      return false;
+    if (navigation)
+      return true; // Navigation intentionally hides legacy map buttons.
+    return !routePlanning && !buttonsHidden && !bottomButtonsHidden;
   }
 
   public static boolean shouldShow(boolean inCarFlavor, @NonNull InCarQuickDestinationsStore.Action action,

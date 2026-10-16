@@ -71,6 +71,7 @@ import app.organicmaps.editor.FeatureCategoryActivity;
 import app.organicmaps.editor.OsmLoginActivity;
 import app.organicmaps.help.HelpActivity;
 import app.organicmaps.incar.InCarBackPolicy;
+import app.organicmaps.incar.InCarMapDockPolicy;
 import app.organicmaps.incar.InCarRouterPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.incar.InCarUiModePolicy;
@@ -709,8 +710,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
       if (mCurrentWindowInsets == null)
         updateCompassOffset(trackRecorderOffset + systemBars.top, systemBars.right);
       refreshLightStatusBar();
-      updateBottomWidgetsOffset(systemBars.left);
       mCurrentWindowInsets = windowInsets;
+      updateBottomWidgetsOffset(systemBars.left);
       return windowInsets;
     });
 
@@ -1427,6 +1428,39 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   public void updateBottomWidgetsOffset(int offsetX)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // The map controller is the native widget-placement owner. Recompute the
+      // inset even when the dock changes sides without a new inset dispatch.
+      final int leftInset = mCurrentWindowInsets == null ? 0
+          : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
+      offsetX = Math.max(0, leftInset);
+      final View map = findViewById(R.id.map);
+      if (map != null && map.getWidth() > 0)
+      {
+        final int maximum = Math.max(0, map.getWidth()
+            - getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
+        if (InCarSettingsStore.controlsOnLeft(this))
+        {
+          final android.graphics.Rect mapBounds = new android.graphics.Rect();
+          if (map.getGlobalVisibleRect(mapBounds))
+          {
+            for (int id : new int[] {R.id.zoom_buttons_container, R.id.in_car_quick_destinations_container,
+                                     R.id.map_buttons_bottom})
+            {
+              final View control = findViewById(id);
+              final android.graphics.Rect bounds = new android.graphics.Rect();
+              if (control != null && control.isShown() && control.getGlobalVisibleRect(bounds)
+                  && android.graphics.Rect.intersects(mapBounds, bounds)
+                  && bounds.left < mapBounds.centerX())
+                offsetX = Math.max(offsetX, bounds.right - mapBounds.left
+                    + InCarMapDockPolicy.edgePx(getResources()));
+            }
+          }
+        }
+        offsetX = Math.min(offsetX, maximum);
+      }
+    }
     int offsetY = mNavBarHeight;
     final Float bottomButtonHeight = mMapButtonsViewModel.getBottomButtonsHeight().getValue();
     if (bottomButtonHeight != null)

@@ -27,6 +27,7 @@ import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.R;
 import app.organicmaps.incar.InCarMapDockPolicy;
+import app.organicmaps.incar.InCarOverlayCoordinator;
 import app.organicmaps.incar.InCarQuickDestinationsUi;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.routing.RoutingPlanViewModel;
@@ -66,6 +67,10 @@ public class MapButtonsController extends Fragment
   private View mZoomMovementFrame;
   private int mLastCameraRailWidth = -1;
   private int mLastCameraRailHeight = -1;
+  private int mLastCameraOccupiedTop = -1;
+  private int mLastCameraOccupiedBottom = -1;
+  @Nullable
+  private ViewTreeObserver.OnGlobalLayoutListener mCameraOccupancyListener;
   @Nullable
   private LayersButton mToggleMapLayerButton;
   @Nullable
@@ -219,6 +224,19 @@ public class MapButtonsController extends Fragment
     {
       mFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
       zoomFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
+      mCameraOccupancyListener = () -> {
+        final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
+        if (!occupied.hasMapBounds())
+          return;
+        if (occupied.topClearancePx() != mLastCameraOccupiedTop
+            || occupied.bottomClearancePx() != mLastCameraOccupiedBottom)
+        {
+          mLastCameraOccupiedTop = occupied.topClearancePx();
+          mLastCameraOccupiedBottom = occupied.bottomClearancePx();
+          fitCameraRail();
+        }
+      };
+      mFrame.getViewTreeObserver().addOnGlobalLayoutListener(mCameraOccupancyListener);
     }
 
     mButtonsMap = new HashMap<>();
@@ -246,28 +264,67 @@ public class MapButtonsController extends Fragment
     return mFrame;
   }
 
+  @NonNull
+  private InCarOverlayCoordinator.Snapshot cameraOccupiedRegions()
+  {
+    if (!(getActivity() instanceof MwmActivity activity))
+      return InCarOverlayCoordinator.unmeasured();
+    return InCarOverlayCoordinator.measure(
+        activity, InCarSettingsStore.controlsOnLeft(activity),
+        InCarMapDockPolicy.edgePx(getResources()), InCarMapDockPolicy.railSizePx(getResources()));
+  }
+
   private void fitCameraRail()
   {
     final View candidate = mFrame.findViewById(R.id.zoom_buttons_container);
     if (!(candidate instanceof LinearLayout rail) || mInnerRightButtonsFrame == null)
       return;
     final View cell = rail.findViewById(R.id.my_position);
-    if (cell == null || cell.getHeight() == 0)
+    if (cell == null || mFrame.getWidth() <= 0 || !mFrame.isShown())
       return;
+    final int cellWidth = cell.getWidth() > 0 ? cell.getWidth() : InCarMapDockPolicy.railSizePx(getResources());
+    final int cellHeight = cell.getHeight() > 0 ? cell.getHeight() : InCarMapDockPolicy.railSizePx(getResources());
     InCarMapDockPolicy.positionCameraFrame(mInnerRightButtonsFrame, getResources(),
-        mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cell.getHeight());
-    final int available = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
-                          - mInnerRightButtonsFrame.getPaddingBottom();
-    if (available <= 0)
+        mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cellHeight);
+    final int frameAvailable = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
+                               - mInnerRightButtonsFrame.getPaddingBottom();
+    final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
+    final View mapContainer = requireActivity().findViewById(R.id.map_container);
+    final int available = occupied.hasMapBounds() && mapContainer != null && mapContainer.getHeight() > 0
+                          ? InCarOverlayCoordinator.usableColumnHeight(
+                                frameAvailable, mapContainer.getHeight(), occupied.topClearancePx(),
+                                occupied.bottomClearancePx())
+                          : frameAvailable;
+    // Zero vertical clearance is a valid short-window state: the orientation
+    // still needs to collapse. Do not leave a stale vertical hit area on top of
+    // navigation chrome. The host's clipped window owns final visibility.
+    // Keep the four native zoom/follow/camera actions; rotate the rail to horizontal
+    // when the measured ribbon/footer leave insufficient vertical space.
+    final int divider = Math.max(1, dpToPx(1, requireContext()));
+    final boolean horizontal = available < cellHeight * 4 + divider * 3;
+    // A task too narrow for all four 55/69dp cells must not put invisible
+    // touch targets across START/END. Restore the full rail on a fitting window.
+    final int usableWidth = Math.max(0, mFrame.getWidth() - 2 * InCarMapDockPolicy.edgePx(getResources()));
+    final boolean fits = !horizontal || usableWidth >= cellWidth * 4 + divider * 3;
+    final int targetVisibility = fits ? View.VISIBLE : View.GONE;
+    final boolean visibilityChanged = rail.getVisibility() != targetVisibility;
+    if (visibilityChanged)
+      rail.setVisibility(targetVisibility);
+    if (!fits)
+    {
+      if (visibilityChanged)
+        rail.postOnAnimation(() -> {
+          if (getActivity() instanceof MwmActivity activity && getView() == mFrame)
+            InCarQuickDestinationsUi.refreshDockGeometry(activity);
+        });
       return;
-    // Very shallow task windows use one horizontal four-cell rail; no camera/zoom action is dropped.
-    final boolean horizontal = available < cell.getHeight() * 4 + 3;
+    }
     final int orientation = horizontal ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL;
     final boolean orientationChanged = rail.getOrientation() != orientation;
     if (orientationChanged)
       rail.setOrientation(orientation);
     final ViewGroup.LayoutParams frameParams = rail.getLayoutParams();
-    final int targetWidth = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : cell.getWidth();
+    final int targetWidth = horizontal ? ViewGroup.LayoutParams.WRAP_CONTENT : cellWidth;
     if (frameParams.width != targetWidth || frameParams.height != ViewGroup.LayoutParams.WRAP_CONTENT)
     {
       frameParams.width = targetWidth;
@@ -282,7 +339,7 @@ public class MapButtonsController extends Fragment
       final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) child.getLayoutParams();
       final int thickness = Math.max(1, dpToPx(1, requireContext()));
       final int width = horizontal ? thickness : ViewGroup.LayoutParams.MATCH_PARENT;
-      final int height = horizontal ? cell.getHeight() : thickness;
+      final int height = horizontal ? cellHeight : thickness;
       final int inset = horizontal ? 0 : getResources().getDimensionPixelSize(R.dimen.in_car_camera_rail_divider_inset);
       if (params.width != width || params.height != height || params.getMarginStart() != inset
           || params.getMarginEnd() != inset)
@@ -296,7 +353,7 @@ public class MapButtonsController extends Fragment
     }
     // Camera may turn horizontal after Quick measured its vertical column.
     // Notify once per real geometry change; the sibling never re-owns camera layout.
-    if (orientationChanged || mLastCameraRailWidth != rail.getWidth()
+    if (orientationChanged || visibilityChanged || mLastCameraRailWidth != rail.getWidth()
         || mLastCameraRailHeight != rail.getHeight())
     {
       mLastCameraRailWidth = rail.getWidth();
@@ -669,6 +726,21 @@ public class MapButtonsController extends Fragment
     // A returning launcher/search window may already have focus; keep the old Android fallback.
     if (mFrame.hasWindowFocus())
       ViewCompat.requestApplyInsets(mFrame);
+  }
+
+  @Override
+  public void onDestroyView()
+  {
+    if (mFrame != null && mCameraOccupancyListener != null)
+    {
+      final ViewTreeObserver tree = mFrame.getViewTreeObserver();
+      if (tree.isAlive())
+        tree.removeOnGlobalLayoutListener(mCameraOccupancyListener);
+      mCameraOccupancyListener = null;
+    }
+    mLastCameraOccupiedTop = -1;
+    mLastCameraOccupiedBottom = -1;
+    super.onDestroyView();
   }
 
   @Override

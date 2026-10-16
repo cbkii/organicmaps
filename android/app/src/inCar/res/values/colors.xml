@@ -20,7 +20,8 @@
   <!-- Translucent locator edge follows the shared map-rail surface. -->
   <color name="in_car_map_control_outline">#66000000</color>
 
-  <color name="in_car_quick_foreground">@color/in_car_action_primary</color>
+  <!-- Preserve at least 3:1 icon contrast on the 75%-opaque rail over dark map tiles. -->
+  <color name="in_car_quick_foreground">@color/in_car_icon_primary</color>
   <color name="in_car_selection_accent">#FF0072B1</color>
   <color name="in_car_selection_foreground">#FFFFFFFF</color>
   <color name="in_car_action_primary">#FF0067A8</color>

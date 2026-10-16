@@ -36,7 +36,7 @@ public final class InCarQuickDestinationsLayoutPolicy
     final int size = Math.max(1, actionSizeDp);
     final int gap = Math.max(0, gapDp);
     if (availableHeightDp < size)
-      return 0;
+      return 0; // A zero-capacity rail is hidden, not overdrawn as an undersized cell.
     return 1 + Math.max(0, availableHeightDp - size) / (size + gap);
   }
 
