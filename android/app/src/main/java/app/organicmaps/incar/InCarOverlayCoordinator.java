@@ -74,8 +74,8 @@ public final class InCarOverlayCoordinator
 
     int top = 0;
     for (int id : new int[] {R.id.street_frame, R.id.nav_next_turn_container, R.id.lanes,
-                             R.id.in_car_driving_speed_cluster, R.id.nav_speed_limit,
-                             R.id.in_car_nav_speed})
+                             R.id.in_car_speed, R.id.in_car_road_speed_limit,
+                             R.id.nav_speed_limit, R.id.in_car_nav_speed})
     {
       final Rect rect = visibleRect(activity.findViewById(id));
       if (rect != null && overlapsColumn(rect, columnLeft, columnRight)
