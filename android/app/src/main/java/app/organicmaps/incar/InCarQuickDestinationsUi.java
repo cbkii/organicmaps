@@ -148,6 +148,9 @@ public final class InCarQuickDestinationsUi
     private ViewGroup mAnchorParent;
     private boolean mSearchOpen;
     private boolean mPlacePageOpen;
+    private boolean mButtonsHidden;
+    private boolean mBottomButtonsHidden;
+    private boolean mOverflowDialogOpen;
     private boolean mNavigationMode;
     private boolean mLayoutPassScheduled;
     private int mBottomButtonsHeight;
@@ -199,7 +202,14 @@ public final class InCarQuickDestinationsUi
         else
           renderVisibility();
       });
-      mMapButtonsViewModel.getButtonsHidden().observe(mActivity, hidden -> renderVisibility());
+      mMapButtonsViewModel.getButtonsHidden().observe(mActivity, hidden -> {
+        mButtonsHidden = Boolean.TRUE.equals(hidden);
+        renderVisibility();
+      });
+      mMapButtonsViewModel.getBottomButtonsHidden().observe(mActivity, hidden -> {
+        mBottomButtonsHidden = Boolean.TRUE.equals(hidden);
+        renderVisibility();
+      });
       mMapButtonsViewModel.getBottomButtonsHeight().observe(mActivity, height -> {
         mBottomButtonsHeight = height == null ? 0 : Math.max(0, Math.round(height));
         updateBottomMargin();
@@ -553,15 +563,19 @@ public final class InCarQuickDestinationsUi
       int bottomMargin = 0;
       if (mRoot.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params)
         bottomMargin = Math.max(0, params.bottomMargin);
-      int topReserved = mSystemTopInset + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
-      if (mNavigationMode)
-      {
-        // Landscape header height already includes the top system inset.
-        if (mActivity.getResources().getConfiguration().orientation
-            == android.content.res.Configuration.ORIENTATION_LANDSCAPE)
-          topReserved = Math.max(mSystemTopInset, navigationHeaderHeightPx())
+      final boolean left = InCarSettingsStore.controlsOnLeft(mActivity);
+      final InCarOverlayCoordinator.Snapshot occupied =
+          InCarOverlayCoordinator.measure(mActivity, left, currentActionSizePx());
+      // The map container is already clipped to the host's real content bounds.
+      // Prefer its measured rectangles to a second subtraction of system-bar insets.
+      int topReserved;
+      if (occupied.hasMapBounds())
+        topReserved = occupied.topClearancePx()
                       + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
-        else
+      else
+      {
+        topReserved = mSystemTopInset + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
+        if (mNavigationMode)
           topReserved += navigationHeaderHeightPx();
       }
       final int minimum = mNavigationMode ? 1 : InCarVisuals.currentQuickActionSizePx(mActivity);
@@ -673,7 +687,13 @@ public final class InCarQuickDestinationsUi
                   R.string.settings,
                   (ignored, which) -> mActivity.startActivity(new Intent(mActivity, SettingsActivity.class)))
               .create();
+      dialog.setOnDismissListener(ignored -> {
+        mOverflowDialogOpen = false;
+        renderVisibility();
+      });
       dialog.setOnShowListener(ignored -> {
+        mOverflowDialogOpen = true;
+        renderVisibility();
         styleSettingsFooter(dialog.getButton(AlertDialog.BUTTON_NEUTRAL));
         if (mNavigationMode)
           InCarDialogSizing.applyNavigationOverflowBounds(mActivity, dialog, navigationHeaderHeightPx(),
@@ -783,8 +803,13 @@ public final class InCarQuickDestinationsUi
         final int cell = currentActionSizePx();
         final int side = InCarMapDockPolicy.quickPhysicalOffsetPx(res, cell, horizontal);
         final int edge = InCarMapDockPolicy.edgePx(res);
-        final int bottom = InCarMapDockPolicy.quickBottomMarginPx(
+        final int baseline = InCarMapDockPolicy.quickBottomMarginPx(
             res, mNavigationMode, cell, horizontal ? camera.getHeight() : 0);
+        final InCarOverlayCoordinator.Snapshot occupied =
+            InCarOverlayCoordinator.measure(mActivity, left, cell);
+        final int bottom = occupied.hasMapBounds()
+                           ? Math.max(baseline, occupied.bottomClearancePx() + InCarMapDockPolicy.footerGapPx(res))
+                           : baseline;
         final int newLeft = left ? side : edge;
         final int newRight = left ? edge : side;
         if (margins.leftMargin != newLeft || margins.rightMargin != newRight
@@ -808,10 +833,14 @@ public final class InCarQuickDestinationsUi
 
     private void renderVisibility()
     {
-      final boolean visible =
-          mContainer.getChildCount() > 0
-          && InCarQuickDestinationsPolicy.shouldShowSurface(BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen);
-      mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
+      final boolean planning = !mNavigationMode && RoutingController.get().isPlanning();
+      final boolean visible = mContainer.getChildCount() > 0
+          && InCarQuickDestinationsPolicy.shouldShowSurface(
+              BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen, planning,
+              mNavigationMode, mButtonsHidden, mBottomButtonsHidden, mOverflowDialogOpen);
+      // GONE also removes all descendants from touch and accessibility hit testing.
+      if (mRoot.getVisibility() != (visible ? View.VISIBLE : View.GONE))
+        mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void applyInsets()
