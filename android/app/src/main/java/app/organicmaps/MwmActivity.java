@@ -1424,8 +1424,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
           && android.graphics.Rect.intersects(mapBounds, occupied))
       {
         final int gap = getResources().getDimensionPixelSize(R.dimen.margin_base);
+        final int radius = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min) / 2;
         final int[] offsets = InCarOverlayCoordinator.compassOffset(mapBounds, occupied,
-                                                                     offsetX, offsetY, gap);
+                                                                     offsetX, offsetY, gap, radius);
         offsetX = offsets[0];
         offsetY = offsets[1];
       }

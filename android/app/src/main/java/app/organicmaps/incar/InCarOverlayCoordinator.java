@@ -208,12 +208,14 @@ public final class InCarOverlayCoordinator
   /** Native compass offsets are measured from the actual map SurfaceView edges. */
   @NonNull
   public static int[] compassOffset(@NonNull Rect map, @NonNull Rect occupied,
-                                    int baseRight, int baseTop, int gapPx)
+                                    int baseRight, int baseTop, int gapPx, int compassRadiusPx)
   {
     if (map.isEmpty() || occupied.isEmpty() || !Rect.intersects(map, occupied))
       return new int[] {baseRight, baseTop};
-    return new int[] {Math.max(baseRight, map.right - occupied.right + Math.max(0, gapPx)),
-                      Math.max(baseTop, occupied.bottom - map.top + Math.max(0, gapPx))};
+    // Map anchors the native widget at its centre and adds its own top/right
+    // margins. Reserve the whole compass below the occupied speed/ribbon band.
+    return new int[] {baseRight, Math.max(baseTop, occupied.bottom - map.top
+        + Math.max(0, gapPx) + Math.max(0, compassRadiusPx))};
   }
 
   /** Interval intersection only; touching edges are not an overlap. */

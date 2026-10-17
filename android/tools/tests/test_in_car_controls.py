@@ -590,9 +590,9 @@ static class Rect {
 """ + method + """
 public static void main(String[] args) {
  Rect map=new Rect(53,42,1227,700);
- assert java.util.Arrays.equals(compassOffset(map,new Rect(1080,50,1219,130),53,42,8),new int[]{53,96});
- assert java.util.Arrays.equals(compassOffset(map,new Rect(53,42,1227,115),53,42,8),new int[]{53,81});
- assert java.util.Arrays.equals(compassOffset(map,new Rect(1300,0,1400,100),53,42,8),new int[]{53,42});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(1080,50,1219,130),53,42,8,35),new int[]{53,131});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(53,42,1227,115),53,42,8,35),new int[]{53,116});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(1300,0,1400,100),53,42,8,35),new int[]{53,42});
 }
 }"""
         java = shutil.which("java")
