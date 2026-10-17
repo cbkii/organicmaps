@@ -1598,7 +1598,7 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
         body = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
         body = body.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0]
         self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
-        self.assertIn("if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective())", body)
+        self.assertIn("m_userEventStream.GetCurrentScreen().isAutoPerspective()", body)
         self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
         self.assertIn("m_userEventStream.DiscardPendingAutoPerspective();", body)
         queue = controls.read("libs/drape_frontend/user_event_stream.cpp")
@@ -1653,7 +1653,12 @@ struct PositionController {
   bool IsInRouting() const { return routing; }
   void EnablePerspectiveInRouting(bool) { ++updates; }
 };
-struct Screen { bool perspective = false; bool isPerspective() const { return perspective; } };
+struct Screen {
+  bool perspective = false;
+  bool autoPerspective = false;
+  bool isPerspective() const { return perspective; }
+  bool isAutoPerspective() const { return autoPerspective; }
+};
 struct UserEvents {
   Screen screen;
   int applied = 0;
@@ -1662,7 +1667,7 @@ struct UserEvents {
   void DiscardPendingAutoPerspective() { ++purged; }
   void ApplyCameraPresentation(bool perspective) {
     DiscardPendingAutoPerspective();
-    ++applied; screen.perspective = perspective;
+    ++applied; screen.perspective = perspective; screen.autoPerspective = false;
   }
 };
 struct FrontendRenderer {
@@ -1691,16 +1696,20 @@ int main() {
   renderer.ApplyPerspectivePermission(false);
   assert(renderer.m_userEventStream.applied == 1);
   assert(renderer.m_userEventStream.purged == 4);
+  renderer.m_userEventStream.screen.autoPerspective = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 2);
+  assert(!renderer.m_userEventStream.screen.autoPerspective);
   renderer.m_manualCameraPresentation = true;
   renderer.ApplyPerspectivePermission(false);
   assert(!renderer.m_manualCameraPresentation);
-  assert(renderer.m_userEventStream.applied == 2);
+  assert(renderer.m_userEventStream.applied == 3);
   renderer.m_enablePerspectiveInNavigation = true;
   renderer.ApplyPerspectivePermission(false);
   assert(renderer.position.updates == 1);
-  assert(renderer.m_userEventStream.applied == 3);
+  assert(renderer.m_userEventStream.applied == 4);
   renderer.ApplyPerspectivePermission(false);
-  assert(renderer.m_userEventStream.applied == 3);
+  assert(renderer.m_userEventStream.applied == 4);
   renderer.ApplyPerspectivePermission(true);
   assert(renderer.position.updates == 2);
   assert(renderer.queued == 1);

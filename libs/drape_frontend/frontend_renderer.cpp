@@ -1151,7 +1151,8 @@ void FrontendRenderer::ApplyPerspectivePermission(bool allowed)
     m_manualCameraPresentation = false;
     // Always invalidate queued auto-perspective events on explicit disallow.
     // Only reset animations/publish a frame when a visible camera reconciliation is needed.
-    if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective())
+    if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective()
+        || m_userEventStream.GetCurrentScreen().isAutoPerspective())
       m_userEventStream.ApplyCameraPresentation(false);
     else
       m_userEventStream.DiscardPendingAutoPerspective();
