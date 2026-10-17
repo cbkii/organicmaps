@@ -554,6 +554,54 @@ public class AccessibilityTest {
                                    for x in surface)
                 self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
 
+    def test_incar_default_speed_pair_and_native_compass_clearance(self):
+        layout = ET.fromstring(controls.read(
+            "android/app/src/inCar/res/layout/in_car_driving_overlay.xml"))
+        ns = "{http://schemas.android.com/apk/res/android}"
+        cluster = layout.find("LinearLayout")
+        self.assertEqual("wrap_content", cluster.get(ns + "layout_width"))
+        self.assertEqual("top|right", cluster.get(ns + "layout_gravity"))
+        limit, speed = list(cluster)
+        self.assertEqual("60dp", limit.get(ns + "layout_width"))
+        self.assertEqual("72dp", speed.get(ns + "layout_width"))
+        self.assertEqual("app.organicmaps.incar.InCarNavigationSpeedView", speed.tag)
+
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        driving = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("InCarOverlayCoordinator.compassOffset(mapBounds, occupied,", activity)
+        self.assertIn("binding.speedCluster.setVisibility(snapshot.navigating ? View.GONE", driving)
+        self.assertIn("binding.speedCluster.post(activity::refreshInCarCompassOffset)", driving)
+
+        src = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarOverlayCoordinator.java")
+        start = src.index("  public static int[] compassOffset(")
+        body = src.index("{", start)
+        depth, end = 1, body + 1
+        while depth:
+            depth += (src[end] == "{") - (src[end] == "}")
+            end += 1
+        method = src[start:end].replace("@NonNull ", "")
+        harness = """class CompassPolicyTest {
+static class Rect {
+ int left,top,right,bottom;
+ Rect(int l,int t,int r,int b){left=l;top=t;right=r;bottom=b;}
+ boolean isEmpty(){return right<=left||bottom<=top;}
+ static boolean intersects(Rect a,Rect b){return a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;}
+}
+""" + method + """
+public static void main(String[] args) {
+ Rect map=new Rect(53,42,1227,700);
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(1080,50,1219,130),53,42,8),new int[]{53,96});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(53,42,1227,115),53,42,8),new int[]{53,81});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(1300,0,1400,100),53,42,8),new int[]{53,42});
+}
+}"""
+        java = shutil.which("java")
+        if java:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "CompassPolicyTest.java"
+                path.write_text(harness)
+                subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
     def test_incar_overlay_visibility_and_occupancy_contracts(self):
         """Execute actual production state predicate and rectangle intersection."""
         quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")

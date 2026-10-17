@@ -72,6 +72,7 @@ import app.organicmaps.editor.OsmLoginActivity;
 import app.organicmaps.help.HelpActivity;
 import app.organicmaps.incar.InCarBackPolicy;
 import app.organicmaps.incar.InCarMapDockPolicy;
+import app.organicmaps.incar.InCarOverlayCoordinator;
 import app.organicmaps.incar.InCarRouterPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.incar.InCarUiModePolicy;
@@ -1409,11 +1410,41 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
   void updateCompassOffset(int offsetY, int offsetX)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      final View map = findViewById(R.id.map);
+      final View speedOrRibbon = RoutingController.get().isNavigating()
+          ? findViewById(R.id.nav_next_turn_container)
+          : findViewById(R.id.in_car_driving_speed_cluster);
+      final android.graphics.Rect mapBounds = new android.graphics.Rect();
+      final android.graphics.Rect occupied = new android.graphics.Rect();
+      if (map != null && map.getGlobalVisibleRect(mapBounds)
+          && speedOrRibbon != null && speedOrRibbon.isShown()
+          && speedOrRibbon.getGlobalVisibleRect(occupied)
+          && android.graphics.Rect.intersects(mapBounds, occupied))
+      {
+        final int gap = getResources().getDimensionPixelSize(R.dimen.margin_base);
+        final int[] offsets = InCarOverlayCoordinator.compassOffset(mapBounds, occupied,
+                                                                     offsetX, offsetY, gap);
+        offsetX = offsets[0];
+        offsetY = offsets[1];
+      }
+    }
     mMapController.updateCompassOffset(offsetX, offsetY);
 
     final double north = MwmApplication.from(this).getSensorHelper().getSavedNorth();
     if (!Double.isNaN(north))
       Map.onCompassUpdated(north, true);
+  }
+
+  /** Reconcile the native compass after the InCar speed/ribbon bounds change. */
+  public void refreshInCarCompassOffset()
+  {
+    if (!BuildConfig.IS_IN_CAR || mMapController == null)
+      return;
+    final Insets bars = mCurrentWindowInsets == null ? Insets.NONE
+        : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+    updateCompassOffset(bars.top, bars.right);
   }
 
   public void onMapBottomButtonsHeightChange(float height)
@@ -1446,7 +1477,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
           if (map.getGlobalVisibleRect(mapBounds))
           {
             for (int id : new int[] {R.id.zoom_buttons_container, R.id.in_car_quick_destinations_container,
-                                     R.id.map_buttons_bottom})
+                                     R.id.btn_search, R.id.menu_button})
             {
               final View control = findViewById(id);
               final android.graphics.Rect bounds = new android.graphics.Rect();

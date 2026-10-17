@@ -142,6 +142,18 @@ public final class InCarDrivingUi
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       applyInsets(activity, binding);
+      binding.speedCluster.addOnLayoutChangeListener((view, left, top, right, bottom,
+          oldLeft, oldTop, oldRight, oldBottom) -> {
+        if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
+          activity.refreshInCarCompassOffset();
+      });
+      final View navRibbon = activity.findViewById(R.id.nav_next_turn_container);
+      if (navRibbon != null)
+        navRibbon.addOnLayoutChangeListener((view, left, top, right, bottom,
+            oldLeft, oldTop, oldRight, oldBottom) -> {
+          if (bottom != oldBottom || top != oldTop)
+            activity.refreshInCarCompassOffset();
+        });
 
       final Binding observed = binding;
       final FragmentManager fragmentManager = activity.getSupportFragmentManager();
@@ -379,7 +391,9 @@ public final class InCarDrivingUi
       binding.lastSpeedText = speedText;
     }
 
-    binding.speedCluster.setVisibility(snapshot.navigating ? View.INVISIBLE : View.VISIBLE);
+    final boolean modeChanged = binding.speedCluster.getVisibility()
+                                != (snapshot.navigating ? View.GONE : View.VISIBLE);
+    binding.speedCluster.setVisibility(snapshot.navigating ? View.GONE : View.VISIBLE);
     if (binding.navigationSpeed != null)
       binding.navigationSpeed.setVisibility(snapshot.navigating ? View.VISIBLE : View.GONE);
 
@@ -402,6 +416,8 @@ public final class InCarDrivingUi
     final boolean warning = InCarSpeedDisplayPolicy.updateCurrentSpeed(current ? snapshot.speedMps : Double.NaN);
     if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
       navigationSpeedView.setSpeeding(warning);
+    if (binding.speed instanceof InCarNavigationSpeedView drivingSpeedView)
+      drivingSpeedView.setSpeeding(warning);
     final String limitDescription = displayedLimit > 0
                                       ? activity.getString(R.string.in_car_road_speed_limit_content_description,
                                                            Framework.nativeFormatSpeed(displayedLimit))
@@ -417,6 +433,8 @@ public final class InCarDrivingUi
     binding.roadSpeedLimit.setContentDescription(showRoadLimit ? limitDescription : null);
     if (showRoadLimit)
       binding.roadSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
+    if (modeChanged)
+      binding.speedCluster.post(activity::refreshInCarCompassOffset);
     renderRibbon(activity, snapshot.navigating && warning, InCarSpeedDisplayPolicy.warningStrength());
 
     applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
@@ -478,11 +496,14 @@ public final class InCarDrivingUi
       final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.speedCluster.getLayoutParams();
       final int baseMargin = activity.getResources().getDimensionPixelSize(R.dimen.margin_base);
       final int top = bars.top + baseMargin;
-      if (params.topMargin != top)
+      final int right = bars.right + baseMargin;
+      if (params.topMargin != top || params.rightMargin != right)
       {
         params.topMargin = top;
+        params.rightMargin = right;
         binding.speedCluster.setLayoutParams(params);
       }
+      binding.speedCluster.post(activity::refreshInCarCompassOffset);
       return windowInsets;
     });
     ViewCompat.requestApplyInsets(binding.overlay);

@@ -87,6 +87,7 @@ public final class InCarOverlayCoordinator
     final int columnRight = columnLeft + cellPx;
 
     int top = 0;
+    boolean speedAtRight = false;
     for (int id : new int[] {R.id.street_frame, R.id.nav_next_turn_container, R.id.lanes,
                              R.id.in_car_speed, R.id.in_car_road_speed_limit,
                              R.id.nav_speed_limit, R.id.in_car_nav_speed})
@@ -94,8 +95,19 @@ public final class InCarOverlayCoordinator
       final Rect rect = visibleRect(activity.findViewById(id));
       if (rect != null && overlapsColumn(rect, columnLeft, columnRight)
           && rect.top < bounds.centerY())
+      {
         top = Math.max(top, Math.min(bounds.height(), rect.bottom - bounds.top));
+        if (!controlsLeft && (id == R.id.in_car_speed || id == R.id.in_car_road_speed_limit
+                              || id == R.id.in_car_nav_speed || id == R.id.nav_speed_limit))
+          speedAtRight = true;
+      }
     }
+    // The compass is a native map widget, not an Android child. In the physical
+    // right column it sits beneath the speed pair, so reserve its vertical band.
+    if (speedAtRight)
+      top = Math.min(bounds.height(), top
+          + activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact)
+          + activity.getResources().getDimensionPixelSize(R.dimen.margin_base));
 
     int bottom = 0;
     for (int id : new int[] {R.id.nav_bottom_frame, R.id.routing_bottom_buttons, R.id.map_buttons_bottom})
@@ -191,6 +203,17 @@ public final class InCarOverlayCoordinator
   public static boolean visiblePanel(@Nullable View panel)
   {
     return visibleRect(panel) != null;
+  }
+
+  /** Native compass offsets are measured from the actual map SurfaceView edges. */
+  @NonNull
+  public static int[] compassOffset(@NonNull Rect map, @NonNull Rect occupied,
+                                    int baseRight, int baseTop, int gapPx)
+  {
+    if (map.isEmpty() || occupied.isEmpty() || !Rect.intersects(map, occupied))
+      return new int[] {baseRight, baseTop};
+    return new int[] {Math.max(baseRight, map.right - occupied.right + Math.max(0, gapPx)),
+                      Math.max(baseTop, occupied.bottom - map.top + Math.max(0, gapPx))};
   }
 
   /** Interval intersection only; touching edges are not an overlap. */

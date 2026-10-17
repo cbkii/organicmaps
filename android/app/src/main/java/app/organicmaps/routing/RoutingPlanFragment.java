@@ -3,9 +3,11 @@ package app.organicmaps.routing;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
@@ -134,6 +136,12 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     mRoutingRoot = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_root);
     mRoutingBottomContainer = RoutingBottomMenuController.requireOwnedView(view, R.id.routing_bottom_container);
     applyInCarPhysicalSide();
+    if (BuildConfig.IS_IN_CAR)
+    {
+      mRoutingBottomContainer.addOnLayoutChangeListener((v, left, top, right, bottom,
+          oldLeft, oldTop, oldRight, oldBottom) -> updateInCarStartRailWidth());
+      styleInCarStartRail();
+    }
 
     mTransitStepsView = mChartPanel.findViewById(R.id.transit_recycler_view);
     mDrivingOptionsBadge = mChartPanel.findViewById(R.id.driving_options_badge);
@@ -199,6 +207,41 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     params.rightToLeft = ConstraintSet.UNSET;
     params.rightToRight = ConstraintSet.PARENT_ID;
     mRoutingBottomContainer.setLayoutParams(params);
+  }
+
+  /** The route panel owns the START rail. Keep the existing START button and its listener intact. */
+  private void styleInCarStartRail()
+  {
+    if (!(mButtonsLayout instanceof FrameLayout rail))
+      return;
+    rail.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+    // The first child is the full-width mobile divider; the rounded rail supplies its own border.
+    rail.getChildAt(0).setVisibility(View.GONE);
+    final View content = rail.getChildAt(1);
+    content.setBackgroundResource(R.drawable.in_car_navigation_rail);
+    final int gap = getResources().getDimensionPixelSize(R.dimen.in_car_nav_end_outer_gap);
+    content.setPadding(gap, gap, gap, gap);
+    updateInCarStartRailWidth();
+  }
+
+  private void updateInCarStartRailWidth()
+  {
+    if (!BuildConfig.IS_IN_CAR || mButtonsLayout == null || mRoutingBottomContainer == null)
+      return;
+    final int panelWidth = mRoutingBottomContainer.getWidth();
+    if (panelWidth <= 0)
+      return;
+    final int edge = getResources().getDimensionPixelSize(R.dimen.margin_base);
+    final int preferred = getResources().getDimensionPixelSize(R.dimen.nav_menu_landscape_width);
+    final int width = Math.min(preferred, Math.max(0, panelWidth - 2 * edge));
+    final ViewGroup.LayoutParams raw = mButtonsLayout.getLayoutParams();
+    if (!(raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
+        || params.width == width && params.rightMargin == edge)
+      return;
+    params.width = width;
+    params.rightMargin = edge;
+    params.gravity = Gravity.BOTTOM | Gravity.RIGHT;
+    mButtonsLayout.setLayoutParams(params);
   }
 
   private void showInCarRouteMoreMenu(@NonNull View anchor)

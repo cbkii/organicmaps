@@ -8,6 +8,9 @@ on:
       - '.github/workflows/in-car-style-generated.yaml'
       - '.gitmodules'
       - 'data/styles/in_car/**'
+      - 'data/styles/default/light/symbols/**'
+      - 'data/styles/default/dark/symbols/**'
+      - 'data/symbols/**'
       - 'data/styles/vehicle/**'
       - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
@@ -16,6 +19,7 @@ on:
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/ci/verify_in_car_light_glare.py'
+      - 'tools/ci/verify_in_car_marker_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
@@ -23,6 +27,9 @@ on:
       - '.github/workflows/in-car-style-generated.yaml'
       - '.gitmodules'
       - 'data/styles/in_car/**'
+      - 'data/styles/default/light/symbols/**'
+      - 'data/styles/default/dark/symbols/**'
+      - 'data/symbols/**'
       - 'data/styles/vehicle/**'
       - 'data/styles/default/include/**'
       - 'data/drules_in_car.bin'
@@ -31,6 +38,7 @@ on:
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/ci/verify_in_car_light_glare.py'
+      - 'tools/ci/verify_in_car_marker_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
 
@@ -63,6 +71,10 @@ jobs:
       - name: Verify strengthened InCar glare contract
         shell: bash
         run: python3 -X dev -W default tools/ci/verify_in_car_light_glare.py
+
+      - name: Verify approved marker palette and packaged sprites
+        shell: bash
+        run: python3 -X dev -W default tools/ci/verify_in_car_marker_palette.py
 
       - name: Upload generated InCar rules
         if: always()
