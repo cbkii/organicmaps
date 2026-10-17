@@ -1070,7 +1070,8 @@ public class VisibilityTest {
 #include <memory>
 struct SetAutoPerspectiveEvent { bool p; explicit SetAutoPerspectiveEvent(bool v):p(v){} };
 template<typename T, typename... Args> auto make_unique_dp(Args&&... args) { return std::make_unique<T>(std::forward<Args>(args)...); }
-struct Screen { bool tilted=false; bool isPerspective() const { return tilted; } };
+struct Screen { bool tilted=false; bool isPerspective() const { return tilted; }
+ bool isAutoPerspective() const { return false; } };
 struct Stream { Screen screen; const Screen & GetCurrentScreen() const { return screen; }
  void DiscardPendingAutoPerspective() {}
  void ApplyCameraPresentation(bool p) { screen.tilted=p; } };
