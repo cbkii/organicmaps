@@ -334,7 +334,8 @@ public final class InCarWindowGeometryCoordinator
       {
         if (activity instanceof app.organicmaps.MwmActivity)
         {
-          app.organicmaps.incar.InCarCompactStartupState.INSTANCE.surface(System.identityHashCode(activity), observation.expectedWidth, observation.expectedHeight);
+          app.organicmaps.incar.InCarCompactStartupState.INSTANCE.surface(
+              System.identityHashCode(activity), observation.expectedWidth, observation.expectedHeight);
           app.organicmaps.incar.InCarCompactStartupProvider.changed(activity);
         }
         Logger.d(TAG, "Window geometry converged: epoch=" + observation.geometryEpoch + " generation=" + generation

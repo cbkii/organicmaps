@@ -69,8 +69,7 @@ public final class InCarDialogSizing
     final WindowManager.LayoutParams attributes = window.getAttributes();
     // Keep the chooser on the same *physical* side as the Quick rail; RTL
     // locale alone must not flip the head-unit's driver-side setting.
-    attributes.gravity = (InCarSettingsStore.controlsOnLeft(activity) ? Gravity.LEFT : Gravity.RIGHT)
-                         | Gravity.BOTTOM;
+    attributes.gravity = (InCarSettingsStore.controlsOnLeft(activity) ? Gravity.LEFT : Gravity.RIGHT) | Gravity.BOTTOM;
     attributes.y = bottom;
     window.setAttributes(attributes);
   }

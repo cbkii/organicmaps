@@ -26,20 +26,32 @@ public final class InCarCompactStartupProvider extends ContentProvider
   public static final Uri URI = Uri.parse("content://" + BuildConfig.APPLICATION_ID + ".compact.startup/status");
   private static final java.util.concurrent.ExecutorService WORKER = new java.util.concurrent.ThreadPoolExecutor(
       0, 2, 15L, TimeUnit.SECONDS, new java.util.concurrent.SynchronousQueue<>(), runnable -> {
-        final Thread thread = new Thread(runnable, "compact-capability"); thread.setDaemon(true); return thread;
+        final Thread thread = new Thread(runnable, "compact-capability");
+        thread.setDaemon(true);
+        return thread;
       });
-  private static final java.util.concurrent.ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(
-      runnable -> { final Thread thread = new Thread(runnable, "compact-deadline"); thread.setDaemon(true); return thread; });
-  private static final java.util.concurrent.ExecutorService SIGNALS = Executors.newSingleThreadExecutor(
-      runnable -> { final Thread thread = new Thread(runnable, "compact-signal"); thread.setDaemon(true); return thread; });
-  private static final java.util.concurrent.atomic.AtomicBoolean SIGNAL_PENDING = new java.util.concurrent.atomic.AtomicBoolean();
-  private static final java.util.concurrent.atomic.AtomicLong SIGNAL_VERSION = new java.util.concurrent.atomic.AtomicLong();
+  private static final java.util.concurrent.ScheduledExecutorService TIMER =
+      Executors.newSingleThreadScheduledExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "compact-deadline");
+        thread.setDaemon(true);
+        return thread;
+      });
+  private static final java.util.concurrent.ExecutorService SIGNALS = Executors.newSingleThreadExecutor(runnable -> {
+    final Thread thread = new Thread(runnable, "compact-signal");
+    thread.setDaemon(true);
+    return thread;
+  });
+  private static final java.util.concurrent.atomic.AtomicBoolean SIGNAL_PENDING =
+      new java.util.concurrent.atomic.AtomicBoolean();
+  private static final java.util.concurrent.atomic.AtomicLong SIGNAL_VERSION =
+      new java.util.concurrent.atomic.AtomicLong();
   private static android.os.Messenger sPeer;
 
   private static int boot(Context context)
   {
     return android.os.Build.VERSION.SDK_INT >= 24
-        ? Settings.Global.getInt(context.getContentResolver(), Settings.Global.BOOT_COUNT, -1) : -1;
+      ? Settings.Global.getInt(context.getContentResolver(), Settings.Global.BOOT_COUNT, -1)
+      : -1;
   }
 
   private Context requirePeer()
@@ -58,45 +70,59 @@ public final class InCarCompactStartupProvider extends ContentProvider
     if (!"1".equals(arg) || extras == null || boot(context) < 0 || extras.getInt("boot", -1) != boot(context))
       throw new IllegalArgumentException("Stale startup observer");
     final android.os.IBinder binder = extras.getBinder("observer");
-    if (binder == null) throw new IllegalArgumentException("Observer required");
+    if (binder == null)
+      throw new IllegalArgumentException("Observer required");
     synchronized (InCarCompactStartupProvider.class)
     {
-      if ("observe".equals(method)) sPeer = new android.os.Messenger(binder);
+      if ("observe".equals(method))
+        sPeer = new android.os.Messenger(binder);
       else if ("unobserve".equals(method))
       {
-        if (sPeer != null && sPeer.getBinder().equals(binder)) sPeer = null;
+        if (sPeer != null && sPeer.getBinder().equals(binder))
+          sPeer = null;
       }
-      else throw new IllegalArgumentException("Unknown startup method");
+      else
+        throw new IllegalArgumentException("Unknown startup method");
     }
     return android.os.Bundle.EMPTY;
   }
 
-  @Override public boolean onCreate() { return true; }
+  @Override
+  public boolean onCreate()
+  {
+    return true;
+  }
 
   @Override
   public Cursor query(@NonNull Uri uri, @Nullable String[] projection, @Nullable String selection,
                       @Nullable String[] args, @Nullable String sort)
   {
-    if (android.os.Build.VERSION.SDK_INT < 28) throw new SecurityException("API unavailable");
+    if (android.os.Build.VERSION.SDK_INT < 28)
+      throw new SecurityException("API unavailable");
     final Context context = requirePeer();
     final int boot = boot(context);
     final UserManager users = (UserManager) context.getSystemService(Context.USER_SERVICE);
-    if (!"/status".equals(uri.getPath()) || !"1".equals(uri.getQueryParameter("v"))
-        || boot < 0 || !Integer.toString(boot).equals(uri.getQueryParameter("boot"))
-        || users == null || !users.isUserUnlocked())
+    if (!"/status".equals(uri.getPath()) || !"1".equals(uri.getQueryParameter("v")) || boot < 0
+        || !Integer.toString(boot).equals(uri.getQueryParameter("boot")) || users == null || !users.isUserUnlocked())
       throw new IllegalArgumentException("Incompatible or stale startup request");
     final MatrixCursor cursor = new MatrixCursor(new String[] {
-        "protocol", "package", "boot", "user", "generation", "enabled", "pid", "elapsed_ms",
-        "stage", "task", "core", "native", "attached", "width", "height", "resumed", "renderer_ready", "boot_signal"});
+        "protocol", "package", "boot", "user", "generation", "enabled", "pid", "elapsed_ms", "stage", "task", "core",
+        "native", "attached", "width", "height", "resumed", "renderer_ready", "boot_signal"});
     final Object[] row = new Object[18];
-    final Object[] header = {1, BuildConfig.APPLICATION_ID, boot, android.os.Process.myUid() / 100000,
-                            boot + ":" + android.os.Process.myUid() / 100000 + ":1",
-                            InCarSettingsStore.compactStartupEnabled(context) ? 1 : 0,
-                            android.os.Process.myPid(), SystemClock.elapsedRealtime()};
+    final Object[] header = {1,
+                             BuildConfig.APPLICATION_ID,
+                             boot,
+                             android.os.Process.myUid() / 100000,
+                             boot + ":" + android.os.Process.myUid() / 100000 + ":1",
+                             InCarSettingsStore.compactStartupEnabled(context) ? 1 : 0,
+                             android.os.Process.myPid(),
+                             SystemClock.elapsedRealtime()};
     System.arraycopy(header, 0, row, 0, header.length);
     System.arraycopy(InCarCompactStartupState.INSTANCE.row(), 0, row, header.length, 9);
-    row[17] = context.getSharedPreferences(context.getString(app.organicmaps.sdk.R.string.pref_file_name), Context.MODE_PRIVATE)
-        .getInt("InCarCompactBootSignal", -1);
+    row[17] =
+        context
+            .getSharedPreferences(context.getString(app.organicmaps.sdk.R.string.pref_file_name), Context.MODE_PRIVATE)
+            .getInt("InCarCompactBootSignal", -1);
     cursor.addRow(row);
     return cursor;
   }
@@ -108,13 +134,16 @@ public final class InCarCompactStartupProvider extends ContentProvider
     final Handler main = new Handler(Looper.getMainLooper());
     final CancellationSignal cancel = new CancellationSignal();
     final java.util.concurrent.atomic.AtomicBoolean delivered = new java.util.concurrent.atomic.AtomicBoolean();
-    final Runnable unavailable = () -> {
-      if (delivered.compareAndSet(false, true)) main.post(() -> callback.accept(false));
+    final Runnable unavailable = () ->
+    {
+      if (delivered.compareAndSet(false, true))
+        main.post(() -> callback.accept(false));
     };
     final java.util.concurrent.ScheduledFuture<?> timeout = TIMER.schedule(() -> {
       unavailable.run();
       final Thread thread = new Thread(cancel::cancel, "compact-capability-cancel");
-      thread.setDaemon(true); thread.start();
+      thread.setDaemon(true);
+      thread.start();
     }, 2, TimeUnit.SECONDS);
     try
     {
@@ -128,21 +157,25 @@ public final class InCarCompactStartupProvider extends ContentProvider
           {
             final int currentBoot = boot(context);
             final Uri uri = Uri.parse("content://com.cbkii.ts18launcher.compact.startup/status?v=1")
-                .buildUpon().appendQueryParameter("boot", Integer.toString(currentBoot)).build();
+                                .buildUpon()
+                                .appendQueryParameter("boot", Integer.toString(currentBoot))
+                                .build();
             try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null, cancel))
             {
               available = cursor != null && cursor.moveToFirst()
-                  && cursor.getInt(cursor.getColumnIndexOrThrow("protocol")) == 1
-                  && cursor.getInt(cursor.getColumnIndexOrThrow("available")) == 1
-                  && cursor.getInt(cursor.getColumnIndexOrThrow("boot")) == currentBoot
-                  && cursor.getInt(cursor.getColumnIndexOrThrow("user")) == android.os.Process.myUid() / 100000;
+                       && cursor.getInt(cursor.getColumnIndexOrThrow("protocol")) == 1
+                       && cursor.getInt(cursor.getColumnIndexOrThrow("available")) == 1
+                       && cursor.getInt(cursor.getColumnIndexOrThrow("boot")) == currentBoot
+                       && cursor.getInt(cursor.getColumnIndexOrThrow("user")) == android.os.Process.myUid() / 100000;
             }
           }
         }
-        catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException ignored) { }
+        catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException ignored)
+        {}
         timeout.cancel(false);
         final boolean result = available;
-        if (delivered.compareAndSet(false, true)) main.post(() -> callback.accept(result));
+        if (delivered.compareAndSet(false, true))
+          main.post(() -> callback.accept(result));
       });
     }
     catch (java.util.concurrent.RejectedExecutionException full)
@@ -156,9 +189,9 @@ public final class InCarCompactStartupProvider extends ContentProvider
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      android.util.Log.i("InCarCompactStartup", "elapsedMs=" + SystemClock.elapsedRealtime()
-          + " pid=" + android.os.Process.myPid() + " state="
-          + java.util.Arrays.toString(InCarCompactStartupState.INSTANCE.row()));
+      android.util.Log.i("InCarCompactStartup",
+                         "elapsedMs=" + SystemClock.elapsedRealtime() + " pid=" + android.os.Process.myPid()
+                             + " state=" + java.util.Arrays.toString(InCarCompactStartupState.INSTANCE.row()));
       SIGNAL_VERSION.incrementAndGet();
       scheduleSignal();
     }
@@ -166,29 +199,55 @@ public final class InCarCompactStartupProvider extends ContentProvider
 
   private static void scheduleSignal()
   {
-    if (SIGNAL_PENDING.compareAndSet(false, true)) SIGNALS.execute(() -> {
+    if (SIGNAL_PENDING.compareAndSet(false, true))
+      SIGNALS.execute(() -> {
         final long version = SIGNAL_VERSION.get();
         android.os.Messenger peer;
-        synchronized (InCarCompactStartupProvider.class) { peer = sPeer; }
+        synchronized (InCarCompactStartupProvider.class)
+        {
+          peer = sPeer;
+        }
         try
         {
-          if (peer != null) peer.send(android.os.Message.obtain(null, 1));
+          if (peer != null)
+            peer.send(android.os.Message.obtain(null, 1));
         }
         catch (android.os.RemoteException dead)
         {
-          synchronized (InCarCompactStartupProvider.class) { if (sPeer == peer) sPeer = null; }
+          synchronized (InCarCompactStartupProvider.class)
+          {
+            if (sPeer == peer)
+              sPeer = null;
+          }
         }
         finally
         {
           SIGNAL_PENDING.set(false);
           // Recheck after releasing the slot: changes during send must schedule another signal.
-          if (SIGNAL_VERSION.get() != version) scheduleSignal();
+          if (SIGNAL_VERSION.get() != version)
+            scheduleSignal();
         }
       });
   }
 
-  @Override public String getType(@NonNull Uri uri) { return "vnd.android.cursor.item/compact-startup"; }
-  @Override public Uri insert(@NonNull Uri uri, @Nullable ContentValues values) { throw new UnsupportedOperationException(); }
-  @Override public int delete(@NonNull Uri uri, @Nullable String where, @Nullable String[] args) { throw new UnsupportedOperationException(); }
-  @Override public int update(@NonNull Uri uri, @Nullable ContentValues values, @Nullable String where, @Nullable String[] args) { throw new UnsupportedOperationException(); }
+  @Override
+  public String getType(@NonNull Uri uri)
+  {
+    return "vnd.android.cursor.item/compact-startup";
+  }
+  @Override
+  public Uri insert(@NonNull Uri uri, @Nullable ContentValues values)
+  {
+    throw new UnsupportedOperationException();
+  }
+  @Override
+  public int delete(@NonNull Uri uri, @Nullable String where, @Nullable String[] args)
+  {
+    throw new UnsupportedOperationException();
+  }
+  @Override
+  public int update(@NonNull Uri uri, @Nullable ContentValues values, @Nullable String where, @Nullable String[] args)
+  {
+    throw new UnsupportedOperationException();
+  }
 }

@@ -11,7 +11,8 @@ public final class InCarCompactBootReceiver extends BroadcastReceiver
 {
   // Complete the durable signal before releasing the receiver process; this is a worker thread.
   @android.annotation.SuppressLint("ApplySharedPref")
-  @Override public void onReceive(Context context, Intent intent)
+  @Override
+  public void onReceive(Context context, Intent intent)
   {
     if (android.os.Build.VERSION.SDK_INT < 28 || intent == null
         || !Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction()))
@@ -28,7 +29,10 @@ public final class InCarCompactBootReceiver extends BroadcastReceiver
       {
         android.util.Log.w("InCarCompactStartup", "Boot signal unavailable", unavailable);
       }
-      finally { result.finish(); }
+      finally
+      {
+        result.finish();
+      }
     }, "compact-boot-signal").start();
   }
 }

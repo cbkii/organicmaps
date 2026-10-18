@@ -36,8 +36,10 @@ are not physical TS18 evidence. Exact-head Android CI must also qualify lint,
 arm64/x86 builds, unit/connected SDK tests, release-equivalent package checks
 and API29/API30 startup/window smoke tests.
 
-The known repository-wide clang-format baseline must be reported with its
-actual failure diff; do not bulk-format unrelated files or suppress the check.
+The exact checkpoint formatter initially reported 48 files. Formatting corrections
+are confined to the 33 files modified by #61–#68 or the checkpoint; 15 untouched
+files are excluded. The remaining repository-wide baseline must be reported with
+its actual failure diff; do not bulk-format unrelated files or suppress the check.
 Branch protection may be unavailable to the connector and must not be assumed absent.
 
 The approved execution plan requires focused physical recenter, road snap,

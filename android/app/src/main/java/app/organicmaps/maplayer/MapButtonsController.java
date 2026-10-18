@@ -34,8 +34,8 @@ import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.downloader.MapManager;
 import app.organicmaps.sdk.downloader.UpdateInfo;
-import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.sdk.location.LocationState;
+import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.sdk.maplayer.isolines.IsolinesManager;
 import app.organicmaps.sdk.maplayer.subway.SubwayManager;
 import app.organicmaps.sdk.maplayer.traffic.TrafficManager;
@@ -138,8 +138,7 @@ public class MapButtonsController extends Fragment
     {
       // Material's default FAB tint is stateful and can paint circular surfaces above the
       // shared rail even when the XML app:backgroundTint is transparent.
-      for (int id : new int[] {R.id.nav_zoom_in, R.id.nav_zoom_out, R.id.my_position,
-                               R.id.in_car_camera_view_recenter})
+      for (int id : new int[] {R.id.nav_zoom_in, R.id.nav_zoom_out, R.id.my_position, R.id.in_car_camera_view_recenter})
       {
         final View cell = mFrame.findViewById(id);
         if (cell instanceof FloatingActionButton button)
@@ -224,7 +223,8 @@ public class MapButtonsController extends Fragment
     {
       mFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
       zoomFrame.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> fitCameraRail());
-      mCameraOccupancyListener = () -> {
+      mCameraOccupancyListener = () ->
+      {
         final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
         if (!occupied.hasMapBounds())
           return;
@@ -269,9 +269,9 @@ public class MapButtonsController extends Fragment
   {
     if (!(getActivity() instanceof MwmActivity activity))
       return InCarOverlayCoordinator.unmeasured();
-    return InCarOverlayCoordinator.measure(
-        activity, InCarSettingsStore.controlsOnLeft(activity),
-        InCarMapDockPolicy.edgePx(getResources()), InCarMapDockPolicy.railSizePx(getResources()));
+    return InCarOverlayCoordinator.measure(activity, InCarSettingsStore.controlsOnLeft(activity),
+                                           InCarMapDockPolicy.edgePx(getResources()),
+                                           InCarMapDockPolicy.railSizePx(getResources()));
   }
 
   private void fitCameraRail()
@@ -285,16 +285,17 @@ public class MapButtonsController extends Fragment
     final int cellWidth = cell.getWidth() > 0 ? cell.getWidth() : InCarMapDockPolicy.railSizePx(getResources());
     final int cellHeight = cell.getHeight() > 0 ? cell.getHeight() : InCarMapDockPolicy.railSizePx(getResources());
     InCarMapDockPolicy.positionCameraFrame(mInnerRightButtonsFrame, getResources(),
-        mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation, cellHeight);
+                                           mMapButtonsViewModel.getLayoutMode().getValue() == LayoutMode.navigation,
+                                           cellHeight);
     final int frameAvailable = mInnerRightButtonsFrame.getHeight() - mInnerRightButtonsFrame.getPaddingTop()
-                               - mInnerRightButtonsFrame.getPaddingBottom();
+                             - mInnerRightButtonsFrame.getPaddingBottom();
     final InCarOverlayCoordinator.Snapshot occupied = cameraOccupiedRegions();
     final View mapContainer = requireActivity().findViewById(R.id.map_container);
-    final int available = occupied.hasMapBounds() && mapContainer != null && mapContainer.getHeight() > 0
-                          ? InCarOverlayCoordinator.usableColumnHeight(
-                                frameAvailable, mapContainer.getHeight(), occupied.topClearancePx(),
-                                occupied.bottomClearancePx())
-                          : frameAvailable;
+    final int available =
+        occupied.hasMapBounds() && mapContainer != null && mapContainer.getHeight() > 0
+            ? InCarOverlayCoordinator.usableColumnHeight(frameAvailable, mapContainer.getHeight(),
+                                                         occupied.topClearancePx(), occupied.bottomClearancePx())
+            : frameAvailable;
     // Zero vertical clearance is a valid short-window state: the orientation
     // still needs to collapse. Do not leave a stale vertical hit area on top of
     // navigation chrome. The host's clipped window owns final visibility.
@@ -706,8 +707,8 @@ public class MapButtonsController extends Fragment
       if (button != null)
       {
         button.setActivated(perspective);
-        button.setContentDescription(getString(perspective ? R.string.in_car_camera_driving
-                                                         : R.string.in_car_camera_top_down));
+        button.setContentDescription(
+            getString(perspective ? R.string.in_car_camera_driving : R.string.in_car_camera_top_down));
       }
     });
   }

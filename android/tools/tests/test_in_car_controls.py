@@ -1646,8 +1646,9 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
         body = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
         body = body.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0]
         self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
-        self.assertIn("if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective()", body)
-        self.assertIn("|| m_userEventStream.GetCurrentScreen().isAutoPerspective())", body)
+        self.assertRegex(body, r"if \(changed \|\| hadManualOverride \|\| "
+                         r"m_userEventStream\.GetCurrentScreen\(\)\.isPerspective\(\)\s*\|\|\s*"
+                         r"m_userEventStream\.GetCurrentScreen\(\)\.isAutoPerspective\(\)\)")
         self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
         self.assertIn("m_userEventStream.DiscardPendingAutoPerspective();", body)
         queue = controls.read("libs/drape_frontend/user_event_stream.cpp")

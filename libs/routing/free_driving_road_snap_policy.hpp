@@ -458,11 +458,11 @@ inline bool HasConfirmedParkingDepartureFromRoad(bool roadLocked, bool plausible
   return trustworthyTurn && turnDegrees >= kParkingDepartureTurnDegrees;
 }
 
-inline bool HasTrustworthyParkingTurn(bool hasDirection, double confidence, double displacementM,
-                                      bool stationaryHold, double speedMps)
+inline bool HasTrustworthyParkingTurn(bool hasDirection, double confidence, double displacementM, bool stationaryHold,
+                                      double speedMps)
 {
-  return hasDirection && confidence >= 0.35 && displacementM >= 3.0 && !stationaryHold &&
-         speedMps >= 0.0 && speedMps <= kParkingFreeMaxSpeedMps;
+  return hasDirection && confidence >= 0.35 && displacementM >= 3.0 && !stationaryHold && speedMps >= 0.0 &&
+         speedMps <= kParkingFreeMaxSpeedMps;
 }
 
 inline bool RoadDisplayEvidenceIsFresh(double acceptedTime, double observationTime, double now)
@@ -477,8 +477,8 @@ inline bool RoadDisplayEvidenceIsFresh(double acceptedTime, double observationTi
 inline bool RetainFreshRoadDisplay(MatchState state, AccuracyBand accuracy, bool recentRoadEvidence,
                                    bool insideFreeArea, double projectionDistanceM, double normalLimitM)
 {
-  if (state != MatchState::Road || !recentRoadEvidence || insideFreeArea ||
-      accuracy == AccuracyBand::Poor || accuracy == AccuracyBand::Unusable)
+  if (state != MatchState::Road || !recentRoadEvidence || insideFreeArea || accuracy == AccuracyBand::Poor ||
+      accuracy == AccuracyBand::Unusable)
     return false;
   double const lockLimitM = accuracy == AccuracyBand::Good ? 35.0 : 55.0;
   return projectionDistanceM <= std::max(normalLimitM, lockLimitM);
@@ -534,4 +534,3 @@ inline double OffRoadReleaseDistanceM(AreaContext const & context, bool weakRoad
   return weakRoadMatch ? 50.0 : 35.0;
 }
 }  // namespace routing::free_driving_snap
-

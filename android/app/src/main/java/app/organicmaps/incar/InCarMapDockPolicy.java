@@ -41,7 +41,7 @@ public final class InCarMapDockPolicy
   static int quickBottomFor(int footerPx, int gapPx, int edgePx, int horizontalCameraHeightPx)
   {
     return cameraBottomFor(footerPx, gapPx) + edgePx
-           + (horizontalCameraHeightPx > 0 ? horizontalCameraHeightPx + gapPx : 0);
+  + (horizontalCameraHeightPx > 0 ? horizontalCameraHeightPx + gapPx : 0);
   }
 
   static int quickPhysicalOffsetFor(int edgePx, int cellPx, int gapPx, boolean horizontalCamera)
@@ -55,8 +55,8 @@ public final class InCarMapDockPolicy
     return cameraBottomFor(footer, footerGapPx(res));
   }
 
-  public static int quickBottomMarginPx(@NonNull Resources res, boolean navigation,
-                                        int cellPx, int horizontalCameraHeightPx)
+  public static int quickBottomMarginPx(@NonNull Resources res, boolean navigation, int cellPx,
+                                        int horizontalCameraHeightPx)
   {
     final int footer = navigation ? res.getDimensionPixelSize(R.dimen.nav_menu_height) : cellPx;
     return quickBottomFor(footer, footerGapPx(res), edgePx(res), horizontalCameraHeightPx);
@@ -67,14 +67,13 @@ public final class InCarMapDockPolicy
     return quickPhysicalOffsetFor(edgePx(res), cellPx, columnGapPx(res), horizontalCamera);
   }
 
-  public static void positionCameraFrame(@Nullable View frame, @NonNull Resources res,
-                                         boolean navigation, int cellPx)
+  public static void positionCameraFrame(@Nullable View frame, @NonNull Resources res, boolean navigation, int cellPx)
   {
     if (frame == null || !(frame.getLayoutParams() instanceof ViewGroup.MarginLayoutParams params))
       return;
     final int edge = edgePx(res);
-    if (frame.getPaddingLeft() != edge || frame.getPaddingTop() != edge
-        || frame.getPaddingRight() != edge || frame.getPaddingBottom() != edge)
+    if (frame.getPaddingLeft() != edge || frame.getPaddingTop() != edge || frame.getPaddingRight() != edge
+        || frame.getPaddingBottom() != edge)
       frame.setPadding(edge, edge, edge, edge);
     final int bottom = cameraBottomMarginPx(res, navigation, cellPx);
     if (params.bottomMargin != bottom)
