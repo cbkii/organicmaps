@@ -28,7 +28,9 @@ continue when reception returns, without repeatedly resetting healthy acquisitio
   for repair after 30 seconds; subsequent repairs wait 60, 120 and then 300 seconds.
   Monitoring continues beyond ten minutes, for the existing lifecycle lease.
 - A registered receiver with no fix or satellites keeps running. Lack of GNSS telemetry alone
-  is not proof of failure. An observed GNSS stop lasting 90 seconds can justify repair;
+  is not proof of failure. Telemetry registration retries are limited to once per minute.
+  A transient vendor inspection exception cannot cancel the recurring watchdog.
+  An observed GNSS stop lasting 90 seconds can justify repair;
   subsequent GNSS progress or GPS delivery cancels that evidence.
 - Manual retry shares this cooldown. It cannot re-enable a stopped location session.
 - Repair re-registers the provider without resetting native free-driving state, routes,
@@ -36,7 +38,8 @@ continue when reception returns, without repeatedly resetting healthy acquisitio
   provider registration are invalidated before unregistration.
 - Live observations must have finite coordinates/accuracy, valid monotonic timestamps and
   age at most 30 seconds. Duplicate/older observations cannot repeatedly confirm a fix.
-  Existing native filtering remains authoritative after Java acceptance.
+  Stale saved positions cannot become a new route origin or be promoted on first-run/listener
+  replay. Existing native filtering remains authoritative after Java acceptance.
 - Recent system cache (at most 120 seconds, reported accuracy at most 2 km) is separate.
   It can be previewed explicitly from acquisition details while no route is being planned
   or navigated. It is never passed to nativeLocationUpdated or saved as a route origin.
@@ -73,7 +76,8 @@ native handoff and road matching remain separate boundaries.
 
 Details include session duration, provider and GPS registration, fix age/accuracy,
 callback/accepted ages, GNSS first-fix duration, first accepted app observation duration,
-satellites seen/used, telemetry subscription, rejection/recovery counts and reasons, and
+satellites seen/used, telemetry subscription/event age, first native handoff, rejection/recovery
+counts and reasons, and
 assistance-command acceptance. There are no precise coordinates in these new diagnostics.
 
 ## Automated validation
@@ -87,7 +91,8 @@ Location revocation. Policy JUnit tests also run in the normal app/SDK unit-test
 These are source-level behavioural tests, not Android runtime or physical-device evidence.
 
 The existing Android Check workflow runs the deterministic harness, lint, InCar/SDK tests,
-API 29 emulator smoke/SDK tests and release-equivalent build/package verification.
+API 29/30 emulator startup/warm/resize smoke, API 35 SDK connected tests and
+release-equivalent build/package verification.
 API 30 permission interaction and physical TS18 acquisition remain separate qualification.
 
 ## Physical qualification — NOT RUN

@@ -75,7 +75,7 @@ def verify_my_position() -> None:
             "camera action must retain bounded native recovery")
     require("nativeSwitchToNextMode" not in camera, "camera must not alias Follow")
     acquisition = method_body(activity, "boolean recoverInCarRecenterLocation()")
-    require("helper.isActive()" in acquisition, "already-pending acquisition must stay pending")
+    require("helper.isAcquisitionRequested()" in acquisition, "already-pending acquisition must stay pending")
     require("LocationState.getMode()" not in acquisition,
             "assigned modes must not suppress acquisition after native rejects a stale position")
     recovery = method_body(activity, "private void restartLocationAfterAvailabilityConfirmed(")

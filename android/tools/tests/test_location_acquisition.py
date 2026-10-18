@@ -45,7 +45,7 @@ class LocationAcquisitionTests(unittest.TestCase):
               public List<String> enabled=new ArrayList<>(List.of("gps","network","passive"));
               public androidx.core.location.LocationListenerCompat listener;
               public int removes; public List<String> getProviders(boolean enabledOnly){return enabled;}
-              public boolean isProviderEnabled(String p){return enabled.contains(p);}
+              public boolean inspectionFails=false; public boolean isProviderEnabled(String p){if(inspectionFails)throw new IllegalStateException();return enabled.contains(p);}
               public Location getLastKnownLocation(String p){return new Location();} }''',
             'androidx/core/content/ContextCompat.java': '''package androidx.core.content; public class ContextCompat {
               public static int checkSelfPermission(android.content.Context c,String p){return c.fine?0:-1;} }''',
@@ -207,6 +207,9 @@ class LocationAcquisitionTests(unittest.TestCase):
                 check(helper.getAcquisitionState()==LocationHelper.AcquisitionState.RECOVERING);
                 hc.manager.failed.clear(); android.os.Handler.advance(30_000);
                 check(helper.isActive()); check(hc.manager.removes==1);
+                hc.manager.inspectionFails=true; android.os.Handler.advance(5_000);
+                hc.manager.inspectionFails=false; android.os.Handler.advance(5_000);
+                check(helper.isAcquisitionRequested()); check(!android.os.Handler.tasks.isEmpty());
                 int registered=hc.manager.requested.size();
                 android.os.Handler.advance(1_200_000); check(registered==hc.manager.requested.size());
                 int nativeBefore=LocationState.nativeFixes;

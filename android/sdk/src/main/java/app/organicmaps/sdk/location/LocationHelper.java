@@ -70,6 +70,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private boolean mActive;
   private boolean mAcquisitionRequested;
   private boolean mGnssSubscribed;
+  private long mLastGnssSubscribeMs = -1;
   private final LocationAcquisitionPolicy mAcquisition = new LocationAcquisitionPolicy();
   private long mSessionStartedMs;
   private long mLastCallbackMs;
@@ -647,6 +648,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
   {
     if (mGnssSubscribed || !LocationUtils.checkFineLocationPermission(mContext))
       return;
+    final long now = SystemClock.elapsedRealtime();
+    if (mLastGnssSubscribeMs >= 0 && now - mLastGnssSubscribeMs < 60_000)
+      return;
+    mLastGnssSubscribeMs = now;
     final LocationManager manager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
     try
     {
@@ -661,6 +666,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
 
   private void unsubscribeFromGnssStatusUpdates()
   {
+    mLastGnssSubscribeMs = -1;
     if (!mGnssSubscribed)
       return;
     mGnssSubscribed = false;
@@ -719,25 +725,36 @@ public class LocationHelper implements BaseLocationProvider.Listener
   {
     if (!mInCar || !mAcquisitionRequested)
       return;
-    if (!LocationUtils.checkLocationPermission(mContext) || !LocationUtils.areLocationServicesTurnedOn(mContext))
+    try
     {
-      // Let existing permission/settings coordination own the UI; never request permission here.
-      onLocationDisabled();
-      return;
+      if (!LocationUtils.checkLocationPermission(mContext) || !LocationUtils.areLocationServicesTurnedOn(mContext))
+      {
+        // Let existing permission/settings coordination own the UI; never request permission here.
+        onLocationDisabled();
+        return;
+      }
+      if (mLocationProvider instanceof AndroidNativeProvider provider)
+      {
+        mActive = provider.hasSubscriptions();
+        final boolean gpsExpected = LocationUtils.checkFineLocationPermission(mContext) && provider.isGpsEnabled();
+        if (mAcquisition.shouldRecover(SystemClock.elapsedRealtime(), mActive, gpsExpected,
+                                       provider.hasGpsSubscription()))
+          recoverAcquisition("missing subscription or GNSS stopped");
+        checkForAgpsUpdates(); // Connectivity may have returned; attempts are rate limited.
+        subscribeToGnssStatusUpdates();
+        Logger.d(TAG, "acquisition " + getAcquisitionDiagnostics());
+      }
     }
-    if (mLocationProvider instanceof AndroidNativeProvider provider)
+    catch (RuntimeException e)
     {
-      mActive = provider.hasSubscriptions();
-      final boolean gpsExpected = LocationUtils.checkFineLocationPermission(mContext) && provider.isGpsEnabled();
-      if (mAcquisition.shouldRecover(SystemClock.elapsedRealtime(), mActive, gpsExpected,
-                                     provider.hasGpsSubscription()))
-        recoverAcquisition("missing subscription or GNSS stopped");
-      checkForAgpsUpdates(); // Connectivity may have returned since startup; attempts are rate limited.
-      subscribeToGnssStatusUpdates();
-      Logger.d(TAG, "acquisition " + getAcquisitionDiagnostics());
+      // A vendor inspection failure is unknown evidence, not proof that Location is disabled.
+      Logger.w(TAG, "Acquisition inspection unavailable: " + e.getClass().getSimpleName());
     }
-    if (mAcquisitionRequested)
-      mHandler.postDelayed(mAcquisitionWatchdog, 5_000);
+    finally
+    {
+      if (mAcquisitionRequested)
+        mHandler.postDelayed(mAcquisitionWatchdog, 5_000);
+    }
   }
 
   /** User retry shares the watchdog's cooldown and cannot re-enable an explicitly stopped session. */
@@ -802,10 +819,9 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private boolean isSavedLocationFresh()
   {
     return mSavedLocation != null
-        && LocationAcquisitionPolicy.isUsableObservation(
-            SystemClock.elapsedRealtimeNanos(), mSavedLocation.getElapsedRealtimeNanos(),
-            mSavedLocation.getLatitude(), mSavedLocation.getLongitude(), mSavedLocation.getAccuracy(),
-            LocationAcquisitionPolicy.FRESH_FIX_MS);
+ && LocationAcquisitionPolicy.isUsableObservation(
+     SystemClock.elapsedRealtimeNanos(), mSavedLocation.getElapsedRealtimeNanos(), mSavedLocation.getLatitude(),
+     mSavedLocation.getLongitude(), mSavedLocation.getAccuracy(), LocationAcquisitionPolicy.FRESH_FIX_MS);
   }
 
   @Nullable
@@ -834,13 +850,13 @@ public class LocationHelper implements BaseLocationProvider.Listener
   + ", callbackAgeMs=" + (mLastCallbackMs == 0 ? -1 : now - mLastCallbackMs)
   + ", acceptedAgeMs=" + (mLastAcceptedMs == 0 ? -1 : now - mLastAcceptedMs)
   + ", firstAcceptedMs=" + (mFirstAcceptedMs == 0 ? -1 : mFirstAcceptedMs - mSessionStartedMs)
-  + ", firstNativeMs=" + (mFirstNativeMs == 0 ? -1 : mFirstNativeMs - mSessionStartedMs)
-  + ", nativeObservationAgeMs=" + (mLastNativeObservationNanos == 0 ? -1
-      : (SystemClock.elapsedRealtimeNanos() - mLastNativeObservationNanos) / 1_000_000)
+  + ", firstNativeMs=" + (mFirstNativeMs == 0 ? -1 : mFirstNativeMs - mSessionStartedMs) + ", nativeObservationAgeMs="
+  + (mLastNativeObservationNanos == 0 ? -1
+                                      : (SystemClock.elapsedRealtimeNanos() - mLastNativeObservationNanos) / 1_000_000)
   + ", gnssFirstFixMs=" + mFirstFixMs + ", satellites=" + mSatellites + ", used=" + mSatellitesUsed
-  + ", gnssEventAgeMs=" + (mGnssEventMs == 0 ? -1 : now - mGnssEventMs)
-  + ", telemetryRegistered=" + mGnssSubscribed + ", rejected=" + mRejected + ", rejection=" + mLastRejection
-  + ", recoveries=" + mAcquisition.getRecoveries() + ", recovery=" + mLastRecovery + ", agps=" + mAgpsResult;
+  + ", gnssEventAgeMs=" + (mGnssEventMs == 0 ? -1 : now - mGnssEventMs) + ", telemetryRegistered=" + mGnssSubscribed
+  + ", rejected=" + mRejected + ", rejection=" + mLastRejection + ", recoveries=" + mAcquisition.getRecoveries()
+  + ", recovery=" + mLastRecovery + ", agps=" + mAgpsResult;
   }
 
   @UiThread

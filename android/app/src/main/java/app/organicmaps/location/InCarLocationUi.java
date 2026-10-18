@@ -99,7 +99,12 @@ public final class InCarLocationUi
       {
         status.setText(statusText(helper));
         // Follow the real top HUD bounds in normal/compact windows, without taking its ownership.
-        int top = 0;
+        final androidx.core.view.WindowInsetsCompat insets =
+            androidx.core.view.ViewCompat.getRootWindowInsets(container);
+        final androidx.core.graphics.Insets bars =
+            insets == null ? androidx.core.graphics.Insets.NONE
+                          : insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+        int top = bars.top;
         final int[] origin = new int[2];
         container.getLocationOnScreen(origin);
         for (int id : new int[] {R.id.in_car_driving_speed_cluster, R.id.nav_next_turn_container})
@@ -109,7 +114,9 @@ public final class InCarLocationUi
           if (hud != null && hud.isShown() && hud.getGlobalVisibleRect(bounds))
             top = Math.max(top, bounds.bottom - origin[1]);
         }
-        final int width = Math.max(0, container.getWidth() - padding * 16);
+        final int rails = 2 * activity.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size);
+        final int width = Math.max(0, container.getWidth() - bars.left - bars.right - rails);
+        status.setTranslationX((bars.left - bars.right) / 2.0f);
         status.setMaxWidth(width);
         params.topMargin = top;
         status.setLayoutParams(params);
