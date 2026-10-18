@@ -431,7 +431,16 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       msg->NotifyRecenterResult(m_myPositionController->RecenterPreservingMode());
       break;
     case ChangeMyPositionModeMessage::StopFollowing: m_myPositionController->StopLocationFollow(); break;
-    case ChangeMyPositionModeMessage::LoseLocation: m_myPositionController->LoseLocation(); break;
+    case ChangeMyPositionModeMessage::LoseLocation:
+    {
+      m_myPositionController->LoseLocation();
+      if (m_cameraDrivingSession && !m_myPositionController->IsInRouting())
+      {
+        m_fastCameraAcquisitionPending = true;
+        m_firstDrivingCoursePending = true;
+      }
+      break;
+    }
     default: ASSERT(false, ("Unknown change type:", static_cast<int>(msg->GetChangeType()))); break;
     }
     break;
