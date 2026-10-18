@@ -121,6 +121,15 @@
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_maintenance">
 
+    <Preference
+      android:key="in_car_location_access"
+      android:title="@string/in_car_location_access"
+      android:persistent="false" />
+    <Preference
+      android:key="in_car_location_diagnostics"
+      android:title="@string/in_car_location_diagnostics"
+      android:persistent="false" />
+
     <SwitchPreferenceCompat
       android:key="@string/pref_in_car_location_disabled_warning"
       android:title="@string/in_car_location_disabled_warning_title"

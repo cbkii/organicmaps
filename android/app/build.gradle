@@ -378,7 +378,7 @@ registerCheckApkPermissionsTasks(project) { variantName ->
 
   return allowedPermissions.findAll { permission ->
     !inCarExcludedPermissions.contains(permission.toString())
-  }
+  } + ["name='android.permission.ACCESS_BACKGROUND_LOCATION'"]
 }
 
 
