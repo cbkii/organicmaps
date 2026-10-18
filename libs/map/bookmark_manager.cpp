@@ -2615,6 +2615,9 @@ void BookmarkManager::UpdateBookmarkCategory(kml::MarkGroupId groupId, kml::Cate
   CHECK(it != m_categories.end(), (groupId));
   // UI and search retain the group ID when a category is reloaded from its file.
   ClearGroup(groupId);
+  // This fork retains compilations: retire the old groups before replacing their
+  // owning category. Newly loaded compilations have distinct, validated IDs.
+  DeleteCompilations(it->second->GetCategoryData().m_compilationIds);
   data.m_id = groupId;
   it->second = std::make_unique<BookmarkCategory>(std::move(data), false /* autoSave */);
   m_changesTracker.OnAddGroup(groupId);

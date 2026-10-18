@@ -24,7 +24,7 @@ the upstream ancestry guarantee is lost. Neither PR is merged by this task.
 - Protect routing graph/cache access and alternative choices across rebuilds. Extra fork road/corridor/metadata/speed queries also respect worker ownership and fail open until idle.
 - Freeze the existing car avoidance settings per calculation and invalidate incompatible active/alternative caches. Existing persisted keys, JNI and mode selection remain unchanged.
 - Repair rectangle clipping and wrapped country routing, clear reused triangle storage, and update only the packed runtime border asset.
-- Preserve category identity/metadata on reload without dropping fork compilation/catalogue support or writing synchronised files back.
+- Preserve category identity/metadata on reload without dropping fork compilation/catalogue support or writing synchronised files back. Retire the previous compilation groups before replacing their owning category, preserving the newly loaded groups and unrelated categories.
 - Preserve all POI synonyms and readable suggestion labels; fix folder-icon handling and route-list corner clipping.
 
 The packed border binary has the same **1,159 region names in the same order** and

@@ -163,7 +163,9 @@ int main(){State s;s.seed();s.begin();assert(s.m_lastRoute && s.m_lastAltRoute);
 ''')
 
     def test_bookmark_replacement_keeps_identity_and_replaces_metadata(self):
-        actual = method(read("libs/map/bookmark_manager.cpp"), "void BookmarkManager::UpdateBookmarkCategory(")
+        source = read("libs/map/bookmark_manager.cpp")
+        actual = method(source, "void BookmarkManager::DeleteCompilations(") + "\n" + method(
+            source, "void BookmarkManager::UpdateBookmarkCategory(")
         self.compile_run(r'''
 #include <cassert>
 #include <map>
@@ -171,20 +173,27 @@ int main(){State s;s.seed();s.begin();assert(s.m_lastRoute && s.m_lastAltRoute);
 #include <string>
 #define CHECK_THREAD_CHECKER(...) ((void)0)
 #define CHECK(x,...) assert(x)
-namespace kml {using MarkGroupId=int;struct CategoryData{int m_id;std::string name;};}
+#include <vector>
+namespace kml {using MarkGroupId=int;using GroupIdCollection=std::vector<int>;
+struct CategoryData{int m_id;std::string name;GroupIdCollection m_compilationIds;};}
 struct BookmarkCategory{ kml::CategoryData data;bool autosave;
- BookmarkCategory(kml::CategoryData&& d,bool a):data(std::move(d)),autosave(a){} };
+ BookmarkCategory(kml::CategoryData&& d,bool a):data(std::move(d)),autosave(a){}
+ kml::CategoryData const& GetCategoryData()const{return data;} };
 struct BookmarkManager {
- std::map<int,std::unique_ptr<BookmarkCategory>> m_categories; int cleared=0;
+ std::map<int,std::unique_ptr<BookmarkCategory>> m_categories; std::map<int,int> m_compilations; int cleared=0;
  struct Tracker {int id=0;void OnAddGroup(int i){id=i;}} m_changesTracker;
  void ClearGroup(int id){cleared=id;}
+ void DeleteCompilations(kml::GroupIdCollection const&);
  void UpdateBookmarkCategory(kml::MarkGroupId,kml::CategoryData&&);
 };
 ''' + actual + r'''
-int main(){BookmarkManager b;b.m_categories[7]=std::make_unique<BookmarkCategory>(kml::CategoryData{7,"old"},true);
- b.UpdateBookmarkCategory(7,{99,"new"});assert(b.m_categories.size()==1);
+int main(){BookmarkManager b;b.m_categories[7]=std::make_unique<BookmarkCategory>(kml::CategoryData{7,"old",{11,12}},true);
+ b.m_compilations={{11,1},{12,1},{21,1},{99,1}};
+ b.UpdateBookmarkCategory(7,{99,"new",{21}});assert(b.m_categories.size()==1);
  auto const& c=*b.m_categories.at(7);assert(c.data.m_id==7 && c.data.name=="new" && !c.autosave);
- assert(b.cleared==7 && b.m_changesTracker.id==7);}
+ assert(b.cleared==7 && b.m_changesTracker.id==7);
+ assert(b.m_compilations.size()==2 && b.m_compilations.count(21) && b.m_compilations.count(99));
+ assert(c.data.m_compilationIds==kml::GroupIdCollection{21});}
 ''')
 
     def test_actual_shape_batching_and_cancelled_tail(self):
