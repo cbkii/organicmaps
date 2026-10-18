@@ -32,6 +32,10 @@ continue when reception returns, without repeatedly resetting healthy acquisitio
   A transient vendor inspection exception cannot cancel the recurring watchdog.
   An observed GNSS stop lasting 90 seconds can justify repair;
   subsequent GNSS progress or GPS delivery cancels that evidence.
+- A GNSS first-fix event plus fresh used-in-fix satellite status, with no GPS callback for
+  one minute, can also justify repairing the app subscription. Network callbacks do not
+  hide a GPS delivery stall. Observations that were delivered but rejected stay a distinct
+  filter/native-handoff diagnosis. This repair uses the same backoff and never resets GNSS.
 - Manual retry shares this cooldown. It cannot re-enable a stopped location session.
 - Repair re-registers the provider without resetting native free-driving state, routes,
   the camera, saved location or Activity/task ownership. Queued callbacks from an old
@@ -85,7 +89,8 @@ assistance-command acceptance. There are no precise coordinates in these new dia
 `python3 -m unittest discover -s android/tools/tests -p test_location_acquisition.py -v`
 compiles and executes the production policies, AndroidNativeProvider and LocationHelper
 against deterministic Android/framework doubles. It exercises partial/failed registration,
-coarse-only access, callbacks from stopped registrations, long poor reception, repair,
+coarse-only access, callbacks from stopped registrations, long poor reception, confirmed
+GNSS/GPS delivery stalls (including fresh network callbacks), repair,
 stale/duplicate rejection, manual cooldown, retained native state, explicit stop and permission/
 Location revocation. Policy JUnit tests also run in the normal app/SDK unit-test lane.
 These are source-level behavioural tests, not Android runtime or physical-device evidence.

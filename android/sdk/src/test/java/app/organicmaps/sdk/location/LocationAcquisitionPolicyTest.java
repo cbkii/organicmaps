@@ -65,6 +65,19 @@ public class LocationAcquisitionPolicyTest
   }
 
   @Test
+  public void confirmedDeliveryStallUsesTheSameBoundedCooldown()
+  {
+    final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();
+    policy.start(0);
+    assertTrue(policy.shouldRecover(60_000, true, true, true, true));
+    policy.onRecovery(60_000);
+    assertFalse(policy.shouldRecover(119_999, true, true, true, true));
+    assertTrue(policy.shouldRecover(120_000, true, true, true, true));
+    assertFalse(policy.shouldRecover(120_000, true, true, true, false));
+    assertFalse(policy.shouldRecover(120_000, true, false, false, true));
+  }
+
+  @Test
   public void resumedSessionResetsCooldownAndStoppedEvidence()
   {
     final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();

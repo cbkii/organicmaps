@@ -74,6 +74,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private final LocationAcquisitionPolicy mAcquisition = new LocationAcquisitionPolicy();
   private long mSessionStartedMs;
   private long mLastCallbackMs;
+  private long mLastGpsCallbackMs;
+  private long mLastSatelliteStatusMs;
   private long mLastAcceptedMs;
   private long mFirstAcceptedMs;
   private long mFirstNativeMs;
@@ -108,6 +110,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     public void onStopped()
     {
       mGnssEventMs = SystemClock.elapsedRealtime();
+      mSatellitesUsed = 0;
       mAcquisition.onGnssStopped(mGnssEventMs);
       Logger.d(TAG);
     }
@@ -125,6 +128,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     public void onSatelliteStatusChanged(@NonNull GnssStatusCompat status)
     {
       mGnssEventMs = SystemClock.elapsedRealtime();
+      mLastSatelliteStatusMs = mGnssEventMs;
       mAcquisition.onGnssProgress();
       mSatellites = status.getSatelliteCount();
       int used = 0;
@@ -276,7 +280,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
     {
       mLastCallbackMs = SystemClock.elapsedRealtime();
       if (LocationUtils.isFromGpsProvider(location))
+      {
+        mLastGpsCallbackMs = mLastCallbackMs;
         mAcquisition.onGnssProgress();
+      }
       if (!LocationAcquisitionPolicy.isUsableObservation(
               SystemClock.elapsedRealtimeNanos(), location.getElapsedRealtimeNanos(), location.getLatitude(),
               location.getLongitude(), location.getAccuracy(), LocationAcquisitionPolicy.FRESH_FIX_MS))
@@ -506,7 +513,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     mAcquisition.start(mSessionStartedMs);
     mFirstAcceptedMs = mFirstNativeMs = 0;
     mFirstFixMs = -1;
-    mGnssEventMs = 0;
+    mGnssEventMs = mLastSatelliteStatusMs = 0;
     mSatellites = mSatellitesUsed = mRejected = 0;
     mLastRejection = "none";
     mLastRecovery = "none";
@@ -740,9 +747,13 @@ public class LocationHelper implements BaseLocationProvider.Listener
       {
         mActive = provider.hasSubscriptions();
         final boolean gpsExpected = LocationUtils.checkFineLocationPermission(mContext) && provider.isGpsEnabled();
-        if (mAcquisition.shouldRecover(SystemClock.elapsedRealtime(), mActive, gpsExpected,
-                                       provider.hasGpsSubscription()))
-          recoverAcquisition("missing subscription or GNSS stopped");
+        final long now = SystemClock.elapsedRealtime();
+        // A recent receiver fix with continuing used-in-fix satellites, but no GPS delivery for
+        // a minute, is a different failure from poor sky view or delivered/rejected observations.
+        final boolean deliveryStalled = isGpsDeliveryStalled(now);
+        final String reason = deliveryStalled ? "GPS delivery stalled" : "subscription missing or GNSS stopped";
+        if (mAcquisition.shouldRecover(now, mActive, gpsExpected, provider.hasGpsSubscription(), deliveryStalled))
+          recoverAcquisition(reason);
         checkForAgpsUpdates(); // Connectivity may have returned; attempts are rate limited.
         subscribeToGnssStatusUpdates();
         Logger.d(TAG, "acquisition " + getAcquisitionDiagnostics());
@@ -758,6 +769,15 @@ public class LocationHelper implements BaseLocationProvider.Listener
       if (mAcquisitionRequested)
         mHandler.postDelayed(mAcquisitionWatchdog, 5_000);
     }
+  }
+
+  private boolean isGpsDeliveryStalled(long now)
+  {
+    if (mFirstFixMs < 0 || mSatellitesUsed == 0 || mLastSatelliteStatusMs == 0)
+      return false;
+    if (now - mLastSatelliteStatusMs > 15_000)
+      return false;
+    return now - Math.max(mSessionStartedMs, mLastGpsCallbackMs) >= 60_000;
   }
 
   /** User retry shares the watchdog's cooldown and cannot re-enable an explicitly stopped session. */

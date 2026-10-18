@@ -27,9 +27,19 @@ public final class LocationAcquisitionPolicy
 
   public boolean shouldRecover(long nowMs, boolean registered, boolean gpsExpected, boolean gpsRegistered)
   {
+    return shouldRecover(nowMs, registered, gpsExpected, gpsRegistered, false);
+  }
+
+  public boolean shouldRecover(long nowMs, boolean registered, boolean gpsExpected, boolean gpsRegistered,
+                               boolean deliveryStalled)
+  {
     if (nowMs < mNextRecoveryMs)
       return false;
-    return !registered || (gpsExpected && (!gpsRegistered || (mStoppedMs >= 0 && nowMs - mStoppedMs >= 90_000)));
+    if (!registered)
+      return true;
+    if (!gpsExpected)
+      return false;
+    return !gpsRegistered || deliveryStalled || (mStoppedMs >= 0 && nowMs - mStoppedMs >= 90_000);
   }
 
   /** Also gates manual requests, preventing repeated taps from becoming a restart storm. */

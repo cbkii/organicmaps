@@ -33,8 +33,8 @@ class LocationAcquisitionTests(unittest.TestCase):
             'android/os/SystemClock.java': '''package android.os; public class SystemClock {
               public static long elapsedRealtimeNanos() { return 200_000_000_000L; }}''',
             'android/location/Location.java': '''package android.location; public class Location {
-              public long nanos=199_000_000_000L;
-              public Location() {} public Location(Location other) { nanos=other.nanos; }
+              public String provider="gps"; public String getProvider(){return provider;} public long nanos=199_000_000_000L;
+              public Location() {} public Location(Location other) { nanos=other.nanos; provider=other.provider; }
               public long getElapsedRealtimeNanos(){return nanos;} public double getLatitude(){return -35;}
               public double getLongitude(){return 149;} public float getAccuracy(){return 5;}
               public boolean hasAccuracy(){return true;} }''',
@@ -166,7 +166,7 @@ class LocationAcquisitionTests(unittest.TestCase):
               public RouteSimulationProvider(android.content.Context c,Listener l,app.organicmaps.sdk.routing.JunctionInfo[] p){super(l);}
               public void start(long i){} public void stop(){} }""",
             'androidx/core/location/GnssStatusCompat.java': """package androidx.core.location;
-              public class GnssStatusCompat { public int getSatelliteCount(){return 0;} public boolean usedInFix(int i){return false;}
+              public class GnssStatusCompat { public int getSatelliteCount(){return 8;} public boolean usedInFix(int i){return true;}
               public static class Callback { public void onStarted(){} public void onStopped(){}
               public void onFirstFix(int t){} public void onSatelliteStatusChanged(GnssStatusCompat s){} }}""",
             'org/chromium/base/ObserverList.java': """package org.chromium.base; import java.util.*;
@@ -196,7 +196,7 @@ class LocationAcquisitionTests(unittest.TestCase):
               public static boolean areLocationServicesTurnedOn(android.content.Context c){return enabled;}
               public static boolean checkFineLocationPermission(android.content.Context c){return c.fine&&permission;}
               public static boolean checkLocationPermission(android.content.Context c){return permission;}
-              public static boolean isFromGpsProvider(android.location.Location l){return true;}
+              public static boolean isFromGpsProvider(android.location.Location l){return "gps".equals(l.getProvider());}
               public static boolean isAccuracySatisfied(android.location.Location l){return true;}
               public static boolean isLocationBetterThanLast(android.location.Location n,android.location.Location o){return true;} }"""
         stubs['Harness.java'] = stubs['Harness.java'].replace('System.out.println(', """
@@ -246,6 +246,21 @@ class LocationAcquisitionTests(unittest.TestCase):
                 helper.start(); check(android.os.Handler.posted.await(2,java.util.concurrent.TimeUnit.SECONDS));
                 android.os.Handler.advance(0); check(app.organicmaps.sdk.util.Config.timestamp>0); helper.stop();
                 app.organicmaps.sdk.util.NetworkPolicy.online=false;
+                helper.start(); int beforeStall=hc.manager.removes;
+                androidx.core.location.LocationManagerCompat.gnss.onFirstFix(1000);
+                for(int i=0;i<12;i++) {
+                  androidx.core.location.LocationManagerCompat.gnss.onSatelliteStatusChanged(new androidx.core.location.GnssStatusCompat());
+                  Location network=new Location(); network.provider="network";
+                  network.nanos=android.os.SystemClock.elapsedRealtimeNanos(); helper.onLocationChanged(network);
+                  android.os.Handler.advance(5_000);
+                }
+                check(hc.manager.removes==beforeStall+1);
+                live=new Location(); live.nanos=android.os.SystemClock.elapsedRealtimeNanos(); helper.onLocationChanged(live);
+                for(int i=0;i<10;i++) {
+                  androidx.core.location.LocationManagerCompat.gnss.onSatelliteStatusChanged(new androidx.core.location.GnssStatusCompat());
+                  android.os.Handler.advance(5_000);
+                }
+                check(hc.manager.removes==beforeStall+1); helper.stop();
                 System.out.println(""")
         for annotation in ('NonNull', 'Nullable', 'UiThread'):
             stubs[f'androidx/annotation/{annotation}.java'] = f'package androidx.annotation; public @interface {annotation} {{}}'
