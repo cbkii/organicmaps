@@ -223,7 +223,7 @@ def verify_routing_control_ownership(repo_root: Path) -> list[str]:
             in " ".join(start_listener.split())
             and "MapButtons.search" not in start_listener
             and controller.count("mListener::onRoutingStart") == 1
-            and "if (gate.canDispatch(planning, built)) start.run();" in controller
+            and "if (gate.canDispatch(planning, built)) start.run();" in " ".join(controller.split())
             and "RoutingController.get().start()" not in controller,
         "Search dispatches only search":
             "onMapButtonClick(MapButtonsController.MapButtons.search)" in search_listener
