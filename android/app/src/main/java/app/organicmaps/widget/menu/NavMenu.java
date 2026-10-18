@@ -5,8 +5,6 @@ import android.location.Location;
 import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -14,6 +12,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.os.ConfigurationCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import app.organicmaps.BuildConfig;
@@ -371,11 +371,15 @@ public class NavMenu implements DefaultLifecycleObserver
     final float distanceWidth = text.measureText(mDistanceValue.getText().toString());
     final float timeWidth = text.measureText(mTimeMinuteValue.getText().toString());
     final WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(parent);
-    final androidx.core.graphics.Insets safe = insets == null ? androidx.core.graphics.Insets.NONE
-      : insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-    final int available = parent.getWidth() - safe.left - safe.right - parent.getPaddingLeft() - parent.getPaddingRight();
-    final int desired = Math.round(InCarRouteSummaryPolicy.footerWidth(available / density,
-        distanceWidth / density, timeWidth / density) * density);
+    final androidx.core.graphics.Insets safe =
+        insets == null
+            ? androidx.core.graphics.Insets.NONE
+            : insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+    final int available =
+        parent.getWidth() - safe.left - safe.right - parent.getPaddingLeft() - parent.getPaddingRight();
+    final int desired = Math.round(
+        InCarRouteSummaryPolicy.footerWidth(available / density, distanceWidth / density, timeWidth / density)
+        * density);
     final boolean controlsOnLeft = app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(mActivity);
     if (mFooterControlsOnLeft == null || mFooterControlsOnLeft != controlsOnLeft)
     {

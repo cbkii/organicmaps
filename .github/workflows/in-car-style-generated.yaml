@@ -16,10 +16,12 @@ on:
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'android/sdk/src/main/assets/drules_in_car.bin'
+      - 'android/sdk/src/main/assets/symbols'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/ci/verify_in_car_light_glare.py'
       - 'tools/ci/verify_in_car_marker_palette.py'
+      - 'tools/ci/test_verify_in_car_marker_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
@@ -35,10 +37,12 @@ on:
       - 'data/drules_in_car.bin'
       - 'data/drules_in_car.txt'
       - 'android/sdk/src/main/assets/drules_in_car.bin'
+      - 'android/sdk/src/main/assets/symbols'
       - 'tools/unix/generate_drules.sh'
       - 'tools/ci/verify_in_car_light_palette.py'
       - 'tools/ci/verify_in_car_light_glare.py'
       - 'tools/ci/verify_in_car_marker_palette.py'
+      - 'tools/ci/test_verify_in_car_marker_palette.py'
       - 'tools/kothic'
       - 'tools/kothic/**'
 
@@ -74,7 +78,9 @@ jobs:
 
       - name: Verify approved marker palette and packaged sprites
         shell: bash
-        run: python3 -X dev -W default tools/ci/verify_in_car_marker_palette.py
+        run: |
+          python3 -m unittest discover -s tools/ci -p test_verify_in_car_marker_palette.py
+          python3 -O tools/ci/verify_in_car_marker_palette.py
 
       - name: Upload generated InCar rules
         if: always()

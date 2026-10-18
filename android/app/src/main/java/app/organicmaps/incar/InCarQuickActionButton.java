@@ -35,9 +35,8 @@ final class InCarQuickActionButton extends AppCompatImageButton
     // A single background belongs to the containing rail; cells own only transient feedback.
     final int pressedFeedbackAlpha = getResources().getInteger(R.integer.in_car_quick_pressed_feedback_alpha);
     final int focusedFeedbackAlpha = getResources().getInteger(R.integer.in_car_quick_focused_feedback_alpha);
-    setBackground(createBackground(Color.TRANSPARENT, feedbackColor,
-                                   Color.TRANSPARENT, 0, cornerRadiusPx, pressedFeedbackAlpha,
-                                   focusedFeedbackAlpha));
+    setBackground(createBackground(Color.TRANSPARENT, feedbackColor, Color.TRANSPARENT, 0, cornerRadiusPx,
+                                   pressedFeedbackAlpha, focusedFeedbackAlpha));
   }
 
   @NonNull

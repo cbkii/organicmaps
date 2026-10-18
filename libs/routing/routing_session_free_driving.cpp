@@ -13,6 +13,7 @@
 #include "base/logging.hpp"
 #include "base/timer.hpp"
 
+#include <time.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -22,7 +23,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <time.h>
 
 namespace routing
 {
@@ -762,20 +762,23 @@ void RoutingSession::ObserveFreeDrivingLocation(location::GpsInfo const & rawLoc
   // lock merely because parking geometry also overlaps the raw GPS fix. A real parking
   // departure needs a coherent low-speed course swivel when a strong public-road match
   // still exists; road mismatch or mapped parking aisles remain valid exceptions.
-  bool const plausiblePublicRoad = previous != nullptr &&
+  bool const plausiblePublicRoad =
+      previous != nullptr &&
       ((current != nullptr && !current->m_metadata.m_parkingAisle && IsAcceptable(*current, policyInfo, true)) ||
        (bestAcceptable && !bestParkingAisle && best->m_relation != free_driving_snap::RoadRelation::Unrelated));
-  bool const trustworthyParkingTurn = previous != nullptr && free_driving_snap::HasTrustworthyParkingTurn(
-      motionEvidence.HasDirection(), motionEvidence.m_confidence, motionEvidence.m_displacementM,
-      stationaryHold, effectiveSpeedMps);
-  double departureTurnDegrees = trustworthyParkingTurn
-      ? DirectionAngleDegrees(motionEvidence.m_direction, previous->m_edge.GetDirection()) : 0.0;
+  bool const trustworthyParkingTurn =
+      previous != nullptr &&
+      free_driving_snap::HasTrustworthyParkingTurn(motionEvidence.HasDirection(), motionEvidence.m_confidence,
+                                                   motionEvidence.m_displacementM, stationaryHold, effectiveSpeedMps);
+  double departureTurnDegrees =
+      trustworthyParkingTurn ? DirectionAngleDegrees(motionEvidence.m_direction, previous->m_edge.GetDirection()) : 0.0;
   if (trustworthyParkingTurn && bestAcceptable && !bestParkingAisle &&
       best->m_relation != free_driving_snap::RoadRelation::Unrelated)
   {
     // A connected bend/roundabout is still public-road travel, not a parking swivel.
-    departureTurnDegrees = std::min(departureTurnDegrees,
-        DirectionAngleDegrees(motionEvidence.m_direction, best->m_projection.m_edge.GetDirection()));
+    departureTurnDegrees =
+        std::min(departureTurnDegrees,
+                 DirectionAngleDegrees(motionEvidence.m_direction, best->m_projection.m_edge.GetDirection()));
   }
   bool const parkingReleaseEligible =
       free_driving_snap::ParkingReleaseEligible(policyInfo, m_freeDrivingAreaContext, roadMismatch || weakRoadMatch,
@@ -1004,13 +1007,11 @@ bool RoutingSession::ProjectFreeDrivingLocationToRoadGraph(location::GpsInfo con
                         m_freeDrivingAreaContext.m_insideStrongOpenArea ||
                         m_freeDrivingAreaContext.m_insideWeakOpenArea;
   if (distanceM > maxDisplayDistanceM &&
-      !free_driving_snap::RetainFreshRoadDisplay(
-          state, free_driving_snap::GetAccuracyBand(displayInput), recentlyRoadAccepted,
-          freeArea, distanceM, maxDisplayDistanceM))
+      !free_driving_snap::RetainFreshRoadDisplay(state, free_driving_snap::GetAccuracyBand(displayInput),
+                                                 recentlyRoadAccepted, freeArea, distanceM, maxDisplayDistanceM))
     return false;
 
   ApplyProjection(bestProjection, displayOutput);
   return true;
 }
 }  // namespace routing
-

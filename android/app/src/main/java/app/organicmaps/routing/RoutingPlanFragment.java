@@ -26,7 +26,6 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
-import app.organicmaps.widget.placepage.PlacePageUtils;
 import app.organicmaps.incar.InCarActionMenu;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.sdk.Framework;
@@ -37,6 +36,7 @@ import app.organicmaps.sdk.routing.RoutingOptions;
 import app.organicmaps.sdk.routing.TransitRouteInfo;
 import app.organicmaps.settings.DrivingOptionsActivity;
 import app.organicmaps.util.UiUtils;
+import app.organicmaps.widget.placepage.PlacePageUtils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import java.util.Arrays;
@@ -138,8 +138,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     applyInCarPhysicalSide();
     if (BuildConfig.IS_IN_CAR)
     {
-      mRoutingBottomContainer.addOnLayoutChangeListener((v, left, top, right, bottom,
-          oldLeft, oldTop, oldRight, oldBottom) -> updateInCarStartRailWidth());
+      mRoutingBottomContainer.addOnLayoutChangeListener(
+          (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateInCarStartRailWidth());
       styleInCarStartRail();
     }
 
@@ -215,9 +215,9 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     if (!(mButtonsLayout instanceof FrameLayout rail))
       return;
     rail.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-    // The first child is the full-width mobile divider; the rounded rail supplies its own border.
-    rail.getChildAt(0).setVisibility(View.GONE);
-    final View content = rail.getChildAt(1);
+    // The rounded rail replaces the mobile divider without relying on child order.
+    rail.findViewById(R.id.routing_bottom_divider).setVisibility(View.GONE);
+    final View content = rail.findViewById(R.id.routing_bottom_content);
     content.setBackgroundResource(R.drawable.in_car_navigation_rail);
     final int gap = getResources().getDimensionPixelSize(R.dimen.in_car_nav_end_outer_gap);
     content.setPadding(gap, gap, gap, gap);
@@ -228,7 +228,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   {
     if (!BuildConfig.IS_IN_CAR || mButtonsLayout == null || mRoutingBottomContainer == null)
       return;
-    final int panelWidth = mRoutingBottomContainer.getWidth();
+    final int panelWidth = mRoutingBottomContainer.getWidth() - mRoutingBottomContainer.getPaddingLeft()
+                         - mRoutingBottomContainer.getPaddingRight();
     if (panelWidth <= 0)
       return;
     final int edge = getResources().getDimensionPixelSize(R.dimen.margin_base);
@@ -236,11 +237,13 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
     final int width = Math.min(preferred, Math.max(0, panelWidth - 2 * edge));
     final ViewGroup.LayoutParams raw = mButtonsLayout.getLayoutParams();
     if (!(raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
-        || params.width == width && params.rightMargin == edge)
+        || params.width == width && params.rightMargin == edge && params.gravity == (Gravity.BOTTOM | Gravity.RIGHT)
+               && params.anchorGravity == (Gravity.BOTTOM | Gravity.RIGHT))
       return;
     params.width = width;
     params.rightMargin = edge;
     params.gravity = Gravity.BOTTOM | Gravity.RIGHT;
+    params.anchorGravity = Gravity.BOTTOM | Gravity.RIGHT;
     mButtonsLayout.setLayoutParams(params);
   }
 
@@ -295,8 +298,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
           mViewModel.setBottomSheetState(newState);
         if (newState == BottomSheetBehavior.STATE_HIDDEN)
           UiUtils.hide(mButtonsLayout);
-        if (BuildConfig.IS_IN_CAR && isAdded() && getView() != null
-            && newState != BottomSheetBehavior.STATE_DRAGGING
+        if (BuildConfig.IS_IN_CAR && isAdded() && getView() != null && newState != BottomSheetBehavior.STATE_DRAGGING
             && newState != BottomSheetBehavior.STATE_SETTLING)
         {
           // Use the existing native viewport writer also called by Search and
@@ -304,7 +306,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
           final View mapRoot = requireActivity().findViewById(R.id.coordinator);
           if (mapRoot != null)
             PlacePageUtils.updateMapViewport(mapRoot, mapRoot.getHeight(),
-                getResources().getDimensionPixelSize(R.dimen.viewport_min_height));
+                                             getResources().getDimensionPixelSize(R.dimen.viewport_min_height));
         }
       }
 
@@ -319,7 +321,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
   @Override
   public void onDestroyView()
   {
-    if (BuildConfig.IS_IN_CAR) ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+    if (BuildConfig.IS_IN_CAR)
+      ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     super.onDestroyView();
     mRoutingContainer.removeOnLayoutChangeListener(this);
   }
@@ -399,7 +402,7 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
       final View root = requireActivity().findViewById(R.id.coordinator);
       if (root != null)
         PlacePageUtils.updateMapViewport(root, root.getHeight(),
-            getResources().getDimensionPixelSize(R.dimen.viewport_min_height));
+                                         getResources().getDimensionPixelSize(R.dimen.viewport_min_height));
     }
   }
 
@@ -519,7 +522,8 @@ public class RoutingPlanFragment extends Fragment implements View.OnLayoutChange
 
   public void onBuildStarted()
   {
-    if (BuildConfig.IS_IN_CAR) ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+    if (BuildConfig.IS_IN_CAR)
+      ((app.organicmaps.MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     if (mRoutingBottomMenuController != null)
       mRoutingBottomMenuController.resetBuildProgress();
   }

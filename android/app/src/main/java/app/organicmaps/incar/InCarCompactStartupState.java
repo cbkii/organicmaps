@@ -80,7 +80,7 @@ public final class InCarCompactStartupState
 
   public synchronized Object[] row()
   {
-    return new Object[] {mStage, mTask, mCore ? 1 : 0, mNative ? 1 : 0, mAttached ? 1 : 0,
+    return new Object[] {mStage, mTask,   mCore ? 1 : 0,    mNative ? 1 : 0, mAttached ? 1 : 0,
                          mWidth, mHeight, mResumed ? 1 : 0, ready() ? 1 : 0};
   }
 }

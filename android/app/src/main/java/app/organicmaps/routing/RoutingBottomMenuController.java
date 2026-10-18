@@ -79,7 +79,8 @@ final class RoutingBottomMenuController
 
   static void dispatchStart(StartGate gate, boolean planning, boolean built, Runnable start)
   {
-    if (gate.canDispatch(planning, built)) start.run();
+    if (gate.canDispatch(planning, built))
+      start.run();
   }
 
   private static final String STATE_ALTITUDE_CHART_SHOWN = "altitude_chart_shown";
@@ -238,7 +239,8 @@ final class RoutingBottomMenuController
     mSaveButton.setOnClickListener(v -> saveRoute());
     mStart.setEnabled(false);
     mStart.setOnClickListener(v -> {
-      if (BuildConfig.IS_IN_CAR) ((MwmActivity) mContext).cancelInCarNavigationCountdown();
+      if (BuildConfig.IS_IN_CAR)
+        ((MwmActivity) mContext).cancelInCarNavigationCountdown();
       // Ignore the event if the back and start buttons are pressed at the same time.
       // https://github.com/organicmaps/organicmaps/issues/6628
       RoutingController controller = RoutingController.get();
@@ -301,8 +303,8 @@ final class RoutingBottomMenuController
       final TextView compactSummary = mContext.findViewById(R.id.in_car_route_summary);
       if (compactSummary != null)
       {
-        final boolean vehicleSummary = RoutingController.get().isVehicleRouterType()
-                                       && RoutingController.get().getCachedRoutingInfo() != null;
+        final boolean vehicleSummary =
+            RoutingController.get().isVehicleRouterType() && RoutingController.get().getCachedRoutingInfo() != null;
         compactSummary.setVisibility(vehicleSummary ? View.VISIBLE : View.GONE);
         if (vehicleSummary)
         {
@@ -422,7 +424,8 @@ final class RoutingBottomMenuController
     mStart.setEnabled(state == StartState.ENABLED);
     if (BuildConfig.IS_IN_CAR)
     {
-      if (state != StartState.ENABLED) ((MwmActivity) mContext).cancelInCarNavigationCountdown();
+      if (state != StartState.ENABLED)
+        ((MwmActivity) mContext).cancelInCarNavigationCountdown();
       else
       {
         final RoutingController route = RoutingController.get();
@@ -430,14 +433,19 @@ final class RoutingBottomMenuController
         final long interactionGeneration = ((MwmActivity) mContext).getInCarInteractionGeneration();
         mStart.post(() -> {
           if (!mStart.isAttachedToWindow() || mContext.isFinishing() || mContext.isDestroyed()
-              || ((MwmActivity) mContext).getInCarInteractionGeneration() != interactionGeneration) return;
-          ((MwmActivity) mContext).getInCarNavigationCountdown().arm(
-            "START", generation, mStart,
-            () -> route.getBuildGeneration() == generation
-                && mStartGate.canDispatch(route.isPlanning(), route.isBuilt()) && !isManageRouteEditing(),
-            seconds -> mStart.setText(seconds < 0 ? mContext.getString(R.string.p2p_start)
-                                                  : mContext.getString(R.string.in_car_navigation_start_countdown,
-                                                      mContext.getString(R.string.p2p_start), seconds)));
+              || ((MwmActivity) mContext).getInCarInteractionGeneration() != interactionGeneration)
+            return;
+          ((MwmActivity) mContext)
+              .getInCarNavigationCountdown()
+              .arm(
+                  "START", generation, mStart,
+                  ()
+                      -> route.getBuildGeneration() == generation
+                             && mStartGate.canDispatch(route.isPlanning(), route.isBuilt()) && !isManageRouteEditing(),
+                  seconds
+                  -> mStart.setText(seconds < 0 ? mContext.getString(R.string.p2p_start)
+                                                : mContext.getString(R.string.in_car_navigation_start_countdown,
+                                                                     mContext.getString(R.string.p2p_start), seconds)));
         });
       }
     }

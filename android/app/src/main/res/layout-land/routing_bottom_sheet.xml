@@ -47,12 +47,14 @@
         android:background="?cardBackground">
 
         <View
+          android:id="@+id/routing_bottom_divider"
           android:layout_width="match_parent"
           android:layout_height="1dp"
           android:layout_marginBottom="@dimen/margin_eighth"
           android:background="?dividerHorizontal" />
 
         <LinearLayout
+          android:id="@+id/routing_bottom_content"
           android:layout_width="match_parent"
           android:layout_height="match_parent"
           android:orientation="horizontal"

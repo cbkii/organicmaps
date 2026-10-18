@@ -466,8 +466,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
     startActivity(intent);
   }
 
-  /** Route-aware Search entry from the in-navigation cog. The routing controller owns the
-   *  subsequent POI pick, transition-to-planning, rebuild and original START action. */
+  /**
+   * Route-aware Search entry from the in-navigation cog. The routing controller owns the
+   *  subsequent POI pick, transition-to-planning, rebuild and original START action.
+   */
   public void addInCarNavigationStop()
   {
     if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
@@ -1118,7 +1120,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     super.onResume();
     if (BuildConfig.IS_IN_CAR)
     {
-      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(), true);
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(),
+                                                                       true);
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
@@ -1181,9 +1184,15 @@ public class MwmActivity extends BaseMwmFragmentActivity
         () -> mInCarNavigationCountdown != null && mInCarNavigationCountdown.hasPendingAction(), this::isDestroyed));
   }
 
-  public long getInCarInteractionGeneration() { return mInCarInteractionGeneration; }
+  public long getInCarInteractionGeneration()
+  {
+    return mInCarInteractionGeneration;
+  }
 
-  public boolean isInCarTouchActive() { return mInCarTouchActive; }
+  public boolean isInCarTouchActive()
+  {
+    return mInCarTouchActive;
+  }
 
   @Override
   public boolean dispatchTouchEvent(android.view.MotionEvent event)
@@ -1197,7 +1206,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
         || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL)
       mInCarTouchActive = false;
-    if (event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) cancelInCarNavigationCountdown();
+    if (event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL)
+      cancelInCarNavigationCountdown();
     return handled;
   }
 
@@ -1211,13 +1221,15 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public void cancelInCarNavigationCountdown()
   {
     ++mInCarInteractionGeneration;
-    if (mInCarNavigationCountdown != null) mInCarNavigationCountdown.cancel();
+    if (mInCarNavigationCountdown != null)
+      mInCarNavigationCountdown.cancel();
   }
 
   @Override
   public void onUserInteraction()
   {
-    if (!mInCarTouchActive) cancelInCarNavigationCountdown();
+    if (!mInCarTouchActive)
+      cancelInCarNavigationCountdown();
     super.onUserInteraction();
   }
 
@@ -1225,7 +1237,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public void onWindowFocusChanged(boolean hasFocus)
   {
     super.onWindowFocusChanged(hasFocus);
-    if (!hasFocus) cancelInCarNavigationCountdown();
+    if (!hasFocus)
+      cancelInCarNavigationCountdown();
   }
 
   @Override
@@ -1233,7 +1246,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(), false);
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(),
+                                                                       false);
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     cancelInCarNavigationCountdown();
@@ -1449,19 +1463,18 @@ public class MwmActivity extends BaseMwmFragmentActivity
     {
       final View map = findViewById(R.id.map);
       final View speedOrRibbon = RoutingController.get().isNavigating()
-          ? findViewById(R.id.nav_next_turn_container)
-          : findViewById(R.id.in_car_driving_speed_cluster);
+                                   ? findViewById(R.id.nav_next_turn_container)
+                                   : findViewById(R.id.in_car_driving_speed_cluster);
       final android.graphics.Rect mapBounds = new android.graphics.Rect();
       final android.graphics.Rect occupied = new android.graphics.Rect();
-      if (map != null && map.getGlobalVisibleRect(mapBounds)
-          && speedOrRibbon != null && speedOrRibbon.isShown()
-          && speedOrRibbon.getGlobalVisibleRect(occupied)
-          && android.graphics.Rect.intersects(mapBounds, occupied))
+      if (map != null && map.getGlobalVisibleRect(mapBounds) && speedOrRibbon != null && speedOrRibbon.isShown()
+          && speedOrRibbon.getGlobalVisibleRect(occupied) && android.graphics.Rect.intersects(mapBounds, occupied))
       {
         final int gap = getResources().getDimensionPixelSize(R.dimen.margin_base);
+        // Reserve the full automotive touch band, not just the smaller compass artwork,
+        // so its hit area cannot overlap speed or navigation controls.
         final int radius = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min) / 2;
-        final int[] offsets = InCarOverlayCoordinator.compassOffset(mapBounds, occupied,
-                                                                     offsetX, offsetY, gap, radius);
+        final int[] offsets = InCarOverlayCoordinator.compassOffset(mapBounds, occupied, offsetX, offsetY, gap, radius);
         offsetX = offsets[0];
         offsetY = offsets[1];
       }
@@ -1478,8 +1491,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (!BuildConfig.IS_IN_CAR || mMapController == null)
       return;
-    final Insets bars = mCurrentWindowInsets == null ? Insets.NONE
-        : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+    final Insets bars = mCurrentWindowInsets == null
+                          ? Insets.NONE
+                          : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
     updateCompassOffset(bars.top, bars.right);
   }
 
@@ -1499,14 +1513,14 @@ public class MwmActivity extends BaseMwmFragmentActivity
     {
       // The map controller is the native widget-placement owner. Recompute the
       // inset even when the dock changes sides without a new inset dispatch.
-      final int leftInset = mCurrentWindowInsets == null ? 0
-          : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
+      final int leftInset =
+          mCurrentWindowInsets == null ? 0 : mCurrentWindowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
       offsetX = Math.max(0, leftInset);
       final View map = findViewById(R.id.map);
       if (map != null && map.getWidth() > 0)
       {
-        final int maximum = Math.max(0, map.getWidth()
-            - getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
+        final int maximum = Math.max(
+            0, map.getWidth() - getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
         if (InCarSettingsStore.controlsOnLeft(this))
         {
           final android.graphics.Rect mapBounds = new android.graphics.Rect();
@@ -1518,10 +1532,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
               final View control = findViewById(id);
               final android.graphics.Rect bounds = new android.graphics.Rect();
               if (control != null && control.isShown() && control.getGlobalVisibleRect(bounds)
-                  && android.graphics.Rect.intersects(mapBounds, bounds)
-                  && bounds.left < mapBounds.centerX())
-                offsetX = Math.max(offsetX, bounds.right - mapBounds.left
-                    + InCarMapDockPolicy.edgePx(getResources()));
+                  && android.graphics.Rect.intersects(mapBounds, bounds) && bounds.left < mapBounds.centerX())
+                offsetX = Math.max(offsetX, bounds.right - mapBounds.left + InCarMapDockPolicy.edgePx(getResources()));
             }
           }
         }

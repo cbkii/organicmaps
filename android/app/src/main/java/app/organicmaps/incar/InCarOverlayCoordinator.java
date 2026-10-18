@@ -29,9 +29,18 @@ public final class InCarOverlayCoordinator
       mBottom = bottom;
     }
 
-    public boolean hasMapBounds() { return mMeasured; }
-    public int topClearancePx() { return mTop; }
-    public int bottomClearancePx() { return mBottom; }
+    public boolean hasMapBounds()
+    {
+      return mMeasured;
+    }
+    public int topClearancePx()
+    {
+      return mTop;
+    }
+    public int bottomClearancePx()
+    {
+      return mBottom;
+    }
   }
 
   /**
@@ -40,21 +49,18 @@ public final class InCarOverlayCoordinator
    * avoids a circular sizing dependency and misses no narrow intersecting UI.
    */
   @NonNull
-  public static Snapshot measureQuickColumn(@NonNull MwmActivity activity, boolean left,
-                                            boolean horizontal, int profileSizePx)
+  public static Snapshot measureQuickColumn(@NonNull MwmActivity activity, boolean left, boolean horizontal,
+                                            int profileSizePx)
   {
-    final int mainOffset = InCarMapDockPolicy.quickPhysicalOffsetPx(
-        activity.getResources(), profileSizePx, horizontal);
+    final int mainOffset = InCarMapDockPolicy.quickPhysicalOffsetPx(activity.getResources(), profileSizePx, horizontal);
     final Snapshot primary = measure(activity, left, mainOffset, profileSizePx);
-    final int compact = Math.min(profileSizePx,
-        activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
+    final int compact = Math.min(
+        profileSizePx, activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact));
     if (compact == profileSizePx)
       return primary;
-    final int compactOffset = InCarMapDockPolicy.quickPhysicalOffsetPx(
-        activity.getResources(), compact, horizontal);
+    final int compactOffset = InCarMapDockPolicy.quickPhysicalOffsetPx(activity.getResources(), compact, horizontal);
     final Snapshot fallback = measure(activity, left, compactOffset, compact);
-    return new Snapshot(primary.mMeasured || fallback.mMeasured,
-                        Math.max(primary.mTop, fallback.mTop),
+    return new Snapshot(primary.mMeasured || fallback.mMeasured, Math.max(primary.mTop, fallback.mTop),
                         Math.max(primary.mBottom, fallback.mBottom));
   }
 
@@ -69,52 +75,48 @@ public final class InCarOverlayCoordinator
   public static int usableColumnHeight(int frameAvailable, int mapHeight, int topClearance, int bottomClearance)
   {
     return Math.max(0, Math.min(Math.max(0, frameAvailable),
-        Math.max(0, mapHeight - Math.max(0, topClearance) - Math.max(0, bottomClearance))));
+                                Math.max(0, mapHeight - Math.max(0, topClearance) - Math.max(0, bottomClearance))));
   }
 
   /** Maximal top and bottom occupied bands in the Quick Destinations physical column. */
   @NonNull
-  public static Snapshot measure(@NonNull MwmActivity activity, boolean controlsLeft, int columnOffsetPx,
-                                 int cellPx)
+  public static Snapshot measure(@NonNull MwmActivity activity, boolean controlsLeft, int columnOffsetPx, int cellPx)
   {
     final View map = activity.findViewById(R.id.map_container);
     final Rect bounds = visibleRect(map);
     if (bounds == null || bounds.isEmpty())
       return new Snapshot(false, 0, 0);
 
-    final int columnLeft = controlsLeft ? bounds.left + columnOffsetPx
-                                        : bounds.right - columnOffsetPx - cellPx;
+    final int columnLeft = controlsLeft ? bounds.left + columnOffsetPx : bounds.right - columnOffsetPx - cellPx;
     final int columnRight = columnLeft + cellPx;
 
     int top = 0;
     boolean speedAtRight = false;
-    for (int id : new int[] {R.id.street_frame, R.id.nav_next_turn_container, R.id.lanes,
-                             R.id.in_car_speed, R.id.in_car_road_speed_limit,
-                             R.id.nav_speed_limit, R.id.in_car_nav_speed})
+    for (int id : new int[] {R.id.street_frame, R.id.nav_next_turn_container, R.id.lanes, R.id.in_car_speed,
+                             R.id.in_car_road_speed_limit, R.id.nav_speed_limit, R.id.in_car_nav_speed})
     {
       final Rect rect = visibleRect(activity.findViewById(id));
-      if (rect != null && overlapsColumn(rect, columnLeft, columnRight)
-          && rect.top < bounds.centerY())
+      if (rect != null && overlapsColumn(rect, columnLeft, columnRight) && rect.top < bounds.centerY())
       {
         top = Math.max(top, Math.min(bounds.height(), rect.bottom - bounds.top));
-        if (!controlsLeft && (id == R.id.in_car_speed || id == R.id.in_car_road_speed_limit
-                              || id == R.id.in_car_nav_speed || id == R.id.nav_speed_limit))
+        if (!controlsLeft
+            && (id == R.id.in_car_speed || id == R.id.in_car_road_speed_limit || id == R.id.in_car_nav_speed
+                || id == R.id.nav_speed_limit))
           speedAtRight = true;
       }
     }
     // The compass is a native map widget, not an Android child. In the physical
     // right column it sits beneath the speed pair, so reserve its vertical band.
     if (speedAtRight)
-      top = Math.min(bounds.height(), top
-          + activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact)
-          + activity.getResources().getDimensionPixelSize(R.dimen.margin_base));
+      top = Math.min(bounds.height(),
+                     top + activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_extra_compact)
+                         + activity.getResources().getDimensionPixelSize(R.dimen.margin_base));
 
     int bottom = 0;
     for (int id : new int[] {R.id.nav_bottom_frame, R.id.routing_bottom_buttons, R.id.map_buttons_bottom})
     {
       final Rect rect = visibleRect(activity.findViewById(id));
-      if (rect != null && overlapsColumn(rect, columnLeft, columnRight)
-          && rect.bottom > bounds.centerY())
+      if (rect != null && overlapsColumn(rect, columnLeft, columnRight) && rect.bottom > bounds.centerY())
         bottom = Math.max(bottom, Math.min(bounds.height(), bounds.bottom - rect.top));
     }
 
@@ -130,16 +132,15 @@ public final class InCarOverlayCoordinator
    * Framework.nativeSetVisibleRect. Do not change native Follow or route state.
    */
   @NonNull
-  public static Rect placePageViewport(@NonNull View map, @Nullable View activePanel,
-                                       @Nullable View camera, int minimumHeightPx, int gapPx)
+  public static Rect placePageViewport(@NonNull View map, @Nullable View activePanel, @Nullable View camera,
+                                       int minimumHeightPx, int gapPx)
   {
     final int width = map.getWidth();
     final int height = map.getHeight();
     final Rect full = new Rect(0, 0, Math.max(0, width), Math.max(0, height));
     final Rect mapScreen = visibleRect(map);
     final Rect pageScreen = visibleRect(activePanel);
-    if (mapScreen == null || pageScreen == null || width <= 0 || height <= 0
-        || !Rect.intersects(mapScreen, pageScreen))
+    if (mapScreen == null || pageScreen == null || width <= 0 || height <= 0 || !Rect.intersects(mapScreen, pageScreen))
       return full;
 
     final Rect covered = new Rect(pageScreen);
@@ -151,8 +152,8 @@ public final class InCarOverlayCoordinator
     int bottom = height;
     // Prefer the actual sheet's width and edge instead of treating every
     // narrow/side-mounted panel as a full-width bottom sheet.
-    final boolean bottomSheet = covered.width() * 2 >= mapScreen.width()
-                                && covered.bottom >= mapScreen.bottom - padding;
+    final boolean bottomSheet =
+        covered.width() * 2 >= mapScreen.width() && covered.bottom >= mapScreen.bottom - padding;
     if (bottomSheet)
       bottom = covered.top - mapScreen.top - padding;
     else if (covered.height() * 2 >= mapScreen.height())
@@ -174,8 +175,7 @@ public final class InCarOverlayCoordinator
       else
         right = Math.min(right, rail.left - mapScreen.left - padding);
     }
-    final int[] bounded = boundedViewport(width, height, left, 0, right, bottom,
-                                          Math.max(100, minimumHeightPx));
+    final int[] bounded = boundedViewport(width, height, left, 0, right, bottom, Math.max(100, minimumHeightPx));
     return new Rect(bounded[0], bounded[1], bounded[2], bounded[3]);
   }
 
@@ -195,8 +195,7 @@ public final class InCarOverlayCoordinator
       return new int[] {0, 0, w, h};
     final int resolvedLeft = Math.min(l, w - nativeMinimum);
     final int resolvedTop = Math.min(t, h - nativeMinimum);
-    return new int[] {resolvedLeft, resolvedTop,
-                      Math.max(rr, resolvedLeft + nativeMinimum),
+    return new int[] {resolvedLeft, resolvedTop, Math.max(rr, resolvedLeft + nativeMinimum),
                       Math.max(b, resolvedTop + nativeMinimum)};
   }
 
@@ -207,15 +206,15 @@ public final class InCarOverlayCoordinator
 
   /** Native compass offsets are measured from the actual map SurfaceView edges. */
   @NonNull
-  public static int[] compassOffset(@NonNull Rect map, @NonNull Rect occupied,
-                                    int baseRight, int baseTop, int gapPx, int compassRadiusPx)
+  public static int[] compassOffset(@NonNull Rect map, @NonNull Rect occupied, int baseRight, int baseTop, int gapPx,
+                                    int compassRadiusPx)
   {
     if (map.isEmpty() || occupied.isEmpty() || !Rect.intersects(map, occupied))
       return new int[] {baseRight, baseTop};
     // Map anchors the native widget at its centre and adds its own top/right
     // margins. Reserve the whole compass below the occupied speed/ribbon band.
-    return new int[] {baseRight, Math.max(baseTop, occupied.bottom - map.top
-        + Math.max(0, gapPx) + Math.max(0, compassRadiusPx))};
+    return new int[] {baseRight,
+                      Math.max(baseTop, occupied.bottom - map.top + Math.max(0, gapPx) + Math.max(0, compassRadiusPx))};
   }
 
   /** Interval intersection only; touching edges are not an overlap. */

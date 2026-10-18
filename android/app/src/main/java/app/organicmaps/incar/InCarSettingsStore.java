@@ -36,12 +36,16 @@ public final class InCarSettingsStore
 
   public static int getAutomaticNavigationActionDelaySeconds(@NonNull Context context)
   {
-    return InCarNavigationCountdownPolicy.normaliseDelaySeconds(prefs(context).getInt("InCarNavigationActionDelay", 10));
+    return InCarNavigationCountdownPolicy.normaliseDelaySeconds(
+        prefs(context).getInt("InCarNavigationActionDelay", 10));
   }
 
   public static void setAutomaticNavigationActionDelaySeconds(@NonNull Context context, int seconds)
   {
-    prefs(context).edit().putInt("InCarNavigationActionDelay", InCarNavigationCountdownPolicy.normaliseDelaySeconds(seconds)).apply();
+    prefs(context)
+        .edit()
+        .putInt("InCarNavigationActionDelay", InCarNavigationCountdownPolicy.normaliseDelaySeconds(seconds))
+        .apply();
   }
 
   public static boolean compactStartupEnabled(@NonNull Context context)

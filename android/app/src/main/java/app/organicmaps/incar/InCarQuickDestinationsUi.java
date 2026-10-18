@@ -180,12 +180,12 @@ public final class InCarQuickDestinationsUi
       };
       // Re-check only after Android layout changes; never poll geometry per frame/gesture.
       // This catches independent guidance, speed, panel and footer visibility/size changes.
-      mOccupiedRegionListener = () -> {
+      mOccupiedRegionListener = () ->
+      {
         final InCarOverlayCoordinator.Snapshot measured = measureCandidateOccupancy();
         if (!measured.hasMapBounds())
           return;
-        if (measured.topClearancePx() != mLastOccupiedTop
-            || measured.bottomClearancePx() != mLastOccupiedBottom)
+        if (measured.topClearancePx() != mLastOccupiedTop || measured.bottomClearancePx() != mLastOccupiedBottom)
         {
           mLastOccupiedTop = measured.topClearancePx();
           mLastOccupiedBottom = measured.bottomClearancePx();
@@ -364,7 +364,10 @@ public final class InCarQuickDestinationsUi
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
       button.setContentDescription(label);
-      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); click.run(); });
+      button.setOnClickListener(v -> {
+        mActivity.cancelInCarNavigationCountdown();
+        click.run();
+      });
       mDirectActions.add(new QuickActionBinding(button, label, iconRes, click));
     }
 
@@ -384,7 +387,10 @@ public final class InCarQuickDestinationsUi
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(colorRes, iconRes);
       button.setContentDescription(label);
-      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); click.run(); });
+      button.setOnClickListener(v -> {
+        mActivity.cancelInCarNavigationCountdown();
+        click.run();
+      });
       mDirectActions.add(new QuickActionBinding(button, label, iconRes, click));
     }
 
@@ -407,7 +413,10 @@ public final class InCarQuickDestinationsUi
               : mActivity.getString(R.string.in_car_quick_destination_description, actionLabel, displayLabel);
       final Runnable actionRun = () -> mActivity.startLocationToPoint(destination.toMapObject());
       button.setContentDescription(description);
-      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); actionRun.run(); });
+      button.setOnClickListener(v -> {
+        mActivity.cancelInCarNavigationCountdown();
+        actionRun.run();
+      });
       mDirectActions.add(new QuickActionBinding(button, description, iconRes, actionRun));
     }
 
@@ -445,7 +454,10 @@ public final class InCarQuickDestinationsUi
       final String label = mActivity.getString(labelRes);
       final InCarQuickActionButton button = createButton(R.color.in_car_quick_fuel_charging, iconRes);
       button.setContentDescription(label);
-      button.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); click.run(); });
+      button.setOnClickListener(v -> {
+        mActivity.cancelInCarNavigationCountdown();
+        click.run();
+      });
       mDirectActions.add(new QuickActionBinding(button, label, iconRes, click));
     }
 
@@ -581,8 +593,8 @@ public final class InCarQuickDestinationsUi
           {
             final View divider = new View(mActivity);
             divider.setBackgroundColor(ContextCompat.getColor(mActivity, R.color.divider));
-            final LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(
-                Math.max(1, button.getLayoutParams().width - dp(24)), dp(1));
+            final LinearLayout.LayoutParams line =
+                new LinearLayout.LayoutParams(Math.max(1, button.getLayoutParams().width - dp(24)), dp(1));
             line.setMargins(dp(12), 0, dp(12), 0);
             mContainer.addView(divider, line);
           }
@@ -601,7 +613,10 @@ public final class InCarQuickDestinationsUi
       {
         mMoreButton = createButton(R.color.in_car_quick_primary, R.drawable.ic_in_car_quick_more);
         mMoreButton.setContentDescription(mActivity.getString(R.string.in_car_quick_more));
-        mMoreButton.setOnClickListener(v -> { mActivity.cancelInCarNavigationCountdown(); showOverflowChoice(mRenderedOverflowActions); });
+        mMoreButton.setOnClickListener(v -> {
+          mActivity.cancelInCarNavigationCountdown();
+          showOverflowChoice(mRenderedOverflowActions);
+        });
       }
       resizeButton(mMoreButton);
       return mMoreButton;
@@ -624,8 +639,8 @@ public final class InCarQuickDestinationsUi
       final boolean left = InCarSettingsStore.controlsOnLeft(mActivity);
       final View camera = mActivity.findViewById(R.id.zoom_buttons_container);
       final boolean horizontal = camera != null && camera.isShown() && camera.getWidth() > camera.getHeight();
-      return InCarOverlayCoordinator.measureQuickColumn(
-          mActivity, left, horizontal, InCarVisuals.currentQuickActionSizePx(mActivity));
+      return InCarOverlayCoordinator.measureQuickColumn(mActivity, left, horizontal,
+                                                        InCarVisuals.currentQuickActionSizePx(mActivity));
     }
 
     private int availableHeightDp()
@@ -644,8 +659,7 @@ public final class InCarQuickDestinationsUi
       // Prefer its measured rectangles to a second subtraction of system-bar insets.
       int topReserved;
       if (occupied.hasMapBounds())
-        topReserved = occupied.topClearancePx()
-                      + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
+        topReserved = occupied.topClearancePx() + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
       else
       {
         topReserved = mSystemTopInset + dp(InCarQuickDestinationsLayoutPolicy.SAFE_TOP_GAP_DP);
@@ -879,8 +893,7 @@ public final class InCarQuickDestinationsUi
                                                  ? layoutParams
                                                  : new LinearLayout.LayoutParams(size, size);
       final int bottom = dp(Math.max(0, gapDp));
-      if (params.leftMargin != 0 || params.topMargin != 0 || params.rightMargin != 0
-          || params.bottomMargin != bottom)
+      if (params.leftMargin != 0 || params.topMargin != 0 || params.rightMargin != 0 || params.bottomMargin != bottom)
       {
         params.setMargins(0, 0, 0, bottom);
         button.setLayoutParams(params);
@@ -899,17 +912,15 @@ public final class InCarQuickDestinationsUi
         final int cell = currentActionSizePx();
         final int side = InCarMapDockPolicy.quickPhysicalOffsetPx(res, cell, horizontal);
         final int edge = InCarMapDockPolicy.edgePx(res);
-        final int baseline = InCarMapDockPolicy.quickBottomMarginPx(
-            res, mNavigationMode, cell, horizontal ? camera.getHeight() : 0);
-        final InCarOverlayCoordinator.Snapshot occupied =
-            InCarOverlayCoordinator.measure(mActivity, left, side, cell);
+        final int baseline =
+            InCarMapDockPolicy.quickBottomMarginPx(res, mNavigationMode, cell, horizontal ? camera.getHeight() : 0);
+        final InCarOverlayCoordinator.Snapshot occupied = InCarOverlayCoordinator.measure(mActivity, left, side, cell);
         final int bottom = occupied.hasMapBounds()
-                           ? Math.max(baseline, occupied.bottomClearancePx() + InCarMapDockPolicy.footerGapPx(res))
-                           : baseline;
+                             ? Math.max(baseline, occupied.bottomClearancePx() + InCarMapDockPolicy.footerGapPx(res))
+                             : baseline;
         final int newLeft = left ? side : edge;
         final int newRight = left ? edge : side;
-        if (margins.leftMargin != newLeft || margins.rightMargin != newRight
-            || margins.bottomMargin != bottom)
+        if (margins.leftMargin != newLeft || margins.rightMargin != newRight || margins.bottomMargin != bottom)
         {
           margins.leftMargin = newLeft;
           margins.rightMargin = newRight;
@@ -918,8 +929,7 @@ public final class InCarQuickDestinationsUi
         }
       }
       final ViewGroup.LayoutParams params = mRoot.getLayoutParams();
-      if (params.width != ViewGroup.LayoutParams.WRAP_CONTENT
-          || params.height != ViewGroup.LayoutParams.WRAP_CONTENT)
+      if (params.width != ViewGroup.LayoutParams.WRAP_CONTENT || params.height != ViewGroup.LayoutParams.WRAP_CONTENT)
       {
         params.width = ViewGroup.LayoutParams.WRAP_CONTENT;
         params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -939,11 +949,10 @@ public final class InCarQuickDestinationsUi
     {
       final boolean planning = !mNavigationMode && RoutingController.get().isPlanning();
       final boolean imeVisible = isImeActive();
-      final boolean visible = mContainer.getChildCount() > 0
-          && !imeVisible && !mRoutingSheetOpen
-          && InCarQuickDestinationsPolicy.shouldShowSurface(
-              BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen, planning,
-              mNavigationMode, mButtonsHidden, mBottomButtonsHidden, mOverflowDialogOpen);
+      final boolean visible = mContainer.getChildCount() > 0 && !imeVisible && !mRoutingSheetOpen
+                           && InCarQuickDestinationsPolicy.shouldShowSurface(
+                               BuildConfig.IS_IN_CAR, mSearchOpen, mPlacePageOpen, planning, mNavigationMode,
+                               mButtonsHidden, mBottomButtonsHidden, mOverflowDialogOpen);
       // GONE also removes all descendants from touch and accessibility hit testing.
       if (mRoot.getVisibility() != (visible ? View.VISIBLE : View.GONE))
         mRoot.setVisibility(visible ? View.VISIBLE : View.GONE);

@@ -89,7 +89,8 @@ class CompactSignalTests(unittest.TestCase):
     @unittest.skipUnless(has_compiler(), "Java 17 compiler unavailable")
     def test_change_during_send_is_drained(self):
         provider = (ROOT / 'android/app/src/main/java/app/organicmaps/incar/InCarCompactStartupProvider.java').read_text()
-        method = provider[provider.index('  private static void scheduleSignal()'):provider.index('  @Override public String getType')]
+        start = provider.index('  private static void scheduleSignal()')
+        method = provider[start:provider.index('  @Override', start)]
         harness = r'''import java.util.concurrent.atomic.*;
 class InCarCompactStartupProvider {
 static final AtomicBoolean SIGNAL_PENDING=new AtomicBoolean();

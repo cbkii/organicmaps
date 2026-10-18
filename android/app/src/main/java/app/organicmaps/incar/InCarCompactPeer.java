@@ -20,9 +20,8 @@ final class InCarCompactPeer
       final PackageManager pm = context.getPackageManager();
       final String[] packages = pm.getPackagesForUid(uid);
       final PackageInfo info = pm.getPackageInfo(PACKAGE, 0);
-      return packages != null && packages.length == 1 && PACKAGE.equals(packages[0])
-          && info.applicationInfo != null && info.applicationInfo.uid == uid
-          && pm.hasSigningCertificate(PACKAGE, CERT, PackageManager.CERT_INPUT_SHA256);
+      return packages != null && packages.length == 1 && PACKAGE.equals(packages[0]) && info.applicationInfo != null
+   && info.applicationInfo.uid == uid && pm.hasSigningCertificate(PACKAGE, CERT, PackageManager.CERT_INPUT_SHA256);
     }
     catch (PackageManager.NameNotFoundException | RuntimeException ignored)
     {
@@ -30,10 +29,11 @@ final class InCarCompactPeer
     }
   }
 
-  static boolean ownsProvider(Context context, String authority) {
+  static boolean ownsProvider(Context context, String authority)
+  {
     android.content.pm.ProviderInfo provider = context.getPackageManager().resolveContentProvider(authority, 0);
     return provider != null && PACKAGE.equals(provider.packageName) && provider.applicationInfo != null
-        && trusted(context, provider.applicationInfo.uid);
+ && trusted(context, provider.applicationInfo.uid);
   }
 
   static byte[] hex(String text)

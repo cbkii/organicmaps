@@ -248,7 +248,7 @@ def verify_start_end_controls(root: Path) -> None:
 
 def verify_camera_control_rail(root):
     zoom_layout = root / "android/app/src/inCar/res/layout/map_buttons_zoom.xml"
-    overlay_layout = root / "android/app/src/main/res/layout/in_car_driving_overlay.xml"
+    overlay_layout = root / "android/app/src/inCar/res/layout/in_car_driving_overlay.xml"
     zoom_root = parse_xml(zoom_layout)
     id_attr = f"{{{ANDROID_NS}}}id"
     visibility_attr = f"{{{ANDROID_NS}}}visibility"

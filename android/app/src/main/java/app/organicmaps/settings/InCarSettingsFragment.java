@@ -47,7 +47,6 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       return true;
     });
 
-
     final ListPreference position = getPreference("in_car_control_position");
     position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
     position.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());

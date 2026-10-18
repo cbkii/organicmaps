@@ -147,8 +147,7 @@ public class SplashActivity extends AppCompatActivity
 
   private void init()
   {
-    if (BuildConfig.IS_IN_CAR
-        && (isFinishing() || isDestroyed() || !mInCarStartupHandoff.beginInitialization()))
+    if (BuildConfig.IS_IN_CAR && (isFinishing() || isDestroyed() || !mInCarStartupHandoff.beginInitialization()))
       return;
     MwmApplication app = MwmApplication.from(this);
     boolean asyncContinue = false;

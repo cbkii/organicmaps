@@ -6,10 +6,10 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.util.SparseArray;
 import android.view.View;
-import android.widget.ImageView;
 import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
+import android.widget.ImageView;
 import androidx.annotation.AttrRes;
 import androidx.annotation.DimenRes;
 import androidx.annotation.DrawableRes;
@@ -116,8 +116,9 @@ public class MyPositionButton
     {
       // The icon lives in a transparent full-width rail cell, not a Material FAB.
       // Retain the optical inset when location mode changes at runtime.
-      final int size = mButton.getWidth() > 0 ? mButton.getWidth()
-                       : mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size);
+      final int size = mButton.getWidth() > 0
+                         ? mButton.getWidth()
+                         : mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size);
       final int icon = mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_icon_size);
       final int pad = Math.max(0, (size - icon) / 2);
       final int followShift = mode == LocationState.FOLLOW ? mFollowPaddingShift : 0;

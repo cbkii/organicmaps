@@ -554,6 +554,51 @@ public class AccessibilityTest {
                                    for x in surface)
                 self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
 
+    def test_start_rail_uses_padded_width_and_physical_anchor(self):
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java unavailable: START rail geometry NOT_RUN")
+        source = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java")
+        method = controls.method_body(source, "private void updateInCarStartRailWidth()")
+        harness = r"""class RailGeometryTest {
+static class BuildConfig { static boolean IS_IN_CAR=true; }
+static class Gravity { static int BOTTOM=80, RIGHT=5; }
+static class ViewGroup { static class LayoutParams {} }
+static class androidx { static class coordinatorlayout { static class widget {
+ static class CoordinatorLayout { static class LayoutParams extends ViewGroup.LayoutParams {
+  int width, rightMargin, gravity, anchorGravity;
+ } }
+} } }
+static class R { static class dimen { static int margin_base=1, nav_menu_landscape_width=2; } }
+static class Resources { int getDimensionPixelSize(int id) { return id==1 ? 16 : 440; } }
+static class View {
+ int width=300, left=20, right=40, updates;
+ androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params=
+  new androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams();
+ int getWidth(){return width;} int getPaddingLeft(){return left;} int getPaddingRight(){return right;}
+ ViewGroup.LayoutParams getLayoutParams(){return params;}
+ void setLayoutParams(ViewGroup.LayoutParams p){updates++;}
+}
+View mButtonsLayout=new View(), mRoutingBottomContainer=new View();
+Resources getResources(){return new Resources();}
+void update(){""" + method + r"""}
+public static void main(String[] args) {
+ RailGeometryTest r=new RailGeometryTest();
+ r.update();
+ assert r.mButtonsLayout.params.width==208;
+ assert r.mButtonsLayout.params.rightMargin==16;
+ assert r.mButtonsLayout.params.gravity==85 && r.mButtonsLayout.params.anchorGravity==85;
+ int updates=r.mButtonsLayout.updates; r.update(); assert r.mButtonsLayout.updates==updates;
+ r.mButtonsLayout.params.anchorGravity=80; r.update(); assert r.mButtonsLayout.params.anchorGravity==85;
+ r.mRoutingBottomContainer.width=800; r.update(); assert r.mButtonsLayout.params.width==440;
+ r.mRoutingBottomContainer.width=70; r.update(); assert r.mButtonsLayout.params.width==0;
+}
+}"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "RailGeometryTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
     def test_incar_default_speed_pair_and_native_compass_clearance(self):
         layout = ET.fromstring(controls.read(
             "android/app/src/inCar/res/layout/in_car_driving_overlay.xml"))
@@ -596,6 +641,8 @@ public static void main(String[] args) {
 }
 }"""
         java = shutil.which("java")
+        if not java:
+            self.skipTest("Java unavailable: compass clearance NOT_RUN")
         if java:
             with tempfile.TemporaryDirectory() as tmp:
                 path = Path(tmp) / "CompassPolicyTest.java"
@@ -1650,7 +1697,9 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
         body = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
         body = body.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0]
         self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
-        self.assertIn("m_userEventStream.GetCurrentScreen().isAutoPerspective()", body)
+        self.assertRegex(body, r"if \(changed \|\| hadManualOverride \|\| "
+                         r"m_userEventStream\.GetCurrentScreen\(\)\.isPerspective\(\)\s*\|\|\s*"
+                         r"m_userEventStream\.GetCurrentScreen\(\)\.isAutoPerspective\(\)\)")
         self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
         self.assertIn("m_userEventStream.DiscardPendingAutoPerspective();", body)
         queue = controls.read("libs/drape_frontend/user_event_stream.cpp")
@@ -1671,11 +1720,15 @@ class PostMergeAuditRegressionTests(unittest.TestCase):
         resources = ElementTree.fromstring(
             controls.read("android/app/src/main/res/values/in_car_control_preferences.xml"))
         strings = {item.attrib["name"]: item.text for item in resources.findall("string")}
-        self.assertEqual("%1$ds", strings["in_car_navigation_countdown_seconds"])
+        self.assertEqual("%1$d%2$s", strings["in_car_navigation_countdown_seconds"])
+        for locale in ("ar", "fr", "in", "ja"):
+            translated = ElementTree.fromstring(controls.read(
+                f"android/app/src/main/res/values-{locale}/strings.xml"))
+            self.assertTrue(translated.find("string[@name=\"second\"]").text)
         self.assertEqual("%1$s · %2$d", strings["in_car_navigation_start_countdown"])
         place_page = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
         start = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java")
-        self.assertIn("getString(R.string.in_car_navigation_countdown_seconds, seconds)", place_page)
+        self.assertIn("getString(R.string.in_car_navigation_countdown_seconds, seconds, getString(R.string.second))", place_page)
         self.assertIn("mContext.getString(R.string.in_car_navigation_start_countdown,", start)
 
 class InCarNativeCameraProductionProbeTests(unittest.TestCase):

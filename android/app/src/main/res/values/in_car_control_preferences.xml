@@ -3,7 +3,7 @@
   <string name="in_car_control_position">Control position</string>
   <string name="in_car_navigation_action_delay">Automatic navigation action delay</string>
   <!-- Format whole countdown labels through resources rather than fixed English suffixes. -->
-  <string name="in_car_navigation_countdown_seconds">%1$ds</string>
+  <string name="in_car_navigation_countdown_seconds">%1$d%2$s</string>
   <string name="in_car_navigation_start_countdown">%1$s · %2$d</string>
   <string-array name="in_car_control_position_entries">
     <item>Right-hand drive — controls on left</item>

@@ -13,7 +13,12 @@ public final class InCarSpeedDisplayPolicy
   // mathematically identical threshold (for example 42 / 3.6 versus 40 / 3.6 * 1.05).
   private static final double SPEED_BOUNDARY_TOLERANCE_MPS = 1.0e-9;
 
-  public enum Severity { NORMAL, WARNING, SEVERE }
+  public enum Severity
+  {
+    NORMAL,
+    WARNING,
+    SEVERE
+  }
 
   private static boolean sSpeeding;
   private static Severity sSeverity = Severity.NORMAL;
@@ -103,8 +108,8 @@ public final class InCarSpeedDisplayPolicy
     else
     {
       final double severeFactor = sSeverity == Severity.SEVERE ? 1.08 : 1.10;
-      sSeverity = sCurrentSpeedMps + SPEED_BOUNDARY_TOLERANCE_MPS >= sSpeedLimitMps * severeFactor
-                    ? Severity.SEVERE : Severity.WARNING;
+      sSeverity = sCurrentSpeedMps + SPEED_BOUNDARY_TOLERANCE_MPS >= sSpeedLimitMps * severeFactor ? Severity.SEVERE
+                                                                                                   : Severity.WARNING;
     }
     return sSpeeding;
   }

@@ -17,8 +17,7 @@ public final class InCarQuickDestinationsPolicy
 
   public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen)
   {
-    return shouldShowSurface(inCarFlavor, searchOpen, placePageOpen, false,
-                             false, false, false, false);
+    return shouldShowSurface(inCarFlavor, searchOpen, placePageOpen, false, false, false, false, false);
   }
 
   /** Browsing chrome follows its host; active navigation retains its own Quick rail. */

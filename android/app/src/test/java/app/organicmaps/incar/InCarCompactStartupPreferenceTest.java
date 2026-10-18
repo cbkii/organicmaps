@@ -2,17 +2,19 @@ package app.organicmaps.incar;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 import android.content.SharedPreferences;
 import org.junit.Test;
 
 public class InCarCompactStartupPreferenceTest
 {
-  @Test public void absentPreferenceAndNonInCarFlavoursStayOff()
+  @Test
+  public void absentPreferenceAndNonInCarFlavoursStayOff()
   {
     final SharedPreferences prefs = mock(SharedPreferences.class);
     when(prefs.getBoolean("InCarCompactStartup", false)).thenReturn(false);
@@ -22,7 +24,8 @@ public class InCarCompactStartupPreferenceTest
     assertFalse(InCarSettingsStore.compactStartupEnabled(prefs, false));
     verify(prefs, never()).edit();
   }
-  @Test public void persistedChoiceRoundTripsAndOtherFlavoursCannotOverwriteIt()
+  @Test
+  public void persistedChoiceRoundTripsAndOtherFlavoursCannotOverwriteIt()
   {
     final SharedPreferences prefs = mock(SharedPreferences.class);
     final SharedPreferences.Editor editor = mock(SharedPreferences.Editor.class);
@@ -44,5 +47,4 @@ public class InCarCompactStartupPreferenceTest
     verify(editor, never()).clear();
     verify(editor, never()).remove(org.mockito.ArgumentMatchers.anyString());
   }
-
 }
