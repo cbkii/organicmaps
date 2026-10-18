@@ -25,6 +25,7 @@ import java.util.List;
 
 public final class InCarSettingsFragment extends BaseXmlSettingsFragment
 {
+  private int mCompactCheckGeneration;
   @Override
   protected @XmlRes int getXmlResources()
   {
@@ -35,6 +36,17 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+
+    final TwoStatePreference compact = getPreference("in_car_compact_startup");
+    compact.setVisible(app.organicmaps.BuildConfig.IS_IN_CAR);
+    compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
+    compact.setSummary(R.string.in_car_compact_startup_checking);
+    compact.setEnabled(false);
+    compact.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setCompactStartupEnabled(requireContext(), (boolean) value);
+      return true;
+    });
+
 
     final ListPreference position = getPreference("in_car_control_position");
     position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
@@ -110,6 +122,27 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       updateFallbackSummary(fallback, newMode);
       TtsPlayer.setEnabled(Config.TTS.isEnabled());
       return true;
+    });
+  }
+
+  @Override
+  public void onResume()
+  {
+    super.onResume();
+    final int generation = ++mCompactCheckGeneration;
+    final View view = getView();
+    if (view == null || !app.organicmaps.BuildConfig.IS_IN_CAR)
+      return;
+    final TwoStatePreference compact = getPreference("in_car_compact_startup");
+    compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
+    compact.setEnabled(false);
+    compact.setSummary(R.string.in_car_compact_startup_checking);
+    app.organicmaps.incar.InCarCompactStartupProvider.checkController(requireContext(), available -> {
+      if (!isAdded() || getView() != view || generation != mCompactCheckGeneration)
+        return;
+      compact.setEnabled(available);
+      compact.setSummary(available ? R.string.in_car_compact_startup_summary
+                                   : R.string.in_car_compact_startup_unavailable);
     });
   }
 

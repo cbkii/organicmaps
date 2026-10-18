@@ -6,4 +6,5 @@
   <color name="in_car_nav_lanes_foreground">#FF80D8EB</color>
   <color name="in_car_nav_after_background">#FF242A2F</color>
   <color name="in_car_nav_after_foreground">#FFB2BBC2</color>
+  <color name="in_car_nav_warning">#FFD15A5A</color>
 </resources>

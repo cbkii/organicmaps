@@ -177,13 +177,29 @@ def verify_navigation_refinements(root):
     if not (now == 72 and 0.92 <= after / now < 1 and 0.95 <= road / distance < 1):
         raise base.VerificationError("navigation hierarchy must use only modest optical size steps")
     base.require_value(values, "in_car_nav_icon_gap", "12dp", values_path)
-    for element in parsed.iter("ImageView"):
+    # The driver-side NOW section uses a fixed physical order; labels grow from the left.
+    children = [base.resource_id(e, android("id")) for e in list(group)]
+    if children != ["street_frame", "nav_next_turn_frame"]:
+        raise base.VerificationError("NOW must present road name, then distance and turn glyph")
+    manoeuvre = list(by_id["nav_next_turn_frame"])
+    if [base.resource_id(e, android("id")) for e in manoeuvre] != ["distance", "turn"]:
+        raise base.VerificationError("NOW distance must precede the turn glyph")
+    base.require_layout_attr(layout, "in_car_nav_immediate_group",
+                             base.ANDROID_NS, "paddingRight", "10dp")
+    # AFTER retains its original stable icon margins; the NOW glyph is flush inside the
+    # 10dp shared section right inset and no longer has independent horizontal margins.
+    after = by_id["nav_next_next_turn_frame"]
+    for element in after.iter("ImageView"):
         if base.resource_id(element, android("id")) == "turn":
             for edge in ("Left", "Right"):
                 if element.attrib.get(android(f"layout_margin{edge}")) != "@dimen/in_car_nav_icon_gap":
-                    raise base.VerificationError("manoeuvre icons need 12dp on both horizontal edges")
+                    raise base.VerificationError("AFTER glyph must retain 12dp inner spacing")
             if any(android(f"layout_margin{edge}") in element.attrib for edge in ("Top", "Bottom")):
-                raise base.VerificationError("manoeuvre icons must not consume extra vertical margins")
+                raise base.VerificationError("AFTER glyph must not consume extra vertical margins")
+    if any(android(f"layout_margin{edge}") in manoeuvre[-1].attrib
+           for edge in ("Left", "Right", "Top", "Bottom")):
+        raise base.VerificationError("NOW glyph must rely on the shared right inset")
+
     ribbon = by_id["nav_next_turn_container"]
     sections = list(ribbon)
     if not sections or not any(base.resource_id(element, android("id")) == "in_car_nav_speed"
@@ -201,20 +217,24 @@ def verify_navigation_refinements(root):
                              "complete lanes must take precedence over AFTER")
 
     footer = root / "android/app/src/inCar/res/layout-land/layout_nav_bottom.xml"
-    for edge in ("Top", "Bottom", "Right"):
+    for edge in ("Top", "Bottom"):
         base.require_layout_attr(footer, "stop", base.ANDROID_NS, f"layout_margin{edge}",
                                  "@dimen/in_car_nav_end_outer_gap")
+    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "layout_marginRight", "6dp")
     base.require_layout_attr(footer, "stop", base.ANDROID_NS, "background", "@drawable/in_car_navigation_end")
     base.require_layout_attr(footer, "stop", base.ANDROID_NS, "textColor", "@android:color/white")
-    base.require_layout_attr(footer, "stop", base.ANDROID_NS, "padding", "@dimen/margin_base")
+    for edge in ("Left", "Right"):
+        base.require_layout_attr(footer, "stop", base.ANDROID_NS, f"padding{edge}", "8dp")
     base.require_layout_attr(footer, "stop", base.ANDROID_NS, "minHeight", "@dimen/in_car_touch_target_min")
     height = float(values["in_car_nav_end_height"][:-2])
     gap = float(values["in_car_nav_end_outer_gap"][:-2])
     if height < 69 or height + 2 * gap != 76:
-        raise base.VerificationError("END touch target and equal inset must fit the 76dp footer")
+        raise base.VerificationError("END touch target must fit the 76dp footer")
     drawable = base.parse_xml(root / "android/app/src/inCar/res/drawable/in_car_navigation_end.xml")
     if drawable.find(".//solid").attrib.get(android("color")) != "#FF000000":
         raise base.VerificationError("END must have a true-black fill")
+    if drawable.find(".//corners").attrib.get(android("radius")) != "16dp":
+        raise base.VerificationError("END corner radius must match the 16dp compact action design")
 
     owner = root / "android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java"
     base.require_method_text(owner, "static boolean shouldSuppressLegacyButton(",
@@ -245,15 +265,20 @@ def verify_warning_foreground_contrast(root):
                 for stage, background_token, ink_token in stages:
                     normal_background = contrast.resolve_color(background_token, palette)
                     ink = contrast.resolve_color(ink_token, palette)
-                    # AFTER/LANES have opaque semantic surfaces; only NOW is warning-blended.
-                    background = (contrast.composite(contrast.Rgba(warning.red, warning.green, warning.blue, strength), normal_background)
-                                  if stage == "IMMEDIATE" else normal_background)
+                    # Every section receives the warning wash. Runtime chooses the higher-
+                    # contrast black/white foreground while the warning is active.
+                    background = contrast.composite(
+                        contrast.Rgba(warning.red, warning.green, warning.blue, strength), normal_background)
+                    if strength > 0.0:
+                        candidates = (contrast.Rgba(0, 0, 0, 1), contrast.Rgba(1, 1, 1, 1))
+                        ink = max(candidates, key=lambda c: contrast.contrast_ratio(c, background))
                     ratio = contrast.contrast_ratio(ink, background)
                     if ratio < 4.5:
                         raise base.VerificationError(f"{qualifier} {stage} {severity} foreground contrast is only {ratio:.2f}:1")
     renderer = root / "android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java"
     body = base.java_method_body(renderer, "private static void renderRibbon(")
-    if "immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB" not in body:
+    if ("immediateGroup.setBackgroundColor(immediateBackground)" not in body or
+        "warning ? ColorUtils.blendARGB(immediateBase, red, strength)" not in body):
         raise base.VerificationError("near-black immediate group must participate in warning blending")
     if "Color.WHITE" in body:
         raise base.VerificationError("half-strength warning must retain theme-appropriate foregrounds")
@@ -293,8 +318,8 @@ def verify_navigation_quick_actions(root):
     base.require_method_text(
         sizing,
         "public static void applyNavigationOverflowBounds(",
-        r"bottomControlsHeightPx[\s\S]*?headerHeightPx[\s\S]*?Gravity\.RIGHT \| Gravity\.BOTTOM",
-        "navigation overflow bounds and physical-right placement",
+        r"bottomControlsHeightPx[\s\S]*?headerHeightPx[\s\S]*?attributes\.gravity\s*=\s*\(\s*InCarSettingsStore\.controlsOnLeft\(activity\)\s*\?\s*Gravity\.LEFT\s*:\s*Gravity\.RIGHT\s*\)\s*\|\s*Gravity\.BOTTOM\s*;",
+        "navigation overflow bounds and mirrored physical-side placement",
     )
     base.require_method_text(
         sizing,

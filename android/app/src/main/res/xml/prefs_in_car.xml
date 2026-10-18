@@ -3,6 +3,14 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto">
 
+  <SwitchPreferenceCompat
+    android:key="in_car_compact_startup"
+    android:title="@string/in_car_compact_startup_title"
+    android:summary="@string/in_car_compact_startup_summary"
+    android:defaultValue="false"
+    android:persistent="false"
+    app:singleLineTitle="false" />
+
   <Preference
     android:key="@string/pref_in_car_quick_destinations"
     android:title="@string/in_car_quick_destinations_title"

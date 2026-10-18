@@ -905,6 +905,8 @@ public class PlacePageController
     super.onResume();
     if (mPlacePageBehavior.getState() != BottomSheetBehavior.STATE_HIDDEN && !Framework.nativeHasPlacePageInfo())
       mViewModel.setMapObject(null);
+    else if (BuildConfig.IS_IN_CAR && mCoordinator != null)
+      PlacePageUtils.updateMapViewport(mCoordinator, mPlacePage.getTop(), mViewportMinHeight);
   }
 
   @Override

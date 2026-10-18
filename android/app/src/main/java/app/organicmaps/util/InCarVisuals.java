@@ -15,6 +15,7 @@ import android.webkit.WebView;
 import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import app.organicmaps.incar.InCarControlPositionPolicy;
 import app.organicmaps.incar.InCarSettingsStore;
 import android.widget.ScrollView;
@@ -219,7 +220,7 @@ public final class InCarVisuals
     {
       case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_touch_target_extra_compact);
       case COMPACT -> dimen(activity, R.dimen.in_car_touch_target_min);
-      case PREFERRED -> dimen(activity, R.dimen.in_car_touch_target_preferred);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_map_rail_cell_size);
     };
   }
 
@@ -230,6 +231,16 @@ public final class InCarVisuals
       case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_extra_compact_map_button_icon_size);
       case COMPACT -> dimen(activity, R.dimen.in_car_compact_map_button_icon_size);
       case PREFERRED -> dimen(activity, R.dimen.in_car_runtime_button_icon_size);
+    };
+  }
+
+  public static int currentSpeedCircleSizePx(@NonNull FragmentActivity activity)
+  {
+    return switch (currentControlSizeTier(activity))
+    {
+      case EXTRA_COMPACT -> dimen(activity, R.dimen.in_car_touch_target_extra_compact);
+      case COMPACT -> dimen(activity, R.dimen.in_car_touch_target_min);
+      case PREFERRED -> dimen(activity, R.dimen.in_car_touch_target_preferred);
     };
   }
 
@@ -822,7 +833,12 @@ public final class InCarVisuals
     {
       final View view = scope.findViewById(id);
       if (view != null)
+      {
         InCarControlPositionPolicy.apply(view, left);
+        // Physical LHD mirror reverses the two footer cells, not only the group's anchor.
+        if (id == R.id.in_car_browsing_controls && view instanceof LinearLayout footer)
+          footer.setLayoutDirection(left ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL);
+      }
     }
   }
 
@@ -849,12 +865,19 @@ public final class InCarVisuals
         activity, enabled, controlSizeTier, R.dimen.map_button_size, R.dimen.in_car_button_min_touch_target,
         R.dimen.in_car_compact_button_min_touch_target, R.dimen.in_car_extra_compact_button_min_touch_target);
 
-    for (int id : new int[] {R.id.btn_search, R.id.btn_bookmarks, R.id.my_position, R.id.in_car_camera_view_recenter, R.id.layers_button,
-                             R.id.menu_button, R.id.help_button, R.id.track_recording_status})
+    for (int id : new int[] {R.id.btn_bookmarks, R.id.layers_button, R.id.help_button,
+                             R.id.track_recording_status})
       resizeFab(root.findViewById(id), buttonSize, iconSize, minTouchTarget);
 
-    resizeFab(root.findViewById(R.id.nav_zoom_in), buttonSize, zoomIconSize, minTouchTarget);
-    resizeFab(root.findViewById(R.id.nav_zoom_out), buttonSize, zoomIconSize, minTouchTarget);
+    // Footer buttons and both map rails share one responsive cell-size contract.
+    final int railSize = Math.min(buttonSize, dimen(activity, R.dimen.in_car_map_rail_cell_size));
+    for (int id : new int[] {R.id.btn_search, R.id.menu_button})
+      resizeFab(root.findViewById(id), railSize, iconSize, railSize);
+    for (int id : new int[] {R.id.my_position, R.id.in_car_camera_view_recenter})
+      resizeRailCell(root.findViewById(id), railSize, iconSize);
+    resizeRailCell(root.findViewById(R.id.nav_zoom_in), railSize, zoomIconSize);
+    resizeRailCell(root.findViewById(R.id.nav_zoom_out), railSize, zoomIconSize);
+
 
   }
 
@@ -937,8 +960,7 @@ public final class InCarVisuals
                     R.dimen.in_car_compact_nav_stop_min_width, R.dimen.in_car_extra_compact_nav_stop_min_width);
     setViewHeight(stop, buttonHeight);
     stop.setMinHeight(buttonHeight);
-    stop.setMinWidth(fixedInCarEnd ? Math.max(stopMinWidth, activity.getResources().getDimensionPixelSize(
-                                                                R.dimen.in_car_touch_target_min))
+    stop.setMinWidth(fixedInCarEnd ? activity.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_min)
                                    : stopMinWidth);
     root.requestLayout();
   }
@@ -1006,6 +1028,36 @@ public final class InCarVisuals
   private static int dimen(@NonNull Activity activity, @DimenRes int resId)
   {
     return activity.getResources().getDimensionPixelSize(resId);
+  }
+
+  private static void resizeRailCell(@Nullable View view, int size, int iconSize)
+  {
+    if (view instanceof FloatingActionButton)
+    {
+      resizeFab(view, size, iconSize, size);
+      return;
+    }
+    if (!(view instanceof ImageView image))
+      return;
+    final ViewGroup.LayoutParams params = image.getLayoutParams();
+    if (params != null && (params.width != size || params.height != size))
+    {
+      params.width = size;
+      params.height = size;
+      image.setLayoutParams(params);
+    }
+    image.setMinimumWidth(size);
+    image.setMinimumHeight(size);
+    final int pad = Math.max(0, (size - iconSize) / 2);
+    // MyPositionButton owns the asymmetric 1dp Follow arrow shift; a window
+    // resize may adjust the base padding, but must not erase that mode cue.
+    final int shiftTop = image.getId() == R.id.my_position
+                         ? Math.max(0, image.getPaddingTop() - image.getPaddingLeft()) : 0;
+    final int shiftRight = image.getId() == R.id.my_position
+                           ? Math.max(0, image.getPaddingRight() - image.getPaddingLeft()) : 0;
+    if (image.getPaddingLeft() != pad || image.getPaddingTop() != pad + shiftTop
+        || image.getPaddingRight() != pad + shiftRight || image.getPaddingBottom() != pad)
+      image.setPadding(pad, pad + shiftTop, pad + shiftRight, pad);
   }
 
   private static void resizeFab(@Nullable View view, int buttonSize, int iconSize, int minTouchTarget)

@@ -190,6 +190,9 @@ public final class InCarWindowGeometryCoordinator
       @Override
       public void surfaceDestroyed(@NonNull SurfaceHolder holder)
       {
+        if (activity instanceof app.organicmaps.MwmActivity)
+          app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(System.identityHashCode(activity), false);
+        invalidateStartupSurface(activity);
         scheduleGeometryOnly(activity, state, "SURFACE_DESTROYED");
       }
     };
@@ -202,6 +205,15 @@ public final class InCarWindowGeometryCoordinator
       observation.mapView.getHolder().removeCallback(observation.surfaceCallback);
     observation.mapView = null;
     observation.surfaceCallback = null;
+  }
+
+  private static void invalidateStartupSurface(@NonNull FragmentActivity activity)
+  {
+    if (activity instanceof app.organicmaps.MwmActivity)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.surface(System.identityHashCode(activity), 0, 0);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(activity);
+    }
   }
 
   private static void scheduleGeometryOnly(@NonNull FragmentActivity activity, @NonNull Observation observation,
@@ -245,6 +257,7 @@ public final class InCarWindowGeometryCoordinator
         mapContainer != null && mapContainer.getHeight() > 0 ? mapContainer.getHeight() : content.getHeight();
     if (!hasValidBounds(expectedWidth, expectedHeight))
     {
+      invalidateStartupSurface(activity);
       scheduleInvalidBoundsRetry(activity, observation, reason, generation, retriesRemaining);
       return;
     }
@@ -255,6 +268,7 @@ public final class InCarWindowGeometryCoordinator
                                     observation.activityInstanceId, expectedWidth, expectedHeight, taskId,
                                     activityInstanceId))
     {
+      invalidateStartupSurface(activity);
       observation.geometryEpoch++;
       observation.expectedWidth = expectedWidth;
       observation.expectedHeight = expectedHeight;
@@ -318,6 +332,11 @@ public final class InCarWindowGeometryCoordinator
                            mapView.getLastAppliedSurfaceWidth(), mapView.getLastAppliedSurfaceHeight());
       if (status.isConverged())
       {
+        if (activity instanceof app.organicmaps.MwmActivity)
+        {
+          app.organicmaps.incar.InCarCompactStartupState.INSTANCE.surface(System.identityHashCode(activity), observation.expectedWidth, observation.expectedHeight);
+          app.organicmaps.incar.InCarCompactStartupProvider.changed(activity);
+        }
         Logger.d(TAG, "Window geometry converged: epoch=" + observation.geometryEpoch + " generation=" + generation
                           + " size=" + observation.expectedWidth + "x" + observation.expectedHeight);
         return;

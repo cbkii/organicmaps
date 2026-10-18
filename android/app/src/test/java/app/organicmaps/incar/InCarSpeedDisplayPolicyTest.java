@@ -42,6 +42,18 @@ public class InCarSpeedDisplayPolicyTest
   }
 
   @Test
+  public void creepingSpeedUnderThreeKmhDisplaysZeroButThreeAndAboveRemainLive()
+  {
+    for (double kmh : new double[] {0.0, 0.5, 2.5, 2.99})
+      assertEquals("0", InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT,
+          true, kph(kmh), UNAVAILABLE, speed -> speed == 0.0 ? "0" : "moving"));
+    assertEquals("moving", InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.CURRENT,
+        true, kph(3.0), UNAVAILABLE, speed -> speed == 0.0 ? "0" : "moving"));
+    assertEquals(UNAVAILABLE, InCarSpeedDisplayPolicy.format(InCarDrivingViewController.LocationHealth.STALE,
+        true, kph(2.0), UNAVAILABLE, speed -> "0"));
+  }
+
+  @Test
   public void staleSpeedNeverFormatsOldNumericValue()
   {
     final String result =

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import re
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -14,6 +15,278 @@ controls = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(controls)
 
 class MenuContractTests(unittest.TestCase):
+    def test_production_road_matcher_and_parking_departure_boundaries(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable")
+        def without_local_includes(path):
+            return re.sub(r'^#include "[^"\n]+"\n|^#pragma once\n', '', controls.read(path), flags=re.M)
+        session = controls.read("libs/routing/routing_session_free_driving.cpp")
+        start = session.index("  bool const plausiblePublicRoad =")
+        predicate = session[start:session.index(";", start) + 1]
+        source = r'''
+#include <cassert>
+namespace m2 { struct PointD { double x=0,y=0; }; }
+namespace location { struct GpsInfo {
+ double m_horizontalAccuracy=5,m_speed=1,m_speedAccuracy=-1,m_bearing=-1,m_bearingAccuracy=-1;
+ bool HasSpeed() const { return m_speed>=0; }
+ bool HasSpeedAccuracy() const { return m_speedAccuracy>=0; }
+ bool HasBearing() const { return m_bearing>=0; }
+ bool HasBearingAccuracy() const { return m_bearingAccuracy>=0; }
+}; }
+''' + without_local_includes("libs/routing/free_driving_road_snap_policy.hpp") + without_local_includes(
+    "libs/routing/free_driving_road_matcher.hpp") + without_local_includes(
+    "libs/routing/free_driving_road_matcher.cpp") + r'''
+using namespace routing::free_driving_snap;
+namespace free_driving_snap = routing::free_driving_snap;
+struct Candidate { RoadMetadata m_metadata; RoadRelation m_relation=RoadRelation::Connected; bool acceptable=true; };
+bool IsAcceptable(Candidate const & c,location::GpsInfo const &,bool){return c.acceptable;}
+bool plausible(Candidate const * current,Candidate const * best,bool bestAcceptable,bool bestParkingAisle){
+ int previousValue=1; auto previous=&previousValue; location::GpsInfo policyInfo;
+''' + predicate + r'''
+ return plausiblePublicRoad;
+}
+int main() {
+ Candidate serviceRoad;
+ assert(plausible(&serviceRoad,nullptr,false,false));
+ serviceRoad.m_metadata.m_parkingAisle=true;
+ assert(!plausible(&serviceRoad,nullptr,false,false));
+ Candidate weakConnected;
+ assert(plausible(nullptr,&weakConnected,true,false));
+ assert(!plausible(nullptr,&weakConnected,true,true));
+ assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,69));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70));
+ assert(!HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,false,true,false,0));
+ assert(HasConfirmedParkingDepartureFromRoad(true,true,true,false,false,0));
+ // Accumulated crawl displacement is useful even when each 1Hz step is below 3m.
+ assert(HasTrustworthyParkingTurn(true,.6,4,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,4,true,0));
+ assert(!HasTrustworthyParkingTurn(true,.2,4,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,2,false,1));
+ assert(!HasTrustworthyParkingTurn(true,.6,4,false,8));
+ assert(RoadDisplayEvidenceIsFresh(100,100,105));
+ assert(!RoadDisplayEvidenceIsFresh(100,100,105.001));
+ assert(!RoadDisplayEvidenceIsFresh(100,100,99));
+ assert(!RoadDisplayEvidenceIsFresh(100,99,101));
+ assert(!RoadDisplayEvidenceIsFresh(0,100,101));
+ assert(RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,false,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,false,false,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,true,30,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Good,true,false,36,20));
+ assert(!RetainFreshRoadDisplay(MatchState::Road,AccuracyBand::Poor,true,false,30,20));
+ AreaContext context; FreeDrivingRoadMatcher matcher; MatcherEvidence e;
+ e.m_hasBestRoad=e.m_bestAcceptable=e.m_bestStrong=e.m_bestUnambiguous=true;
+ e.m_accuracy=AccuracyBand::Good;e.m_candidateToken=1;e.m_deltaSeconds=1;
+ e.m_relation=RoadRelation::SameDirectedEdge;
+ matcher.Update(e,context);matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::Road);
+ context.m_insideParking=true;
+ e.m_stationaryHold=true;
+ for(int i=0;i<10;i++) {
+  e.m_parkingReleaseEligible=HasConfirmedParkingDepartureFromRoad(true,true,false,false,false,90);
+  assert(matcher.Update(e,context).m_state==MatchState::Road);
+ }
+ // Traffic-light stop, then a connected low-speed bend: same road authority survives.
+ e.m_stationaryHold=false;e.m_motionEstablished=true;e.m_relation=RoadRelation::Connected;e.m_candidateToken=2;
+ assert(matcher.Update(e,context).m_state==MatchState::Road);
+ e.m_parkingReleaseEligible=HasConfirmedParkingDepartureFromRoad(true,true,false,false,true,70);
+ for(int i=0;i<4;i++)matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::ParkingFree);
+ assert(!RetainFreshRoadDisplay(matcher.GetState(),AccuracyBand::Good,true,false,30,20));
+ e.m_parkingReleaseEligible=false;e.m_allowFreeStateRoadReacquire=true;e.m_candidateToken=3;
+ matcher.Update(e,context);matcher.Update(e,context);
+ assert(matcher.GetState()==MatchState::Road);
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "roads.cpp"
+            binary = Path(tmp) / "roads"
+            src.write_text(source)
+            result = subprocess.run([compiler, "-std=c++17", str(src), "-o", str(binary)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
+    def test_production_ribbon_warning_surfaces_and_contrast(self):
+        import xml.etree.ElementTree as ET
+        runtime = shutil.which("java")
+        if not runtime:
+            self.skipTest("Java unavailable")
+        source = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        render = controls.method_body(source, "private static void renderRibbon(")
+        foreground = controls.method_body(source, "private static int ribbonForeground(")
+        self.assertIn("renderRibbon(activity, snapshot.navigating && warning,", source)
+        colours = {}
+        for path in ("android/app/src/main/res/values/in_car_shared_fallbacks.xml",
+                     "android/app/src/inCar/res/values/colors.xml",
+                     "android/app/src/inCar/res/values/in_car_navigation_colours.xml"):
+            colours.update({x.get("name"): x.text for x in ET.parse(ROOT / path).getroot() if x.tag == "color"})
+        palettes = []
+        for night in (False, True):
+            values = dict(colours)
+            if night:
+                for path in ("values-night/colors.xml", "values-night/in_car_navigation_colours.xml"):
+                    values.update({x.get("name"): x.text for x in ET.parse(
+                        ROOT / "android/app/src/inCar/res" / path).getroot() if x.tag == "color"})
+            def resolve(token):
+                value = values[token].strip()
+                return resolve(value[7:]) if value.startswith("@color/") else value
+            names = sorted(set(re.findall(r"R\.color\.(\w+)", render)))
+            palettes.append("new int[]{" + ",".join("(int)0x" + resolve(n).removeprefix("#") for n in names) + "}")
+        ids = sorted(set(re.findall(r"R\.id\.(\w+)", render)) | {"in_car_nav_speed", "nav_speed_limit"})
+        resources = "class R { static class id {" + "".join(
+            f"static final int {n}={i};" for i, n in enumerate(ids)) + "} static class color {" + "".join(
+            f"static final int {n}={i};" for i, n in enumerate(names)) + "}}"
+        harness = r'''
+import java.util.*;
+class View {
+ static final int VISIBLE=0,INVISIBLE=4;
+ int background=0x12345678,visibility=VISIBLE;
+ Map<Integer,View> children=new HashMap<>();
+ @SuppressWarnings("unchecked") <T extends View> T findViewById(int id){return (T)children.get(id);}
+ void setBackgroundColor(int c){background=c;}
+ void setVisibility(int v){visibility=v;}
+ int getVisibility(){return visibility;}
+}
+class TextView extends View { int color; void setTextColor(int c){color=c;} }
+class ImageView extends View { int tint; }
+class LanesView extends View { int active,inactive; void setLaneColors(int a,int b){active=a;inactive=b;} }
+class MwmActivity extends View { int[] colors; }
+class ColorStateList { int color; static ColorStateList valueOf(int c){var r=new ColorStateList();r.color=c;return r;} }
+class ImageViewCompat { static void setImageTintList(ImageView v,ColorStateList c){v.tint=c.color;} }
+class ContextCompat { static int getColor(MwmActivity a,int id){return a.colors[id];} }
+class InCarSpeedDisplayPolicy {
+ enum Severity { WARNING,SEVERE }
+ static Severity current=Severity.SEVERE;
+ static Severity severity(){return current;}
+}
+class ColorUtils {
+ static int blendARGB(int a,int b,float f){
+  int c=0; for(int shift:new int[]{0,8,16,24})c|=((int)(((a>>>shift)&255)*(1-f)+((b>>>shift)&255)*f))<<shift;
+  return c;
+ }
+ static double channel(int n){double v=n/255.0;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);}
+ static double luminance(int c){return .2126*channel((c>>>16)&255)+.7152*channel((c>>>8)&255)+.0722*channel(c&255);}
+ static double calculateContrast(int a,int b){double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
+}
+''' + resources + r'''
+class RibbonTest {
+ static int ribbonForeground(int background){''' + foreground + r'''}
+ static void renderRibbon(MwmActivity activity,boolean warning,float strength){''' + render + r'''}
+ static void check(boolean ok){if(!ok)throw new AssertionError();}
+ public static void main(String[] args){
+  int[][] palettes={''' + ",".join(palettes) + r'''};
+  for(int[] palette:palettes)for(boolean landscape:new boolean[]{false,true})for(boolean hasLanes:new boolean[]{false,true}){
+   MwmActivity a=new MwmActivity(); a.colors=palette;
+   for(int id=0;id<''' + str(len(ids)) + r''';id++)a.children.put(id,new View());
+   for(int id:new int[]{R.id.nav_next_turn_frame,R.id.nav_next_next_turn_frame}){
+    a.children.get(id).children.put(R.id.turn,new ImageView());
+    a.children.get(id).children.put(R.id.distance,new TextView());
+   }
+   a.children.get(R.id.street_frame).children.put(R.id.street,new TextView());
+   a.children.put(R.id.in_car_nav_guidance_label,new TextView());
+   LanesView lanes=new LanesView(); lanes.visibility=hasLanes?View.VISIBLE:View.INVISIBLE;
+   a.children.put(R.id.lanes,lanes);
+   if(!landscape){a.children.remove(R.id.in_car_nav_guidance_group);a.children.remove(R.id.in_car_nav_immediate_group);}
+   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{.18f,.5f,.8f,1f}){
+    InCarSpeedDisplayPolicy.current=severity;
+    renderRibbon(a,false,0);
+    int original=a.children.get(R.id.nav_next_next_turn_frame).background;
+    renderRibbon(a,true,strength);
+    View after=a.children.get(R.id.nav_next_next_turn_frame),now=a.children.get(R.id.nav_next_turn_frame);
+    check(after.background!=original);
+    check(lanes.background==after.background);
+    TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
+    TextView distance=now.findViewById(R.id.distance);
+    check(ColorUtils.calculateContrast(label.color,after.background)>=4.5);
+    check(ColorUtils.calculateContrast(distance.color,now.background)>=4.5);
+    check(ColorUtils.calculateContrast(lanes.active,lanes.background)>=4.5);
+    check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
+    check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
+    renderRibbon(a,false,0);
+    check(after.background==original);
+   }
+  }
+ }
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "RibbonTest.java"
+            src.write_text(harness)
+            color = Path(tmp) / "android/graphics/Color.java"
+            color.parent.mkdir(parents=True)
+            color.write_text("package android.graphics; public class Color { public static final int BLACK=0xff000000,WHITE=0xffffffff; }")
+            compiler = Path(tmp) / "Compile.java"
+            compiler.write_text("class Compile { public static void main(String[] a) { "
+                                "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
+            result = subprocess.run([runtime, str(compiler), "-d", tmp, str(src), str(color)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([runtime, "-cp", tmp, "RibbonTest"], check=True, timeout=10)
+
+    def test_production_location_hold_keeps_metadata_and_rejects_older_fixes(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable")
+        body = controls.method_body(controls.read("libs/drape_frontend/my_position_controller.cpp"),
+                                    "void MyPositionController::OnLocationUpdate(")
+        # Execute the production acceptance/hold prefix, before unrelated animation/rendering.
+        prefix = body[:body.index("  bool const isMovingFast")]
+        source = r'''
+#include <cstdint>
+#include <cassert>
+struct Point { double x=0,y=0; };
+struct Rect { double SizeX() const { return 20; } };
+namespace m2 { using PointD=Point; using RectD=Rect; }
+namespace mercator {
+Point FromLatLon(double x,double y) { return {x,y}; }
+double DistanceOnEarth(Point,Point) { return 1; }
+Rect MetersToXY(double,double,double) { return {}; }
+}
+namespace location { struct GpsInfo {
+ double m_monotonicTimestamp=20,m_timestamp=20,m_latitude=42,m_longitude=0;
+ double m_horizontalAccuracy=5,m_speed=1;
+ bool HasMonotonicTimestamp() const { return m_monotonicTimestamp>0; }
+ bool HasSpeed() const { return true; }
+}; }
+namespace driving_policy { bool ShouldHoldFreeDrivingCamera(bool,bool,bool,bool,double,double) { return true; } }
+constexpr double kUnknownAutoZoom=-1;
+struct Owner {
+ bool m_isInRouting=false,m_isDrivingView=true,m_isPositionAssigned=true;
+ bool m_hasLastHeldDrivingPosition=false;
+ int64_t m_lastRecenterObservationNanos=19000000000;
+ Point m_position{7,0},m_lastHeldDrivingPosition;
+ double m_errorRadius=0,m_horizontalAccuracy=100,m_autoScale2d=0,m_autoScale3d=0;
+ double CalculateZoomBySpeed(double,bool) { return 2; }
+ Point GetDrawablePosition() { return m_position; }
+ double GetDrawableAzimut() { return 0; }
+ void RefreshLocationFreshness(location::GpsInfo const & info) {
+   m_lastRecenterObservationNanos=static_cast<int64_t>(info.m_monotonicTimestamp*1e9);
+ }
+ void update(location::GpsInfo const & info) {
+''' + prefix + r'''
+ }
+};
+int main() {
+ Owner o; location::GpsInfo fix;
+ o.update(fix);
+ assert(o.m_position.x==7 && o.m_lastHeldDrivingPosition.x==42 && o.m_hasLastHeldDrivingPosition);
+ assert(o.m_horizontalAccuracy==5 && o.m_errorRadius==10 && o.m_autoScale2d==4);
+ fix.m_monotonicTimestamp=19; fix.m_latitude=99; fix.m_horizontalAccuracy=70;
+ o.update(fix);
+ assert(o.m_lastHeldDrivingPosition.x==42 && o.m_horizontalAccuracy==5 && o.m_hasLastHeldDrivingPosition);
+ assert(o.m_lastRecenterObservationNanos==20000000000);
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "held.cpp"
+            binary = Path(tmp) / "held"
+            src.write_text(source)
+            subprocess.run([compiler, "-D__ANDROID__", "-std=c++17", str(src), "-o", str(binary)],
+                           check=True, timeout=30)
+            subprocess.run([str(binary)], check=True, timeout=10)
+
     def test_accessibility_interaction_cancels_without_swallowing_events(self):
         runtime = shutil.which("java")
         if not runtime:
@@ -120,6 +393,444 @@ public class AccessibilityTest {
                                 "System.exit(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, a)); }}")
             subprocess.run([runtime, str(compiler), "-d", tmp, *sources], check=True, timeout=30)
             subprocess.run([runtime, "-cp", tmp, "AccessibilityTest"], check=True, timeout=10)
+
+    def test_incar_map_overlays_share_day_night_palette_and_warning_tint(self):
+        import xml.etree.ElementTree as ET
+        base = ROOT / "android/app/src/inCar/res"
+        def colours(path):
+            return {x.get("name"): (x.text or "").strip()
+                    for x in ET.parse(base / path).getroot() if x.tag == "color"}
+        day = colours("values/colors.xml")
+        night = colours("values-night/colors.xml")
+        for token in ("in_car_camera_rail_surface", "in_car_quick_foreground",
+                      "in_car_map_control_outline", "in_car_surface_overlay",
+                      "in_car_selection_accent"):
+            self.assertIn(token, day)
+            self.assertIn(token, night)
+            if token == "in_car_quick_foreground":
+                # Both flavours resolve the same semantic role to opposite
+                # colour values; comparing the raw alias cannot prove contrast.
+                self.assertEqual("@color/in_car_icon_primary", day[token])
+                self.assertEqual("@color/in_car_icon_primary", night[token])
+                self.assertNotEqual(day["in_car_icon_primary"], night["in_car_icon_primary"])
+            else:
+                self.assertNotEqual(day[token], night[token])
+        camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
+        quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
+        for expected in ("@color/in_car_camera_rail_surface", "@color/in_car_map_control_outline"):
+            self.assertIn(expected, camera)
+            self.assertIn(expected, quick)
+        overlay = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("group.setBackgroundColor(afterBackground)", overlay)
+        self.assertIn("immediateGroup.setBackgroundColor(immediateBackground)", overlay)
+        theme = controls.read("android/app/src/main/java/app/organicmaps/util/ThemeSwitcher.java")
+        self.assertIn("ThemeUtils.isDarkTheme(context)", theme)
+        self.assertIn("calculateMapStyle(isDarkMode)", theme)
+
+    def test_map_dock_two_column_geometry_and_transparent_camera_cells(self):
+        import xml.etree.ElementTree as ET
+        base = ROOT / "android/app/src"
+        ns = "{http://schemas.android.com/apk/res/android}"
+        values = ET.parse(base / "main/res/values/in_car_runtime_ui.xml").getroot()
+        dims = {node.get("name"): (node.text or "").strip() for node in values if node.tag == "dimen"}
+        self.assertEqual("69dp", dims["in_car_map_rail_cell_size"])
+        self.assertEqual("8dp", dims["in_car_map_dock_edge"])
+        self.assertEqual("12dp", dims["in_car_map_dock_column_gap"])
+        self.assertEqual("8dp", dims["in_car_map_dock_footer_gap"])
+        self.assertEqual("77dp", dims["in_car_map_dock_browse_reserve"])
+        for layout in ("layout", "layout-land"):
+            path = base / f"inCar/res/{layout}/map_buttons_bottom.xml"
+            footer = ET.parse(path).getroot()
+            dock = next(x for x in footer if x.get(ns+"id") == "@+id/in_car_browsing_controls")
+            self.assertEqual("LinearLayout", dock.tag)
+            self.assertEqual("@dimen/in_car_map_dock_edge", dock.get(ns+"paddingBottom"))
+            search = next(x for x in dock if x.get("layout") == "@layout/map_buttons_search_square")
+            menu = next(x for x in dock if x.get("layout") == "@layout/map_buttons_menu")
+            self.assertEqual("wrap_content", search.get(ns+"layout_width"))
+            self.assertEqual("wrap_content", menu.get(ns+"layout_width"))
+            self.assertEqual("@dimen/in_car_map_dock_column_gap", search.get(ns+"layout_marginEnd"))
+            self.assertIsNone(menu.get(ns+"layout_marginEnd"))
+        camera = ET.parse(base / "inCar/res/layout/map_buttons_zoom.xml").getroot()
+        rail = next(x for x in camera if x.get(ns+"id") == "@+id/zoom_buttons_container")
+        for child in rail:
+            if child.get(ns+"id") in ("@+id/nav_zoom_in", "@+id/nav_zoom_out",
+                                      "@+id/in_car_camera_view_recenter"):
+                self.assertEqual("androidx.appcompat.widget.AppCompatImageButton", child.tag)
+                self.assertEqual("@drawable/in_car_map_rail_cell_feedback", child.get(ns+"background"))
+        policy = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarMapDockPolicy.java")
+        quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")
+        controller = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+        self.assertIn("quickBottomMarginPx", policy)
+        self.assertIn("quickPhysicalOffsetPx", quick)
+        self.assertIn("positionCameraFrame", controller)
+        self.assertIn("InCarQuickDestinationsUi.refreshDockGeometry(activity)", controller)
+        self.assertIn("public static void refreshDockGeometry(", quick)
+        self.assertNotIn("cameraColumn = horizontalCamera", quick)
+        self.assertNotIn("mBottomButtonsHeight + mSystemBottomInset", quick)
+        visuals = controls.read("android/app/src/main/java/app/organicmaps/util/InCarVisuals.java")
+        self.assertIn("footer.setLayoutDirection(left ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL)", visuals)
+        # Compile and run the actual production pure geometry methods rather
+        # than merely comparing numbers manufactured by this Python test.
+        java = shutil.which("java")
+        if java:
+            methods = []
+            for method in ("cameraBottomFor", "quickBottomFor", "quickPhysicalOffsetFor"):
+                match = re.search(r"  static int " + method + r"\([^)]*\)\s*\{", policy)
+                self.assertIsNotNone(match, method)
+                opening = policy.index("{", match.start())
+                depth, end = 1, opening + 1
+                while depth:
+                    depth += (policy[end] == "{") - (policy[end] == "}")
+                    end += 1
+                methods.append(policy[match.start():end])
+            harness = ("class DockGeometryTest {\n" + "\n".join(methods) +
+                       """\npublic static void main(String[] ignored) {
+  for (int size : new int[] {55, 69}) {
+    int edge=8, gap=12, footerGap=8, width=1280;
+    assert quickPhysicalOffsetFor(edge,size,gap,false)==edge+size+gap;
+    assert quickPhysicalOffsetFor(edge,size,gap,true)==edge;
+    assert cameraBottomFor(size,footerGap)==size+footerGap;
+    assert quickBottomFor(size,footerGap,edge,0)==size+footerGap+edge;
+    assert quickBottomFor(size,footerGap,edge,size)==size+2*footerGap+edge+size;
+    int rightCamera=width-edge-size;
+    int leftQuick=rightCamera-size-gap;
+    assert leftQuick>=0 && leftQuick+size+gap==rightCamera;
+  }
+}
+}""")
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "DockGeometryTest.java"
+                path.write_text(harness)
+                subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+        driving = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("final View zoomIn = scope.findViewById(R.id.nav_zoom_in)", driving)
+        self.assertIn("final FloatingActionButton drivingView = scope.findViewById", driving)
+        ids = {child.get(ns+"id") for child in rail if child.get(ns+"id")}
+        self.assertEqual({"@+id/nav_zoom_in", "@+id/nav_zoom_out",
+                          "@+id/in_car_camera_view_recenter"}, ids)
+        follow = ET.parse(base / "inCar/res/layout/map_buttons_myposition.xml").getroot()
+        self.assertEqual("androidx.appcompat.widget.AppCompatImageButton", follow.tag)
+        self.assertEqual("@drawable/in_car_map_rail_cell_feedback", follow.get(ns+"background"))
+        self.assertEqual("fitCenter", follow.get(ns+"scaleType"))
+
+
+    def test_incar_quick_icon_contrast_on_extreme_map_tiles(self):
+        """Verify rendered icon contrast at the 75%-opaque map-rail extremes."""
+        day = controls.read("android/app/src/inCar/res/values/colors.xml")
+        night = controls.read("android/app/src/inCar/res/values-night/colors.xml")
+        rail = ET.fromstring(controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml"))
+        ns = "{http://schemas.android.com/apk/res/android}"
+        self.assertEqual("@color/in_car_camera_rail_surface", rail.find("solid").get(ns + "color"))
+
+        def resolve(source, name):
+            resources = {node.get("name"): (node.text or "").strip()
+                         for node in ET.fromstring(source).findall("color")}
+            visited = set()
+            while name not in visited:
+                visited.add(name)
+                value = resources[name]
+                if not value.startswith("@color/"):
+                    self.assertRegex(value, r"^#[0-9A-Fa-f]{8}$")
+                    return tuple(bytes.fromhex(value[1:]))
+                name = value.split("/", 1)[1]
+            self.fail("circular colour alias")
+
+        def linear(v):
+            c = v / 255.0
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+        def lum(rgb):
+            return sum(w * linear(c) for w, c in zip((0.2126, 0.7152, 0.0722), rgb))
+
+        def ratio(a, b):
+            hi, lo = sorted((lum(a), lum(b)), reverse=True)
+            return (hi + 0.05) / (lo + 0.05)
+
+        for source in (day, night):
+            _, *ink = resolve(source, "in_car_quick_foreground")
+            alpha, *surface = resolve(source, "in_car_camera_rail_surface")
+            for tile in (0, 255):
+                composited = tuple(round((alpha * x + (255 - alpha) * tile) / 255)
+                                   for x in surface)
+                self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
+
+    def test_start_rail_uses_padded_width_and_physical_anchor(self):
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java unavailable: START rail geometry NOT_RUN")
+        source = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java")
+        method = controls.method_body(source, "private void updateInCarStartRailWidth()")
+        harness = r"""class RailGeometryTest {
+static class BuildConfig { static boolean IS_IN_CAR=true; }
+static class Gravity { static int BOTTOM=80, RIGHT=5; }
+static class ViewGroup { static class LayoutParams {} }
+static class androidx { static class coordinatorlayout { static class widget {
+ static class CoordinatorLayout { static class LayoutParams extends ViewGroup.LayoutParams {
+  int width, rightMargin, gravity, anchorGravity;
+ } }
+} } }
+static class R { static class dimen { static int margin_base=1, nav_menu_landscape_width=2; } }
+static class Resources { int getDimensionPixelSize(int id) { return id==1 ? 16 : 440; } }
+static class View {
+ int width=300, left=20, right=40, updates;
+ androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params=
+  new androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams();
+ int getWidth(){return width;} int getPaddingLeft(){return left;} int getPaddingRight(){return right;}
+ ViewGroup.LayoutParams getLayoutParams(){return params;}
+ void setLayoutParams(ViewGroup.LayoutParams p){updates++;}
+}
+View mButtonsLayout=new View(), mRoutingBottomContainer=new View();
+Resources getResources(){return new Resources();}
+void update(){""" + method + r"""}
+public static void main(String[] args) {
+ RailGeometryTest r=new RailGeometryTest();
+ r.update();
+ assert r.mButtonsLayout.params.width==208;
+ assert r.mButtonsLayout.params.rightMargin==16;
+ assert r.mButtonsLayout.params.gravity==85 && r.mButtonsLayout.params.anchorGravity==85;
+ int updates=r.mButtonsLayout.updates; r.update(); assert r.mButtonsLayout.updates==updates;
+ r.mButtonsLayout.params.anchorGravity=80; r.update(); assert r.mButtonsLayout.params.anchorGravity==85;
+ r.mRoutingBottomContainer.width=800; r.update(); assert r.mButtonsLayout.params.width==440;
+ r.mRoutingBottomContainer.width=70; r.update(); assert r.mButtonsLayout.params.width==0;
+}
+}"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "RailGeometryTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
+    def test_incar_default_speed_pair_and_native_compass_clearance(self):
+        layout = ET.fromstring(controls.read(
+            "android/app/src/inCar/res/layout/in_car_driving_overlay.xml"))
+        ns = "{http://schemas.android.com/apk/res/android}"
+        cluster = layout.find("LinearLayout")
+        self.assertEqual("wrap_content", cluster.get(ns + "layout_width"))
+        self.assertEqual("top|right", cluster.get(ns + "layout_gravity"))
+        limit, speed = list(cluster)
+        self.assertEqual("60dp", limit.get(ns + "layout_width"))
+        self.assertEqual("72dp", speed.get(ns + "layout_width"))
+        self.assertEqual("app.organicmaps.incar.InCarNavigationSpeedView", speed.tag)
+
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        driving = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
+        self.assertIn("InCarOverlayCoordinator.compassOffset(mapBounds, occupied,", activity)
+        self.assertIn("binding.speedCluster.setVisibility(snapshot.navigating ? View.GONE", driving)
+        self.assertIn("binding.speedCluster.post(activity::refreshInCarCompassOffset)", driving)
+
+        src = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarOverlayCoordinator.java")
+        start = src.index("  public static int[] compassOffset(")
+        body = src.index("{", start)
+        depth, end = 1, body + 1
+        while depth:
+            depth += (src[end] == "{") - (src[end] == "}")
+            end += 1
+        method = src[start:end].replace("@NonNull ", "")
+        harness = """class CompassPolicyTest {
+static class Rect {
+ int left,top,right,bottom;
+ Rect(int l,int t,int r,int b){left=l;top=t;right=r;bottom=b;}
+ boolean isEmpty(){return right<=left||bottom<=top;}
+ static boolean intersects(Rect a,Rect b){return a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;}
+}
+""" + method + """
+public static void main(String[] args) {
+ Rect map=new Rect(53,42,1227,700);
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(1080,50,1219,130),53,42,8,35),new int[]{53,131});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(53,42,1227,115),53,42,8,35),new int[]{53,116});
+ assert java.util.Arrays.equals(compassOffset(map,new Rect(1300,0,1400,100),53,42,8,35),new int[]{53,42});
+}
+}"""
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java unavailable: compass clearance NOT_RUN")
+        if java:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "CompassPolicyTest.java"
+                path.write_text(harness)
+                subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
+    def test_incar_overlay_visibility_and_occupancy_contracts(self):
+        """Execute actual production state predicate and rectangle intersection."""
+        quick = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsUi.java")
+        vis = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsPolicy.java")
+        occupied = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarOverlayCoordinator.java")
+        self.assertIn("mButtonsHidden = Boolean.TRUE.equals(hidden)", quick)
+        self.assertIn("mBottomButtonsHidden = Boolean.TRUE.equals(hidden)", quick)
+        self.assertIn("mOverflowDialogOpen = true", quick)
+        self.assertIn("mOverflowDialogOpen = false", quick)
+        self.assertIn("mImeVisible = imeVisible", quick)
+        self.assertIn("!imeVisible && !mRoutingSheetOpen", quick)
+        self.assertIn("private boolean isImeActive()", quick)
+        self.assertIn("ViewCompat.getRootWindowInsets(owner)", quick)
+        self.assertIn("WindowInsetsCompat.Type.ime()", quick)
+        self.assertIn("getShowRoutingBottomSheet().observe(", quick)
+        self.assertIn("final int availablePx = Math.max(0, parentHeight - topReserved - bottomMargin)", quick)
+        self.assertNotIn("Math.max(minimum, parentHeight - topReserved - bottomMargin)", quick)
+        sizing = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDialogSizing.java")
+        self.assertIn("InCarSettingsStore.controlsOnLeft(activity) ? Gravity.LEFT : Gravity.RIGHT", sizing)
+        self.assertIn("RoutingController.get().isPlanning()", quick)
+        self.assertIn("InCarOverlayCoordinator.measureQuickColumn(", quick)
+        self.assertIn("InCarOverlayCoordinator.measure(mActivity, left, side, cell)", quick)
+        self.assertNotIn("InCarOverlayCoordinator.measure(mActivity, left, currentActionSizePx())", quick)
+        self.assertNotIn("mRoot.bringToFront()", quick)
+        self.assertIn("getGlobalVisibleRect(rect)", occupied)
+        self.assertIn("R.id.routing_bottom_buttons", occupied)
+        self.assertIn("R.id.nav_bottom_frame", occupied)
+        self.assertIn("R.id.nav_next_turn_container", occupied)
+        activity = controls.read("android/app/src/main/java/app/organicmaps/MwmActivity.java")
+        self.assertIn("R.id.in_car_quick_destinations_container", activity)
+        self.assertIn("InCarSettingsStore.controlsOnLeft(this)", activity)
+        self.assertIn("mActivity.updateBottomWidgetsOffset(0)", quick)
+        self.assertIn("placePageViewport(", occupied)
+        self.assertIn("boundedViewport(", occupied)
+        place = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageUtils.java")
+        self.assertIn("InCarOverlayCoordinator.placePageViewport(", place)
+        self.assertIn("models.get(SearchPageViewModel.class).getSearchEnabled()", place)
+        self.assertIn("models.get(PlacePageViewModel.class).getMapObject()", place)
+        self.assertIn("models.get(RoutingPlanViewModel.class).getShowRoutingBottomSheet()", place)
+        plan = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingPlanFragment.java")
+        self.assertIn("PlacePageUtils.updateMapViewport(mapRoot,", plan)
+        self.assertIn("Map.isEngineCreated()", place)
+        self.assertIn("mapView.getSurfaceFrameWidth() != mapView.getWidth()", place)
+        self.assertIn("mapView.getLastAppliedSurfaceWidth() != mapView.getWidth()", place)
+        self.assertIn("RoutingController.get().isNavigating()", place)
+        self.assertIn("Framework.nativeSetVisibleRect(rect.left, rect.top, rect.right, rect.bottom)", place)
+        self.assertIn("usableColumnHeight(", occupied)
+        camera = controls.read("android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java")
+        self.assertIn("InCarOverlayCoordinator.usableColumnHeight(", camera)
+        self.assertIn("mCameraOccupancyListener = () ->", camera)
+        self.assertNotIn("if (available <= 0)\n      return;", camera)
+        self.assertIn("final boolean horizontal = available < cellHeight * 4 + divider * 3;", camera)
+        self.assertIn("usableWidth >= cellWidth * 4 + divider * 3", camera)
+        self.assertIn("final int targetVisibility = fits ? View.VISIBLE : View.GONE;", camera)
+        self.assertIn("if (!fits)", camera)
+        self.assertIn("camera.isShown() && camera.getWidth() > camera.getHeight()", quick)
+        self.assertIn("removeOnGlobalLayoutListener(mCameraOccupancyListener)", camera)
+        self.assertIn("R.id.nav_speed_limit", occupied)
+        self.assertIn("R.id.in_car_nav_speed", occupied)
+        self.assertIn("measureQuickColumn(", occupied)
+        self.assertIn("mOccupiedRegionListener = () ->", quick)
+        self.assertIn("removeOnGlobalLayoutListener(mOccupiedRegionListener)", quick)
+        self.assertIn("mContainer.getChildAt(i * 2) != rendered.get(i)", quick)
+        self.assertIn("if (changed)", quick)
+        self.assertIn("if (!(raw instanceof LinearLayout.LayoutParams) || params.width != size || params.height != size)", quick)
+        self.assertIn("mContainer.getChildAt(i * 2 + 1)", quick)
+        self.assertIn("dividerParams.width != width", quick)
+        self.assertIn("final InCarOverlayCoordinator.Snapshot occupied = measureCandidateOccupancy()", quick)
+        self.assertIn("private void showFuelChargingChoice()", quick)
+        self.assertIn("mOverflowDialogOpen = true", quick)
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java source launcher unavailable")
+        method_start = vis.index("  public static boolean shouldShowSurface(boolean inCarFlavor, boolean searchOpen, boolean placePageOpen,")
+        body_start = vis.index("{", method_start)
+        depth, end = 1, body_start + 1
+        while depth:
+            depth += (vis[end] == "{") - (vis[end] == "}")
+            end += 1
+        method = vis[method_start:end]
+        rect_start = occupied.index("  public static boolean overlapsColumn(")
+        rect_body = occupied.index("{", rect_start)
+        depth, rect_end = 1, rect_body + 1
+        while depth:
+            depth += (occupied[rect_end] == "{") - (occupied[rect_end] == "}")
+            rect_end += 1
+        rect_method = occupied[rect_start:rect_end].replace("@NonNull ", "")
+        cap_start = occupied.index("  public static int usableColumnHeight(")
+        cap_body = occupied.index("{", cap_start)
+        depth, cap_end = 1, cap_body + 1
+        while depth:
+            depth += (occupied[cap_end] == "{") - (occupied[cap_end] == "}")
+            cap_end += 1
+        cap_method = occupied[cap_start:cap_end]
+        viewport_start = occupied.index("  static int[] boundedViewport(")
+        viewport_body = occupied.index("{", viewport_start)
+        depth, viewport_end = 1, viewport_body + 1
+        while depth:
+            depth += (occupied[viewport_end] == "{") - (occupied[viewport_end] == "}")
+            viewport_end += 1
+        viewport_method = occupied[viewport_start:viewport_end]
+        harness = """class OverlayPolicyTest {
+static class Rect {int left,right; Rect(int l,int r){left=l;right=r;}}
+""" + method + "\n" + rect_method + "\n" + cap_method + "\n" + viewport_method + """
+public static void main(String[] args) {
+  for (int mask=0;mask<256;mask++) {
+    boolean car=(mask&1)!=0,search=(mask&2)!=0,place=(mask&4)!=0;
+    boolean planning=(mask&8)!=0,nav=(mask&16)!=0,buttons=(mask&32)!=0;
+    boolean bottom=(mask&64)!=0,modal=(mask&128)!=0;
+    boolean expected=car&&!search&&!place&&!modal&&(nav||(!planning&&!buttons&&!bottom));
+    assert shouldShowSurface(car,search,place,planning,nav,buttons,bottom,modal)==expected;
+  }
+  assert overlapsColumn(new Rect(10,30),29,40);
+  assert !overlapsColumn(new Rect(10,30),30,40);
+  assert !overlapsColumn(new Rect(40,50),10,40);
+  assert overlapsColumn(new Rect(0,100),10,40);
+  assert usableColumnHeight(410,480,120,76)==284;
+  assert usableColumnHeight(410,480,180,76)==224;
+  assert usableColumnHeight(410,480,350,140)==0;
+  assert usableColumnHeight(200,480,0,0)==200;
+  assert usableColumnHeight(200,480,-15,-5)==200;
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,540,100),new int[]{0,0,1280,540});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1110,500,100),new int[]{0,0,1110,500});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,190,0,1280,520,100),new int[]{190,0,1280,520});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,0,0,1280,80,100),new int[]{0,0,1280,100});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,1200,0,1280,620,100),new int[]{1180,0,1280,620});
+  assert java.util.Arrays.equals(boundedViewport(1280,720,-4,-10,1400,820,100),new int[]{0,0,1280,720});
+}
+}"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "OverlayPolicyTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
+
+    def test_incar_quick_zero_capacity_and_overflow_are_actual_policy(self):
+        """Execute production compact policy at and below the 55dp interaction floor."""
+        src = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsLayoutPolicy.java")
+        java = shutil.which("java")
+        if not java:
+            self.skipTest("Java source launcher unavailable")
+        methods = []
+        for kind, name in (("int", "requiredHeightDp"), ("int", "maxVisibleActions"),
+                           ("int", "navigationActionSizeDp"), ("int", "directActionCountForCapacity"),
+                           ("boolean", "shouldShowMore")):
+            match = re.search(r"  static " + kind + " " + name + r"\([^)]*\)\s*\{", src)
+            self.assertIsNotNone(match, name)
+            start = src.index("{", match.start())
+            depth, end = 1, start + 1
+            while depth:
+                depth += (src[end] == "{") - (src[end] == "}")
+                end += 1
+            methods.append(src[match.start():end])
+        harness = (
+            "class QuickCapacityTest {\n"
+            "static final int NAVIGATION_ACTION_COUNT=4;\n"
+            "static final int PREFERRED_ACTION_SIZE_DP=69;\n"
+            "static final int MIN_ACTION_SIZE_DP=69;\n"
+            "static final int EXTRA_COMPACT_ACTION_SIZE_DP=55;\n"
+            "static final int MIN_ACTION_GAP_DP=1;\n"
+            "static final int PREFERRED_ACTION_GAP_DP=1;\n"
+            + "\n".join(methods) +
+            "\npublic static void main(String[] args) {\n"
+            " assert maxVisibleActions(-1,55,1)==0;\n"
+            " assert maxVisibleActions(0,55,1)==0;\n"
+            " assert maxVisibleActions(54,55,1)==0;\n"
+            " assert maxVisibleActions(55,55,1)==1;\n"
+            " assert maxVisibleActions(110,55,1)==1;\n"
+            " assert maxVisibleActions(111,55,1)==2;\n"
+            " assert navigationActionSizeDp(278)==55;\n"
+            " assert navigationActionSizeDp(279)==69;\n"
+            " assert directActionCountForCapacity(0,4,0)==0;\n"
+            " assert directActionCountForCapacity(1,4,0)==0;\n"
+            " assert shouldShowMore(1,4,0,4);\n"
+            " assert directActionCountForCapacity(2,4,0)==1;\n"
+            " assert shouldShowMore(2,4,1,3);\n"
+            " assert directActionCountForCapacity(4,3,0)==3;\n"
+            " assert !shouldShowMore(4,3,3,0);\n"
+            "}\n}\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "QuickCapacityTest.java"
+            path.write_text(harness)
+            subprocess.run([java, "-ea", str(path)], check=True, timeout=30)
 
     def test_unknown_compiled_colour_references_report_a_validation_error(self):
         from tools.ci import verify_in_car_light_palette as palette
@@ -406,8 +1117,10 @@ public class VisibilityTest {
 #include <memory>
 struct SetAutoPerspectiveEvent { bool p; explicit SetAutoPerspectiveEvent(bool v):p(v){} };
 template<typename T, typename... Args> auto make_unique_dp(Args&&... args) { return std::make_unique<T>(std::forward<Args>(args)...); }
-struct Screen { bool tilted=false; bool isPerspective() const { return tilted; } };
+struct Screen { bool tilted=false; bool isPerspective() const { return tilted; }
+ bool isAutoPerspective() const { return false; } };
 struct Stream { Screen screen; const Screen & GetCurrentScreen() const { return screen; }
+ void DiscardPendingAutoPerspective() {}
  void ApplyCameraPresentation(bool p) { screen.tilted=p; } };
 struct Position { bool routing=false, fresh=true; int calls=0, mode=3;
  bool IsInRouting() const { return routing; }
@@ -455,15 +1168,93 @@ int main() {
             source = Path(tmp) / "camera.cpp"
             binary = Path(tmp) / "camera"
             source.write_text(harness)
-            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
+
+    def test_production_recenter_consumes_only_fresh_held_driving_fix(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: native recenter seam NOT_RUN")
+        native = controls.read("libs/drape_frontend/my_position_controller.cpp")
+        body = controls.method_body(native, "bool MyPositionController::RecenterPreservingMode()")
+        source = r"""
+#include <cstdint>
+struct Point { int value=0; };
+struct Rect { Point Center() const { return {}; } };
+namespace location { constexpr int FollowAndRotate=3; }
+constexpr int kDoNotChangeZoom=-1;
+int64_t nowNanos=20000000000;
+int64_t PositionClockNanos() { return nowNanos; }
+""" + controls.read("libs/drape_frontend/current_position_freshness.hpp").replace("#pragma once", "") + r"""
+struct Listener {
+ int events=0,last=-1;
+ void PositionChanged(Point p,bool) { ++events; last=p.value; }
+};
+class MyPositionController {
+public:
+ Listener * m_listener=nullptr;
+ Point m_position={7},m_lastHeldDrivingPosition={42};
+ bool m_isPositionAssigned=true,m_positionIsObsolete=false,m_recenterPending=false;
+ bool m_hasLastHeldDrivingPosition=true;
+ int64_t m_lastRecenterObservationNanos=20000000000;
+ int m_mode=location::FollowAndRotate;
+ double m_drawDirection=0;
+ Rect m_visiblePixelRect;
+ int recentered=-1;
+ bool IsNavigationStyleCameraActive() const { return true; }
+ Point GetRoutingRotationPixelCenter() const { return {}; }
+ Point Position() const { return m_position; }
+ bool IsModeHasPosition() const { return true; }
+ void ChangeModelView(Point p,int) { recentered=p.value; }
+ void ChangeModelView(Point p,double,Point,int) { recentered=p.value; }
+ bool RecenterPreservingMode();
+};
+bool MyPositionController::RecenterPreservingMode() {
+""" + body + r"""
+}
+int main() {
+ Listener listener;
+ MyPositionController controller;
+ controller.m_listener=&listener;
+ if (!controller.RecenterPreservingMode() || controller.recentered!=42 ||
+     controller.m_position.value!=42 || controller.m_hasLastHeldDrivingPosition ||
+     listener.events!=1 || listener.last!=42) return 1;
+ MyPositionController stale;
+ stale.m_listener=&listener;
+ stale.m_lastRecenterObservationNanos=100;
+ if (stale.RecenterPreservingMode() || stale.m_position.value!=7 ||
+     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1 ||
+     listener.events!=1 || listener.last!=42) return 2;
+ MyPositionController noListener;
+ if (noListener.RecenterPreservingMode()) return 3;
+ MyPositionController future;
+ future.m_listener=&listener;
+ nowNanos=19999999999;
+ if (future.RecenterPreservingMode() || listener.events!=1) return 4;
+ nowNanos=30000000001;
+ if (future.RecenterPreservingMode() || listener.events!=1) return 5;
+ nowNanos=30000000000;
+ if (!future.RecenterPreservingMode() || listener.events!=2) return 6;
+ return 0;
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "recenter.cpp"
+            binary = Path(tmp) / "recenter"
+            src.write_text(source)
+            subprocess.run([compiler, "-std=c++17", str(src), "-o", str(binary)],
+                           check=True, timeout=30)
+            subprocess.run([str(binary)], check=True, timeout=10)
 
     def test_camera_presentation_invalidates_scene_without_fresh_location(self):
         compiler = shutil.which("g++")
         if compiler is None:
             self.skipTest("C++ compiler unavailable: camera scene invalidation NOT_RUN")
-        body = controls.method_body(controls.read("libs/drape_frontend/user_event_stream.cpp"),
-                                    "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        stream_source = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        body = controls.method_body(stream_source, "void UserEventStream::ApplyCameraPresentation(bool perspective)")
+        discard = controls.method_body(stream_source, "void UserEventStream::DiscardPendingAutoPerspective()")
         harness = r"""#include <cassert>
 #include <memory>
 #include <list>
@@ -494,6 +1285,7 @@ struct Stream { Navigator m_navigator; int events=0; bool redraw=false;
   ++events; m_events.push_back(std::move(event));
  }
  void queueStaleAuto() { m_events.push_back(std::make_unique<SetAutoPerspectiveEvent>()); }
+ void DiscardPendingAutoPerspective() {""" + discard + r"""}
  void apply(bool perspective) {""" + body + r"""}
  void process() { redraw=events!=0; events=0; m_events.clear(); }
 };
@@ -512,7 +1304,9 @@ int main() {
             source = Path(tmp) / "camera_scene.cpp"
             binary = Path(tmp) / "camera_scene"
             source.write_text(harness)
-            subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)], check=True, capture_output=True)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
     def test_missing_or_reordered_detach_is_rejected(self):
@@ -573,11 +1367,17 @@ int main() {
 namespace location { enum Mode { NotFollow, Follow, FollowAndRotate, PendingPosition, NotFollowNoPosition }; }
 struct Point { int value; };
 struct Rect { Point Center() const { return {42}; } };
+struct Listener { int notifications=0; void PositionChanged(Point,bool) { ++notifications; } };
 int constexpr kDoNotChangeZoom = -1;
 int64_t now = 2000000000;
 int64_t PositionClockNanos() { return now; }
 struct Owner {
- bool m_listener=true;
+ Listener listener;
+ Listener * m_listener=&listener;
+ bool m_hasLastHeldDrivingPosition=false;
+ Point m_lastHeldDrivingPosition{7};
+ Point Position() const { return m_position; }
+ bool IsModeHasPosition() const { return true; }
  bool m_isPositionAssigned=true, m_positionIsObsolete=false, m_recenterPending=false, routing=false, driving=false;
  int64_t m_lastRecenterObservationNanos=1000000000;
  location::Mode m_mode=location::NotFollow;
@@ -837,3 +1637,143 @@ public class RecordingTest {
         with patch.object(controls, "read", altered):
             with self.assertRaisesRegex(SystemExit, "still reach the Activity"):
                 controls.verify_track_recording()
+
+class PostMergeAuditRegressionTests(unittest.TestCase):
+    """Source contracts complement, but do not replace, Android/TS18 runtime tests."""
+
+    def test_repeated_flat_perspective_sync_avoids_restarting_renderer(self):
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        body = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
+        body = body.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0]
+        self.assertIn("bool const hadManualOverride = m_manualCameraPresentation;", body)
+        self.assertIn("if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective()", body)
+        self.assertIn("|| m_userEventStream.GetCurrentScreen().isAutoPerspective())", body)
+        self.assertIn("m_userEventStream.ApplyCameraPresentation(false);", body)
+        self.assertIn("m_userEventStream.DiscardPendingAutoPerspective();", body)
+        queue = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        self.assertIn("void UserEventStream::DiscardPendingAutoPerspective()", queue)
+        self.assertIn("m_events.remove_if", queue)
+
+    def test_place_page_redraw_cache_is_incar_only(self):
+        source = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
+        self.assertIn("if (BuildConfig.IS_IN_CAR && buttons.equals(mRenderedButtons)", source)
+        self.assertIn("selectionGeneration == mRenderedSelectionGeneration", source)
+        self.assertIn("restoreAvailable == mRenderedRestoreAvailable", source)
+        self.assertIn("nativeHasRecentlyDeletedBookmark()", source)
+        factory = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtonFactory.java")
+        self.assertIn("nativeHasRecentlyDeletedBookmark() ? R.string.restore : R.string.save", factory)
+
+    def test_countdown_text_is_resource_format_driven(self):
+        from xml.etree import ElementTree
+        resources = ElementTree.fromstring(
+            controls.read("android/app/src/main/res/values/in_car_control_preferences.xml"))
+        strings = {item.attrib["name"]: item.text for item in resources.findall("string")}
+        self.assertEqual("%1$d%2$s", strings["in_car_navigation_countdown_seconds"])
+        for locale in ("ar", "fr", "in", "ja"):
+            translated = ElementTree.fromstring(controls.read(
+                f"android/app/src/main/res/values-{locale}/strings.xml"))
+            self.assertTrue(translated.find("string[@name=\"second\"]").text)
+        self.assertEqual("%1$s · %2$d", strings["in_car_navigation_start_countdown"])
+        place_page = controls.read("android/app/src/main/java/app/organicmaps/widget/placepage/PlacePageButtons.java")
+        start = controls.read("android/app/src/main/java/app/organicmaps/routing/RoutingBottomMenuController.java")
+        self.assertIn("getString(R.string.in_car_navigation_countdown_seconds, seconds, getString(R.string.second))", place_page)
+        self.assertIn("mContext.getString(R.string.in_car_navigation_start_countdown,", start)
+
+class InCarNativeCameraProductionProbeTests(unittest.TestCase):
+    """Compile the actual C++ production method against minimal seam fakes."""
+
+    def test_repeated_permission_messages_avoid_resets_and_discard_stale_events(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: native renderer probe NOT_RUN")
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        method = renderer.split("void FrontendRenderer::ApplyPerspectivePermission(bool allowed)", 1)[1]
+        method = "void FrontendRenderer::ApplyPerspectivePermission(bool allowed)" + (
+            method.split("bool FrontendRenderer::ToggleCameraViewAndRecenter()", 1)[0])
+        fixture = r"""
+#include <cassert>
+#include <memory>
+#include <utility>
+
+struct SetAutoPerspectiveEvent { explicit SetAutoPerspectiveEvent(bool) {} };
+template <typename T, typename... A>
+std::unique_ptr<T> make_unique_dp(A&&... a) {
+  return std::make_unique<T>(std::forward<A>(a)...);
+}
+struct PositionController {
+  bool routing = true;
+  int updates = 0;
+  bool IsInRouting() const { return routing; }
+  void EnablePerspectiveInRouting(bool) { ++updates; }
+};
+struct Screen {
+  bool perspective = false;
+  bool autoPerspective = false;
+  bool isPerspective() const { return perspective; }
+  bool isAutoPerspective() const { return autoPerspective; }
+};
+struct UserEvents {
+  Screen screen;
+  int applied = 0;
+  int purged = 0;
+  Screen const & GetCurrentScreen() const { return screen; }
+  void DiscardPendingAutoPerspective() { ++purged; }
+  void ApplyCameraPresentation(bool perspective) {
+    DiscardPendingAutoPerspective();
+    ++applied; screen.perspective = perspective; screen.autoPerspective = false;
+  }
+};
+struct FrontendRenderer {
+  bool m_enablePerspectiveInNavigation = false;
+  bool m_manualCameraPresentation = false;
+  PositionController position;
+  PositionController * m_myPositionController = &position;
+  UserEvents m_userEventStream;
+  int queued = 0;
+  void AddUserEvent(std::unique_ptr<SetAutoPerspectiveEvent>) { ++queued; }
+  void ApplyPerspectivePermission(bool allowed);
+};
+""" + method + r"""
+int main() {
+  FrontendRenderer renderer;
+  renderer.ApplyPerspectivePermission(false);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 0);
+  assert(renderer.m_userEventStream.purged == 2);
+  assert(renderer.position.updates == 0);
+  renderer.m_userEventStream.screen.perspective = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 1);
+  assert(renderer.m_userEventStream.purged == 3);
+  assert(!renderer.m_userEventStream.screen.perspective);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 1);
+  assert(renderer.m_userEventStream.purged == 4);
+  renderer.m_userEventStream.screen.autoPerspective = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 2);
+  assert(!renderer.m_userEventStream.screen.autoPerspective);
+  renderer.m_manualCameraPresentation = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(!renderer.m_manualCameraPresentation);
+  assert(renderer.m_userEventStream.applied == 3);
+  renderer.m_enablePerspectiveInNavigation = true;
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.position.updates == 1);
+  assert(renderer.m_userEventStream.applied == 4);
+  renderer.ApplyPerspectivePermission(false);
+  assert(renderer.m_userEventStream.applied == 4);
+  renderer.ApplyPerspectivePermission(true);
+  assert(renderer.position.updates == 2);
+  assert(renderer.queued == 1);
+  renderer.ApplyPerspectivePermission(true);
+  assert(renderer.queued == 1);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "probe.cpp"
+            executable = Path(tmp) / "probe"
+            source.write_text(fixture)
+            subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                            str(source), "-o", str(executable)], check=True, capture_output=True, text=True)
+            subprocess.run([str(executable)], check=True, capture_output=True, text=True)

@@ -44,7 +44,8 @@ public final class InCarSpeedDisplayPolicy
   {
     if (health != InCarDrivingViewController.LocationHealth.CURRENT || !hasSpeed || speedMps < 0.0)
       return unavailableText;
-    return formatter.format(speedMps);
+    // Visual speed below 3 km/h reads zero; keep the raw sample for routing and warning policy.
+    return formatter.format(speedMps < 3.0 / 3.6 ? 0.0 : speedMps);
   }
 
   /** Returns the leading numeric/value token for the compact circular navigation speed display. */

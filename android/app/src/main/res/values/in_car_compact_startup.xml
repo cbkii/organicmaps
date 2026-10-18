@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="in_car_compact_startup_title">Auto-start in compact window</string>
+  <string name="in_car_compact_startup_summary">Automatically open the compact dashboard map after Android starts. Requires compatible ts-theme HOME and authorised task control.</string>
+  <string name="in_car_compact_startup_checking">Checking compact dashboard compatibility…</string>
+  <string name="in_car_compact_startup_unavailable">Compact startup unavailable: select a compatible ts-theme HOME with native navigation windows. Your saved choice is retained.</string>
+</resources>

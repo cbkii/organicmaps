@@ -10,7 +10,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.AppCompatImageButton;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.widget.ImageViewCompat;
 import app.organicmaps.R;
@@ -33,14 +32,11 @@ final class InCarQuickActionButton extends AppCompatImageButton
     ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(iconColor));
     setPadding(iconPaddingPx, iconPaddingPx, iconPaddingPx, iconPaddingPx);
 
-    final int actionSurface = ContextCompat.getColor(getContext(), R.color.in_car_quick_surface);
-    final int surfaceAlpha = getResources().getInteger(R.integer.in_car_quick_surface_alpha);
-    final int outlineColor = ContextCompat.getColor(getContext(), R.color.in_car_map_control_outline);
-    final int outlineWidth = getResources().getDimensionPixelSize(R.dimen.in_car_map_control_outline_width);
+    // A single background belongs to the containing rail; cells own only transient feedback.
     final int pressedFeedbackAlpha = getResources().getInteger(R.integer.in_car_quick_pressed_feedback_alpha);
     final int focusedFeedbackAlpha = getResources().getInteger(R.integer.in_car_quick_focused_feedback_alpha);
-    setBackground(createBackground(ColorUtils.setAlphaComponent(actionSurface, surfaceAlpha), feedbackColor,
-                                   outlineColor, outlineWidth, cornerRadiusPx, pressedFeedbackAlpha,
+    setBackground(createBackground(Color.TRANSPARENT, feedbackColor,
+                                   Color.TRANSPARENT, 0, cornerRadiusPx, pressedFeedbackAlpha,
                                    focusedFeedbackAlpha));
   }
 

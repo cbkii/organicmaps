@@ -463,6 +463,7 @@ public:
   void SetTestBridge(TTestBridge const & fn) { m_testFn = fn; }
 #endif
 
+  void DiscardPendingAutoPerspective();
   void ApplyCameraPresentation(bool perspective);
 
 private:

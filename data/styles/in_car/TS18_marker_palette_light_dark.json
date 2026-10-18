@@ -1,0 +1,954 @@
+{
+  "metadata": {
+    "name": "TS18 Organic Maps dual-mode vehicle marker palette proposal",
+    "created": "2026-10-17",
+    "repository": "cbkii/organicmaps",
+    "source_head": "1f9d5d97e89fa6154e799a2c42848490b2a042d3",
+    "scope": "92 vehicle-style POI SVG variants, 16 bookmark colours and 15 MapCSS marker roles only; excludes base, roads, water, polygons, routes",
+    "authoritative_dark_source_sprites_sampled": false,
+    "notes": "Proposed dominant colours only; SVGs may contain multiple fills. Source/atlas regeneration and real TS18 verification required."
+  },
+  "roles": {
+    "fuel": {
+      "name": "Fuel / petrol",
+      "priority": "high",
+      "light": "#7843AA",
+      "dark": "#C999F7"
+    },
+    "ev": {
+      "name": "EV charging",
+      "priority": "high",
+      "light": "#4558B0",
+      "dark": "#92A5FE"
+    },
+    "parking": {
+      "name": "Public parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF"
+    },
+    "service": {
+      "name": "Vehicle servicing & repair",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA"
+    },
+    "amenities": {
+      "name": "Water, toilets & rest",
+      "priority": "high",
+      "light": "#007481",
+      "dark": "#7BD7EA"
+    },
+    "no-water": {
+      "name": "Non-potable / no drinking water",
+      "priority": "high",
+      "light": "#73512A",
+      "dark": "#73512A"
+    },
+    "medical": {
+      "name": "Medical care",
+      "priority": "high",
+      "light": "#BA3542",
+      "dark": "#FF8792"
+    },
+    "speedcam": {
+      "name": "Speed cameras",
+      "priority": "high",
+      "light": "#FF0000",
+      "dark": "#FF0000"
+    },
+    "signals": {
+      "name": "Road signals & rail crossing",
+      "priority": "high",
+      "light": "#A94730",
+      "dark": "#FFA27A"
+    },
+    "food": {
+      "name": "Food & drink",
+      "priority": "high",
+      "light": "#955A16",
+      "dark": "#FFC57C"
+    },
+    "road-access": {
+      "name": "Tolls, crossings & access",
+      "priority": "medium",
+      "light": "#9D5A37",
+      "dark": "#EAA87B"
+    },
+    "transport": {
+      "name": "Transport hubs",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9"
+    },
+    "hire": {
+      "name": "Vehicle hire & sharing",
+      "priority": "medium",
+      "light": "#477C83",
+      "dark": "#86BDBF"
+    },
+    "stay": {
+      "name": "Camping & accommodation",
+      "priority": "medium",
+      "light": "#866145",
+      "dark": "#D9AD88"
+    },
+    "nature": {
+      "name": "Nature & viewpoints",
+      "priority": "medium",
+      "light": "#3C7D52",
+      "dark": "#8FD8A3"
+    },
+    "attractions": {
+      "name": "Visitor attractions",
+      "priority": "medium",
+      "light": "#90652E",
+      "dark": "#D5B578"
+    },
+    "cultural": {
+      "name": "Culture, heritage & worship",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#B5A392"
+    },
+    "shopping": {
+      "name": "Shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F"
+    },
+    "private-parking": {
+      "name": "Private / restricted parking",
+      "priority": "low",
+      "light": "#708695",
+      "dark": "#8296A4"
+    },
+    "safety-services": {
+      "name": "Police, security & restrictions",
+      "priority": "medium",
+      "light": "#A15B55",
+      "dark": "#E49C91"
+    },
+    "everyday": {
+      "name": "Everyday services",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6"
+    },
+    "seasonal": {
+      "name": "Seasonal places",
+      "priority": "low",
+      "light": "#9C721B",
+      "dark": "#D2B66D"
+    }
+  },
+  "poi_symbols": {
+    "fuel-dispenser-m.svg": {
+      "role": "fuel",
+      "priority": "high",
+      "light": "#7843AA",
+      "dark": "#C999F7",
+      "source_sampled_day": "#717065"
+    },
+    "fuel-m.svg": {
+      "role": "fuel",
+      "priority": "high",
+      "light": "#7843AA",
+      "dark": "#C999F7",
+      "source_sampled_day": "#717065"
+    },
+    "fuel-s.svg": {
+      "role": "fuel",
+      "priority": "high",
+      "light": "#7843AA",
+      "dark": "#C999F7",
+      "source_sampled_day": "#717065"
+    },
+    "charging-station-m.svg": {
+      "role": "ev",
+      "priority": "high",
+      "light": "#4558B0",
+      "dark": "#92A5FE",
+      "source_sampled_day": "#717065"
+    },
+    "motorcycle-parking-m.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#546D87",
+      "dark": "#7DAAC9",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking-m.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking-s.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking_entrance-m.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking_pay-m.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking_pay-s.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking_underground-m.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "parking_underground_pay-m.svg": {
+      "role": "parking",
+      "priority": "high",
+      "light": "#0C729F",
+      "dark": "#5BBCEF",
+      "source_sampled_day": "#2E89B0"
+    },
+    "car-part-m.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "car-repair-m.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "car-repair-s.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "car-wash-m.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "compressed_air-m.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "dump-station-m.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "vehicle_inspection-m.svg": {
+      "role": "service",
+      "priority": "high",
+      "light": "#08766F",
+      "dark": "#66DACA",
+      "source_sampled_day": "#717065"
+    },
+    "drinking-water-m.svg": {
+      "role": "amenities",
+      "priority": "high",
+      "light": "#007481",
+      "dark": "#7BD7EA",
+      "source_sampled_day": "#14A0C2"
+    },
+    "toilets-m.svg": {
+      "role": "amenities",
+      "priority": "high",
+      "light": "#00968A",
+      "dark": "#0CF2C0",
+      "source_sampled_day": "#717065"
+    },
+    "picnic-m.svg": {
+      "role": "amenities",
+      "priority": "high",
+      "light": "#007481",
+      "dark": "#7BD7EA",
+      "source_sampled_day": "#717065"
+    },
+    "drinking-water-no-m.svg": {
+      "role": "no-water",
+      "priority": "high",
+      "light": "#73512A",
+      "dark": "#73512A",
+      "source_sampled_day": "#14A0C2"
+    },
+    "hospital-m.svg": {
+      "role": "medical",
+      "priority": "high",
+      "light": "#BA3542",
+      "dark": "#FF8792",
+      "source_sampled_day": "#C15746"
+    },
+    "speedcam-m.svg": {
+      "role": "speedcam",
+      "priority": "high",
+      "light": "#FF0000",
+      "dark": "#FF0000",
+      "source_sampled_day": "#F51E30"
+    },
+    "speedcam-s.svg": {
+      "role": "speedcam",
+      "priority": "high",
+      "light": "#FF0000",
+      "dark": "#FF0000",
+      "source_sampled_day": "#F51E30"
+    },
+    "traffic_signals-m.svg": {
+      "role": "signals",
+      "priority": "high",
+      "light": "#A94730",
+      "dark": "#FFA27A",
+      "source_sampled_day": "#FF2A2A"
+    },
+    "railway-crossing-m.svg": {
+      "role": "signals",
+      "priority": "high",
+      "light": "#A94730",
+      "dark": "#FFA27A",
+      "source_sampled_day": "#C81E17"
+    },
+    "cafe-m.svg": {
+      "role": "food",
+      "priority": "high",
+      "light": "#955A16",
+      "dark": "#FFC57C",
+      "source_sampled_day": "#BB9342"
+    },
+    "fastfood-m.svg": {
+      "role": "food",
+      "priority": "high",
+      "light": "#955A16",
+      "dark": "#FFC57C",
+      "source_sampled_day": "#BB9342"
+    },
+    "pub-m.svg": {
+      "role": "food",
+      "priority": "high",
+      "light": "#955A16",
+      "dark": "#FFC57C",
+      "source_sampled_day": "#BB9342"
+    },
+    "restaurant-m.svg": {
+      "role": "food",
+      "priority": "high",
+      "light": "#955A16",
+      "dark": "#FFC57C",
+      "source_sampled_day": "#BB9342"
+    },
+    "ford-m.svg": {
+      "role": "road-access",
+      "priority": "medium",
+      "light": "#9D5A37",
+      "dark": "#EAA87B",
+      "source_sampled_day": "#14A0C2"
+    },
+    "bcontrol-m.svg": {
+      "role": "road-access",
+      "priority": "medium",
+      "light": "#9D5A37",
+      "dark": "#EAA87B",
+      "source_sampled_day": "#717065"
+    },
+    "lift_gate-m.svg": {
+      "role": "road-access",
+      "priority": "medium",
+      "light": "#9D5A37",
+      "dark": "#EAA87B",
+      "source_sampled_day": "#717065"
+    },
+    "toll_booth-m.svg": {
+      "role": "road-access",
+      "priority": "medium",
+      "light": "#9D5A37",
+      "dark": "#EAA87B",
+      "source_sampled_day": "#717065"
+    },
+    "toll_booth-s.svg": {
+      "role": "road-access",
+      "priority": "medium",
+      "light": "#9D5A37",
+      "dark": "#EAA87B",
+      "source_sampled_day": "#717065"
+    },
+    "airport-m.svg": {
+      "role": "transport",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9",
+      "source_sampled_day": "#2F6499"
+    },
+    "airport-s.svg": {
+      "role": "transport",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9",
+      "source_sampled_day": "#2F6499"
+    },
+    "helipad-m.svg": {
+      "role": "transport",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9",
+      "source_sampled_day": "#2F6499"
+    },
+    "train-m.svg": {
+      "role": "transport",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9",
+      "source_sampled_day": "#2F6499"
+    },
+    "train-s.svg": {
+      "role": "transport",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9",
+      "source_sampled_day": "#2F6499"
+    },
+    "tram-m.svg": {
+      "role": "transport",
+      "priority": "medium",
+      "light": "#3D6598",
+      "dark": "#95B7E9",
+      "source_sampled_day": "#2F6499"
+    },
+    "car_sharing-m.svg": {
+      "role": "hire",
+      "priority": "medium",
+      "light": "#477C83",
+      "dark": "#86BDBF",
+      "source_sampled_day": "#717065"
+    },
+    "motorcycle_rental-m.svg": {
+      "role": "hire",
+      "priority": "medium",
+      "light": "#477C83",
+      "dark": "#86BDBF",
+      "source_sampled_day": "#717065"
+    },
+    "campsite-m.svg": {
+      "role": "stay",
+      "priority": "medium",
+      "light": "#866145",
+      "dark": "#D9AD88",
+      "source_sampled_day": "#664E42"
+    },
+    "caravan_site-m.svg": {
+      "role": "stay",
+      "priority": "medium",
+      "light": "#866145",
+      "dark": "#D9AD88",
+      "source_sampled_day": "#664E42"
+    },
+    "nparkf-outline-m.svg": {
+      "role": "nature",
+      "priority": "medium",
+      "light": "#3C7D52",
+      "dark": "#8FD8A3",
+      "source_sampled_day": "#507F34"
+    },
+    "nparkf-outline-s.svg": {
+      "role": "nature",
+      "priority": "medium",
+      "light": "#3C7D52",
+      "dark": "#8FD8A3",
+      "source_sampled_day": "#507F34"
+    },
+    "viewpoint-m.svg": {
+      "role": "nature",
+      "priority": "medium",
+      "light": "#3C7D52",
+      "dark": "#8FD8A3",
+      "source_sampled_day": "#7F5933"
+    },
+    "theme_park-m.svg": {
+      "role": "attractions",
+      "priority": "medium",
+      "light": "#90652E",
+      "dark": "#D5B578",
+      "source_sampled_day": "#7F5933"
+    },
+    "tourism-m.svg": {
+      "role": "attractions",
+      "priority": "medium",
+      "light": "#90652E",
+      "dark": "#D5B578",
+      "source_sampled_day": "#7F5933"
+    },
+    "zoo-m.svg": {
+      "role": "attractions",
+      "priority": "medium",
+      "light": "#90652E",
+      "dark": "#D5B578",
+      "source_sampled_day": "#7F5933"
+    },
+    "archaeological-site-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "buddhist-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "christian-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "city_gate-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#B5A392",
+      "source_sampled_day": "#7F5933"
+    },
+    "community-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "cross-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#717065"
+    },
+    "gallery-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#B5A392",
+      "source_sampled_day": "#7F5933"
+    },
+    "hindu-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "historic-ship-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "mormon-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "monument-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#717065"
+    },
+    "museum-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#B5A392",
+      "source_sampled_day": "#7F5933"
+    },
+    "muslim-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "place-of-worship-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "remains-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "theatre-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#B5A392",
+      "source_sampled_day": "#7F5933"
+    },
+    "tomb-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#816A5B",
+      "source_sampled_day": "#7F5933"
+    },
+    "wayside_shrine-m.svg": {
+      "role": "cultural",
+      "priority": "low",
+      "light": "#816A5B",
+      "dark": "#B5A392",
+      "source_sampled_day": "#7F5933"
+    },
+    "car_shop-m.svg": {
+      "role": "shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F",
+      "source_sampled_day": "#8C5F93"
+    },
+    "caravan-shop-m.svg": {
+      "role": "shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F",
+      "source_sampled_day": "#8C5F93"
+    },
+    "convenience-m.svg": {
+      "role": "shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F",
+      "source_sampled_day": "#8C5F93"
+    },
+    "motorcycle_shop-m.svg": {
+      "role": "shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F",
+      "source_sampled_day": "#8C5F93"
+    },
+    "shop-m.svg": {
+      "role": "shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F",
+      "source_sampled_day": "#8C5F93"
+    },
+    "supermarket-m.svg": {
+      "role": "shopping",
+      "priority": "low",
+      "light": "#918697",
+      "dark": "#90839F",
+      "source_sampled_day": "#8C5F93"
+    },
+    "parking_entrance_private-m.svg": {
+      "role": "private-parking",
+      "priority": "low",
+      "light": "#708695",
+      "dark": "#8296A4",
+      "source_sampled_day": "#4E7C90"
+    },
+    "parking_private-m.svg": {
+      "role": "private-parking",
+      "priority": "low",
+      "light": "#708695",
+      "dark": "#8296A4",
+      "source_sampled_day": "#4E7C90"
+    },
+    "parking_private-s.svg": {
+      "role": "private-parking",
+      "priority": "low",
+      "light": "#708695",
+      "dark": "#8296A4",
+      "source_sampled_day": "#4E7C90"
+    },
+    "parking_underground_private-m.svg": {
+      "role": "private-parking",
+      "priority": "low",
+      "light": "#708695",
+      "dark": "#8296A4",
+      "source_sampled_day": "#4E7C90"
+    },
+    "police-m.svg": {
+      "role": "safety-services",
+      "priority": "medium",
+      "light": "#A15B55",
+      "dark": "#E49C91",
+      "source_sampled_day": "#717065"
+    },
+    "prison-m.svg": {
+      "role": "safety-services",
+      "priority": "medium",
+      "light": "#A15B55",
+      "dark": "#E49C91",
+      "source_sampled_day": "#717065"
+    },
+    "security-m.svg": {
+      "role": "safety-services",
+      "priority": "medium",
+      "light": "#A15B55",
+      "dark": "#E49C91",
+      "source_sampled_day": "#717065"
+    },
+    "bank-m.svg": {
+      "role": "everyday",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6",
+      "source_sampled_day": "#717065"
+    },
+    "college-m.svg": {
+      "role": "everyday",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6",
+      "source_sampled_day": "#717065"
+    },
+    "mail-m.svg": {
+      "role": "everyday",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6",
+      "source_sampled_day": "#717065"
+    },
+    "mast-s.svg": {
+      "role": "everyday",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6",
+      "source_sampled_day": "#717065"
+    },
+    "parcel_locker-m.svg": {
+      "role": "everyday",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6",
+      "source_sampled_day": "#717065"
+    },
+    "parking-meter-m.svg": {
+      "role": "everyday",
+      "priority": "low",
+      "light": "#737A80",
+      "dark": "#9AABB6",
+      "source_sampled_day": "#717065"
+    },
+    "christmas_market-m.svg": {
+      "role": "seasonal",
+      "priority": "low",
+      "light": "#9C721B",
+      "dark": "#9C721B",
+      "source_sampled_day": "#FCC21B"
+    },
+    "christmas_tree-m.svg": {
+      "role": "seasonal",
+      "priority": "low",
+      "light": "#9C721B",
+      "dark": "#9C721B",
+      "source_sampled_day": "#FCC21B"
+    }
+  },
+  "bookmarks": {
+    "Red": {
+      "light": "#BE3045",
+      "dark": "#FF778A"
+    },
+    "Pink": {
+      "light": "#BA3D75",
+      "dark": "#FF85B8"
+    },
+    "Purple": {
+      "light": "#7843AA",
+      "dark": "#C999F7"
+    },
+    "DeepPurple": {
+      "light": "#5C45A4",
+      "dark": "#AD99F2"
+    },
+    "Blue": {
+      "light": "#2764BA",
+      "dark": "#8FB7FF"
+    },
+    "LightBlue": {
+      "light": "#1879A5",
+      "dark": "#66C7F1"
+    },
+    "Cyan": {
+      "light": "#067D8B",
+      "dark": "#69D9E6"
+    },
+    "Teal": {
+      "light": "#087A69",
+      "dark": "#6AD8BE"
+    },
+    "Green": {
+      "light": "#347B4C",
+      "dark": "#8DD5A2"
+    },
+    "Lime": {
+      "light": "#637A26",
+      "dark": "#C5E179"
+    },
+    "Yellow": {
+      "light": "#8C6D12",
+      "dark": "#DBD337"
+    },
+    "Orange": {
+      "light": "#A65E21",
+      "dark": "#FFAE67"
+    },
+    "DeepOrange": {
+      "light": "#BA5130",
+      "dark": "#FF8D6A"
+    },
+    "Brown": {
+      "light": "#78604B",
+      "dark": "#C7A861"
+    },
+    "Gray": {
+      "light": "#727A83",
+      "dark": "#ADB8C4"
+    },
+    "BlueGray": {
+      "light": "#5A758D",
+      "dark": "#9EAFC4"
+    }
+  },
+  "mapcss_markers": {
+    "Selected object": {
+      "light": "#1768C5",
+      "dark": "#52E8FF"
+    },
+    "Location arrow": {
+      "light": "#286BD0",
+      "dark": "#00B7FF"
+    },
+    "Search default": {
+      "light": "#2478BF",
+      "dark": "#77B8FA"
+    },
+    "Search pending": {
+      "light": "#777F89",
+      "dark": "#ACB0B8"
+    },
+    "Search unavailable": {
+      "light": "#91959B",
+      "dark": "#87929D"
+    },
+    "Unavailable selected": {
+      "light": "#C75B30",
+      "dark": "#FFA47A"
+    },
+    "Rating good": {
+      "light": "#258450",
+      "dark": "#92DEA8"
+    },
+    "Rating bad": {
+      "light": "#C55D3D",
+      "dark": "#FF9072"
+    },
+    "Rating unrated": {
+      "light": "#5A7DA0",
+      "dark": "#93AFCD"
+    },
+    "Speed camera": {
+      "light": "#FF0000",
+      "dark": "#FF0000"
+    },
+    "Route via point": {
+      "light": "#087B56",
+      "dark": "#69D6A3"
+    },
+    "Transit transfer outer": {
+      "light": "#2F475B",
+      "dark": "#9BB2C7"
+    },
+    "Transit transfer inner": {
+      "light": "#F9FAFD",
+      "dark": "#19222E"
+    },
+    "Transit stop inner": {
+      "light": "#FAFAFA",
+      "dark": "#111925"
+    },
+    "Hotel price text": {
+      "light": "#002401",
+      "dark": "#002401"
+    }
+  },
+  "user_edits": {
+    "role/speedcam/night": "#FF0000",
+    "role/speedcam/day": "#FF0000",
+    "icon/archaeological-site-m.svg/night": "#816A5B",
+    "icon/buddhist-m.svg/night": "#816A5B",
+    "icon/christian-m.svg/night": "#816A5B",
+    "icon/community-m.svg/night": "#816A5B",
+    "icon/cross-m.svg/night": "#816A5B",
+    "icon/hindu-m.svg/night": "#816A5B",
+    "icon/historic-ship-m.svg/night": "#816A5B",
+    "icon/mormon-m.svg/night": "#816A5B",
+    "icon/monument-m.svg/night": "#816A5B",
+    "icon/muslim-m.svg/night": "#816A5B",
+    "icon/place-of-worship-m.svg/night": "#816A5B",
+    "icon/remains-m.svg/night": "#816A5B",
+    "icon/tomb-m.svg/night": "#816A5B",
+    "icon/christmas_market-m.svg/night": "#9C721B",
+    "icon/christmas_tree-m.svg/night": "#9C721B",
+    "bookmark/Yellow/night": "#DBD337",
+    "bookmark/Brown/night": "#C7A861",
+    "marker/Selected object/night": "#52E8FF",
+    "marker/Location arrow/night": "#00B7FF",
+    "marker/Speed camera/day": "#FF0000",
+    "marker/Speed camera/night": "#FF0000",
+    "marker/Hotel price text/night": "#002401",
+    "marker/Hotel price text/day": "#002401",
+    "icon/drinking-water-no-m.svg/day": "#73512A",
+    "icon/drinking-water-no-m.svg/night": "#73512A",
+    "icon/toilets-m.svg/night": "#0CF2C0",
+    "icon/toilets-m.svg/day": "#00968A",
+    "icon/motorcycle-parking-m.svg/day": "#546D87",
+    "icon/motorcycle-parking-m.svg/night": "#7DAAC9",
+    "role/no-water/day": "#73512A",
+    "role/no-water/night": "#73512A"
+  }
+}
