@@ -704,6 +704,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
   @SuppressLint("MissingPermission")
   private void startProviderSafely()
   {
+    mAcquisitionRequested = true; // Includes independent simulation and native-provider restoration.
     mActive = true; // Allows synchronous simulation callbacks; native registration is reconciled below.
     if (!mInCar)
     {

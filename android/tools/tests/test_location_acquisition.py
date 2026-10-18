@@ -261,6 +261,11 @@ class LocationAcquisitionTests(unittest.TestCase):
                   android.os.Handler.advance(5_000);
                 }
                 check(hc.manager.removes==beforeStall+1); helper.stop();
+                LocationHelper simulation=new LocationHelper(new Context(),new SensorHelper(),true);
+                simulation.startNavigationSimulation(new app.organicmaps.sdk.routing.JunctionInfo[0]);
+                check(simulation.isAcquisitionRequested()); simulation.stop(); check(!simulation.isActive());
+                simulation.stopNavigationSimulation(); check(simulation.isAcquisitionRequested());
+                simulation.stop(); check(!simulation.isActive());
                 System.out.println(""")
         for annotation in ('NonNull', 'Nullable', 'UiThread'):
             stubs[f'androidx/annotation/{annotation}.java'] = f'package androidx.annotation; public @interface {annotation} {{}}'
