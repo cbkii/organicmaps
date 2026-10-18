@@ -54,7 +54,8 @@ public:
   /// Interrupt routing and clear buffers
   void ClearState();
   /// Forward to the underlying IRouter. See IRouter::SwapAltRouteToActive.
-  void SwapAltRouteToActive();
+  /// Refuses pending/running calculations and result IDs that do not match the cached adjustment state.
+  bool SwapAltRouteToActive(uint64_t routesId);
 
   /// Returns false until SetRouter() has installed an underlying synchronous router.
   /// Used by optional display-only helpers that must fail open during early framework startup.
@@ -72,7 +73,7 @@ public:
   {
     std::lock_guard lock(m_guard);
     projections.clear();
-    if (m_router)
+    if (m_router && !m_isCalculating)
       m_router->FindClosestProjectionsToRoad(point, radius, maxCount, projections);
   }
 
@@ -82,7 +83,7 @@ public:
   {
     std::lock_guard lock(m_guard);
     projections.clear();
-    if (m_router)
+    if (m_router && !m_isCalculating)
       m_router->FindFreeDrivingRoadCorridor(from, point, maxDistanceM, maxEdges, maxHops, projections);
   }
 
@@ -90,19 +91,19 @@ public:
   {
     std::lock_guard lock(m_guard);
     metadata = {};
-    return m_router && m_router->GetFreeDrivingRoadMetadata(edge, metadata);
+    return m_router && !m_isCalculating && m_router->GetFreeDrivingRoadMetadata(edge, metadata);
   }
 
   bool AreRoadEdgesConnected(Edge const & from, Edge const & to)
   {
     std::lock_guard lock(m_guard);
-    return m_router && m_router->AreRoadEdgesConnected(from, to);
+    return m_router && !m_isCalculating && m_router->AreRoadEdgesConnected(from, to);
   }
 
   double GetFreeDrivingRoadSpeedLimit(Edge const & edge)
   {
     std::lock_guard lock(m_guard);
-    return m_router ? m_router->GetFreeDrivingRoadSpeedLimit(edge) : -1.0;
+    return m_router && !m_isCalculating ? m_router->GetFreeDrivingRoadSpeedLimit(edge) : -1.0;
   }
 
 private:
@@ -159,6 +160,11 @@ private:
   m2::PointD m_startDirection = m2::PointD::Zero();
   bool m_adjustToPrevRoute = false;
   bool m_needAlternatives = true;
+  /// True while the routing thread has exclusive ownership of the router for a calculation request.
+  bool m_isCalculating = false;
+  /// Id of the valid result represented by the router's adjustment caches. Requests and state
+  /// clearing invalidate it immediately; only successful completion can publish a nonzero id.
+  uint64_t m_cachedRoutesId = 0;
   std::shared_ptr<RouterDelegateProxy> m_delegateProxy;
   std::shared_ptr<AbsentRegionsFinder> m_absentRegionsFinder;
   std::shared_ptr<IRouter> m_router;
