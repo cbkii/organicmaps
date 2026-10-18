@@ -529,7 +529,11 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     if (IsNavigationStyleCameraActive())
     {
       ChangeMode(location::FollowAndRotate);
-      UpdateViewport(kMaxScaleZoomLevel);
+      if (m_isDrivingView && !m_isInRouting && !m_needBlockAutoZoom)
+        ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                        m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+      else
+        UpdateViewport(kMaxScaleZoomLevel);
     }
     else
     {
@@ -555,7 +559,11 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     if (IsNavigationStyleCameraActive())
     {
       ChangeMode(location::FollowAndRotate);
-      UpdateViewport(kMaxScaleZoomLevel);
+      if (m_isDrivingView && !m_isInRouting && !m_needBlockAutoZoom)
+        ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                        m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+      else
+        UpdateViewport(kMaxScaleZoomLevel);
     }
     else
     {
@@ -981,7 +989,12 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
   }
   else
   {
-    UpdateViewport(kDoNotChangeZoom);
+    // The native startup mode may already be FollowAndRotate before Driving View takes ownership.
+    if (!wasDrivingView && !m_needBlockAutoZoom)
+      ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                      m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+    else
+      UpdateViewport(kDoNotChangeZoom);
   }
   ResetRoutingNotFollowTimer();
 }
