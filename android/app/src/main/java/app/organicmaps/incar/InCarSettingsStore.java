@@ -60,7 +60,7 @@ public final class InCarSettingsStore
     if (!app.organicmaps.BuildConfig.IS_IN_CAR)
       return;
     compactStartupPrefs(context).edit().putBoolean("InCarCompactStartup", enabled).apply();
-    context.getContentResolver().notifyChange(InCarCompactStartupProvider.URI, null);
+    InCarCompactStartupProvider.changed(context);
   }
 
   private static SharedPreferences compactStartupPrefs(@NonNull Context context)

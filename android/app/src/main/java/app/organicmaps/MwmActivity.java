@@ -259,7 +259,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(true);
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.renderingCreated(System.identityHashCode(this));
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     checkMeasurementSystem();
@@ -271,7 +271,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(true);
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(System.identityHashCode(this), true);
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     notifyInCarRenderingCreated();
@@ -282,7 +282,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(false);
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(System.identityHashCode(this), false);
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     MwmApplication.from(getApplicationContext()).onInCarRenderingDetached();
@@ -299,7 +299,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     if (BuildConfig.IS_IN_CAR)
     {
-      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.nativeReady();
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.nativeReady(System.identityHashCode(this));
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
@@ -624,6 +624,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   protected void onSafeCreate(@Nullable Bundle savedInstanceState)
   {
     super.onSafeCreate(savedInstanceState);
+    if (BuildConfig.IS_IN_CAR)
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.created(System.identityHashCode(this), getTaskId());
     mInCarLastUiMode = getResources().getConfiguration().uiMode;
 
     mIntentConsumed = isIntentConsumed(savedInstanceState, getIntent());

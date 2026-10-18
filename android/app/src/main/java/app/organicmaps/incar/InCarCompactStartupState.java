@@ -24,37 +24,51 @@ public final class InCarCompactStartupState
     mCore = true;
   }
 
-  public synchronized void activity(int instance, int task, boolean resumed)
+  public synchronized void created(int instance, int task)
   {
-    if (resumed)
-    {
-      if (mActivity != instance)
-      {
-        mWidth = mHeight = 0;
-      }
-      mActivity = instance;
-      mTask = task;
-      mStage = "MAP_ACTIVITY";
-      mResumed = true;
-    }
-    else if (mActivity == instance)
-      mResumed = false;
+    mActivity = instance;
+    mTask = task;
+    mWidth = mHeight = 0;
+    mAttached = mResumed = false;
+    mStage = "MAP_ACTIVITY";
   }
 
-  public synchronized void attached(boolean attached)
+  public synchronized void activity(int instance, int task, boolean resumed)
   {
+    if (mActivity != instance)
+      return;
+    mTask = task;
+    mResumed = resumed;
+  }
+
+  public synchronized void attached(int instance, boolean attached)
+  {
+    if (mActivity != instance)
+      return;
     mAttached = attached;
     if (!attached)
       mWidth = mHeight = 0;
   }
 
-  public synchronized void nativeReady()
+  public synchronized void renderingCreated(int instance)
   {
-    mNative = true;
+    if (mActivity != instance)
+      return;
+    mNative = false;
+    mAttached = true;
+    mWidth = mHeight = 0;
   }
 
-  public synchronized void surface(int width, int height)
+  public synchronized void nativeReady(int instance)
   {
+    if (mActivity == instance)
+      mNative = true;
+  }
+
+  public synchronized void surface(int instance, int width, int height)
+  {
+    if (mActivity != instance)
+      return;
     mWidth = Math.max(0, width);
     mHeight = Math.max(0, height);
   }

@@ -30,6 +30,12 @@ final class InCarCompactPeer
     }
   }
 
+  static boolean ownsProvider(Context context, String authority) {
+    android.content.pm.ProviderInfo provider = context.getPackageManager().resolveContentProvider(authority, 0);
+    return provider != null && PACKAGE.equals(provider.packageName) && provider.applicationInfo != null
+        && trusted(context, provider.applicationInfo.uid);
+  }
+
   static byte[] hex(String text)
   {
     final byte[] bytes = new byte[text.length() / 2];

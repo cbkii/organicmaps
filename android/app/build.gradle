@@ -369,7 +369,6 @@ def allowedPermissions = [
 def inCarExcludedPermissions = [
     "name='androidx.car.app.NAVIGATION_TEMPLATES'",
     "name='androidx.car.app.ACCESS_SURFACE'",
-    "name='android.permission.RECEIVE_BOOT_COMPLETED'",
 ] as Set
 
 registerCheckApkPermissionsTasks(project) { variantName ->
