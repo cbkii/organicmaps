@@ -51,6 +51,20 @@ public class LocationAcquisitionPolicyTest
   }
 
   @Test
+  public void repairDoesNotClaimGnssProgressFromRegistrationAlone()
+  {
+    final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();
+    policy.start(0);
+    policy.onGnssStopped(40_000);
+    assertTrue(policy.shouldRecover(130_000, true, true, true));
+    policy.onRecovery(130_000);
+    assertFalse(policy.shouldRecover(189_999, true, true, true));
+    assertTrue(policy.shouldRecover(190_000, true, true, true));
+    policy.onGnssProgress();
+    assertFalse(policy.shouldRecover(300_000, true, true, true));
+  }
+
+  @Test
   public void resumedSessionResetsCooldownAndStoppedEvidence()
   {
     final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();

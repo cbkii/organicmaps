@@ -151,9 +151,9 @@ class LocationAcquisitionTests(unittest.TestCase):
             'app/organicmaps/sdk/location/LocationState.java': """package app.organicmaps.sdk.location;
               public class LocationState {public static final String LOCATION_TAG="Location";
               public static final int NOT_FOLLOW_NO_POSITION=0,NOT_FOLLOW=1,FOLLOW=2,FOLLOW_AND_ROTATE=3,PENDING_POSITION=4;
-              public static int ERROR_GPS_OFF=1,ERROR_DENIED=2; public static int nativeFixes,resets;
+              public static int ERROR_GPS_OFF=1,ERROR_DENIED=2; public static int nativeFixes,resets,lastError;
               public static int getMode(){return FOLLOW;} public static void nativeResetFreeDrivingSession(){resets++;}
-              public static void nativeOnLocationError(int e){} public static void nativeLocationUpdated(double... args){nativeFixes++;}}""",
+              public static void nativeOnLocationError(int e){lastError=e;} public static void nativeLocationUpdated(double... args){nativeFixes++;}}""",
             'app/organicmaps/sdk/location/LocationCompatExtractor.java': """package app.organicmaps.sdk.location;
               public class LocationCompatExtractor {
               public record Altitude(double altitude,float accuracy){} public record Speed(float speed,float accuracy){}
@@ -227,9 +227,9 @@ class LocationAcquisitionTests(unittest.TestCase):
                 registered=hc.manager.requested.size(); android.os.Handler.advance(600_000);
                 check(registered==hc.manager.requested.size());
                 helper.start(); LocationUtils.permission=false; android.os.Handler.advance(5_000);
-                check(!helper.isAcquisitionRequested()); LocationUtils.permission=true;
+                check(!helper.isAcquisitionRequested()); check(LocationState.lastError==LocationState.ERROR_DENIED); LocationUtils.permission=true;
                 helper.start(); LocationUtils.enabled=false; android.os.Handler.advance(5_000);
-                check(!helper.isAcquisitionRequested()); LocationUtils.enabled=true;
+                check(!helper.isAcquisitionRequested()); check(LocationState.lastError==LocationState.ERROR_GPS_OFF); LocationUtils.enabled=true;
                 helper.start(); helper.onEnteredIntoFirstRun(); nativeBefore=LocationState.nativeFixes;
                 live=new Location(); live.nanos=android.os.SystemClock.elapsedRealtimeNanos();
                 helper.onLocationChanged(live); check(LocationState.nativeFixes==nativeBefore);

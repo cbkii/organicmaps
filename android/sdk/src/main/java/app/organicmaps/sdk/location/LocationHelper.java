@@ -405,7 +405,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
     }
 
     stop();
-    LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
+    if (mInCar && !LocationUtils.checkLocationPermission(mContext))
+      LocationState.nativeOnLocationError(LocationState.ERROR_DENIED);
+    else
+      LocationState.nativeOnLocationError(LocationState.ERROR_GPS_OFF);
 
     mListenersIterator.rewind();
     while (mListenersIterator.hasNext())

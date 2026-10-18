@@ -41,7 +41,7 @@ public final class LocationAcquisitionPolicy
   public void onRecovery(long nowMs)
   {
     ++mRecoveries;
-    mStoppedMs = -1;
+    // Only observed GNSS progress clears a stopped receiver; registration success alone does not.
     mNextRecoveryMs = nowMs + switch (mRecoveries)
     {
       case 1 -> 60_000;
