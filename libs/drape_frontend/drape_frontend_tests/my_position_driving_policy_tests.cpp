@@ -32,6 +32,17 @@ UNIT_TEST(MyPositionDrivingPolicy_AutoZoom)
   TEST(!ShouldUseAutoZoom(location::Follow, false, true, false, false), ());
 }
 
+UNIT_TEST(MyPositionDrivingPolicy_FastAcquisitionCourseGate)
+{
+  TEST(HasReliableDrivingCourse(false, true, true, kStationarySpeedMps, true), ());
+  TEST(!HasReliableDrivingCourse(false, true, true, kStationarySpeedMps - 0.01, true), ());
+  TEST(!HasReliableDrivingCourse(false, true, false, -1.0, true), ());
+  TEST(!HasReliableDrivingCourse(false, true, true, kStationarySpeedMps, false), ());
+  TEST(!HasReliableDrivingCourse(true, true, true, kStationarySpeedMps, true), ());
+  TEST(!HasReliableDrivingCourse(false, false, true, kStationarySpeedMps, true), ());
+  TEST(kFastAcquisitionDurationSec > 0.0 && kFastAcquisitionDurationSec < 1.0, ());
+}
+
 UNIT_TEST(MyPositionDrivingPolicy_StationaryHoldOnlyInFreeDriving)
 {
   double const below = kStationarySpeedMps - 0.01;
