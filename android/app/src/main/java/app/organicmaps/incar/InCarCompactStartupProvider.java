@@ -33,6 +33,7 @@ public final class InCarCompactStartupProvider extends ContentProvider
   private static final java.util.concurrent.ExecutorService SIGNALS = Executors.newSingleThreadExecutor(
       runnable -> { final Thread thread = new Thread(runnable, "compact-signal"); thread.setDaemon(true); return thread; });
   private static final java.util.concurrent.atomic.AtomicBoolean SIGNAL_PENDING = new java.util.concurrent.atomic.AtomicBoolean();
+  private static final java.util.concurrent.atomic.AtomicLong SIGNAL_VERSION = new java.util.concurrent.atomic.AtomicLong();
   private static android.os.Messenger sPeer;
 
   private static int boot(Context context)
@@ -158,7 +159,15 @@ public final class InCarCompactStartupProvider extends ContentProvider
       android.util.Log.i("InCarCompactStartup", "elapsedMs=" + SystemClock.elapsedRealtime()
           + " pid=" + android.os.Process.myPid() + " state="
           + java.util.Arrays.toString(InCarCompactStartupState.INSTANCE.row()));
-      if (SIGNAL_PENDING.compareAndSet(false, true)) SIGNALS.execute(() -> {
+      SIGNAL_VERSION.incrementAndGet();
+      scheduleSignal();
+    }
+  }
+
+  private static void scheduleSignal()
+  {
+    if (SIGNAL_PENDING.compareAndSet(false, true)) SIGNALS.execute(() -> {
+        final long version = SIGNAL_VERSION.get();
         android.os.Messenger peer;
         synchronized (InCarCompactStartupProvider.class) { peer = sPeer; }
         try
@@ -169,9 +178,13 @@ public final class InCarCompactStartupProvider extends ContentProvider
         {
           synchronized (InCarCompactStartupProvider.class) { if (sPeer == peer) sPeer = null; }
         }
-        finally { SIGNAL_PENDING.set(false); }
+        finally
+        {
+          SIGNAL_PENDING.set(false);
+          // Recheck after releasing the slot: changes during send must schedule another signal.
+          if (SIGNAL_VERSION.get() != version) scheduleSignal();
+        }
       });
-    }
   }
 
   @Override public String getType(@NonNull Uri uri) { return "vnd.android.cursor.item/compact-startup"; }

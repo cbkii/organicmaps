@@ -625,7 +625,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     super.onSafeCreate(savedInstanceState);
     if (BuildConfig.IS_IN_CAR)
+    {
       app.organicmaps.incar.InCarCompactStartupState.INSTANCE.created(System.identityHashCode(this), getTaskId());
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     mInCarLastUiMode = getResources().getConfiguration().uiMode;
 
     mIntentConsumed = isIntentConsumed(savedInstanceState, getIntent());

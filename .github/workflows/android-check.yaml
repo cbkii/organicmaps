@@ -194,7 +194,9 @@ jobs:
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        run: ./gradlew -Px86_64 assembleInCarDebug assembleInCarProfileable
+        # This second architecture build reuses a daemon after arm64 packaging.
+        # Resource merging exceeded the default 2 GiB heap on the hosted runner.
+        run: ./gradlew '-Dorg.gradle.jvmargs=-Xmx4g -Xms512m' --max-workers=2 -Px86_64 assembleInCarDebug assembleInCarProfileable
 
       - name: Run InCar and SDK unit tests
         shell: bash

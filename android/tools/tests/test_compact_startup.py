@@ -85,5 +85,45 @@ class CompactRendererTests(unittest.TestCase):
                             *map(str, root.rglob('*.java'))], check=True, timeout=30)
             subprocess.run(['java', '-cp', str(root), 'Harness'], check=True, timeout=10)
 
+class CompactSignalTests(unittest.TestCase):
+    @unittest.skipUnless(has_compiler(), "Java 17 compiler unavailable")
+    def test_change_during_send_is_drained(self):
+        provider = (ROOT / 'android/app/src/main/java/app/organicmaps/incar/InCarCompactStartupProvider.java').read_text()
+        method = provider[provider.index('  private static void scheduleSignal()'):provider.index('  @Override public String getType')]
+        harness = r'''import java.util.concurrent.atomic.*;
+class InCarCompactStartupProvider {
+static final AtomicBoolean SIGNAL_PENDING=new AtomicBoolean();
+static final AtomicLong SIGNAL_VERSION=new AtomicLong();
+static final java.util.ArrayDeque<Runnable> tasks=new java.util.ArrayDeque<>();
+static final java.util.concurrent.Executor SIGNALS=tasks::add;
+static android.os.Messenger sPeer=new android.os.Messenger();
+static void changed(){SIGNAL_VERSION.incrementAndGet();scheduleSignal();}
+''' + method + r'''
+public static void main(String[] args){
+android.os.Messenger.duringSend=()->{changed();changed();};
+changed();tasks.remove().run();
+if(tasks.size()!=1)throw new AssertionError("lost invalidation during send");
+tasks.remove().run();
+if(android.os.Messenger.sent!=2||!tasks.isEmpty()||SIGNAL_PENDING.get())throw new AssertionError("unbounded or lost signal");
+changed();tasks.remove().run();if(android.os.Messenger.sent!=3)throw new AssertionError("slot not released");
+System.out.println("PASS actual signal coalescer change-during-send drain");}}
+'''
+        files = {
+            'InCarCompactStartupProvider.java': harness,
+            'android/os/Message.java': 'package android.os;public class Message{public static Message obtain(Object h,int w){return new Message();}}',
+            'android/os/RemoteException.java': 'package android.os;public class RemoteException extends Exception{}',
+            'android/os/Messenger.java': '''package android.os;public class Messenger{public static int sent;public static Runnable duringSend;public void send(Message m)throws RemoteException{sent++;if(duringSend!=null){Runnable run=duringSend;duringSend=null;run.run();}}}''',
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, source in files.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(source)
+            subprocess.run(['java', '-m', 'jdk.compiler/com.sun.tools.javac.Main', '-d', str(root),
+                            *map(str, root.rglob('*.java'))], check=True, timeout=30)
+            subprocess.run(['java', '-cp', str(root), 'InCarCompactStartupProvider'], check=True, timeout=10)
+
+
 if __name__ == "__main__":
     unittest.main()
