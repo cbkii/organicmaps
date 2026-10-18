@@ -1083,6 +1083,7 @@ struct Position { bool routing=false, fresh=true; int calls=0, mode=3;
 struct Renderer {
  Stream m_userEventStream; Position position; Position *m_myPositionController=&position;
  bool m_enablePerspectiveInNavigation=true, m_manualCameraPresentation=false, m_cameraDrivingSession=false;
+ bool m_fastCameraAcquisitionPending=false, m_firstDrivingCoursePending=false;
  void AddUserEvent(std::unique_ptr<SetAutoPerspectiveEvent> e) { m_userEventStream.ApplyCameraPresentation(e->p); }
  void DisablePerspective() { m_userEventStream.ApplyCameraPresentation(false); }
  void driving(bool enabled, bool autoReturn, bool recenter) {""" + session + r"""}
@@ -1101,11 +1102,13 @@ int main() {
  assert(!r.toggle() && !r.m_userEventStream.screen.tilted);
  Renderer session;
  session.driving(true, true, false);
+ assert(session.m_fastCameraAcquisitionPending && session.m_firstDrivingCoursePending);
  assert(session.m_userEventStream.screen.tilted);
  session.toggle(); assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
  session.driving(true, true, false);
  assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
  session.driving(false, true, false);
+ assert(!session.m_fastCameraAcquisitionPending && !session.m_firstDrivingCoursePending);
  assert(!session.m_manualCameraPresentation && !session.m_userEventStream.screen.tilted);
  session.driving(true, true, false); assert(session.m_userEventStream.screen.tilted);
  session.position.routing=true;
