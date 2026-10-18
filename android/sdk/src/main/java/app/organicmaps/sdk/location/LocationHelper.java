@@ -75,7 +75,9 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private long mLastCallbackMs;
   private long mLastAcceptedMs;
   private long mFirstAcceptedMs;
+  private long mFirstNativeMs;
   private int mFirstFixMs = -1;
+  private long mGnssEventMs;
   private int mSatellites;
   private int mSatellitesUsed;
   private int mRejected;
@@ -85,7 +87,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private String mAgpsResult = "not requested";
   private boolean mAgpsInFlight;
   private final Runnable mAgpsTimeout = () -> mAgpsResult = "command response timed out (still in flight)";
-  @Nullable private Location mCachedLocation;
+  @Nullable
+  private Location mCachedLocation;
   private final Runnable mAcquisitionWatchdog = this::superviseAcquisition;
   private final Handler mHandler;
   private final Runnable mLocationTimeoutRunnable = this::notifyLocationUpdateTimeout;
@@ -95,6 +98,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     @Override
     public void onStarted()
     {
+      mGnssEventMs = SystemClock.elapsedRealtime();
       mAcquisition.onGnssProgress();
       Logger.d(TAG);
     }
@@ -102,7 +106,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     @Override
     public void onStopped()
     {
-      mAcquisition.onGnssStopped(SystemClock.elapsedRealtime());
+      mGnssEventMs = SystemClock.elapsedRealtime();
+      mAcquisition.onGnssStopped(mGnssEventMs);
       Logger.d(TAG);
     }
 
@@ -110,6 +115,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     public void onFirstFix(int ttffMillis)
     {
       mFirstFixMs = ttffMillis;
+      mGnssEventMs = SystemClock.elapsedRealtime();
       mAcquisition.onGnssProgress();
       Logger.d(TAG, "ttffMillis = " + ttffMillis);
     }
@@ -117,6 +123,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     @Override
     public void onSatelliteStatusChanged(@NonNull GnssStatusCompat status)
     {
+      mGnssEventMs = SystemClock.elapsedRealtime();
       mAcquisition.onGnssProgress();
       mSatellites = status.getSatelliteCount();
       int used = 0;
@@ -144,8 +151,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     mContext = context;
     mSensorHelper = sensorHelper;
     mInCar = inCar;
-    mLocationProvider = mInCar ? new AndroidNativeProvider(mContext, this, true)
-                               : mLocationProviderFactory.getProvider(mContext, this);
+    mLocationProvider =
+        mInCar ? new AndroidNativeProvider(mContext, this, true) : mLocationProviderFactory.getProvider(mContext, this);
     mHandler = new Handler(Looper.getMainLooper());
   }
 
@@ -161,7 +168,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
       return null;
     }
 
-    if (mSavedLocation == null)
+    if (mSavedLocation == null || (mInCar && !isSavedLocationFresh()))
       return null;
 
     if (mMyPosition == null)
@@ -224,6 +231,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
                                         speed != null ? speed.accuracy() : -1, bearing != null ? bearing.bearing() : -1,
                                         bearing != null ? bearing.accuracy() : -1);
     mLastNativeObservationNanos = mSavedLocation.getElapsedRealtimeNanos();
+    if (mFirstNativeMs == 0)
+      mFirstNativeMs = SystemClock.elapsedRealtime();
     // Existing pre-native listeners retain their ordering. Metadata consumers get a separate completed boundary.
     mListenersIterator.rewind();
     while (mListenersIterator.hasNext())
@@ -254,6 +263,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     if (!mInCar)
       Logger.d(TAG, "provider = " + mLocationProvider.getClass().getSimpleName() + " location = " + location);
 
+    if (mInCar && mAcquisitionRequested)
+      mActive = nativeSubscriptionsPresent();
     if (!isActive())
     {
       Logger.w(TAG, "Provider is not active");
@@ -265,9 +276,9 @@ public class LocationHelper implements BaseLocationProvider.Listener
       mLastCallbackMs = SystemClock.elapsedRealtime();
       if (LocationUtils.isFromGpsProvider(location))
         mAcquisition.onGnssProgress();
-      if (!LocationAcquisitionPolicy.isUsableObservation(SystemClock.elapsedRealtimeNanos(),
-          location.getElapsedRealtimeNanos(), location.getLatitude(), location.getLongitude(), location.getAccuracy(),
-          LocationAcquisitionPolicy.FRESH_FIX_MS))
+      if (!LocationAcquisitionPolicy.isUsableObservation(
+              SystemClock.elapsedRealtimeNanos(), location.getElapsedRealtimeNanos(), location.getLatitude(),
+              location.getLongitude(), location.getAccuracy(), LocationAcquisitionPolicy.FRESH_FIX_MS))
       {
         rejectObservation("invalid or stale observation");
         return;
@@ -275,8 +286,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
     }
     if (!LocationUtils.isAccuracySatisfied(location))
     {
-      if (mInCar) rejectObservation("accuracy unavailable");
-      else Logger.w(TAG, "Unsatisfied accuracy for location = " + location);
+      if (mInCar)
+        rejectObservation("accuracy unavailable");
+      else
+        Logger.w(TAG, "Unsatisfied accuracy for location = " + location);
       return;
     }
 
@@ -285,8 +298,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
       if ((mInCar && location.getElapsedRealtimeNanos() <= mSavedLocation.getElapsedRealtimeNanos())
           || !LocationUtils.isLocationBetterThanLast(location, mSavedLocation))
       {
-        if (mInCar) rejectObservation("duplicate, older or less accurate observation");
-        else Logger.d(TAG, "The new " + location + " is worse than the last " + mSavedLocation);
+        if (mInCar)
+          rejectObservation("duplicate, older or less accurate observation");
+        else
+          Logger.d(TAG, "The new " + location + " is worse than the last " + mSavedLocation);
         return;
       }
     }
@@ -407,7 +422,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
     Logger.d(TAG, "listener: " + listener + " count was: " + mListeners.size());
 
     mListeners.addObserver(listener);
-    if (mSavedLocation != null)
+    if (mSavedLocation != null && (!mInCar || isSavedLocationFresh()))
     {
       listener.onLocationUpdated(mSavedLocation);
       if (!mInFirstRun && mLastNativeObservationNanos > 0
@@ -485,8 +500,9 @@ public class LocationHelper implements BaseLocationProvider.Listener
     mAcquisitionRequested = true;
     mSessionStartedMs = SystemClock.elapsedRealtime();
     mAcquisition.start(mSessionStartedMs);
-    mFirstAcceptedMs = 0;
+    mFirstAcceptedMs = mFirstNativeMs = 0;
     mFirstFixMs = -1;
+    mGnssEventMs = 0;
     mSatellites = mSatellitesUsed = mRejected = 0;
     mLastRejection = "none";
     mLastRecovery = "none";
@@ -494,8 +510,14 @@ public class LocationHelper implements BaseLocationProvider.Listener
 
     if (LocationUtils.checkFineLocationPermission(mContext))
     {
-      try { mSensorHelper.start(); }
-      catch (RuntimeException e) { Logger.w(TAG, "Sensors unavailable: " + e.getClass().getSimpleName()); }
+      try
+      {
+        mSensorHelper.start();
+      }
+      catch (RuntimeException e)
+      {
+        Logger.w(TAG, "Sensors unavailable: " + e.getClass().getSimpleName());
+      }
     }
 
     final long oldInterval = mInterval;
@@ -628,8 +650,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     final LocationManager manager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
     try
     {
-      mGnssSubscribed = LocationManagerCompat.registerGnssStatusCallback(manager, ContextCompat.getMainExecutor(mContext),
-                                                                       mGnssStatusCallback);
+      mGnssSubscribed = LocationManagerCompat.registerGnssStatusCallback(
+          manager, ContextCompat.getMainExecutor(mContext), mGnssStatusCallback);
     }
     catch (RuntimeException e)
     {
@@ -643,11 +665,20 @@ public class LocationHelper implements BaseLocationProvider.Listener
       return;
     mGnssSubscribed = false;
     final LocationManager manager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
-    try { LocationManagerCompat.unregisterGnssStatusCallback(manager, mGnssStatusCallback); }
-    catch (RuntimeException e) { Logger.w(TAG, "GNSS telemetry unregister failed: " + e.getClass().getSimpleName()); }
+    try
+    {
+      LocationManagerCompat.unregisterGnssStatusCallback(manager, mGnssStatusCallback);
+    }
+    catch (RuntimeException e)
+    {
+      Logger.w(TAG, "GNSS telemetry unregister failed: " + e.getClass().getSimpleName());
+    }
   }
 
-  public boolean isAcquisitionRequested() { return mInCar ? mAcquisitionRequested : mActive; }
+  public boolean isAcquisitionRequested()
+  {
+    return mInCar ? mAcquisitionRequested : mActive;
+  }
 
   private boolean nativeSubscriptionsPresent()
   {
@@ -698,7 +729,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
     {
       mActive = provider.hasSubscriptions();
       final boolean gpsExpected = LocationUtils.checkFineLocationPermission(mContext) && provider.isGpsEnabled();
-      if (mAcquisition.shouldRecover(SystemClock.elapsedRealtime(), mActive, gpsExpected, provider.hasGpsSubscription()))
+      if (mAcquisition.shouldRecover(SystemClock.elapsedRealtime(), mActive, gpsExpected,
+                                     provider.hasGpsSubscription()))
         recoverAcquisition("missing subscription or GNSS stopped");
       checkForAgpsUpdates(); // Connectivity may have returned since startup; attempts are rate limited.
       subscribeToGnssStatusUpdates();
@@ -728,7 +760,17 @@ public class LocationHelper implements BaseLocationProvider.Listener
     startProviderSafely();
   }
 
-  public enum AcquisitionState { STOPPED, WAITING_FOR_PERMISSION, PROVIDER_UNAVAILABLE, ACQUIRING, APPROXIMATE, FIX_RECEIVED, FIX_STALE, RECOVERING }
+  public enum AcquisitionState
+  {
+    STOPPED,
+    WAITING_FOR_PERMISSION,
+    PROVIDER_UNAVAILABLE,
+    ACQUIRING,
+    APPROXIMATE,
+    FIX_RECEIVED,
+    FIX_STALE,
+    RECOVERING
+  }
 
   public AcquisitionState getAcquisitionState()
   {
@@ -744,22 +786,36 @@ public class LocationHelper implements BaseLocationProvider.Listener
     {
       final long ageMs = (SystemClock.elapsedRealtimeNanos() - mSavedLocation.getElapsedRealtimeNanos()) / 1_000_000;
       if (ageMs >= 0 && ageMs <= LocationAcquisitionPolicy.FRESH_FIX_MS)
-        return LocationUtils.isFromGpsProvider(mSavedLocation) ? AcquisitionState.FIX_RECEIVED : AcquisitionState.APPROXIMATE;
+        return LocationUtils.isFromGpsProvider(mSavedLocation) ? AcquisitionState.FIX_RECEIVED
+                                                               : AcquisitionState.APPROXIMATE;
       return AcquisitionState.FIX_STALE;
     }
-    if (mCachedLocation != null && LocationAcquisitionPolicy.isUsableObservation(SystemClock.elapsedRealtimeNanos(),
-        mCachedLocation.getElapsedRealtimeNanos(), mCachedLocation.getLatitude(), mCachedLocation.getLongitude(),
-        mCachedLocation.getAccuracy(), LocationAcquisitionPolicy.CACHE_MAX_AGE_MS))
+    if (mCachedLocation != null
+        && LocationAcquisitionPolicy.isUsableObservation(
+            SystemClock.elapsedRealtimeNanos(), mCachedLocation.getElapsedRealtimeNanos(),
+            mCachedLocation.getLatitude(), mCachedLocation.getLongitude(), mCachedLocation.getAccuracy(),
+            LocationAcquisitionPolicy.CACHE_MAX_AGE_MS))
       return AcquisitionState.APPROXIMATE;
     return AcquisitionState.ACQUIRING;
+  }
+
+  private boolean isSavedLocationFresh()
+  {
+    return mSavedLocation != null
+        && LocationAcquisitionPolicy.isUsableObservation(
+            SystemClock.elapsedRealtimeNanos(), mSavedLocation.getElapsedRealtimeNanos(),
+            mSavedLocation.getLatitude(), mSavedLocation.getLongitude(), mSavedLocation.getAccuracy(),
+            LocationAcquisitionPolicy.FRESH_FIX_MS);
   }
 
   @Nullable
   public Location getCachedLocation()
   {
-    if (mCachedLocation == null || !LocationAcquisitionPolicy.isUsableObservation(SystemClock.elapsedRealtimeNanos(),
-        mCachedLocation.getElapsedRealtimeNanos(), mCachedLocation.getLatitude(), mCachedLocation.getLongitude(),
-        mCachedLocation.getAccuracy(), LocationAcquisitionPolicy.CACHE_MAX_AGE_MS))
+    if (mCachedLocation == null
+        || !LocationAcquisitionPolicy.isUsableObservation(
+            SystemClock.elapsedRealtimeNanos(), mCachedLocation.getElapsedRealtimeNanos(),
+            mCachedLocation.getLatitude(), mCachedLocation.getLongitude(), mCachedLocation.getAccuracy(),
+            LocationAcquisitionPolicy.CACHE_MAX_AGE_MS))
       return null;
     return new Location(mCachedLocation);
   }
@@ -768,18 +824,23 @@ public class LocationHelper implements BaseLocationProvider.Listener
   public String getAcquisitionDiagnostics()
   {
     final long now = SystemClock.elapsedRealtime();
-    final long fixAge = mSavedLocation == null ? -1
-        : (SystemClock.elapsedRealtimeNanos() - mSavedLocation.getElapsedRealtimeNanos()) / 1_000_000;
+    final long fixAge = mSavedLocation == null
+                          ? -1
+                          : (SystemClock.elapsedRealtimeNanos() - mSavedLocation.getElapsedRealtimeNanos()) / 1_000_000;
     final boolean gps = mLocationProvider instanceof AndroidNativeProvider p && p.hasGpsSubscription();
     return "state=" + getAcquisitionState() + ", registered=" + mActive + ", gpsRegistered=" + gps
-        + ", sessionMs=" + (mAcquisitionRequested ? now - mSessionStartedMs : -1)
-        + ", fixAgeMs=" + fixAge + ", accuracyM=" + (mSavedLocation == null ? -1 : mSavedLocation.getAccuracy())
-        + ", callbackAgeMs=" + (mLastCallbackMs == 0 ? -1 : now - mLastCallbackMs)
-        + ", acceptedAgeMs=" + (mLastAcceptedMs == 0 ? -1 : now - mLastAcceptedMs)
-        + ", firstAcceptedMs=" + (mFirstAcceptedMs == 0 ? -1 : mFirstAcceptedMs - mSessionStartedMs)
-        + ", gnssFirstFixMs=" + mFirstFixMs + ", satellites=" + mSatellites + ", used=" + mSatellitesUsed
-        + ", telemetryRegistered=" + mGnssSubscribed + ", rejected=" + mRejected + ", rejection=" + mLastRejection
-        + ", recoveries=" + mAcquisition.getRecoveries() + ", recovery=" + mLastRecovery + ", agps=" + mAgpsResult;
+  + ", sessionMs=" + (mAcquisitionRequested ? now - mSessionStartedMs : -1) + ", fixAgeMs=" + fixAge
+  + ", accuracyM=" + (mSavedLocation == null ? -1 : mSavedLocation.getAccuracy())
+  + ", callbackAgeMs=" + (mLastCallbackMs == 0 ? -1 : now - mLastCallbackMs)
+  + ", acceptedAgeMs=" + (mLastAcceptedMs == 0 ? -1 : now - mLastAcceptedMs)
+  + ", firstAcceptedMs=" + (mFirstAcceptedMs == 0 ? -1 : mFirstAcceptedMs - mSessionStartedMs)
+  + ", firstNativeMs=" + (mFirstNativeMs == 0 ? -1 : mFirstNativeMs - mSessionStartedMs)
+  + ", nativeObservationAgeMs=" + (mLastNativeObservationNanos == 0 ? -1
+      : (SystemClock.elapsedRealtimeNanos() - mLastNativeObservationNanos) / 1_000_000)
+  + ", gnssFirstFixMs=" + mFirstFixMs + ", satellites=" + mSatellites + ", used=" + mSatellitesUsed
+  + ", gnssEventAgeMs=" + (mGnssEventMs == 0 ? -1 : now - mGnssEventMs)
+  + ", telemetryRegistered=" + mGnssSubscribed + ", rejected=" + mRejected + ", rejection=" + mLastRejection
+  + ", recoveries=" + mAcquisition.getRecoveries() + ", recovery=" + mLastRecovery + ", agps=" + mAgpsResult;
   }
 
   @UiThread
@@ -807,7 +868,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
 
     // If there is a location we need just to pass it to the listeners, so that
     // my position state machine will be switched to the FOLLOW state.
-    if (mSavedLocation != null)
+    if (mSavedLocation != null && (!mInCar || isSavedLocationFresh()))
     {
       notifyLocationUpdated();
       Logger.d(TAG, "Current location is available, so play the nice zoom animation");

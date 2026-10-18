@@ -117,8 +117,9 @@ class LocationAcquisitionTests(unittest.TestCase):
               public static long now=200_000; public static long elapsedRealtime(){return now;}
               public static long elapsedRealtimeNanos(){return now*1_000_000;} }""",
             'android/os/Handler.java': """package android.os; import java.util.*; public class Handler {
-              public record Task(Runnable action,long time){} public static List<Task> tasks=new ArrayList<>();
-              public Handler(Looper l){} public boolean post(Runnable r){return postDelayed(r,0);}
+              public record Task(Runnable action,long time){} public static List<Task> tasks=Collections.synchronizedList(new ArrayList<>());
+              public static java.util.concurrent.CountDownLatch posted=new java.util.concurrent.CountDownLatch(1);
+              public Handler(Looper l){} public boolean post(Runnable r){boolean ok=postDelayed(r,0);posted.countDown();return ok;}
               public void removeCallbacks(Runnable r){tasks.removeIf(t->t.action()==r);}
               public boolean postDelayed(Runnable r,long delay){tasks.add(new Task(r,SystemClock.now+delay));return true;}
               public static void advance(long ms){long end=SystemClock.now+ms; while(true){
@@ -138,7 +139,7 @@ class LocationAcquisitionTests(unittest.TestCase):
               public static long timestamp; public static long getAgpsTimestamp(){return timestamp;}
               public static void setAgpsTimestamp(long t){timestamp=t;}}""",
             'app/organicmaps/sdk/util/NetworkPolicy.java': """package app.organicmaps.sdk.util;
-              public class NetworkPolicy {public static boolean getCurrentNetworkUsageStatus(){return false;}}""",
+              public class NetworkPolicy {public static boolean online=false; public static boolean getCurrentNetworkUsageStatus(){return online;}}""",
             'app/organicmaps/sdk/location/SensorHelper.java': """package app.organicmaps.sdk.location;
               public class SensorHelper {public void start(){} public void stop(){}}""",
             'app/organicmaps/sdk/location/LocationProviderFactory.java': """package app.organicmaps.sdk.location;
@@ -179,7 +180,7 @@ class LocationAcquisitionTests(unittest.TestCase):
         stubs['android/location/Location.java'] = stubs['android/location/Location.java'].replace(
             'public long getElapsedRealtimeNanos()', 'public long getTime(){return 1;} public long getElapsedRealtimeNanos()')
         stubs['android/location/LocationManager.java'] = stubs['android/location/LocationManager.java'].replace(
-            'public int removes;', 'public boolean sendExtraCommand(String p,String c,android.os.Bundle b){return true;} public int removes;')
+            'public int removes;', 'public boolean acceptsExtra=true; public int extraCalls; public boolean sendExtraCommand(String p,String c,android.os.Bundle b){extraCalls++;return acceptsExtra;} public int removes;')
         stubs['androidx/core/content/ContextCompat.java'] = stubs['androidx/core/content/ContextCompat.java'].replace(
             'public class ContextCompat {', 'public class ContextCompat {public static java.util.concurrent.Executor getMainExecutor(android.content.Context c){return Runnable::run;}')
         stubs['androidx/core/location/LocationManagerCompat.java'] = stubs['androidx/core/location/LocationManagerCompat.java'].replace(
@@ -218,6 +219,7 @@ class LocationAcquisitionTests(unittest.TestCase):
                 int resets=LocationState.resets; check(helper.retryAcquisition()); check(LocationState.resets==resets);
                 check(!helper.retryAcquisition()); check(helper.getSavedLocation()!=null);
                 android.os.Handler.advance(31_000); check(helper.getAcquisitionState()==LocationHelper.AcquisitionState.FIX_STALE);
+                check(helper.getMyPosition()==null);
                 helper.stop(); check(!helper.isAcquisitionRequested()); check(!helper.retryAcquisition());
                 registered=hc.manager.requested.size(); android.os.Handler.advance(600_000);
                 check(registered==hc.manager.requested.size());
@@ -225,6 +227,22 @@ class LocationAcquisitionTests(unittest.TestCase):
                 check(!helper.isAcquisitionRequested()); LocationUtils.permission=true;
                 helper.start(); LocationUtils.enabled=false; android.os.Handler.advance(5_000);
                 check(!helper.isAcquisitionRequested()); LocationUtils.enabled=true;
+                helper.start(); helper.onEnteredIntoFirstRun(); nativeBefore=LocationState.nativeFixes;
+                live=new Location(); live.nanos=android.os.SystemClock.elapsedRealtimeNanos();
+                helper.onLocationChanged(live); check(LocationState.nativeFixes==nativeBefore);
+                android.os.Handler.advance(31_000); helper.onExitFromFirstRun();
+                check(LocationState.nativeFixes==nativeBefore); helper.stop();
+                app.organicmaps.sdk.util.NetworkPolicy.online=true;
+                hc.manager.acceptsExtra=false;
+                android.os.Handler.posted=new java.util.concurrent.CountDownLatch(1);
+                helper.start(); check(android.os.Handler.posted.await(2,java.util.concurrent.TimeUnit.SECONDS));
+                android.os.Handler.advance(0); check(app.organicmaps.sdk.util.Config.timestamp==0);
+                int extras=hc.manager.extraCalls; android.os.Handler.advance(119_999); check(extras==hc.manager.extraCalls);
+                helper.stop(); android.os.Handler.advance(1); hc.manager.acceptsExtra=true;
+                android.os.Handler.posted=new java.util.concurrent.CountDownLatch(1);
+                helper.start(); check(android.os.Handler.posted.await(2,java.util.concurrent.TimeUnit.SECONDS));
+                android.os.Handler.advance(0); check(app.organicmaps.sdk.util.Config.timestamp>0); helper.stop();
+                app.organicmaps.sdk.util.NetworkPolicy.online=false;
                 System.out.println(""")
         for annotation in ('NonNull', 'Nullable', 'UiThread'):
             stubs[f'androidx/annotation/{annotation}.java'] = f'package androidx.annotation; public @interface {annotation} {{}}'

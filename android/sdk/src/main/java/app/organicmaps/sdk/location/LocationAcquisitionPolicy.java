@@ -16,8 +16,14 @@ public final class LocationAcquisitionPolicy
     mNextRecoveryMs = nowMs + 30_000;
   }
 
-  public void onGnssStopped(long nowMs) { mStoppedMs = nowMs; }
-  public void onGnssProgress() { mStoppedMs = -1; }
+  public void onGnssStopped(long nowMs)
+  {
+    mStoppedMs = nowMs;
+  }
+  public void onGnssProgress()
+  {
+    mStoppedMs = -1;
+  }
 
   public boolean shouldRecover(long nowMs, boolean registered, boolean gpsExpected, boolean gpsRegistered)
   {
@@ -27,7 +33,10 @@ public final class LocationAcquisitionPolicy
   }
 
   /** Also gates manual requests, preventing repeated taps from becoming a restart storm. */
-  public boolean canRetry(long nowMs) { return nowMs >= mNextRecoveryMs; }
+  public boolean canRetry(long nowMs)
+  {
+    return nowMs >= mNextRecoveryMs;
+  }
 
   public void onRecovery(long nowMs)
   {
@@ -41,14 +50,16 @@ public final class LocationAcquisitionPolicy
     };
   }
 
-  public int getRecoveries() { return mRecoveries; }
+  public int getRecoveries()
+  {
+    return mRecoveries;
+  }
 
   public static boolean isUsableObservation(long nowNanos, long fixNanos, double latitude, double longitude,
                                             float accuracy, long maxAgeMs)
   {
     return fixNanos > 0 && fixNanos <= nowNanos && (nowNanos - fixNanos) / 1_000_000 <= maxAgeMs
-        && Double.isFinite(latitude) && Math.abs(latitude) <= 90
-        && Double.isFinite(longitude) && Math.abs(longitude) <= 180
-        && Float.isFinite(accuracy) && accuracy >= 0;
+ && Double.isFinite(latitude) && Math.abs(latitude) <= 90 && Double.isFinite(longitude) && Math.abs(longitude) <= 180
+ && Float.isFinite(accuracy) && accuracy >= 0;
   }
 }

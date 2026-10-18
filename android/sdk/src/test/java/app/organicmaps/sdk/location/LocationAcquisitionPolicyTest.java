@@ -1,11 +1,13 @@
 package app.organicmaps.sdk.location;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
 public class LocationAcquisitionPolicyTest
 {
-  @Test public void poorReceptionNeverRestartsRegisteredReceiverEvenAfterTenMinutes()
+  @Test
+  public void poorReceptionNeverRestartsRegisteredReceiverEvenAfterTenMinutes()
   {
     final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();
     policy.start(0);
@@ -14,7 +16,8 @@ public class LocationAcquisitionPolicyTest
     assertEquals(0, policy.getRecoveries());
   }
 
-  @Test public void failedGpsRegistrationRetriesEvenIfNetworkRegisteredWithBoundedBackoff()
+  @Test
+  public void failedGpsRegistrationRetriesEvenIfNetworkRegisteredWithBoundedBackoff()
   {
     final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();
     policy.start(0);
@@ -34,7 +37,8 @@ public class LocationAcquisitionPolicyTest
     assertTrue(policy.canRetry(810_000));
   }
 
-  @Test public void coarseOnlyDoesNotExpectGpsAndLiveProgressCancelsStoppedEvidence()
+  @Test
+  public void coarseOnlyDoesNotExpectGpsAndLiveProgressCancelsStoppedEvidence()
   {
     final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();
     policy.start(0);
@@ -46,7 +50,8 @@ public class LocationAcquisitionPolicyTest
     assertFalse(policy.shouldRecover(200_000, true, true, true));
   }
 
-  @Test public void resumedSessionResetsCooldownAndStoppedEvidence()
+  @Test
+  public void resumedSessionResetsCooldownAndStoppedEvidence()
   {
     final LocationAcquisitionPolicy policy = new LocationAcquisitionPolicy();
     policy.start(0);
@@ -58,7 +63,8 @@ public class LocationAcquisitionPolicyTest
     assertTrue(policy.shouldRecover(1_030_000, false, true, false));
   }
 
-  @Test public void cacheAndLiveAgeValidityCannotConfuseStaleOrInvalidPositionWithCurrentFix()
+  @Test
+  public void cacheAndLiveAgeValidityCannotConfuseStaleOrInvalidPositionWithCurrentFix()
   {
     final long now = 200_000_000_000L;
     assertTrue(LocationAcquisitionPolicy.isUsableObservation(now, now - 30_000_000_000L, -35, 149, 0, 30_000));

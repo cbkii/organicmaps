@@ -5,15 +5,15 @@ import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static app.organicmaps.sdk.util.concurrency.UiThread.runLater;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Looper;
-import androidx.core.content.ContextCompat;
-import android.content.pm.PackageManager;
-import androidx.annotation.Nullable;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
+import androidx.core.content.ContextCompat;
 import androidx.core.location.LocationListenerCompat;
 import androidx.core.location.LocationManagerCompat;
 import androidx.core.location.LocationRequestCompat;
@@ -116,14 +116,15 @@ public class AndroidNativeProvider extends BaseLocationProvider
     //
     final Set<String> available = new HashSet<>(mLocationManager.getProviders(true));
     available.remove(LocationManager.PASSIVE_PROVIDER);
-    if (mInCar && ContextCompat.checkSelfPermission(mContext, ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+    if (mInCar
+        && ContextCompat.checkSelfPermission(mContext, ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
       available.remove(LocationManager.GPS_PROVIDER);
     for (String provider : available)
     {
       try
       {
-        LocationManagerCompat.requestLocationUpdates(mLocationManager, provider, locationRequest, mNativeLocationListener,
-                                                     Looper.getMainLooper());
+        LocationManagerCompat.requestLocationUpdates(mLocationManager, provider, locationRequest,
+                                                     mNativeLocationListener, Looper.getMainLooper());
         mProviders.add(provider);
         mEnabledProviders.add(provider);
       }
@@ -140,13 +141,25 @@ public class AndroidNativeProvider extends BaseLocationProvider
       // A broken registration with Location enabled belongs to the acquisition supervisor, not Settings.
       final NativeLocationListener attempt = mNativeLocationListener;
       if (!mInCar || !LocationUtils.areLocationServicesTurnedOn(mContext))
-        runLater(() -> { if (attempt == mNativeLocationListener) mListener.onLocationDisabled(); });
+        runLater(() -> {
+          if (attempt == mNativeLocationListener)
+            mListener.onLocationDisabled();
+        });
     }
   }
 
-  public boolean hasSubscriptions() { return !mEnabledProviders.isEmpty(); }
-  public boolean hasGpsSubscription() { return mEnabledProviders.contains(LocationManager.GPS_PROVIDER); }
-  public boolean isGpsEnabled() { return mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER); }
+  public boolean hasSubscriptions()
+  {
+    return !mEnabledProviders.isEmpty();
+  }
+  public boolean hasGpsSubscription()
+  {
+    return mEnabledProviders.contains(LocationManager.GPS_PROVIDER);
+  }
+  public boolean isGpsEnabled()
+  {
+    return mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+  }
 
   /** Cache is returned separately: it must never be replayed as a newly confirmed navigation fix. */
   @Nullable
@@ -159,9 +172,12 @@ public class AndroidNativeProvider extends BaseLocationProvider
       try
       {
         final Location location = mLocationManager.getLastKnownLocation(provider);
-        if (location == null || !LocationAcquisitionPolicy.isUsableObservation(android.os.SystemClock.elapsedRealtimeNanos(),
-            location.getElapsedRealtimeNanos(), location.getLatitude(), location.getLongitude(), location.getAccuracy(),
-            LocationAcquisitionPolicy.CACHE_MAX_AGE_MS) || !location.hasAccuracy() || location.getAccuracy() > 2000)
+        if (location == null
+            || !LocationAcquisitionPolicy.isUsableObservation(
+                android.os.SystemClock.elapsedRealtimeNanos(), location.getElapsedRealtimeNanos(),
+                location.getLatitude(), location.getLongitude(), location.getAccuracy(),
+                LocationAcquisitionPolicy.CACHE_MAX_AGE_MS)
+            || !location.hasAccuracy() || location.getAccuracy() > 2000)
           continue;
         if (best == null || location.getElapsedRealtimeNanos() > best.getElapsedRealtimeNanos())
           best = new Location(location);
@@ -186,8 +202,14 @@ public class AndroidNativeProvider extends BaseLocationProvider
     mEnabledProviders.clear();
     if (listener != null)
     {
-      try { LocationManagerCompat.removeUpdates(mLocationManager, listener); }
-      catch (RuntimeException e) { Logger.w(TAG, "Unregister failed: " + e.getClass().getSimpleName()); }
+      try
+      {
+        LocationManagerCompat.removeUpdates(mLocationManager, listener);
+      }
+      catch (RuntimeException e)
+      {
+        Logger.w(TAG, "Unregister failed: " + e.getClass().getSimpleName());
+      }
     }
   }
 }

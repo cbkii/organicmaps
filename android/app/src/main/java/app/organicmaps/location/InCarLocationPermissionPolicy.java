@@ -4,7 +4,12 @@ package app.organicmaps.location;
 public final class InCarLocationPermissionPolicy
 {
   private InCarLocationPermissionPolicy() {}
-  public enum Access { DENIED, WHILE_USING, ALWAYS }
+  public enum Access
+  {
+    DENIED,
+    WHILE_USING,
+    ALWAYS
+  }
 
   public static boolean includeBackgroundInForegroundRequest(boolean inCar, int sdk)
   {

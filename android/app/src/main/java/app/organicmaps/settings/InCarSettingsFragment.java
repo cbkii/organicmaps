@@ -1,25 +1,22 @@
 package app.organicmaps.settings;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.os.Bundle;
-import android.os.Build;
-import android.net.Uri;
-import android.provider.Settings;
-import android.Manifest;
 import android.content.pm.PackageManager;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.core.content.ContextCompat;
-import app.organicmaps.location.InCarLocationPermissionPolicy;
-import app.organicmaps.location.InCarLocationUi;
-import app.organicmaps.sdk.location.LocationUtils;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.XmlRes;
+import androidx.core.content.ContextCompat;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
@@ -27,6 +24,9 @@ import app.organicmaps.R;
 import app.organicmaps.incar.InCarChoiceAdapter;
 import app.organicmaps.incar.InCarDialogSizing;
 import app.organicmaps.incar.InCarSettingsStore;
+import app.organicmaps.location.InCarLocationPermissionPolicy;
+import app.organicmaps.location.InCarLocationUi;
+import app.organicmaps.sdk.location.LocationUtils;
 import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.Config;
@@ -79,7 +79,11 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     });
     updateLocationAccess();
     getViewLifecycleOwner().getLifecycle().addObserver(new androidx.lifecycle.DefaultLifecycleObserver() {
-      @Override public void onResume(@NonNull androidx.lifecycle.LifecycleOwner owner) { updateLocationAccess(); }
+      @Override
+      public void onResume(@NonNull androidx.lifecycle.LifecycleOwner owner)
+      {
+        updateLocationAccess();
+      }
     });
 
     final ListPreference position = getPreference("in_car_control_position");
@@ -171,9 +175,10 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     if (getContext() == null || findPreference("in_car_location_access") == null)
       return;
     final boolean foreground = LocationUtils.checkLocationPermission(requireContext());
-    final boolean background = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+    final boolean background =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
         || ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            == PackageManager.PERMISSION_GRANTED;
+               == PackageManager.PERMISSION_GRANTED;
     getPreference("in_car_location_access").setSummary(switch (
         InCarLocationPermissionPolicy.access(Build.VERSION.SDK_INT, foreground, background))
     {
@@ -194,7 +199,7 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     {
       if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && LocationUtils.checkLocationPermission(requireContext())
           && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-              != PackageManager.PERMISSION_GRANTED
+                 != PackageManager.PERMISSION_GRANTED
           && shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
         mBackgroundLocationRequest.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
       else

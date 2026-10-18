@@ -1,7 +1,7 @@
 package app.organicmaps;
 
-import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
+import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
@@ -1134,9 +1134,15 @@ public class MwmActivity extends BaseMwmFragmentActivity
         () -> mInCarNavigationCountdown != null && mInCarNavigationCountdown.hasPendingAction(), this::isDestroyed));
   }
 
-  public long getInCarInteractionGeneration() { return mInCarInteractionGeneration; }
+  public long getInCarInteractionGeneration()
+  {
+    return mInCarInteractionGeneration;
+  }
 
-  public boolean isInCarTouchActive() { return mInCarTouchActive; }
+  public boolean isInCarTouchActive()
+  {
+    return mInCarTouchActive;
+  }
 
   @Override
   public boolean dispatchTouchEvent(android.view.MotionEvent event)
@@ -1150,7 +1156,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
         || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL)
       mInCarTouchActive = false;
-    if (event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) cancelInCarNavigationCountdown();
+    if (event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL)
+      cancelInCarNavigationCountdown();
     return handled;
   }
 
@@ -1164,13 +1171,15 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public void cancelInCarNavigationCountdown()
   {
     ++mInCarInteractionGeneration;
-    if (mInCarNavigationCountdown != null) mInCarNavigationCountdown.cancel();
+    if (mInCarNavigationCountdown != null)
+      mInCarNavigationCountdown.cancel();
   }
 
   @Override
   public void onUserInteraction()
   {
-    if (!mInCarTouchActive) cancelInCarNavigationCountdown();
+    if (!mInCarTouchActive)
+      cancelInCarNavigationCountdown();
     super.onUserInteraction();
   }
 
@@ -1178,7 +1187,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public void onWindowFocusChanged(boolean hasFocus)
   {
     super.onWindowFocusChanged(hasFocus);
-    if (!hasFocus) cancelInCarNavigationCountdown();
+    if (!hasFocus)
+      cancelInCarNavigationCountdown();
   }
 
   @Override
@@ -1829,10 +1839,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
     logLocationPromptState("permission", "request launched: " + reason);
     // Android 10 can offer all three grant levels in its native dialog. Android 11+ requires
     // a separate user-initiated settings step after foreground permission (InCar Settings).
-    mLocationPermissionRequest.launch(app.organicmaps.location.InCarLocationPermissionPolicy.includeBackgroundInForegroundRequest(
-        BuildConfig.IS_IN_CAR, Build.VERSION.SDK_INT)
-        ? new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION}
-        : new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+    mLocationPermissionRequest.launch(
+        app.organicmaps.location.InCarLocationPermissionPolicy.includeBackgroundInForegroundRequest(
+            BuildConfig.IS_IN_CAR, Build.VERSION.SDK_INT)
+            ? new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION}
+            : new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
   }
 
   private void showLocationPermissionDeniedDialog(boolean showSettingsAction)
@@ -2281,7 +2292,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!BuildConfig.IS_IN_CAR || mLocationActivityStopped || !Map.isEngineCreated())
       return false;
     final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
-    if (helper.isActive())
+    if (helper.isAcquisitionRequested())
       return true;
     mInCarRecenterRecovery = true;
     if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))

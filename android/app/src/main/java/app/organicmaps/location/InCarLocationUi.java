@@ -8,10 +8,10 @@ import android.view.Gravity;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
-import androidx.annotation.NonNull;
 import app.organicmaps.MwmActivity;
 import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
@@ -44,15 +44,19 @@ public final class InCarLocationUi
   public static void showDetails(Activity activity)
   {
     final LocationHelper helper = MwmApplication.from(activity).getLocationHelper();
-    final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity)
-        .setTitle(statusText(helper))
-        .setMessage(helper.getAcquisitionDiagnostics().replace(", ", "\n"))
-        .setNegativeButton(R.string.close, null)
-        .setPositiveButton(R.string.in_car_location_retry, (dialog, which) -> {
-          final boolean restarted = helper.retryAcquisition();
-          Toast.makeText(activity, restarted ? R.string.in_car_location_retry_started : R.string.in_car_location_retry_wait,
-                         Toast.LENGTH_LONG).show();
-        });
+    final MaterialAlertDialogBuilder builder =
+        new MaterialAlertDialogBuilder(activity)
+            .setTitle(statusText(helper))
+            .setMessage(helper.getAcquisitionDiagnostics().replace(", ", "\n"))
+            .setNegativeButton(R.string.close, null)
+            .setPositiveButton(R.string.in_car_location_retry, (dialog, which) -> {
+              final boolean restarted = helper.retryAcquisition();
+              Toast
+                  .makeText(activity,
+                            restarted ? R.string.in_car_location_retry_started : R.string.in_car_location_retry_wait,
+                            Toast.LENGTH_LONG)
+                  .show();
+            });
     final Location cached = helper.getCachedLocation();
     if (cached != null && Map.isEngineCreated() && !RoutingController.get().isNavigating()
         && !RoutingController.get().isPlanning())
@@ -76,7 +80,8 @@ public final class InCarLocationUi
     status.setGravity(Gravity.CENTER);
     final int padding = Math.round(8 * activity.getResources().getDisplayMetrics().density);
     status.setPadding(padding, padding / 2, padding, padding / 2);
-    final android.content.res.TypedArray colours = activity.obtainStyledAttributes(new int[] {android.R.attr.textColorPrimary});
+    final android.content.res.TypedArray colours =
+        activity.obtainStyledAttributes(new int[] {android.R.attr.textColorPrimary});
     status.setTextColor(colours.getColor(0, android.graphics.Color.BLACK));
     colours.recycle();
     status.setBackgroundColor(ContextCompat.getColor(activity, R.color.bg_cards));
@@ -89,7 +94,8 @@ public final class InCarLocationUi
     container.addView(status, params);
     final Handler handler = new Handler(Looper.getMainLooper());
     final Runnable update = new Runnable() {
-      @Override public void run()
+      @Override
+      public void run()
       {
         status.setText(statusText(helper));
         // Follow the real top HUD bounds in normal/compact windows, without taking its ownership.
@@ -108,13 +114,22 @@ public final class InCarLocationUi
         params.topMargin = top;
         status.setLayoutParams(params);
         status.setVisibility(width > 0 && top + status.getMinimumHeight() < container.getHeight()
-            ? android.view.View.VISIBLE : android.view.View.GONE);
+                                 ? android.view.View.VISIBLE
+                                 : android.view.View.GONE);
         handler.postDelayed(this, 2_000);
       }
     };
     activity.getLifecycle().addObserver(new DefaultLifecycleObserver() {
-      @Override public void onStart(@NonNull LifecycleOwner owner) { handler.post(update); }
-      @Override public void onStop(@NonNull LifecycleOwner owner) { handler.removeCallbacks(update); }
+      @Override
+      public void onStart(@NonNull LifecycleOwner owner)
+      {
+        handler.post(update);
+      }
+      @Override
+      public void onStop(@NonNull LifecycleOwner owner)
+      {
+        handler.removeCallbacks(update);
+      }
     });
   }
 }
