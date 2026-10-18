@@ -36,12 +36,49 @@ public final class InCarSettingsStore
 
   public static int getAutomaticNavigationActionDelaySeconds(@NonNull Context context)
   {
-    return InCarNavigationCountdownPolicy.normaliseDelaySeconds(prefs(context).getInt("InCarNavigationActionDelay", 10));
+    return InCarNavigationCountdownPolicy.normaliseDelaySeconds(
+        prefs(context).getInt("InCarNavigationActionDelay", 10));
   }
 
   public static void setAutomaticNavigationActionDelaySeconds(@NonNull Context context, int seconds)
   {
-    prefs(context).edit().putInt("InCarNavigationActionDelay", InCarNavigationCountdownPolicy.normaliseDelaySeconds(seconds)).apply();
+    prefs(context)
+        .edit()
+        .putInt("InCarNavigationActionDelay", InCarNavigationCountdownPolicy.normaliseDelaySeconds(seconds))
+        .apply();
+  }
+
+  public static boolean compactStartupEnabled(@NonNull Context context)
+  {
+    return compactStartupEnabled(compactStartupPrefs(context), app.organicmaps.BuildConfig.IS_IN_CAR);
+  }
+
+  @VisibleForTesting
+  static boolean compactStartupEnabled(@NonNull SharedPreferences prefs, boolean inCar)
+  {
+    return inCar && prefs.getBoolean("InCarCompactStartup", false);
+  }
+
+  public static void setCompactStartupEnabled(@NonNull Context context, boolean enabled)
+  {
+    if (!app.organicmaps.BuildConfig.IS_IN_CAR)
+      return;
+    setCompactStartupEnabled(compactStartupPrefs(context), true, enabled);
+    InCarCompactStartupProvider.changed(context);
+  }
+
+  @VisibleForTesting
+  static void setCompactStartupEnabled(@NonNull SharedPreferences prefs, boolean inCar, boolean enabled)
+  {
+    if (inCar)
+      prefs.edit().putBoolean("InCarCompactStartup", enabled).apply();
+  }
+
+  private static SharedPreferences compactStartupPrefs(@NonNull Context context)
+  {
+    // Same file owned by OrganicMaps, available before MwmApplication finishes initialisation.
+    return context.getSharedPreferences(context.getString(app.organicmaps.sdk.R.string.pref_file_name),
+                                        Context.MODE_PRIVATE);
   }
 
   private InCarSettingsStore() {}

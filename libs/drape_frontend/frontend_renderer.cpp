@@ -592,7 +592,7 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       m_routeRenderer->Clear();
       ++m_lastRecacheRouteId;
       m_manualCameraPresentation = false;
-    m_myPositionController->DeactivateRouting();
+      m_myPositionController->DeactivateRouting();
       m_postprocessRenderer->OnChangedRouteFollowingMode(m_context, false /* active */);
       if (m_enablePerspectiveInNavigation)
         DisablePerspective();
@@ -690,8 +690,7 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
 
   case Message::Type::EnablePerspective:
   {
-    if (!m_manualCameraPresentation
-        && (!m_myPositionController->IsInRouting() || m_enablePerspectiveInNavigation))
+    if (!m_manualCameraPresentation && (!m_myPositionController->IsInRouting() || m_enablePerspectiveInNavigation))
       AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(true /* isAutoPerspective */));
     break;
   }
@@ -1147,8 +1146,15 @@ void FrontendRenderer::ApplyPerspectivePermission(bool allowed)
   // otherwise cannot undo the driver's camera choice.
   if (m_myPositionController->IsInRouting() && !allowed)
   {
+    bool const hadManualOverride = m_manualCameraPresentation;
     m_manualCameraPresentation = false;
-    m_userEventStream.ApplyCameraPresentation(false);
+    // Always invalidate queued auto-perspective events on explicit disallow.
+    // Only reset animations/publish a frame when a visible camera reconciliation is needed.
+    if (changed || hadManualOverride || m_userEventStream.GetCurrentScreen().isPerspective() ||
+        m_userEventStream.GetCurrentScreen().isAutoPerspective())
+      m_userEventStream.ApplyCameraPresentation(false);
+    else
+      m_userEventStream.DiscardPendingAutoPerspective();
   }
   else if (changed && m_myPositionController->IsInRouting() && !m_manualCameraPresentation)
     AddUserEvent(make_unique_dp<SetAutoPerspectiveEvent>(allowed));
@@ -1157,8 +1163,8 @@ void FrontendRenderer::ApplyPerspectivePermission(bool allowed)
 bool FrontendRenderer::ToggleCameraViewAndRecenter()
 {
   // Resolve the actual render-owned screen; a Java-side toggle could be stale after a route handover.
-  bool const perspective = !m_userEventStream.GetCurrentScreen().isPerspective()
-                           && (!m_myPositionController->IsInRouting() || m_enablePerspectiveInNavigation);
+  bool const perspective = !m_userEventStream.GetCurrentScreen().isPerspective() &&
+                           (!m_myPositionController->IsInRouting() || m_enablePerspectiveInNavigation);
   m_manualCameraPresentation = true;
   m_userEventStream.ApplyCameraPresentation(perspective);
   return m_myPositionController->RecenterPreservingMode();

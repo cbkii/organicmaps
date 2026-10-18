@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="MwmTheme.Navigation">
+    <item name="iconTint">@color/in_car_icon_primary</item>
+  </style>
+</resources>

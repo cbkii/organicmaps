@@ -197,6 +197,11 @@ public class MwmApplication extends Application implements Application.ActivityL
   {
     ThemeSwitcher.INSTANCE.initialize(this);
     return mOrganicMaps.init(() -> {
+      if (BuildConfig.IS_IN_CAR)
+      {
+        app.organicmaps.incar.InCarCompactStartupState.INSTANCE.coreReady();
+        app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+      }
       ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
       ProcessLifecycleOwner.get().getLifecycle().addObserver(mProcessLifecycleObserver);
       if (BuildConfig.IS_IN_CAR)

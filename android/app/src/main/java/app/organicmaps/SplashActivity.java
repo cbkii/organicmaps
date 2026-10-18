@@ -89,6 +89,11 @@ public class SplashActivity extends AppCompatActivity
   {
     super.onResume();
     if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.splash();
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
+    if (BuildConfig.IS_IN_CAR)
       mInCarStartupHandoff.onResume();
     if (mCanceled || isFinishing())
       return;
@@ -142,8 +147,7 @@ public class SplashActivity extends AppCompatActivity
 
   private void init()
   {
-    if (BuildConfig.IS_IN_CAR
-        && (isFinishing() || isDestroyed() || !mInCarStartupHandoff.beginInitialization()))
+    if (BuildConfig.IS_IN_CAR && (isFinishing() || isDestroyed() || !mInCarStartupHandoff.beginInitialization()))
       return;
     MwmApplication app = MwmApplication.from(this);
     boolean asyncContinue = false;

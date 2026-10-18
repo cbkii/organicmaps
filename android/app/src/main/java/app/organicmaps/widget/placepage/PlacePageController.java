@@ -265,8 +265,10 @@ public class PlacePageController
       return null;
     ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
     for (PlacePageButtons.ButtonType type :
-         PlacePageActionProjection.project(currentItems, BuildConfig.IS_IN_CAR ? mViewModel.getActionSlots() : mMaxButtons,
-                                         BuildConfig.IS_IN_CAR).overflow())
+         PlacePageActionProjection
+             .project(currentItems, BuildConfig.IS_IN_CAR ? mViewModel.getActionSlots() : mMaxButtons,
+                      BuildConfig.IS_IN_CAR)
+             .overflow())
     {
       final PlacePageButton bsItem = PlacePageButtonFactory.createButton(type, requireActivity());
       items.add(
@@ -523,7 +525,8 @@ public class PlacePageController
   @Override
   public void onPlacePageRequestToggleState()
   {
-    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+    if (BuildConfig.IS_IN_CAR)
+      ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     if (BuildConfig.IS_IN_CAR)
       return;
 
@@ -539,14 +542,16 @@ public class PlacePageController
   @Override
   public void onPlacePageRequestClose()
   {
-    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+    if (BuildConfig.IS_IN_CAR)
+      ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     mPlacePageBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
   }
 
   @Override
   public void onPlacePageButtonClick(PlacePageButtons.ButtonType item)
   {
-    if (BuildConfig.IS_IN_CAR) ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
+    if (BuildConfig.IS_IN_CAR)
+      ((MwmActivity) requireActivity()).cancelInCarNavigationCountdown();
     switch (item)
     {
     case BOOKMARK_SAVE, BOOKMARK_DELETE -> onBookmarkBtnClicked();
@@ -905,6 +910,8 @@ public class PlacePageController
     super.onResume();
     if (mPlacePageBehavior.getState() != BottomSheetBehavior.STATE_HIDDEN && !Framework.nativeHasPlacePageInfo())
       mViewModel.setMapObject(null);
+    else if (BuildConfig.IS_IN_CAR && mCoordinator != null)
+      PlacePageUtils.updateMapViewport(mCoordinator, mPlacePage.getTop(), mViewportMinHeight);
   }
 
   @Override

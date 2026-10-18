@@ -446,6 +446,44 @@ inline bool IsParallelCandidateAmbiguous(double undirectedAngleDegrees, double s
   return !(semanticGap >= 0.25 && motionConfidence >= 0.35);
 }
 
+// A speed drop or a mapped parking polygon does not by itself prove a public-road departure.
+// Once a strong road lock exists, require a supported ~70 degree course change before
+// moving into free parking. Genuine road mismatch and mapped parking aisle retain authority.
+double constexpr kParkingDepartureTurnDegrees = 70.0;
+inline bool HasConfirmedParkingDepartureFromRoad(bool roadLocked, bool plausiblePublicRoad, bool parkingAisle,
+                                                 bool roadMismatch, bool trustworthyTurn, double turnDegrees)
+{
+  if (!roadLocked || !plausiblePublicRoad || parkingAisle || roadMismatch)
+    return true;
+  return trustworthyTurn && turnDegrees >= kParkingDepartureTurnDegrees;
+}
+
+inline bool HasTrustworthyParkingTurn(bool hasDirection, double confidence, double displacementM, bool stationaryHold,
+                                      double speedMps)
+{
+  return hasDirection && confidence >= 0.35 && displacementM >= 3.0 && !stationaryHold && speedMps >= 0.0 &&
+         speedMps <= kParkingFreeMaxSpeedMps;
+}
+
+inline bool RoadDisplayEvidenceIsFresh(double acceptedTime, double observationTime, double now)
+{
+  return acceptedTime > 0.0 && observationTime >= acceptedTime && now >= observationTime &&
+         now - acceptedTime <= kMaxAcceptedObservationGapSeconds;
+}
+
+// Road matching owns Road/ParkingFree/OffRoadFree state; the display layer must not
+// temporarily show raw GPS merely because a short turn exceeds the normal projection
+// acceptance radius. Extend only a fresh Road lock, never parking/open land or stale GPS.
+inline bool RetainFreshRoadDisplay(MatchState state, AccuracyBand accuracy, bool recentRoadEvidence,
+                                   bool insideFreeArea, double projectionDistanceM, double normalLimitM)
+{
+  if (state != MatchState::Road || !recentRoadEvidence || insideFreeArea || accuracy == AccuracyBand::Poor ||
+      accuracy == AccuracyBand::Unusable)
+    return false;
+  double const lockLimitM = accuracy == AccuracyBand::Good ? 35.0 : 55.0;
+  return projectionDistanceM <= std::max(normalLimitM, lockLimitM);
+}
+
 inline double ParkingReleaseTimeSeconds(AreaContext const & context, bool recentEntranceHint)
 {
   double seconds = context.m_insideStructuredParking ? 2.0 : (context.m_insideParking ? 3.0 : 5.0);

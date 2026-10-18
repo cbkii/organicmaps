@@ -10,7 +10,18 @@
       android:name="androidx.car.app.ACCESS_SURFACE"
       tools:node="remove"/>
 
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <queries><package android:name="com.cbkii.ts18launcher" /></queries>
   <application>
+    <provider
+        android:name="app.organicmaps.incar.InCarCompactStartupProvider"
+        android:authorities="${applicationId}.compact.startup"
+        android:exported="true"
+        android:grantUriPermissions="false"
+        tools:ignore="ExportedContentProvider" />
+    <receiver android:name="app.organicmaps.incar.InCarCompactBootReceiver" android:exported="false">
+      <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+    </receiver>
     <!-- InCar alone advertises standard Android PiP. Entry remains externally/system owned: no
          auto-enter callbacks or OEM windowing hooks are added to the shared map Activity. -->
     <activity

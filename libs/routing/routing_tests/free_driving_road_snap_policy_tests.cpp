@@ -289,4 +289,51 @@ UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingAreaConstraintPreservesInsidePosition
   TEST_LESS(std::abs(constrained.x - 0.5), 1e-9, ());
   TEST_LESS(std::abs(constrained.y - 0.5), 1e-9, ());
 }
+UNIT_TEST(FreeDrivingRoadSnapPolicy_FreshRoadLockSurvivesTurnProjectionGapAtAnySpeed)
+{
+  // Retention is deliberately speed-independent, but never a raw-GPS override of free-area state.
+  TEST(RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, true, false, 30.0, 20.0), ());
+  TEST(RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Moderate, true, false, 49.0, 32.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, true, false, 36.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Moderate, true, false, 56.0, 32.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Poor, true, false, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, false, false, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::Road, AccuracyBand::Good, true, true, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::ParkingFree, AccuracyBand::Good, true, false, 25.0, 20.0), ());
+  TEST(!RetainFreshRoadDisplay(MatchState::OffRoadFree, AccuracyBand::Good, true, false, 25.0, 20.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingNeedsConfirmedSwivelUnderStrongRoadLock)
+{
+  // A public road beside/inside mapped parking must not unsnap at walking speed on its own.
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, false, 90.0), ());
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, true, 69.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, false, false, true, 70.0), ());
+  // Legitimate exceptions remain: an actual road mismatch, or a mapped parking aisle.
+  TEST(HasConfirmedParkingDepartureFromRoad(true, false, false, true, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, true, false, false, 0.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(false, true, false, false, false, 0.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ParkingUsesRetainedRoadAndAccumulatedMotion)
+{
+  // A weaker winning candidate cannot release the still-plausible public-road lock.
+  TEST(!HasConfirmedParkingDepartureFromRoad(true, true, false, false, false, 90.0), ());
+  TEST(HasConfirmedParkingDepartureFromRoad(true, true, false, true, false, 0.0), ());
+  TEST(HasTrustworthyParkingTurn(true, 0.6, 4.0, false, 1.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.6, 4.0, true, 0.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.2, 4.0, false, 1.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.6, 2.0, false, 1.0), ());
+  TEST(!HasTrustworthyParkingTurn(true, 0.6, 4.0, false, 8.0), ());
+}
+
+UNIT_TEST(FreeDrivingRoadSnapPolicy_ExtrapolatedTimestampDoesNotRefreshRoadLifetime)
+{
+  TEST(RoadDisplayEvidenceIsFresh(100.0, 100.0, 105.0), ());
+  TEST(!RoadDisplayEvidenceIsFresh(100.0, 100.0, 105.01), ());
+  TEST(!RoadDisplayEvidenceIsFresh(100.0, 100.0, 99.0), ());
+  TEST(!RoadDisplayEvidenceIsFresh(100.0, 99.0, 101.0), ());
+  TEST(!RoadDisplayEvidenceIsFresh(0.0, 100.0, 101.0), ());
+}
+
 }  // namespace free_driving_road_snap_policy_tests

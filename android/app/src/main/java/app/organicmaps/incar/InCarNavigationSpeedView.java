@@ -60,12 +60,14 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
     setBackgroundResource(!warning ? R.drawable.in_car_speed_circle_background
                           : severity == InCarSpeedDisplayPolicy.Severity.WARNING
-                            ? R.drawable.in_car_speed_warning_orange_background
-                            : R.drawable.in_car_speed_warning_background);
+                              ? R.drawable.in_car_speed_warning_orange_background
+                              : R.drawable.in_car_speed_warning_background);
     if (warning)
     {
       // Use a coloured solid instead of tinting the whole drawable: preserve the dark outline.
-      setTextColor(severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
+      // Severe red is bright with black text in daylight, dark with white text at night.
+      final boolean night = app.organicmaps.util.ThemeUtils.isDarkTheme(getContext());
+      setTextColor(!night || severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
     }
     else
     {
@@ -90,7 +92,7 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     final FragmentActivity activity = findActivity(getContext());
     if (BuildConfig.IS_IN_CAR && activity != null)
     {
-      int size = InCarVisuals.currentQuickActionSizePx(activity);
+      int size = InCarVisuals.currentSpeedCircleSizePx(activity);
       if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED)
         size = Math.min(size, MeasureSpec.getSize(widthMeasureSpec));
       if (MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.UNSPECIFIED)

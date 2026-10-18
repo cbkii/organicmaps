@@ -8,7 +8,7 @@
   <string name="in_car_quick_places">Places</string>
   <color name="in_car_nav_foreground">@color/icon_tint</color>
   <color name="in_car_nav_secondary">@color/icon_tint_light</color>
-  <color name="in_car_nav_warning">#FFB3261E</color>
+  <color name="in_car_nav_warning">#FFF4514B</color>
   <string name="in_car_nav_after">AFTER</string>
   <string name="in_car_road_speed_limit_content_description">Speed limit %1$s</string>
   <string name="in_car_nav_lanes">LANES</string>

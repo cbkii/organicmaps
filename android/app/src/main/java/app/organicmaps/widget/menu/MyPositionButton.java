@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
+import android.widget.ImageView;
 import androidx.annotation.AttrRes;
 import androidx.annotation.DimenRes;
 import androidx.annotation.DrawableRes;
@@ -28,14 +29,14 @@ public class MyPositionButton
   private static final int FOLLOW_SHIFT = 1;
 
   @NonNull
-  private final FloatingActionButton mButton;
+  private final ImageView mButton;
   private static final SparseArray<Drawable> mIcons = new SparseArray<>(); // Location mode -> Button icon
 
   private final int mFollowPaddingShift;
 
   public MyPositionButton(@NonNull View button, @NonNull View.OnClickListener listener)
   {
-    mButton = (FloatingActionButton) button;
+    mButton = (ImageView) button;
     mButton.setOnClickListener(listener);
     mIcons.clear();
     mFollowPaddingShift = (int) (FOLLOW_SHIFT * button.getResources().getDisplayMetrics().density);
@@ -79,8 +80,8 @@ public class MyPositionButton
 
     mButton.setSelected(false);
     mButton.setImageDrawable(image);
-    if (!BuildConfig.IS_IN_CAR)
-      mButton.setMaxImageSize((int) resources.getDimension(sizeDimen));
+    if (!BuildConfig.IS_IN_CAR && mButton instanceof FloatingActionButton fab)
+      fab.setMaxImageSize((int) resources.getDimension(sizeDimen));
     ImageViewCompat.setImageTintList(mButton, ColorStateList.valueOf(ThemeUtils.getColor(context, colorAttr)));
     updatePadding(mode);
     if (BuildConfig.IS_IN_CAR)
@@ -111,6 +112,19 @@ public class MyPositionButton
 
   private void updatePadding(int mode)
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      // The icon lives in a transparent full-width rail cell, not a Material FAB.
+      // Retain the optical inset when location mode changes at runtime.
+      final int size = mButton.getWidth() > 0
+                         ? mButton.getWidth()
+                         : mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size);
+      final int icon = mButton.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_icon_size);
+      final int pad = Math.max(0, (size - icon) / 2);
+      final int followShift = mode == LocationState.FOLLOW ? mFollowPaddingShift : 0;
+      mButton.setPadding(pad, pad + followShift, pad + followShift, pad);
+      return;
+    }
     if (mode == LocationState.FOLLOW)
       mButton.setPadding(0, mFollowPaddingShift, mFollowPaddingShift, 0);
     else

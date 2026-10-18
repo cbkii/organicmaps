@@ -58,7 +58,7 @@ public final class InCarDrivingUi
     @Nullable
     FloatingActionButton drivingView;
     @Nullable
-    FloatingActionButton zoomIn;
+    View zoomIn;
     @Nullable
     View.OnLayoutChangeListener zoomSizeListener;
     @Nullable
@@ -142,6 +142,17 @@ public final class InCarDrivingUi
       BINDINGS.put(activity, new WeakReference<>(binding));
       overlay.setVisibility(View.VISIBLE);
       applyInsets(activity, binding);
+      binding.speedCluster.addOnLayoutChangeListener(
+          (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
+              activity.refreshInCarCompassOffset();
+          });
+      final View navRibbon = activity.findViewById(R.id.nav_next_turn_container);
+      if (navRibbon != null)
+        navRibbon.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+          if (bottom != oldBottom || top != oldTop)
+            activity.refreshInCarCompassOffset();
+        });
 
       final Binding observed = binding;
       final FragmentManager fragmentManager = activity.getSupportFragmentManager();
@@ -190,44 +201,82 @@ public final class InCarDrivingUi
     render(activity, binding, binding.controller.getSnapshot().getValue());
   }
 
+  private static int ribbonForeground(int background)
+  {
+    return ColorUtils.calculateContrast(android.graphics.Color.BLACK, background)
+         >= ColorUtils.calculateContrast(android.graphics.Color.WHITE, background)
+      ? android.graphics.Color.BLACK
+      : android.graphics.Color.WHITE;
+  }
+
   private static void renderRibbon(@NonNull MwmActivity activity, boolean warning, float strength)
   {
-    final int red = ContextCompat.getColor(activity, InCarSpeedDisplayPolicy.severity() == InCarSpeedDisplayPolicy.Severity.SEVERE
-                                                     ? R.color.in_car_nav_warning : R.color.in_car_nav_warning_orange);
+    final int red =
+        ContextCompat.getColor(activity, InCarSpeedDisplayPolicy.severity() == InCarSpeedDisplayPolicy.Severity.SEVERE
+                                             ? R.color.in_car_nav_warning
+                                             : R.color.in_car_nav_warning_orange);
     final View underline = activity.findViewById(R.id.in_car_nav_warning_underline);
     if (underline != null)
     {
       underline.setBackgroundColor(red);
       underline.setVisibility(warning ? View.VISIBLE : View.INVISIBLE);
     }
-    final View group = activity.findViewById(R.id.in_car_nav_guidance_group);
-    if (group == null)
-      return;
     final View ribbon = activity.findViewById(R.id.nav_next_turn_container);
+    if (ribbon == null)
+      return;
+    final View group = activity.findViewById(R.id.in_car_nav_guidance_group);
+    final View immediate = activity.findViewById(R.id.nav_next_turn_frame);
+    final View then = activity.findViewById(R.id.nav_next_next_turn_frame);
+    final View immediateGroup = activity.findViewById(R.id.in_car_nav_immediate_group);
+    final LanesView lanes = activity.findViewById(R.id.lanes);
+    final boolean hasLanes = lanes != null && lanes.getVisibility() == View.VISIBLE;
     final int normal = ContextCompat.getColor(activity, R.color.bg_cards);
+    final int immediateBase = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
+    final int afterBase = ContextCompat.getColor(
+        activity, hasLanes ? R.color.in_car_nav_lanes_background : R.color.in_car_nav_after_background);
+    final int immediateBackground = warning ? ColorUtils.blendARGB(immediateBase, red, strength) : immediateBase;
+    final int afterBackground = warning ? ColorUtils.blendARGB(afterBase, red, strength) : afterBase;
+    final int immediateForeground = warning ? ribbonForeground(immediateBackground)
+                                            : ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
+    final int foreground = warning ? ribbonForeground(afterBackground)
+                                   : ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
+                                                                               : R.color.in_car_nav_after_foreground);
+    // Paint every section itself: child surfaces must not cover the parent's warning wash.
+    // The speed circles retain their own separate severity/limit presentation.
     ribbon.setBackgroundColor(warning ? ColorUtils.blendARGB(normal, red, strength) : normal);
-    final LanesView lanes = ribbon.findViewById(R.id.lanes);
-    final boolean hasLanes = lanes.getVisibility() == View.VISIBLE;
-    final int foreground = ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
-                                                                    : R.color.in_car_nav_after_foreground);
-    group.setBackgroundColor(ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_background
-                                                                      : R.color.in_car_nav_after_background));
-    final int secondary = ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
-    final View immediateGroup = ribbon.findViewById(R.id.in_car_nav_immediate_group);
-    final int immediateBackground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
-    final int immediateForeground = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
-    immediateGroup.setBackgroundColor(warning ? ColorUtils.blendARGB(immediateBackground, red, strength)
-                                              : immediateBackground);
-    for (int id : new int[] {R.id.distance, R.id.street})
-      ((TextView) immediateGroup.findViewById(id)).setTextColor(immediateForeground);
-    ((TextView) ribbon.findViewById(R.id.in_car_nav_guidance_label)).setTextColor(foreground);
-    final View immediate = ribbon.findViewById(R.id.nav_next_turn_frame);
-    final View then = ribbon.findViewById(R.id.nav_next_next_turn_frame);
-    ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
-                                     ColorStateList.valueOf(immediateForeground));
-    ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
-    // Lane semantics remain separate from the speed-warning surface.
-    lanes.setLaneColors(ContextCompat.getColor(activity, R.color.in_car_nav_lanes_foreground), secondary);
+    if (immediateGroup != null)
+      immediateGroup.setBackgroundColor(immediateBackground);
+    if (immediate != null)
+    {
+      immediate.setBackgroundColor(immediateBackground);
+      ((TextView) immediate.findViewById(R.id.distance)).setTextColor(immediateForeground);
+      ImageViewCompat.setImageTintList((ImageView) immediate.findViewById(R.id.turn),
+                                       ColorStateList.valueOf(immediateForeground));
+    }
+    final View streetFrame = activity.findViewById(R.id.street_frame);
+    if (streetFrame != null)
+    {
+      streetFrame.setBackgroundColor(immediateBackground);
+      ((TextView) streetFrame.findViewById(R.id.street)).setTextColor(immediateForeground);
+    }
+    if (group != null)
+      group.setBackgroundColor(afterBackground);
+    if (then != null)
+    {
+      then.setBackgroundColor(afterBackground);
+      ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
+    }
+    final TextView label = activity.findViewById(R.id.in_car_nav_guidance_label);
+    if (label != null)
+      label.setTextColor(foreground);
+    if (lanes != null)
+    {
+      lanes.setBackgroundColor(afterBackground);
+      final int active = warning ? foreground : ContextCompat.getColor(activity, R.color.in_car_nav_lanes_foreground);
+      final int secondary = warning ? ColorUtils.blendARGB(afterBackground, active, 0.75f)
+                                    : ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
+      lanes.setLaneColors(active, secondary);
+    }
   }
 
   public static void refresh(@NonNull MwmActivity activity)
@@ -258,7 +307,7 @@ public final class InCarDrivingUi
       return;
 
     final FloatingActionButton drivingView = scope.findViewById(R.id.in_car_driving_view_button);
-    final FloatingActionButton zoomIn = scope.findViewById(R.id.nav_zoom_in);
+    final View zoomIn = scope.findViewById(R.id.nav_zoom_in);
     if (drivingView == null || zoomIn == null)
       return;
 
@@ -344,7 +393,9 @@ public final class InCarDrivingUi
       binding.lastSpeedText = speedText;
     }
 
-    binding.speedCluster.setVisibility(snapshot.navigating ? View.INVISIBLE : View.VISIBLE);
+    final boolean modeChanged =
+        binding.speedCluster.getVisibility() != (snapshot.navigating ? View.GONE : View.VISIBLE);
+    binding.speedCluster.setVisibility(snapshot.navigating ? View.GONE : View.VISIBLE);
     if (binding.navigationSpeed != null)
       binding.navigationSpeed.setVisibility(snapshot.navigating ? View.VISIBLE : View.GONE);
 
@@ -367,6 +418,8 @@ public final class InCarDrivingUi
     final boolean warning = InCarSpeedDisplayPolicy.updateCurrentSpeed(current ? snapshot.speedMps : Double.NaN);
     if (binding.navigationSpeed instanceof InCarNavigationSpeedView navigationSpeedView)
       navigationSpeedView.setSpeeding(warning);
+    if (binding.speed instanceof InCarNavigationSpeedView drivingSpeedView)
+      drivingSpeedView.setSpeeding(warning);
     final String limitDescription = displayedLimit > 0
                                       ? activity.getString(R.string.in_car_road_speed_limit_content_description,
                                                            Framework.nativeFormatSpeed(displayedLimit))
@@ -382,6 +435,8 @@ public final class InCarDrivingUi
     binding.roadSpeedLimit.setContentDescription(showRoadLimit ? limitDescription : null);
     if (showRoadLimit)
       binding.roadSpeedLimit.setSpeedLimit(StringUtils.nativeFormatSpeed(displayedLimit), warning);
+    if (modeChanged)
+      binding.speedCluster.post(activity::refreshInCarCompassOffset);
     renderRibbon(activity, snapshot.navigating && warning, InCarSpeedDisplayPolicy.warningStrength());
 
     applyLocationHealth(activity, binding.speed, snapshot.locationHealth, speedText);
@@ -443,11 +498,14 @@ public final class InCarDrivingUi
       final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.speedCluster.getLayoutParams();
       final int baseMargin = activity.getResources().getDimensionPixelSize(R.dimen.margin_base);
       final int top = bars.top + baseMargin;
-      if (params.topMargin != top)
+      final int right = bars.right + baseMargin;
+      if (params.topMargin != top || params.rightMargin != right)
       {
         params.topMargin = top;
+        params.rightMargin = right;
         binding.speedCluster.setLayoutParams(params);
       }
+      binding.speedCluster.post(activity::refreshInCarCompassOffset);
       return windowInsets;
     });
     ViewCompat.requestApplyInsets(binding.overlay);

@@ -124,7 +124,7 @@
     android:padding="@dimen/margin_half"
     android:visibility="gone"
     app:lanesActiveLaneTintColor="?navLaneArrowActiveColor"
-    app:lanesBackgroundColor="?navLanesBackgroundColor"
+    app:lanesBackgroundColor="@android:color/transparent"
     app:lanesCornerRadius="@dimen/margin_quarter"
     app:lanesEditModeLanesCount="5"
     app:lanesInactiveLaneTintColor="?navLaneArrowInactiveColor"

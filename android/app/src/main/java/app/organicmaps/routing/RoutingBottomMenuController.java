@@ -79,7 +79,8 @@ final class RoutingBottomMenuController
 
   static void dispatchStart(StartGate gate, boolean planning, boolean built, Runnable start)
   {
-    if (gate.canDispatch(planning, built)) start.run();
+    if (gate.canDispatch(planning, built))
+      start.run();
   }
 
   private static final String STATE_ALTITUDE_CHART_SHOWN = "altitude_chart_shown";
@@ -238,7 +239,8 @@ final class RoutingBottomMenuController
     mSaveButton.setOnClickListener(v -> saveRoute());
     mStart.setEnabled(false);
     mStart.setOnClickListener(v -> {
-      if (BuildConfig.IS_IN_CAR) ((MwmActivity) mContext).cancelInCarNavigationCountdown();
+      if (BuildConfig.IS_IN_CAR)
+        ((MwmActivity) mContext).cancelInCarNavigationCountdown();
       // Ignore the event if the back and start buttons are pressed at the same time.
       // https://github.com/organicmaps/organicmaps/issues/6628
       RoutingController controller = RoutingController.get();
@@ -298,6 +300,20 @@ final class RoutingBottomMenuController
       UiUtils.hide(mError, mAltitudeChart, mAltitudeDifference, mTransitTime, mTimeRuler, mTransitRecyclerView,
                    mSaveButton);
       showRoutingDetails();
+      final TextView compactSummary = mContext.findViewById(R.id.in_car_route_summary);
+      if (compactSummary != null)
+      {
+        final boolean vehicleSummary =
+            RoutingController.get().isVehicleRouterType() && RoutingController.get().getCachedRoutingInfo() != null;
+        compactSummary.setVisibility(vehicleSummary ? View.VISIBLE : View.GONE);
+        if (vehicleSummary)
+        {
+          compactSummary.setText(mTimeVehicle.getText());
+          // The same summary is already available in the compact START rail; do not render a
+          // detached second text row in the InCar vehicle-planning presentation.
+          UiUtils.hide(mAltitudeChartFrame);
+        }
+      }
       refreshManageRoute();
       notifyVisibilityChanged();
       return;
@@ -331,6 +347,7 @@ final class RoutingBottomMenuController
 
   void hideAltitudeChartAndRoutingDetails()
   {
+    hideCompactSummary();
     UiUtils.hide(mAltitudeChart, mTimeVehicle, mTimeElevationLine, mTransitTime, mTimeRuler, mTransitRecyclerView);
     notifyVisibilityChanged();
   }
@@ -398,6 +415,8 @@ final class RoutingBottomMenuController
   // Single entry point for the Start button visual state. The button itself is always visible.
   void setStartState(@NonNull StartState state)
   {
+    if (state != StartState.ENABLED)
+      hideCompactSummary();
     if (state == mStartGate.getState())
       return;
     mStart.setBuildProgress(0);
@@ -405,7 +424,8 @@ final class RoutingBottomMenuController
     mStart.setEnabled(state == StartState.ENABLED);
     if (BuildConfig.IS_IN_CAR)
     {
-      if (state != StartState.ENABLED) ((MwmActivity) mContext).cancelInCarNavigationCountdown();
+      if (state != StartState.ENABLED)
+        ((MwmActivity) mContext).cancelInCarNavigationCountdown();
       else
       {
         final RoutingController route = RoutingController.get();
@@ -413,13 +433,19 @@ final class RoutingBottomMenuController
         final long interactionGeneration = ((MwmActivity) mContext).getInCarInteractionGeneration();
         mStart.post(() -> {
           if (!mStart.isAttachedToWindow() || mContext.isFinishing() || mContext.isDestroyed()
-              || ((MwmActivity) mContext).getInCarInteractionGeneration() != interactionGeneration) return;
-          ((MwmActivity) mContext).getInCarNavigationCountdown().arm(
-            "START", generation, mStart,
-            () -> route.getBuildGeneration() == generation
-                && mStartGate.canDispatch(route.isPlanning(), route.isBuilt()) && !isManageRouteEditing(),
-            seconds -> mStart.setText(seconds < 0 ? mContext.getString(R.string.p2p_start)
-                                                  : mContext.getString(R.string.p2p_start) + " · " + seconds));
+              || ((MwmActivity) mContext).getInCarInteractionGeneration() != interactionGeneration)
+            return;
+          ((MwmActivity) mContext)
+              .getInCarNavigationCountdown()
+              .arm(
+                  "START", generation, mStart,
+                  ()
+                      -> route.getBuildGeneration() == generation
+                             && mStartGate.canDispatch(route.isPlanning(), route.isBuilt()) && !isManageRouteEditing(),
+                  seconds
+                  -> mStart.setText(seconds < 0 ? mContext.getString(R.string.p2p_start)
+                                                : mContext.getString(R.string.in_car_navigation_start_countdown,
+                                                                     mContext.getString(R.string.p2p_start), seconds)));
         });
       }
     }
@@ -445,6 +471,18 @@ final class RoutingBottomMenuController
     mError.setVisibility(View.VISIBLE);
     setStartState(StartState.DISABLED);
     notifyVisibilityChanged();
+  }
+
+  private void hideCompactSummary()
+  {
+    if (!BuildConfig.IS_IN_CAR)
+      return;
+    final TextView summary = mContext.findViewById(R.id.in_car_route_summary);
+    if (summary != null)
+    {
+      summary.setText("");
+      summary.setVisibility(View.GONE);
+    }
   }
 
   void saveRoutingPanelState(@NonNull Bundle outState)
