@@ -89,6 +89,11 @@ public class SplashActivity extends AppCompatActivity
   {
     super.onResume();
     if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.splash();
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
+    if (BuildConfig.IS_IN_CAR)
       mInCarStartupHandoff.onResume();
     if (mCanceled || isFinishing())
       return;

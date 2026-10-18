@@ -318,6 +318,11 @@ public final class InCarWindowGeometryCoordinator
                            mapView.getLastAppliedSurfaceWidth(), mapView.getLastAppliedSurfaceHeight());
       if (status.isConverged())
       {
+        if (activity instanceof app.organicmaps.MwmActivity)
+        {
+          app.organicmaps.incar.InCarCompactStartupState.INSTANCE.surface(observation.expectedWidth, observation.expectedHeight);
+          app.organicmaps.incar.InCarCompactStartupProvider.changed(activity);
+        }
         Logger.d(TAG, "Window geometry converged: epoch=" + observation.geometryEpoch + " generation=" + generation
                           + " size=" + observation.expectedWidth + "x" + observation.expectedHeight);
         return;

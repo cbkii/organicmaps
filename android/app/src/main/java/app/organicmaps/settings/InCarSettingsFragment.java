@@ -36,6 +36,23 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   {
     super.onViewCreated(view, savedInstanceState);
 
+    final TwoStatePreference compact = getPreference("in_car_compact_startup");
+    compact.setVisible(app.organicmaps.BuildConfig.IS_IN_CAR);
+    compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
+    compact.setSummary(R.string.in_car_compact_startup_checking);
+    compact.setEnabled(false);
+    compact.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setCompactStartupEnabled(requireContext(), (boolean) value);
+      return true;
+    });
+    app.organicmaps.incar.InCarCompactStartupProvider.checkController(requireContext(), available -> {
+      if (!isAdded() || getView() != view)
+        return;
+      compact.setEnabled(available);
+      compact.setSummary(available ? R.string.in_car_compact_startup_summary
+                                   : R.string.in_car_compact_startup_unavailable);
+    });
+
     final ListPreference position = getPreference("in_car_control_position");
     position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
     position.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());

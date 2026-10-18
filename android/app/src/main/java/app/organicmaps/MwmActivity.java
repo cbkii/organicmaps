@@ -257,6 +257,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   public void onRenderingCreated()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(true);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     checkMeasurementSystem();
     notifyInCarRenderingCreated();
   }
@@ -264,12 +269,22 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   public void onRenderingRestored()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(true);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     notifyInCarRenderingCreated();
   }
 
   @Override
   public void onRenderingDetached()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.attached(false);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     MwmApplication.from(getApplicationContext()).onInCarRenderingDetached();
   }
 
@@ -282,6 +297,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Keep
   public void onRenderingInitializationFinished()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.nativeReady();
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
 
     Framework.nativeRestoreDownloadQueue();
@@ -1091,6 +1111,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   protected void onResume()
   {
     super.onResume();
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(), true);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
     makeNavigationBarTransparentInLightMode();
@@ -1201,6 +1226,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @Override
   protected void onPause()
   {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(), false);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
     cancelInCarNavigationCountdown();
     if (mOnmapDownloader != null)
       mOnmapDownloader.onPause();

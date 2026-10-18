@@ -44,6 +44,32 @@ public final class InCarSettingsStore
     prefs(context).edit().putInt("InCarNavigationActionDelay", InCarNavigationCountdownPolicy.normaliseDelaySeconds(seconds)).apply();
   }
 
+  public static boolean compactStartupEnabled(@NonNull Context context)
+  {
+    return compactStartupEnabled(compactStartupPrefs(context), app.organicmaps.BuildConfig.IS_IN_CAR);
+  }
+
+  @VisibleForTesting
+  static boolean compactStartupEnabled(@NonNull SharedPreferences prefs, boolean inCar)
+  {
+    return inCar && prefs.getBoolean("InCarCompactStartup", false);
+  }
+
+  public static void setCompactStartupEnabled(@NonNull Context context, boolean enabled)
+  {
+    if (!app.organicmaps.BuildConfig.IS_IN_CAR)
+      return;
+    compactStartupPrefs(context).edit().putBoolean("InCarCompactStartup", enabled).apply();
+    context.getContentResolver().notifyChange(InCarCompactStartupProvider.URI, null);
+  }
+
+  private static SharedPreferences compactStartupPrefs(@NonNull Context context)
+  {
+    // Same file owned by OrganicMaps, available before MwmApplication finishes initialisation.
+    return context.getSharedPreferences(context.getString(app.organicmaps.sdk.R.string.pref_file_name),
+                                        Context.MODE_PRIVATE);
+  }
+
   private InCarSettingsStore() {}
 
   public static int routeResumeMinutes(@NonNull Context context)
