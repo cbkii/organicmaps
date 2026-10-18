@@ -108,6 +108,8 @@ jobs:
       JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
       CI_IN_CAR_RELEASE_VERSION: '0.0.0'
       CI_IN_CAR_RELEASE_VERSION_CODE: '1000000000'
+      # Reuse one daemon/heap across arm64, x86 tests and release packaging.
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
     # Cancels previous jobs if the same branch or PR was updated again.
     # Only cancel PR runs: master runs must finish to populate the shared ccache.
     concurrency:
@@ -194,9 +196,9 @@ jobs:
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        # This second architecture build reuses a daemon after arm64 packaging.
         # Resource merging exceeded the default 2 GiB heap on the hosted runner.
-        run: ./gradlew '-Dorg.gradle.jvmargs=-Xmx4g -Xms512m' --max-workers=2 -Px86_64 assembleInCarDebug assembleInCarProfileable
+        # The job-level heap is identical across all invocations, avoiding duplicate daemons.
+        run: ./gradlew --max-workers=2 -Px86_64 assembleInCarDebug assembleInCarProfileable
 
       - name: Run InCar and SDK unit tests
         shell: bash
