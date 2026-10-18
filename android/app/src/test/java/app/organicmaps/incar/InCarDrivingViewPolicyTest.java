@@ -24,18 +24,18 @@ public class InCarDrivingViewPolicyTest
   }
 
   @Test
-  public void automaticEntryRequiresTwoSamplesStrictlyAboveThirtyKmh()
+  public void automaticEntryRequiresTwoSamplesStrictlyAboveTwelveKmh()
   {
     final InCarDrivingViewPolicy policy = offPolicy();
-    final double exactlyThirty = InCarDrivingViewPolicy.AUTO_ENTER_SPEED_MPS;
+    final double exactlyTwelve = InCarDrivingViewPolicy.AUTO_ENTER_SPEED_MPS;
 
-    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.onSpeedSample(true, true, exactlyThirty, T0, true));
+    assertEquals(InCarDrivingViewPolicy.Transition.NONE, policy.onSpeedSample(true, true, exactlyTwelve, T0, true));
     assertFalse(policy.isEnabled());
 
     assertEquals(InCarDrivingViewPolicy.Transition.NONE,
-                 policy.onSpeedSample(true, true, exactlyThirty + 0.1, T0 + 200, true));
+                 policy.onSpeedSample(true, true, exactlyTwelve + 0.1, T0 + 200, true));
     assertEquals(InCarDrivingViewPolicy.Transition.ENABLE,
-                 policy.onSpeedSample(true, true, exactlyThirty + 0.1, T0 + 400, true));
+                 policy.onSpeedSample(true, true, exactlyTwelve + 0.1, T0 + 400, true));
     assertTrue(policy.isEnabled());
     assertEquals(InCarDrivingViewPolicy.ActivationSource.AUTOMATIC, policy.getActivationSource());
   }

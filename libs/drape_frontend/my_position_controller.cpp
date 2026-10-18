@@ -481,10 +481,11 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
 
   bool const isMovingFast = info.HasSpeed() && info.m_speed > kMinSpeedThresholdMps;
   bool const glueArrowInRouting = isNavigable && m_isArrowGluedInRouting;
-  bool const isReliableFreeDrivingCourse =
-      m_isDrivingView && !m_isInRouting && info.HasSpeed() && info.m_speed >= driving_policy::kStationarySpeedMps;
+  bool const isReliableFreeDrivingCourse = m_isDrivingView && !m_isInRouting && info.HasSpeed() &&
+                                           info.m_speed >= driving_policy::kStationarySpeedMps && info.HasBearing();
 
-  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) && info.HasBearing())
+  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) && info.HasBearing() &&
+      (!m_isDrivingView || m_isInRouting || isReliableFreeDrivingCourse))
   {
     SetDirection(math::DegToRad(info.m_bearing));
     m_lastGPSBearingTimer.Reset();
@@ -503,7 +504,8 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     location::EMyPositionMode newMode = m_desiredInitMode;
     ChangeMode(newMode);
 
-    if (!m_hints.m_isFirstLaunch || !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane))
+    if (m_isDrivingView || !m_hints.m_isFirstLaunch ||
+        !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane))
     {
       if (m_mode == location::Follow)
       {
@@ -511,9 +513,14 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
       }
       else if (m_mode == location::FollowAndRotate)
       {
-        ChangeModelView(m_position, m_drawDirection,
-                        IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
-                        kDoNotChangeZoom);
+        // Acquire the driving scale in the same follow event as the first position/bearing.
+        if (m_isDrivingView && !m_isInRouting && !m_needBlockAutoZoom)
+          ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                          m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+        else
+          ChangeModelView(m_position, m_drawDirection,
+                          IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
+                          kDoNotChangeZoom);
       }
     }
   }
@@ -698,7 +705,8 @@ void MyPositionController::SetDirection(double bearing)
 
 void MyPositionController::ChangeMode(location::EMyPositionMode newMode)
 {
-  if (IsNavigationStyleCameraActive() && (m_mode != newMode) && (newMode == location::FollowAndRotate))
+  // Entering free-driving follow is not a user zoom gesture; do not impose its 10-second cooldown.
+  if (m_isInRouting && (m_mode != newMode) && (newMode == location::FollowAndRotate))
     ResetBlockAutoZoomTimer();
 
   m_mode = newMode;
@@ -930,8 +938,11 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
     return;
 
   ResetNotification(m_routingNotFollowNotifyId);
-  ResetNotification(m_blockAutoZoomNotifyId);
-  m_needBlockAutoZoom = false;
+  if (!enabled)
+  {
+    ResetNotification(m_blockAutoZoomNotifyId);
+    m_needBlockAutoZoom = false;
+  }
 
   if (!enabled)
   {
@@ -961,15 +972,18 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
   if (recenter || m_mode != location::FollowAndRotate)
   {
     ChangeMode(location::FollowAndRotate);
-    ChangeModelView(m_position, m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter(),
-                    kDoNotChangeZoom);
+    if (!wasDrivingView && !m_needBlockAutoZoom)
+      ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                      m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+    else
+      ChangeModelView(m_position, m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter(),
+                      kDoNotChangeZoom);
   }
   else
   {
     UpdateViewport(kDoNotChangeZoom);
   }
   ResetRoutingNotFollowTimer();
-  ResetBlockAutoZoomTimer();
 }
 
 void MyPositionController::ActivateRouting(int zoomLevel, bool enableAutoZoom, bool isArrowGlued)
