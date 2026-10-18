@@ -103,7 +103,7 @@ public final class InCarLocationUi
             androidx.core.view.ViewCompat.getRootWindowInsets(container);
         final androidx.core.graphics.Insets bars =
             insets == null ? androidx.core.graphics.Insets.NONE
-                          : insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+                           : insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
         int top = bars.top;
         final int[] origin = new int[2];
         container.getLocationOnScreen(origin);
