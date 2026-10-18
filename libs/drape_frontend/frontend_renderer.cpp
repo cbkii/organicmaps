@@ -461,6 +461,11 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
 #endif
     ref_ptr<GpsInfoMessage> msg = message;
     auto const & fix = msg->GetInfo();
+    if (m_cameraDrivingSession && m_myPositionController->NeedsDrivingCameraReacquisition(fix))
+    {
+      m_fastCameraAcquisitionPending = true;
+      m_firstDrivingCoursePending = true;
+    }
     if (m_firstDrivingCoursePending && m_cameraDrivingSession &&
         driving_policy::HasReliableDrivingCourse(m_myPositionController->IsInRouting(), true,
                                                   fix.HasSpeed(), fix.m_speed, fix.HasBearing()))

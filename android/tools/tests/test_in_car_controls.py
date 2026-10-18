@@ -1186,19 +1186,33 @@ int main() {
             "    location::RouteMatchingInfo const & info", 1)[0]
         follow = controls.method_body(renderer, "void FrontendRenderer::ChangeModelView(double autoScale,")
         drag = controls.method_body(renderer, "void FrontendRenderer::OnDragStarted()")
+        position = controls.read("libs/drape_frontend/my_position_controller.cpp")
+        reacquire = controls.method_body(position, "bool MyPositionController::NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const")
+        stale_interval = re.search(r"double const kMaxUpdateLocationInvervalSec = [^;]+;", position).group(0)
         harness = r"""#include <cassert>
 #include <functional>
 #include <memory>
 #include "drape_frontend/my_position_driving_policy.hpp"
+#include "drape_frontend/current_position_freshness.hpp"
 namespace driving_policy = df::driving_policy;
 using TAnimationCreator = int;
+int64_t fakeNow=100000000000;
+int64_t PositionClockNanos(){return fakeNow;}
+""" + stale_interval + r"""
 struct Fix { bool speed=true, bearing=false; double m_speed=0;
+ double m_timestamp=100.0, m_monotonicTimestamp=100.0;
+ bool HasMonotonicTimestamp() const {return m_monotonicTimestamp>0;}
  bool HasSpeed() const{return speed;} bool HasBearing() const{return bearing;} };
 struct Message { Fix fix; Fix const& GetInfo(){return fix;} bool IsNavigable(){return false;} };
 struct Position {
- bool routing=false; int losses=0; std::function<void()> apply;
- bool IsInRouting(){return routing;} void LoseLocation(){losses++;} void DragStarted(){}
- void OnLocationUpdate(Fix const&,bool,int){apply();}
+ bool routing=false, m_positionIsObsolete=false, m_isPositionAssigned=true;
+ bool m_isDrivingView=true, m_needBlockAutoZoom=false;
+ location::EMyPositionMode m_mode=location::FollowAndRotate;
+ int64_t m_lastRecenterObservationNanos=fakeNow;
+ int losses=0; std::function<void()> apply;
+ bool NeedsDrivingCameraReacquisition(Fix const & info) const {""" + reacquire + r"""}
+ bool IsInRouting() const {return routing;} void LoseLocation(){losses++;} void DragStarted(){m_mode=location::NotFollow;}
+ void OnLocationUpdate(Fix const&,bool,int){apply();m_positionIsObsolete=false;m_lastRecenterObservationNanos=fakeNow;}
 };
 struct Stream { int GetCurrentScreen(){return 0;} };
 struct FollowAndRotateEvent {
@@ -1226,6 +1240,33 @@ int main(){
  r.gps(&msg); assert(r.fastEvents==2 && !r.m_firstDrivingCoursePending);
  r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==2);
  r.loss(); r.drag(); r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==3);
+ Renderer repaired; repaired.position.m_positionIsObsolete=true;
+ repaired.position.m_lastRecenterObservationNanos=fakeNow-1000000000; repaired.gps(&msg);
+ assert(repaired.fastEvents==1); // Silent subscription repair never emits LoseLocation.
+ repaired.gps(&msg); assert(repaired.fastEvents==1 && repaired.normalEvents==1);
+ Renderer wake; wake.position.m_lastRecenterObservationNanos=fakeNow-30000000000;
+ wake.gps(&msg); assert(wake.fastEvents==1); // BOOTTIME age works without a rendered obsolete flag.
+ Renderer fresh; fresh.position.m_lastRecenterObservationNanos=fakeNow-29999999999;
+ fresh.gps(&msg); assert(fresh.fastEvents==0);
+ Renderer browsing; browsing.position.m_positionIsObsolete=true; browsing.position.m_mode=location::NotFollow;
+ browsing.gps(&msg); assert(browsing.fastEvents==0);
+ Renderer zoom; zoom.position.m_positionIsObsolete=true; zoom.position.m_needBlockAutoZoom=true;
+ zoom.gps(&msg); assert(zoom.fastEvents==0);
+ Renderer future; future.position.m_lastRecenterObservationNanos=fakeNow+1;
+ future.gps(&msg); assert(future.fastEvents==0);
+ Renderer unknown; unknown.position.m_lastRecenterObservationNanos=0;
+ unknown.gps(&msg); assert(unknown.fastEvents==0);
+ Renderer ordinary; ordinary.position.m_isDrivingView=false; ordinary.position.m_positionIsObsolete=true;
+ ordinary.gps(&msg); assert(ordinary.fastEvents==0);
+ Renderer staleInput; staleInput.position.m_positionIsObsolete=true;
+ staleInput.position.m_lastRecenterObservationNanos=1000000000;
+ msg.fix.m_timestamp=89; staleInput.gps(&msg); assert(staleInput.fastEvents==0);
+ Renderer outOfOrder; outOfOrder.position.m_positionIsObsolete=true;
+ outOfOrder.position.m_lastRecenterObservationNanos=98000000000;
+ msg.fix.m_timestamp=97; outOfOrder.gps(&msg); assert(outOfOrder.fastEvents==0);
+ Renderer futureInput; futureInput.position.m_positionIsObsolete=true;
+ msg.fix.m_timestamp=101; futureInput.gps(&msg); assert(futureInput.fastEvents==0);
+ msg.fix.m_timestamp=100;
  Renderer route; route.position.routing=true; route.loss(); route.gps(&msg);
  assert(route.fastEvents==0 && route.normalEvents==1);
  Renderer disabled; disabled.m_cameraDrivingSession=false; disabled.loss(); disabled.gps(&msg);

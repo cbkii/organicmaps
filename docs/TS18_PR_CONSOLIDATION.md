@@ -70,3 +70,11 @@ LocationHelper/provider registration/stall/quiet-receiver harness this qualifies
 those source boundaries, not GNSS hardware, JNI timing or rendered TS18 latency.
 The final signed TESTING candidate must report source/built SHA, package,
 version, signer and APK checksum before physical testing.
+
+The combined regression exposed a silent-repair gap: provider repair preserves
+native state and does not emit LoseLocation. Rapid acquisition now also re-arms
+before a fresh, strictly newer native observation replaces evidence stale for
+30 seconds (or marked obsolete). BOOTTIME evidence covers suspended rendering.
+Routing, ordinary non-driving mode, manual pan/zoom cooldown, stale/replayed/future
+input and invalid clocks do not gain rapid camera ownership. The production-method
+regression fails on the prior candidate and passes after this targeted native fix.

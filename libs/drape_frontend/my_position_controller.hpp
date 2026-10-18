@@ -112,6 +112,7 @@ public:
   void StopLocationFollow();
   void NextMode(ScreenBase const & screen);
   bool RecenterPreservingMode();
+  bool NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const;
   void LoseLocation();
   location::EMyPositionMode GetCurrentMode() const { return m_mode; }
 

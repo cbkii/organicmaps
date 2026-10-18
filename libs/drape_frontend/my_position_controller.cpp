@@ -598,6 +598,27 @@ void MyPositionController::RefreshLocationFreshness(location::GpsInfo const & in
     RecenterPreservingMode();
 }
 
+bool MyPositionController::NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const
+{
+  if (!m_isPositionAssigned || IsInRouting() ||
+      !driving_policy::ShouldUseAutoZoom(m_mode, false, m_isDrivingView, false, m_needBlockAutoZoom))
+    return false;
+  // Subscription repair deliberately preserves mode and position. Detect stale native evidence
+  // before the new accepted fix refreshes it, including suspend/wake without rendered frames.
+#if defined(__ANDROID__)
+  int64_t const observed =
+      static_cast<int64_t>((info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0) * 1.0e9);
+#else
+  int64_t const observed = static_cast<int64_t>(info.m_timestamp * 1.0e9);
+#endif
+  int64_t const now = PositionClockNanos();
+  if (!IsFreshPositionObservation(observed, now) || observed <= m_lastRecenterObservationNanos)
+    return false;
+  return m_positionIsObsolete ||
+         (m_lastRecenterObservationNanos > 0 && now >= m_lastRecenterObservationNanos &&
+          now - m_lastRecenterObservationNanos >= static_cast<int64_t>(kMaxUpdateLocationInvervalSec * 1.0e9));
+}
+
 void MyPositionController::LoseLocation()
 {
   m_lastRecenterObservationNanos = 0;
