@@ -1129,6 +1129,54 @@ int main() {
             self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
+    def test_initial_driving_camera_caps_scale_without_changing_normal_autozoom(self):
+        compiler = shutil.which("g++")
+        if compiler is None:
+            self.skipTest("C++ compiler unavailable: fast camera animation NOT_RUN")
+        follow = controls.read("libs/drape_frontend/animation/follow_animation.cpp")
+        normal_body = controls.method_body(follow, "void MapFollowAnimation::SetMaxDuration(double maxDuration)")
+        fast_body = controls.method_body(follow, "void MapFollowAnimation::SetAcquisitionDuration(double maxDuration)")
+        stream = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        self.assertIn("followEvent->IsFastAcquisition()", stream)
+        self.assertIn("follow->SetAcquisitionDuration(driving_policy::kFastAcquisitionDurationSec)", stream)
+        harness = r"""#include <algorithm>
+#include <cassert>
+struct Interpolator {
+ bool active = true;
+ double duration = 9.6;
+ double minimum = 0;
+ bool IsActive() const { return active; }
+ void SetMaxDuration(double cap) { duration = std::min(duration, cap); }
+ void SetMinDuration(double floor) { minimum = floor; duration = std::max(duration, floor); }
+};
+class MapFollowAnimation {
+public:
+ bool m_isAutoZoom = true;
+ Interpolator m_angleInterpolator, m_scaleInterpolator, m_offsetInterpolator;
+ void SetMaxDuration(double maxDuration) {""" + normal_body + r"""}
+ void SetAcquisitionDuration(double maxDuration) {""" + fast_body + r"""}
+};
+int main() {
+ MapFollowAnimation normal;
+ normal.SetMaxDuration(1.5);
+ assert(normal.m_scaleInterpolator.duration == 9.6);
+ assert(normal.m_angleInterpolator.duration <= 1.5);
+ MapFollowAnimation fast;
+ fast.SetAcquisitionDuration(0.65);
+ assert(fast.m_scaleInterpolator.duration <= 0.65);
+ assert(fast.m_angleInterpolator.duration <= 0.65);
+ assert(fast.m_offsetInterpolator.duration <= 0.65);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "fast_camera.cpp"
+            binary = Path(tmp) / "fast_camera"
+            source.write_text(harness)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
+            subprocess.run([str(binary)], check=True)
+
     def test_production_recenter_consumes_only_fresh_held_driving_fix(self):
         compiler = shutil.which("c++") or shutil.which("g++")
         if not compiler:
