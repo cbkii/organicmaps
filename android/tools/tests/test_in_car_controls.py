@@ -1176,6 +1176,71 @@ int main() {
             self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
+    def test_recovered_fix_reaches_one_shot_camera_acquisition(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: location/camera integration NOT_RUN")
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        loss = renderer.split("case ChangeMyPositionModeMessage::LoseLocation:", 1)[1].split("    default:", 1)[0]
+        gps = renderer.split("    auto const & fix = msg->GetInfo();", 1)[1].split(
+            "    location::RouteMatchingInfo const & info", 1)[0]
+        follow = controls.method_body(renderer, "void FrontendRenderer::ChangeModelView(double autoScale,")
+        drag = controls.method_body(renderer, "void FrontendRenderer::OnDragStarted()")
+        harness = r"""#include <cassert>
+#include <functional>
+#include <memory>
+#include "drape_frontend/my_position_driving_policy.hpp"
+namespace driving_policy = df::driving_policy;
+using TAnimationCreator = int;
+struct Fix { bool speed=true, bearing=false; double m_speed=0;
+ bool HasSpeed() const{return speed;} bool HasBearing() const{return bearing;} };
+struct Message { Fix fix; Fix const& GetInfo(){return fix;} bool IsNavigable(){return false;} };
+struct Position {
+ bool routing=false; int losses=0; std::function<void()> apply;
+ bool IsInRouting(){return routing;} void LoseLocation(){losses++;} void DragStarted(){}
+ void OnLocationUpdate(Fix const&,bool,int){apply();}
+};
+struct Stream { int GetCurrentScreen(){return 0;} };
+struct FollowAndRotateEvent {
+ bool fast; FollowAndRotateEvent(m2::PointD const&,m2::PointD const&,double,double,int,bool f):fast(f){}
+};
+template<class T,class... A> auto make_unique_dp(A&&... a){return std::make_unique<T>(std::forward<A>(a)...);}
+struct Renderer {
+ Position position; Position* m_myPositionController=&position; Stream m_userEventStream;
+ bool m_cameraDrivingSession=true, m_fastCameraAcquisitionPending=false, m_firstDrivingCoursePending=false;
+ int fastEvents=0, normalEvents=0;
+ Renderer(){position.apply=[this]{ChangeModelView(1,{},0,{},0);};}
+ void AddUserEvent(std::unique_ptr<FollowAndRotateEvent> e){e->fast?fastEvents++:normalEvents++;}
+ void loss(){do {""" + loss + r"""} while(false);}
+ void gps(Message* msg){auto const & fix=msg->GetInfo();""" + gps + r"""}
+ void drag(){""" + drag + r"""}
+ void ChangeModelView(double autoScale,m2::PointD const& userPos,double azimuth,
+                      m2::PointD const& pxZero,TAnimationCreator const& parallelAnimCreator){""" + follow + r"""}
+};
+int main(){
+ Renderer r; Message msg;
+ r.loss(); assert(r.position.losses==1);
+ r.gps(&msg); assert(r.fastEvents==1 && r.m_firstDrivingCoursePending);
+ r.gps(&msg); assert(r.fastEvents==1 && r.normalEvents==1);
+ msg.fix.bearing=true; msg.fix.m_speed=6.0/3.6;
+ r.gps(&msg); assert(r.fastEvents==2 && !r.m_firstDrivingCoursePending);
+ r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==2);
+ r.loss(); r.drag(); r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==3);
+ Renderer route; route.position.routing=true; route.loss(); route.gps(&msg);
+ assert(route.fastEvents==0 && route.normalEvents==1);
+ Renderer disabled; disabled.m_cameraDrivingSession=false; disabled.loss(); disabled.gps(&msg);
+ assert(disabled.fastEvents==0 && disabled.normalEvents==1);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "RecoveredCamera.cpp"
+            binary = Path(tmp) / "RecoveredCamera"
+            source.write_text(harness)
+            compiled = subprocess.run([compiler, "-std=c++20", "-DDEBUG", "-I", str(controls.ROOT / "libs"),
+                                       str(source), "-o", str(binary)], capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
+            subprocess.run([str(binary)], check=True)
+
     def test_initial_driving_camera_caps_scale_without_changing_normal_autozoom(self):
         compiler = shutil.which("g++")
         if compiler is None:

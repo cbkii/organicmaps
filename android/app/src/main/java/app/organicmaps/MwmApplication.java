@@ -380,7 +380,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     final boolean foreground =
         ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
     final boolean hasResumedActivity = getTopActivity() != null;
-    final boolean active = getLocationHelper().isActive();
+    final boolean active = getLocationHelper().isAcquisitionRequested();
     final boolean explicitlyOff = BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this);
     if (LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(foreground, active, explicitlyOff))
       getLocationHelper().stop();
@@ -398,7 +398,8 @@ public class MwmApplication extends Application implements Application.ActivityL
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
     else if (RoutingController.get().isNavigating())
       Logger.i(LOCATION_TAG, "Navigation is in progress, keeping location in the background");
-    else if (!Map.isEngineCreated() || LocationState.getMode() == LocationState.PENDING_POSITION)
+    else if (!BuildConfig.IS_IN_CAR
+             && (!Map.isEngineCreated() || LocationState.getMode() == LocationState.PENDING_POSITION))
       Logger.i(LOCATION_TAG, "PENDING_POSITION mode, keeping location in the background");
     else if (TrackRecorder.nativeIsTrackRecordingEnabled())
       Logger.i(LOCATION_TAG, "Track Recordr is active, keeping location in the background");
