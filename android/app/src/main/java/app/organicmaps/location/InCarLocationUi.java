@@ -28,7 +28,7 @@ public final class InCarLocationUi
 
   public static int statusText(LocationHelper helper)
   {
-    return switch (helper.getAcquisitionState())
+    return switch (helper.getAcquisitionStateSnapshot())
     {
       case STOPPED -> R.string.in_car_location_stopped;
       case WAITING_FOR_PERMISSION -> R.string.in_car_location_permission_required;
@@ -93,11 +93,23 @@ public final class InCarLocationUi
     params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
     container.addView(status, params);
     final Handler handler = new Handler(Looper.getMainLooper());
+    final int[] origin = new int[2];
+    final int[] hudIds = {R.id.in_car_driving_speed_cluster, R.id.nav_next_turn_container};
+    final android.graphics.Rect hudBounds = new android.graphics.Rect();
     final Runnable update = new Runnable() {
+      private int lastText;
+      private int lastWidth = -1;
+      private int lastTop = -1;
+
       @Override
       public void run()
       {
-        status.setText(statusText(helper));
+        final int text = statusText(helper);
+        if (text != lastText)
+        {
+          status.setText(text);
+          lastText = text;
+        }
         // Follow the real top HUD bounds in normal/compact windows, without taking its ownership.
         final androidx.core.view.WindowInsetsCompat insets =
             androidx.core.view.ViewCompat.getRootWindowInsets(container);
@@ -105,24 +117,34 @@ public final class InCarLocationUi
             insets == null ? androidx.core.graphics.Insets.NONE
                            : insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
         int top = bars.top;
-        final int[] origin = new int[2];
         container.getLocationOnScreen(origin);
-        for (int id : new int[] {R.id.in_car_driving_speed_cluster, R.id.nav_next_turn_container})
+        for (int id : hudIds)
         {
           final android.view.View hud = activity.findViewById(id);
-          final android.graphics.Rect bounds = new android.graphics.Rect();
-          if (hud != null && hud.isShown() && hud.getGlobalVisibleRect(bounds))
-            top = Math.max(top, bounds.bottom - origin[1]);
+          if (hud != null && hud.isShown() && hud.getGlobalVisibleRect(hudBounds))
+            top = Math.max(top, hudBounds.bottom - origin[1]);
         }
         final int rails = 2 * activity.getResources().getDimensionPixelSize(R.dimen.in_car_map_primary_button_size);
         final int width = Math.max(0, container.getWidth() - bars.left - bars.right - rails);
-        status.setTranslationX((bars.left - bars.right) / 2.0f);
-        status.setMaxWidth(width);
-        params.topMargin = top;
-        status.setLayoutParams(params);
-        status.setVisibility(width > 0 && top + status.getMinimumHeight() < container.getHeight()
-                                 ? android.view.View.VISIBLE
-                                 : android.view.View.GONE);
+        final float translation = (bars.left - bars.right) / 2.0f;
+        if (status.getTranslationX() != translation)
+          status.setTranslationX(translation);
+        if (width != lastWidth)
+        {
+          status.setMaxWidth(width);
+          lastWidth = width;
+        }
+        if (top != lastTop)
+        {
+          params.topMargin = top;
+          status.setLayoutParams(params);
+          lastTop = top;
+        }
+        final int visibility = width > 0 && top + status.getMinimumHeight() < container.getHeight()
+                                   ? android.view.View.VISIBLE
+                                   : android.view.View.GONE;
+        if (status.getVisibility() != visibility)
+          status.setVisibility(visibility);
         handler.postDelayed(this, 2_000);
       }
     };

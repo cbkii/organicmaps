@@ -1188,6 +1188,7 @@ int main() {
         drag = controls.method_body(renderer, "void FrontendRenderer::OnDragStarted()")
         position = controls.read("libs/drape_frontend/my_position_controller.cpp")
         reacquire = controls.method_body(position, "bool MyPositionController::NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const")
+        course = controls.method_body(position, "bool MyPositionController::HasReliableDrivingCourse(location::GpsInfo const & info) const")
         stale_interval = re.search(r"double const kMaxUpdateLocationInvervalSec = [^;]+;", position).group(0)
         harness = r"""#include <cassert>
 #include <functional>
@@ -1199,7 +1200,7 @@ using TAnimationCreator = int;
 int64_t fakeNow=100000000000;
 int64_t PositionClockNanos(){return fakeNow;}
 """ + stale_interval + r"""
-struct Fix { bool speed=true, bearing=false; double m_speed=0;
+struct Fix { bool speed=true, bearing=false; double m_speed=0, m_bearing=90, m_speedAccuracy=-1, m_bearingAccuracy=-1;
  double m_timestamp=100.0, m_monotonicTimestamp=100.0;
  bool HasMonotonicTimestamp() const {return m_monotonicTimestamp>0;}
  bool HasSpeed() const{return speed;} bool HasBearing() const{return bearing;} };
@@ -1211,6 +1212,7 @@ struct Position {
  int64_t m_lastRecenterObservationNanos=fakeNow;
  int losses=0; std::function<void()> apply;
  bool NeedsDrivingCameraReacquisition(Fix const & info) const {""" + reacquire + r"""}
+ bool HasReliableDrivingCourse(Fix const & info) const {""" + course.replace("m_isInRouting", "routing") + r"""}
  bool IsInRouting() const {return routing;} void LoseLocation(){losses++;} void DragStarted(){m_mode=location::NotFollow;}
  void OnLocationUpdate(Fix const&,bool,int){apply();m_positionIsObsolete=false;m_lastRecenterObservationNanos=fakeNow;}
 };
@@ -1237,8 +1239,16 @@ int main(){
  r.gps(&msg); assert(r.fastEvents==1 && r.m_firstDrivingCoursePending);
  r.gps(&msg); assert(r.fastEvents==1 && r.normalEvents==1);
  msg.fix.bearing=true; msg.fix.m_speed=6.0/3.6;
+ fakeNow+=1000000000;msg.fix.m_timestamp=101;
  r.gps(&msg); assert(r.fastEvents==2 && !r.m_firstDrivingCoursePending);
  r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==2);
+ // Fresh course is required before spending the one-shot bearing acquisition.
+ Renderer quality;quality.m_firstDrivingCoursePending=true;
+ quality.position.m_lastRecenterObservationNanos=fakeNow-1000000000;
+ msg.fix.m_bearingAccuracy=60;quality.gps(&msg);assert(quality.fastEvents==0&&quality.m_firstDrivingCoursePending);
+ fakeNow+=1000000000;msg.fix.m_timestamp=102;msg.fix.m_bearingAccuracy=10;
+ quality.gps(&msg);assert(quality.fastEvents==1&&!quality.m_firstDrivingCoursePending);
+ fakeNow=100000000000;msg.fix.m_timestamp=100;
  r.loss(); r.drag(); r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==3);
  Renderer repaired; repaired.position.m_positionIsObsolete=true;
  repaired.position.m_lastRecenterObservationNanos=fakeNow-1000000000; repaired.gps(&msg);

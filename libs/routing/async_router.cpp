@@ -87,8 +87,6 @@ bool AsyncRouter::FindClosestProjectionToRoad(m2::PointD const & point, m2::Poin
 
 void AsyncRouter::RouterDelegateProxy::OnProgress(float progress)
 {
-  ProgressCallback onProgress = nullptr;
-
   {
     lock_guard l(m_guard);
     if (!m_onProgress)
@@ -97,8 +95,18 @@ void AsyncRouter::RouterDelegateProxy::OnProgress(float progress)
     if (m_delegate.IsCancelled())
       return;
 
-    onProgress = m_onProgress;
-    GetPlatform().RunTask(Platform::Thread::Gui, [onProgress, progress]() { onProgress(progress); });
+    GetPlatform().RunTask(Platform::Thread::Gui, [self = shared_from_this(), progress]()
+    {
+      ProgressCallback callback;
+      {
+        lock_guard guard(self->m_guard);
+        if (self->m_delegate.IsCancelled())
+          return;
+        callback = self->m_onProgress;
+      }
+      if (callback)
+        callback(progress);
+    });
   }
 }
 

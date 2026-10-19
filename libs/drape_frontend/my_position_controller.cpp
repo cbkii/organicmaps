@@ -481,8 +481,7 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
 
   bool const isMovingFast = info.HasSpeed() && info.m_speed > kMinSpeedThresholdMps;
   bool const glueArrowInRouting = isNavigable && m_isArrowGluedInRouting;
-  bool const isReliableFreeDrivingCourse = m_isDrivingView && !m_isInRouting && info.HasSpeed() &&
-                                           info.m_speed >= driving_policy::kStationarySpeedMps && info.HasBearing();
+  bool const isReliableFreeDrivingCourse = HasReliableDrivingCourse(info);
 
   if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) && info.HasBearing() &&
       (!m_isDrivingView || m_isInRouting || isReliableFreeDrivingCourse))
@@ -596,6 +595,23 @@ void MyPositionController::RefreshLocationFreshness(location::GpsInfo const & in
   }
   if (m_recenterPending)
     RecenterPreservingMode();
+}
+
+bool MyPositionController::HasReliableDrivingCourse(location::GpsInfo const & info) const
+{
+  if (!driving_policy::HasReliableDrivingCourse(m_isInRouting, m_isDrivingView, info.HasSpeed(), info.m_speed,
+                                               info.HasBearing(), info.m_bearing, info.m_speedAccuracy,
+                                               info.m_bearingAccuracy))
+    return false;
+#if defined(__ANDROID__)
+  double const timestamp = info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0;
+#else
+  double const timestamp = info.m_timestamp;
+#endif
+  if (!driving_policy::IsFiniteCourseValue(timestamp) || timestamp <= 0.0 || timestamp > 9.0e9)
+    return false;
+  int64_t const observed = static_cast<int64_t>(timestamp * 1.0e9);
+  return IsFreshPositionObservation(observed, PositionClockNanos()) && observed > m_lastRecenterObservationNanos;
 }
 
 bool MyPositionController::NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const

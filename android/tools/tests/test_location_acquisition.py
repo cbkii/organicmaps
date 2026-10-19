@@ -192,10 +192,10 @@ class LocationAcquisitionTests(unittest.TestCase):
             'public class Logger {', 'public class Logger {public static void i(Object... a){}')
         stubs['app/organicmaps/sdk/location/LocationUtils.java'] = """package app.organicmaps.sdk.location;
               public class LocationUtils {
-              public static boolean permission=true, enabled=true;
-              public static boolean areLocationServicesTurnedOn(android.content.Context c){return enabled;}
+              public static boolean permission=true, enabled=true;public static int probes;
+              public static boolean areLocationServicesTurnedOn(android.content.Context c){probes++;return enabled;}
               public static boolean checkFineLocationPermission(android.content.Context c){return c.fine&&permission;}
-              public static boolean checkLocationPermission(android.content.Context c){return permission;}
+              public static boolean checkLocationPermission(android.content.Context c){probes++;return permission;}
               public static boolean isFromGpsProvider(android.location.Location l){return "gps".equals(l.getProvider());}
               public static boolean isAccuracySatisfied(android.location.Location l){return true;}
               public static boolean isLocationBetterThanLast(android.location.Location n,android.location.Location o){return true;} }"""
@@ -219,6 +219,10 @@ class LocationAcquisitionTests(unittest.TestCase):
                 helper.onLocationChanged(live); check(LocationState.nativeFixes==nativeBefore+1);
                 helper.onLocationChanged(live); check(LocationState.nativeFixes==nativeBefore+1);
                 check(helper.getAcquisitionState()==LocationHelper.AcquisitionState.FIX_RECEIVED);
+                int probes=LocationUtils.probes;
+                for(int tick=0;tick<10;tick++) check(helper.getAcquisitionStateSnapshot()==LocationHelper.AcquisitionState.FIX_RECEIVED);
+                check(LocationUtils.probes==probes); // UI observations do not query system services.
+                helper.getAcquisitionState();check(LocationUtils.probes>probes); // Explicit inspection refreshes authority.
                 int resets=LocationState.resets; check(helper.retryAcquisition()); check(LocationState.resets==resets);
                 check(!helper.retryAcquisition()); check(helper.getSavedLocation()!=null);
                 android.os.Handler.advance(31_000); check(helper.getAcquisitionState()==LocationHelper.AcquisitionState.FIX_STALE);

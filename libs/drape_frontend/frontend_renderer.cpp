@@ -467,8 +467,7 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       m_firstDrivingCoursePending = true;
     }
     if (m_firstDrivingCoursePending && m_cameraDrivingSession &&
-        driving_policy::HasReliableDrivingCourse(m_myPositionController->IsInRouting(), true,
-                                                  fix.HasSpeed(), fix.m_speed, fix.HasBearing()))
+        m_myPositionController->HasReliableDrivingCourse(fix))
     {
       m_firstDrivingCoursePending = false;
       m_fastCameraAcquisitionPending = true;

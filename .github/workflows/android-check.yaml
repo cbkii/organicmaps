@@ -69,6 +69,9 @@ jobs:
           python3 -m unittest discover -s android/tools/tests -p 'test_current_road_jni_dex.py'
           python3 -m unittest discover -s android/tools/tests -p 'test_location_acquisition.py' -v
           python3 -m unittest discover -s android/tools/tests -p 'test_curated_upstream.py' -v
+          python3 -m unittest discover -s android/tools/tests -p 'test_native_owners.py' -v
+          python3 -m unittest discover -s android/tools/tests -p 'test_in_car_controls.py' -v
+          python3 -m unittest discover -s android/tools/tests -p 'test_compact_startup.py' -v
           bash -n \
             android/tools/ci-adb-logcat-window/adb \
             android/tools/smoke_test_in_car_apk.sh \
