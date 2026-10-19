@@ -1,5 +1,4 @@
 #include "drape_frontend/frontend_renderer.hpp"
-#include "drape_frontend/my_position_driving_policy.hpp"
 #include "drape_frontend/animation/interpolation_holder.hpp"
 #include "drape_frontend/animation_system.hpp"
 #include "drape_frontend/debug_rect_renderer.hpp"
@@ -8,6 +7,7 @@
 #include "drape_frontend/gui/drape_gui.hpp"
 #include "drape_frontend/gui/ruler_helper.hpp"
 #include "drape_frontend/message_subclasses.hpp"
+#include "drape_frontend/my_position_driving_policy.hpp"
 #include "drape_frontend/postprocess_renderer.hpp"
 #include "drape_frontend/scenario_manager.hpp"
 #include "drape_frontend/screen_operations.hpp"
@@ -466,8 +466,7 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       m_fastCameraAcquisitionPending = true;
       m_firstDrivingCoursePending = true;
     }
-    if (m_firstDrivingCoursePending && m_cameraDrivingSession &&
-        m_myPositionController->HasReliableDrivingCourse(fix))
+    if (m_firstDrivingCoursePending && m_cameraDrivingSession && m_myPositionController->HasReliableDrivingCourse(fix))
     {
       m_firstDrivingCoursePending = false;
       m_fastCameraAcquisitionPending = true;
@@ -2709,8 +2708,7 @@ void FrontendRenderer::ChangeModelView(m2::PointD const & userPos, double azimut
 void FrontendRenderer::ChangeModelView(double autoScale, m2::PointD const & userPos, double azimuth,
                                        m2::PointD const & pxZero, TAnimationCreator const & parallelAnimCreator)
 {
-  bool const fast = m_fastCameraAcquisitionPending && m_cameraDrivingSession &&
-                    !m_myPositionController->IsInRouting();
+  bool const fast = m_fastCameraAcquisitionPending && m_cameraDrivingSession && !m_myPositionController->IsInRouting();
   if (fast)
     m_fastCameraAcquisitionPending = false;
   AddUserEvent(make_unique_dp<FollowAndRotateEvent>(userPos, pxZero, azimuth, autoScale, parallelAnimCreator, fast));

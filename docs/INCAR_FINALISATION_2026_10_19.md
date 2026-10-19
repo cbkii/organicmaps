@@ -53,3 +53,11 @@ Physical TS18, installed identity, audible playback, real map pixels/input, came
 frame/CPU/memory/thermal and every process/reboot/cold boot/ACC campaign remain **NOT_RUN**.
 The 64-shape batch is a shape-count bound, not a byte/memory/time bound. No speculative cache,
 concurrency, graphics backend or quality changes are made.
+
+## Consolidation and formatting
+
+PR #72 was merged into #69 with merge commit `80538742a363c8901e767ae672be5d15a2dcc07a`, retaining both original parents and exactly the tested `d43770dbfbc9869d900e5cff81f4fa7ce368ffc1` tree. The acknowledged upstream `e78a075` and original #69 head remain ancestors. Android Check 39186090471 passed lint, arm64/x86 builds, unit/connected tests, release-equivalent packaging and API29/API30 cold/warm/resize smoke before consolidation.
+
+The #69 whole-tree formatter run 39188430632 reported 23 files. Eight changed integration files receive its formatting-only corrections. The remaining 15 are byte-unchanged from default `f13716f7b1dad1d3efc8cf1191e533bf75da439b`: InCarAccessibilityDelegate, InCarControlPositionPolicy, InCarNavigationCountdown, InCarNavigationCountdownPolicy, InCarUiModePolicy, SearchFragmentController, PlacePageActionProjection, PlacePageViewModel, InCarControlPositionPolicyTest, InCarNavigationCountdownPolicyTest, MapButtonsControllerPolicyTest, PlacePageActionProjectionTest, LocationState.cpp, RoutingController.java and drape_engine_driving_view.cpp. The inherited failed check remains visible; no formatter or permissions policy is weakened and unrelated files are not bulk-formatted. New-head software qualification must be checked after the formatting commit.
+
+Physical acceptance and full-engine BookmarkManager/GPU qualification remain as bounded above; consolidation does not clear them.

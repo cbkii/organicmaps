@@ -5,9 +5,9 @@
 #include "drape_frontend/animation/scale_animation.hpp"
 #include "drape_frontend/animation/sequence_animation.hpp"
 #include "drape_frontend/animation_constants.hpp"
-#include "drape_frontend/my_position_driving_policy.hpp"
 #include "drape_frontend/animation_system.hpp"
 #include "drape_frontend/animation_utils.hpp"
+#include "drape_frontend/my_position_driving_policy.hpp"
 #include "drape_frontend/screen_animations.hpp"
 #include "drape_frontend/screen_operations.hpp"
 #include "drape_frontend/visual_params.hpp"
@@ -244,11 +244,11 @@ ScreenBase const & UserEventStream::ProcessEvents(bool & modelViewChanged, bool 
     {
       m_needTrackCenter = false;
       ref_ptr<FollowAndRotateEvent> followEvent = make_ref(e);
-      breakAnim = SetFollowAndRotate(followEvent->GetUserPos(), followEvent->GetPixelZero(), followEvent->GetAzimuth(),
-                                     followEvent->GetPreferredZoomLelel(), followEvent->GetAutoScale(),
-                                     followEvent->IsAnim(), followEvent->IsAutoScale(),
-                                     followEvent->GetOnFinishAction(), followEvent->GetParallelAnimCreator(),
-                                      followEvent->IsFastAcquisition());
+      breakAnim =
+          SetFollowAndRotate(followEvent->GetUserPos(), followEvent->GetPixelZero(), followEvent->GetAzimuth(),
+                             followEvent->GetPreferredZoomLelel(), followEvent->GetAutoScale(), followEvent->IsAnim(),
+                             followEvent->IsAutoScale(), followEvent->GetOnFinishAction(),
+                             followEvent->GetParallelAnimCreator(), followEvent->IsFastAcquisition());
     }
     break;
     case UserEvent::EventType::AutoPerspective:
@@ -666,8 +666,8 @@ bool UserEventStream::SetFollowAndRotate(m2::PointD const & userPos, m2::PointD 
     }
     if (fastAcquisition)
     {
-      auto follow = GetFollowAnimation(currentScreen, adjustedUserPos, screen.GetScale(), -azimuth, pixelPos,
-                                      isAutoScale);
+      auto follow =
+          GetFollowAnimation(currentScreen, adjustedUserPos, screen.GetScale(), -azimuth, pixelPos, isAutoScale);
       follow->SetAcquisitionDuration(driving_policy::kFastAcquisitionDurationSec);
       anim = std::move(follow);
     }

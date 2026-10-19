@@ -483,8 +483,8 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
   bool const glueArrowInRouting = isNavigable && m_isArrowGluedInRouting;
   bool const isReliableFreeDrivingCourse = HasReliableDrivingCourse(info);
 
-  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) && info.HasBearing() &&
-      (!m_isDrivingView || m_isInRouting || isReliableFreeDrivingCourse))
+  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) &&
+      info.HasBearing() && (!m_isDrivingView || m_isInRouting || isReliableFreeDrivingCourse))
   {
     SetDirection(math::DegToRad(info.m_bearing));
     m_lastGPSBearingTimer.Reset();
@@ -517,9 +517,10 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
           ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
                           m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
         else
-          ChangeModelView(m_position, m_drawDirection,
-                          IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
-                          kDoNotChangeZoom);
+          ChangeModelView(
+              m_position, m_drawDirection,
+              IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
+              kDoNotChangeZoom);
       }
     }
   }
@@ -600,8 +601,8 @@ void MyPositionController::RefreshLocationFreshness(location::GpsInfo const & in
 bool MyPositionController::HasReliableDrivingCourse(location::GpsInfo const & info) const
 {
   if (!driving_policy::HasReliableDrivingCourse(m_isInRouting, m_isDrivingView, info.HasSpeed(), info.m_speed,
-                                               info.HasBearing(), info.m_bearing, info.m_speedAccuracy,
-                                               info.m_bearingAccuracy))
+                                                info.HasBearing(), info.m_bearing, info.m_speedAccuracy,
+                                                info.m_bearingAccuracy))
     return false;
 #if defined(__ANDROID__)
   double const timestamp = info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0;

@@ -37,7 +37,7 @@ inline bool IsFiniteCourseValue(double value)
 }
 
 inline bool HasReliableDrivingCourse(bool isRouting, bool isDriving, bool hasSpeed, double speedMps, bool hasBearing,
-                                    double bearing = 0.0, double speedAccuracy = -1.0, double bearingAccuracy = -1.0)
+                                     double bearing = 0.0, double speedAccuracy = -1.0, double bearingAccuracy = -1.0)
 {
   if (!isDriving || isRouting || !hasSpeed || !hasBearing || !IsFiniteCourseValue(speedMps) ||
       !IsFiniteCourseValue(bearing) || !IsFiniteCourseValue(speedAccuracy) || !IsFiniteCourseValue(bearingAccuracy) ||

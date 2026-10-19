@@ -3,15 +3,15 @@
 #include "map/framework.hpp"
 #include "map/routing_mark.hpp"
 
-#include "routing/ruler_router.hpp"
-#include "platform/gui_thread.hpp"
 #include "base/scope_guard.hpp"
 #include "base/thread_safe_queue.hpp"
+#include "platform/gui_thread.hpp"
+#include "routing/ruler_router.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <algorithm>
 #include <vector>
 
 namespace routing_manager_tests

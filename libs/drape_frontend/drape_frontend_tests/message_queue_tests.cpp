@@ -2,7 +2,6 @@
 
 #include "drape_frontend/message_queue.hpp"
 
-
 #include <array>
 #include <chrono>
 #include <future>

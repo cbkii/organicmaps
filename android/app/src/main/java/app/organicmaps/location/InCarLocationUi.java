@@ -141,8 +141,8 @@ public final class InCarLocationUi
           lastTop = top;
         }
         final int visibility = width > 0 && top + status.getMinimumHeight() < container.getHeight()
-                                   ? android.view.View.VISIBLE
-                                   : android.view.View.GONE;
+                                 ? android.view.View.VISIBLE
+                                 : android.view.View.GONE;
         if (status.getVisibility() != visibility)
           status.setVisibility(visibility);
         handler.postDelayed(this, 2_000);
