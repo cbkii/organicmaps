@@ -69,6 +69,10 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private boolean mInFirstRun;
   private boolean mActive;
   private boolean mAcquisitionRequested;
+  // Availability is refreshed by the existing owner/watchdog, not by every status layout tick.
+  private boolean mHasAvailabilitySnapshot;
+  private boolean mPermissionSnapshot;
+  private boolean mServicesSnapshot;
   private boolean mGnssSubscribed;
   private long mLastGnssSubscribeMs = -1;
   private final LocationAcquisitionPolicy mAcquisition = new LocationAcquisitionPolicy();
@@ -392,6 +396,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
   @UiThread
   public void onLocationDisabled()
   {
+    mHasAvailabilitySnapshot = false;
     Logger.d(TAG, "provider = " + mLocationProvider.getClass().getSimpleName()
                       + " settings = " + LocationUtils.areLocationServicesTurnedOn(mContext));
 
@@ -501,6 +506,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
   @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
   public void start()
   {
+    mHasAvailabilitySnapshot = false;
     if (isAcquisitionRequested())
     {
       Logger.d(TAG, "Already started");
@@ -738,7 +744,8 @@ public class LocationHelper implements BaseLocationProvider.Listener
       return;
     try
     {
-      if (!LocationUtils.checkLocationPermission(mContext) || !LocationUtils.areLocationServicesTurnedOn(mContext))
+      refreshAvailabilitySnapshot();
+      if (!mPermissionSnapshot || !mServicesSnapshot)
       {
         // Let existing permission/settings coordination own the UI; never request permission here.
         onLocationDisabled();
@@ -757,7 +764,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
           recoverAcquisition(reason);
         checkForAgpsUpdates(); // Connectivity may have returned; attempts are rate limited.
         subscribeToGnssStatusUpdates();
-        Logger.d(TAG, "acquisition " + getAcquisitionDiagnostics());
+        // Verbose diagnostics are assembled on explicit request only; recovery logs remain event-driven.
       }
     }
     catch (RuntimeException e)
@@ -813,11 +820,27 @@ public class LocationHelper implements BaseLocationProvider.Listener
     RECOVERING
   }
 
+  private void refreshAvailabilitySnapshot()
+  {
+    mPermissionSnapshot = LocationUtils.checkLocationPermission(mContext);
+    mServicesSnapshot = LocationUtils.areLocationServicesTurnedOn(mContext);
+    mHasAvailabilitySnapshot = true;
+  }
+
   public AcquisitionState getAcquisitionState()
   {
-    if (!LocationUtils.checkLocationPermission(mContext))
+    refreshAvailabilitySnapshot();
+    return getAcquisitionStateSnapshot();
+  }
+
+  /** Lightweight UI observation. Fix ages remain live; availability follows the bounded owner probe. */
+  public AcquisitionState getAcquisitionStateSnapshot()
+  {
+    if (!mHasAvailabilitySnapshot)
+      refreshAvailabilitySnapshot();
+    if (!mPermissionSnapshot)
       return AcquisitionState.WAITING_FOR_PERMISSION;
-    if (!LocationUtils.areLocationServicesTurnedOn(mContext))
+    if (!mServicesSnapshot)
       return AcquisitionState.PROVIDER_UNAVAILABLE;
     if (!isAcquisitionRequested())
       return AcquisitionState.STOPPED;

@@ -2,6 +2,9 @@
 
 #include "platform/location.hpp"
 
+#include <bit>
+#include <cstdint>
+
 namespace df::driving_policy
 {
 double constexpr kStationarySpeedMps = 5.0 / 3.6;
@@ -27,9 +30,23 @@ inline bool ShouldUseAutoZoom(location::EMyPositionMode mode, bool isRouting, bo
   return (isRouting && routingAutoZoom) || (!isRouting && isDrivingView);
 }
 
-inline bool HasReliableDrivingCourse(bool isRouting, bool isDriving, bool hasSpeed, double speedMps, bool hasBearing)
+// Bit classification remains valid in the Android native build's -ffast-math mode.
+inline bool IsFiniteCourseValue(double value)
 {
-  return isDriving && !isRouting && hasSpeed && speedMps >= kStationarySpeedMps && hasBearing;
+  return (std::bit_cast<uint64_t>(value) & UINT64_C(0x7ff0000000000000)) != UINT64_C(0x7ff0000000000000);
+}
+
+inline bool HasReliableDrivingCourse(bool isRouting, bool isDriving, bool hasSpeed, double speedMps, bool hasBearing,
+                                    double bearing = 0.0, double speedAccuracy = -1.0, double bearingAccuracy = -1.0)
+{
+  if (!isDriving || isRouting || !hasSpeed || !hasBearing || !IsFiniteCourseValue(speedMps) ||
+      !IsFiniteCourseValue(bearing) || !IsFiniteCourseValue(speedAccuracy) || !IsFiniteCourseValue(bearingAccuracy) ||
+      speedMps < kStationarySpeedMps || bearing < 0.0 || bearing >= 360.0)
+    return false;
+  // OEM fixes may omit accuracy (-1). When present, movement must clear the stationary
+  // threshold even at the lower speed-confidence bound, and course uncertainty is at most 30°.
+  return (speedAccuracy < 0.0 || speedMps - speedAccuracy >= kStationarySpeedMps) &&
+         (bearingAccuracy < 0.0 || bearingAccuracy <= 30.0);
 }
 
 inline bool ShouldHoldFreeDrivingCamera(bool isRouting, bool isDrivingView, bool positionAssigned, bool hasSpeed,

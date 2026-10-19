@@ -2,6 +2,8 @@
 
 #include "testing/testing.hpp"
 
+#include <limits>
+
 namespace
 {
 using namespace df::driving_policy;
@@ -41,6 +43,25 @@ UNIT_TEST(MyPositionDrivingPolicy_FastAcquisitionCourseGate)
   TEST(!HasReliableDrivingCourse(true, true, true, kStationarySpeedMps, true), ());
   TEST(!HasReliableDrivingCourse(false, false, true, kStationarySpeedMps, true), ());
   TEST(kFastAcquisitionDurationSec > 0.0 && kFastAcquisitionDurationSec < 1.0, ());
+}
+
+UNIT_TEST(MyPositionDrivingPolicy_CourseAccuracyAndFiniteEvidence)
+{
+  auto const course = [](double speed, double bearing, double speedAccuracy, double bearingAccuracy)
+  { return HasReliableDrivingCourse(false, true, true, speed, true, bearing, speedAccuracy, bearingAccuracy); };
+  TEST(course(5.0, 90.0, 0.5, 15.0), ());
+  TEST(course(2.0, 90.0, -1.0, -1.0), ("OEM metadata absent"));
+  TEST(!course(2.0, 90.0, 1.0, 15.0), ("speed indistinguishable from stationary"));
+  TEST(!course(5.0, 90.0, 0.5, 31.0), ());
+  TEST(!course(5.0, 360.0, 0.5, 15.0), ());
+  TEST(!course(5.0, -1.0, 0.5, 15.0), ());
+  double const nan = std::numeric_limits<double>::quiet_NaN();
+  double const inf = std::numeric_limits<double>::infinity();
+  TEST(!course(nan, 90.0, -1.0, -1.0), ());
+  TEST(!course(inf, 90.0, -1.0, -1.0), ());
+  TEST(!course(5.0, nan, -1.0, -1.0), ());
+  TEST(!course(5.0, 90.0, nan, -1.0), ());
+  TEST(!course(5.0, 90.0, -1.0, inf), ());
 }
 
 UNIT_TEST(MyPositionDrivingPolicy_StationaryHoldOnlyInFreeDriving)
