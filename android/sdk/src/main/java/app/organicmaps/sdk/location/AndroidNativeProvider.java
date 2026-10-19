@@ -161,13 +161,12 @@ public class AndroidNativeProvider extends BaseLocationProvider
     return mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
   }
 
-  private static final java.util.concurrent.ExecutorService CACHE_WORKER =
-      new java.util.concurrent.ThreadPoolExecutor(0, 2, 15L, java.util.concurrent.TimeUnit.SECONDS,
-                                                new java.util.concurrent.SynchronousQueue<>(), task -> {
-                                                  Thread thread = new Thread(task, "location-cache");
-                                                  thread.setDaemon(true);
-                                                  return thread;
-                                                });
+  private static final java.util.concurrent.ExecutorService CACHE_WORKER = new java.util.concurrent.ThreadPoolExecutor(
+      0, 2, 15L, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.SynchronousQueue<>(), task -> {
+        Thread thread = new Thread(task, "location-cache");
+        thread.setDaemon(true);
+        return thread;
+      });
 
   /** Optional cache never delays subscriptions or queries mutable provider state off-main. */
   public void requestRecentCachedLocation(java.util.function.Consumer<Location> callback)

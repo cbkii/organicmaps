@@ -547,10 +547,9 @@ public class LocationHelper implements BaseLocationProvider.Listener
     {
       final int generation = ++mCachedLocationGeneration;
       nativeProvider.requestRecentCachedLocation(cached -> {
-        if (generation != mCachedLocationGeneration || !mAcquisitionRequested
-            || mLocationProvider != nativeProvider || cached == null
-            || (mSavedLocation != null
-                && cached.getElapsedRealtimeNanos() <= mSavedLocation.getElapsedRealtimeNanos()))
+        if (generation != mCachedLocationGeneration || !mAcquisitionRequested || mLocationProvider != nativeProvider
+            || cached == null
+            || (mSavedLocation != null && cached.getElapsedRealtimeNanos() <= mSavedLocation.getElapsedRealtimeNanos()))
           return;
         mCachedLocation = new Location(cached);
       });
