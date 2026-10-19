@@ -8,7 +8,7 @@
   <color name="in_car_surface_base">#FFF1F3F4</color>
   <color name="in_car_surface_raised">#FFFFFFFF</color>
   <color name="in_car_surface_overlay">#FFFFFFFF</color>
-  <color name="in_car_camera_rail_surface">#C0FFFFFF</color>
+  <color name="in_car_camera_rail_surface">#F0FFFFFF</color>
 
   <color name="in_car_text_primary">#FF202124</color>
   <color name="in_car_text_secondary">#FF3C4043</color>
@@ -20,7 +20,7 @@
   <!-- Translucent locator edge follows the shared map-rail surface. -->
   <color name="in_car_map_control_outline">#66000000</color>
 
-  <!-- Preserve at least 3:1 icon contrast on the 75%-opaque rail over dark map tiles. -->
+  <!-- Preserve at least 3:1 icon contrast on the 94%-opaque rail over dark map tiles. -->
   <color name="in_car_quick_foreground">@color/in_car_icon_primary</color>
   <color name="in_car_selection_accent">#FF0072B1</color>
   <color name="in_car_selection_foreground">#FFFFFFFF</color>

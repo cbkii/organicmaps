@@ -637,8 +637,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mIntentConsumed = isIntentConsumed(savedInstanceState, getIntent());
 
     setContentView(R.layout.activity_map);
-    if (BuildConfig.IS_IN_CAR)
-      app.organicmaps.location.InCarLocationUi.install(this);
     installInCarAccessibilityCancellation();
     makeNavigationBarTransparentInLightMode();
 
@@ -2109,14 +2107,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onCompassCalibrationRecommended()
   {
-    Toast.makeText(this, getString(R.string.compass_calibration_recommended), Toast.LENGTH_LONG).show();
+    if (!BuildConfig.IS_IN_CAR)
+      Toast.makeText(this, getString(R.string.compass_calibration_recommended), Toast.LENGTH_LONG).show();
   }
 
   @Override
   @UiThread
   public void onCompassCalibrationRequired()
   {
-    Toast.makeText(this, getString(R.string.compass_calibration_required), Toast.LENGTH_LONG).show();
+    if (!BuildConfig.IS_IN_CAR)
+      Toast.makeText(this, getString(R.string.compass_calibration_required), Toast.LENGTH_LONG).show();
   }
 
   /**
@@ -2199,7 +2199,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
         }
         else
         {
-          Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENGTH_LONG).show();
+          if (!BuildConfig.IS_IN_CAR)
+            Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENGTH_LONG).show();
         }
       }
       return;

@@ -343,8 +343,8 @@ public final class Config
       }
 
       final var isSystemThemeAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
-      final var defaultTheme = isSystemThemeAvailable ? UiTheme.SYSTEM : UiTheme.SCHEDULED;
-      final var savedTheme = value.isEmpty() ? defaultTheme : UiTheme.ofValue(value);
+      final var defaultTheme = isInCar() || !isSystemThemeAvailable ? UiTheme.SCHEDULED : UiTheme.SYSTEM;
+      final var savedTheme = value.isEmpty() || isLegacyNavAuto ? defaultTheme : UiTheme.ofValue(value);
       final var shouldReplaceSystemTheme = savedTheme == UiTheme.SYSTEM && !isSystemThemeAvailable;
       return shouldReplaceSystemTheme ? UiTheme.SCHEDULED : savedTheme;
     }
