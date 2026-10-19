@@ -46,7 +46,7 @@ class LocationAcquisitionTests(unittest.TestCase):
               public androidx.core.location.LocationListenerCompat listener;
               public int removes; public List<String> getProviders(boolean enabledOnly){return enabled;}
               public boolean inspectionFails=false; public boolean isProviderEnabled(String p){if(inspectionFails)throw new IllegalStateException();return enabled.contains(p);}
-              public Location getLastKnownLocation(String p){return new Location();} }''',
+              public Location getLastKnownLocation(String p){if(Thread.currentThread().getName().equals("main"))throw new AssertionError("cached-location Binder on main");return new Location();} }''',
             'androidx/core/content/ContextCompat.java': '''package androidx.core.content; public class ContextCompat {
               public static int checkSelfPermission(android.content.Context c,String p){return c.fine?0:-1;} }''',
             'androidx/core/location/LocationListenerCompat.java': '''package androidx.core.location;
@@ -64,7 +64,7 @@ class LocationAcquisitionTests(unittest.TestCase):
                 m.requested.add(p); if(m.failed.contains(p)) throw new SecurityException(); m.listener=l; }
               public static void removeUpdates(android.location.LocationManager m,LocationListenerCompat l){m.removes++;} }''',
             'app/organicmaps/sdk/util/concurrency/UiThread.java': '''package app.organicmaps.sdk.util.concurrency;
-              public class UiThread { public static java.util.List<Runnable> queued=new java.util.ArrayList<>();
+              public class UiThread { public static java.util.List<Runnable> queued=new java.util.concurrent.CopyOnWriteArrayList<>();
               public static void runLater(Runnable r) { queued.add(r); }}''',
             'app/organicmaps/sdk/util/log/Logger.java': '''package app.organicmaps.sdk.util.log;
               public class Logger {public static void d(Object... a){} public static void w(Object... a){} }''',
@@ -101,7 +101,24 @@ class LocationAcquisitionTests(unittest.TestCase):
                 context.manager.failed.clear(); provider.start(200); check(provider.hasGpsSubscription());
                 old.onProviderDisabled("gps"); check(provider.hasGpsSubscription());
                 context.manager.listener.onLocationChanged(new Location()); check(events.fixes==1);
-                check(provider.getRecentCachedLocation()!=null);
+                app.organicmaps.sdk.util.concurrency.UiThread.queued.clear();
+                Location[] cache={null};
+                provider.requestRecentCachedLocation(location -> cache[0]=location);
+                long deadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+                while(app.organicmaps.sdk.util.concurrency.UiThread.queued.isEmpty()) {
+                  if(System.nanoTime()>deadline)throw new AssertionError("cache worker did not finish");Thread.sleep(1);
+                }
+                for(Runnable task:app.organicmaps.sdk.util.concurrency.UiThread.queued)task.run();
+                check(cache[0]!=null);app.organicmaps.sdk.util.concurrency.UiThread.queued.clear();
+                cache[0]=null;provider.requestRecentCachedLocation(location -> cache[0]=location);
+                provider.stop();
+                deadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+                while(app.organicmaps.sdk.util.concurrency.UiThread.queued.isEmpty()) {
+                  if(System.nanoTime()>deadline)throw new AssertionError("cache worker did not finish");Thread.sleep(1);
+                }
+                for(Runnable task:app.organicmaps.sdk.util.concurrency.UiThread.queued)task.run();
+                check(cache[0]==null); // Detached provider cannot publish delayed cache.
+
                 provider.stop(); context.fine=false; context.manager.requested.clear(); provider.start(3000);
                 check(!context.manager.requested.contains("gps")); check(provider.hasSubscriptions());
                 provider.stop(); context.manager.failed.add("network"); provider.start(3000);

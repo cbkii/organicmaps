@@ -96,6 +96,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
   private final Runnable mAgpsTimeout = () -> mAgpsResult = "command response timed out (still in flight)";
   @Nullable
   private Location mCachedLocation;
+  private int mCachedLocationGeneration;
   private final Runnable mAcquisitionWatchdog = this::superviseAcquisition;
   private final Handler mHandler;
   private final Runnable mLocationTimeoutRunnable = this::notifyLocationUpdateTimeout;
@@ -543,7 +544,17 @@ public class LocationHelper implements BaseLocationProvider.Listener
                       + " oldInterval = " + oldInterval + " interval = " + mInterval);
     startProviderSafely();
     if (mInCar && mLocationProvider instanceof AndroidNativeProvider nativeProvider)
-      mCachedLocation = nativeProvider.getRecentCachedLocation();
+    {
+      final int generation = ++mCachedLocationGeneration;
+      nativeProvider.requestRecentCachedLocation(cached -> {
+        if (generation != mCachedLocationGeneration || !mAcquisitionRequested
+            || mLocationProvider != nativeProvider || cached == null
+            || (mSavedLocation != null
+                && cached.getElapsedRealtimeNanos() <= mSavedLocation.getElapsedRealtimeNanos()))
+          return;
+        mCachedLocation = new Location(cached);
+      });
+    }
     mHandler.removeCallbacks(mLocationTimeoutRunnable);
     mHandler.postDelayed(mLocationTimeoutRunnable, LOCATION_UPDATE_TIMEOUT_MS);
     if (mInCar)
@@ -559,6 +570,7 @@ public class LocationHelper implements BaseLocationProvider.Listener
    */
   public void stop()
   {
+    mCachedLocationGeneration++;
     mLastNativeObservationNanos = 0;
     if (!isAcquisitionRequested())
     {

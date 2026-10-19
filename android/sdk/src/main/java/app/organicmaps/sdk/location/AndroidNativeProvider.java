@@ -161,13 +161,44 @@ public class AndroidNativeProvider extends BaseLocationProvider
     return mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
   }
 
+  private static final java.util.concurrent.ExecutorService CACHE_WORKER =
+      new java.util.concurrent.ThreadPoolExecutor(0, 2, 15L, java.util.concurrent.TimeUnit.SECONDS,
+                                                new java.util.concurrent.SynchronousQueue<>(), task -> {
+                                                  Thread thread = new Thread(task, "location-cache");
+                                                  thread.setDaemon(true);
+                                                  return thread;
+                                                });
+
+  /** Optional cache never delays subscriptions or queries mutable provider state off-main. */
+  public void requestRecentCachedLocation(java.util.function.Consumer<Location> callback)
+  {
+    final NativeLocationListener attempt = mNativeLocationListener;
+    if (attempt == null)
+      return;
+    final Set<String> providers = new HashSet<>(mProviders);
+    try
+    {
+      CACHE_WORKER.execute(() -> {
+        final Location cached = getRecentCachedLocation(providers);
+        runLater(() -> {
+          if (attempt == mNativeLocationListener)
+            callback.accept(cached);
+        });
+      });
+    }
+    catch (java.util.concurrent.RejectedExecutionException saturated)
+    {
+      Logger.w(TAG, "Optional location cache workers unavailable");
+    }
+  }
+
   /** Cache is returned separately: it must never be replayed as a newly confirmed navigation fix. */
   @Nullable
   @SuppressWarnings("MissingPermission")
-  public Location getRecentCachedLocation()
+  private Location getRecentCachedLocation(Set<String> providers)
   {
     Location best = null;
-    for (String provider : mProviders)
+    for (String provider : providers)
     {
       try
       {
