@@ -102,8 +102,13 @@ final class SynchronizedThemeController
       scheduleNextCheck(RECONCILE_MS);
       return;
     }
-    final long sunrise = Framework.nativeGetSunriseTime(seconds, latitude, longitude);
-    final long sunset = Framework.nativeGetSunsetTime(seconds, latitude, longitude);
+    // Native event calculations use the input's UTC calendar date, not its instant's
+    // local date. Select the solar calendar day at the location (independent of the
+    // device time zone), otherwise Canberra dawn can resolve yesterday's sunrise.
+    final long solarDay = Math.floorDiv(seconds + Math.round(longitude * 240.0), TimeUnit.DAYS.toSeconds(1));
+    final long reference = solarDay * TimeUnit.DAYS.toSeconds(1) + TimeUnit.HOURS.toSeconds(12);
+    final long sunrise = Framework.nativeGetSunriseTime(reference, latitude, longitude);
+    final long sunset = Framework.nativeGetSunsetTime(reference, latitude, longitude);
     if (sunrise <= 0 || sunset <= sunrise)
     {
       applyFallback(now, true);
@@ -123,7 +128,7 @@ final class SynchronizedThemeController
     }
     else
     {
-      next = Framework.nativeGetSunriseTime(seconds + TimeUnit.DAYS.toSeconds(1), latitude, longitude);
+      next = Framework.nativeGetSunriseTime(reference + TimeUnit.DAYS.toSeconds(1), latitude, longitude);
       if (next <= seconds || next > seconds + TimeUnit.DAYS.toSeconds(2))
       {
         applyFallback(now, true);

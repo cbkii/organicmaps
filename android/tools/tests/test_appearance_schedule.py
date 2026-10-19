@@ -30,9 +30,9 @@ class AppearanceScheduleTests(unittest.TestCase):
             'app/organicmaps/sdk/Framework.java': '''package app.organicmaps.sdk;
                 public class Framework { public @interface DayTimeType {} public static final int
                 DAY_TIME_TYPE_POLAR_DAY=2,DAY_TIME_TYPE_POLAR_NIGHT=3; public static int type;
-                public static long sunrise,sunset,next,reference;
+                public static long sunrise,sunset,next,reference,lastReference;
                 public static int nativeGetDayTimeType(long t,double a,double b){return type;}
-                public static long nativeGetSunriseTime(long t,double a,double b){return t>reference+43200?next:sunrise;}
+                public static long nativeGetSunriseTime(long t,double a,double b){lastReference=t;return t>reference+43200?next:sunrise;}
                 public static long nativeGetSunsetTime(long t,double a,double b){return sunset;} }''',
             'app/organicmaps/sdk/util/concurrency/UiThread.java': '''package app.organicmaps.sdk.util.concurrency;
                 public class UiThread {public static Runnable task; public static long delay;
@@ -62,6 +62,7 @@ class AppearanceScheduleTests(unittest.TestCase):
                 now[0]=now[0].withHour(17).withMinute(59).withSecond(59); UiThread.task.run(); check(UiThread.delay==1000);
                 now[0]=now[0].plusSeconds(1); UiThread.task.run(); check(themes.get(themes.size()-1)==Config.UiTheme.DARK);
                 now[0]=now[0].withHour(6); UiThread.task.run(); check(themes.get(themes.size()-1)==Config.UiTheme.LIGHT);
+                check(Framework.lastReference==now[0].toLocalDate().atTime(12,0).toEpochSecond(ZoneOffset.UTC));
                 now[0]=now[0].withHour(12); Framework.sunrise=0; UiThread.task.run();
                 check(themes.get(themes.size()-1)==Config.UiTheme.LIGHT); check(UiThread.delay==60000);
                 Framework.sunrise=Framework.sunset+1; UiThread.task.run(); check(UiThread.delay==60000);
@@ -94,6 +95,50 @@ class AppearanceScheduleTests(unittest.TestCase):
             compiled = subprocess.run([java, '-m', 'jdk.compiler/com.sun.tools.javac.Main', '-d', str(tmp / 'classes'), *paths, str(source)], capture_output=True, text=True)
             self.assertEqual(0, compiled.returncode, compiled.stderr)
             ran = subprocess.run([java, '-cp', str(tmp / 'classes'), 'app.organicmaps.util.Harness'], capture_output=True, text=True)
+            self.assertEqual(0, ran.returncode, ran.stderr)
+
+    def test_real_native_solar_date_at_canberra_dawn(self):
+        import re
+        compiler = shutil.which('c++')
+        if not compiler:
+            self.skipTest('C++ compiler required')
+        def body(path):
+            return re.sub(r'^#include[^\n]*\n|^#pragma once\n', '', (ROOT / path).read_text(), flags=re.M)
+        source = r'''
+#include <cassert>
+#include <cmath>
+#include <ctime>
+#include <string>
+#include <stdexcept>
+#include <utility>
+#define ASSERT_GREATER_OR_EQUAL(a,b,msg) assert((a)>=(b))
+#define ASSERT_LESS_OR_EQUAL(a,b,msg) assert((a)<=(b))
+#define ASSERT(a,msg) assert(a)
+#define MYTHROW(type,msg) throw std::runtime_error("native date failure")
+namespace math { constexpr double pi=3.14159265358979323846;
+ double DegToRad(double v){return v*pi/180;} double RadToDeg(double v){return v*180/pi;} }
+namespace base { time_t SecondsSinceEpochToTimeT(int s){return static_cast<time_t>(s);} }
+''' + body('libs/base/timegm.hpp') + body('libs/base/timegm.cpp') + body('libs/base/sunrise_sunset.hpp') + body('libs/base/sunrise_sunset.cpp') + r'''
+int main(){
+ const double lat=-35.2809,lon=149.1300;
+ const time_t now=base::TimeGM(2026,10,19,19,30,0); // 06:30 AEDT, 20 October.
+ const time_t reference=base::TimeGM(2026,10,20,12,0,0);
+ const auto dawn=GetSunriseTime(reference,lat,lon), dusk=GetSunsetTime(reference,lat,lon);
+ assert(dawn<now && now<dusk); assert(GetDayTime(now,lat,lon)==DayTimeType::Day);
+ // Passing the instant itself selects the preceding solar day's events.
+ assert(GetSunsetTime(now,lat,lon)<now);
+ assert(GetSunriseTime(now+86400,lat,lon)<=now);
+ assert(GetDayTime(dawn-1,lat,lon)==DayTimeType::Night);
+ assert(GetDayTime(dawn,lat,lon)==DayTimeType::Day);
+}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = pathlib.Path(directory)
+            src = tmp / 'calendar.cpp'
+            src.write_text(source)
+            compiled = subprocess.run([compiler, '-std=c++17', str(src), '-o', str(tmp / 'calendar')], capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
+            ran = subprocess.run([str(tmp / 'calendar')], capture_output=True, text=True)
             self.assertEqual(0, ran.returncode, ran.stderr)
 
     def test_location_status_has_no_automatic_floating_ui(self):

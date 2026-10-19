@@ -16,6 +16,8 @@ Primary target: InCar on confirmed sensorless TS18 Android 10/API29; retain runt
 - Missing location immediately uses 07:00/19:00 local clock anchors. Invalid/inverted native
   astronomical output, including invalid next sunrise after sunset, immediately uses the same
   fallback and retries within a minute or at an earlier fallback boundary. No abandoned timer.
+- Native event references use the solar calendar day at the location rather than the current
+  instant's UTC date, preventing the previous-day sunrise/sunset pair at Canberra dawn.
 - Polar day/night get a bounded recheck. Long journeys reconcile astronomical boundaries at most
   every 15 minutes; current boundaries schedule earlier. Time/time-zone/screen-on and foreground
   reconciliation handle clock changes and wake. Timers and first-location listeners are cancelled
@@ -32,7 +34,7 @@ Primary target: InCar on confirmed sensorless TS18 Android 10/API29; retain runt
 
 Production scheduler host tests execute exact fallback and sunrise/sunset boundaries, invalid
 sunrise/sunset/next sunrise, polar states, first fix, single timer, stop/stale callbacks and a
-DST-date clock. The existing InCar day/night contrast verifier covers semantic chrome roles.
+DST-date clock. An actual native sunrise/sunset/timegm boundary harness covers Canberra dawn. The existing InCar day/night contrast verifier covers semantic chrome roles.
 These are source/host checks, not physical or native-astronomy validation.
 
 Before acceptance, run final-head Android Check and the retained tests, then qualify Day/Night
