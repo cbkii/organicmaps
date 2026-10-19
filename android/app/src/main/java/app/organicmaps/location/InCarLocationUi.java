@@ -152,6 +152,8 @@ public final class InCarLocationUi
       @Override
       public void onStart(@NonNull LifecycleOwner owner)
       {
+        // Refresh after permission/settings changes while stopped, then use owner snapshots.
+        helper.getAcquisitionState();
         handler.post(update);
       }
       @Override
