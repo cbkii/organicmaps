@@ -201,14 +201,6 @@ public final class InCarDrivingUi
     render(activity, binding, binding.controller.getSnapshot().getValue());
   }
 
-  private static int ribbonForeground(int background)
-  {
-    return ColorUtils.calculateContrast(android.graphics.Color.BLACK, background)
-         >= ColorUtils.calculateContrast(android.graphics.Color.WHITE, background)
-      ? android.graphics.Color.BLACK
-      : android.graphics.Color.WHITE;
-  }
-
   private static void renderRibbon(@NonNull MwmActivity activity, boolean warning, float strength)
   {
     final int red =
@@ -236,9 +228,9 @@ public final class InCarDrivingUi
         activity, hasLanes ? R.color.in_car_nav_lanes_background : R.color.in_car_nav_after_background);
     final int immediateBackground = warning ? ColorUtils.blendARGB(immediateBase, red, strength) : immediateBase;
     final int afterBackground = warning ? ColorUtils.blendARGB(afterBase, red, strength) : afterBase;
-    final int immediateForeground = warning ? ribbonForeground(immediateBackground)
+    final int immediateForeground = warning ? InCarContrast.foreground(immediateBackground, normal)
                                             : ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
-    final int foreground = warning ? ribbonForeground(afterBackground)
+    final int foreground = warning ? InCarContrast.foreground(afterBackground, normal)
                                    : ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
                                                                                : R.color.in_car_nav_after_foreground);
     // Paint every section itself: child surfaces must not cover the parent's warning wash.
