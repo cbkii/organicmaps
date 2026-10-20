@@ -1241,12 +1241,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     super.onWindowFocusChanged(hasFocus);
     if (!hasFocus)
+    {
       cancelInCarNavigationCountdown();
+      app.organicmaps.incar.InCarCompactStartupProvider.cancelHomeReturn(this);
+    }
   }
 
   @Override
   protected void onPause()
   {
+    app.organicmaps.incar.InCarCompactStartupProvider.cancelHomeReturn(this);
     if (BuildConfig.IS_IN_CAR)
     {
       app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(),
