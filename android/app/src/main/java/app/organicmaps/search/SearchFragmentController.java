@@ -383,8 +383,9 @@ public class SearchFragmentController extends Fragment implements SearchFragment
   {
     if (!BuildConfig.IS_IN_CAR || mSearchPageContainer == null)
       return;
-    int available = mMapView != null && mMapView.getWidth() > 0 ? mMapView.getWidth()
-                    : requireActivity().findViewById(android.R.id.content).getWidth();
+    int available = mMapView != null && mMapView.getWidth() > 0
+                      ? mMapView.getWidth()
+                      : requireActivity().findViewById(android.R.id.content).getWidth();
     if (available <= 0)
       return;
     if (mCurrentWindowInsets != null)
@@ -400,8 +401,9 @@ public class SearchFragmentController extends Fragment implements SearchFragment
     final ViewGroup.LayoutParams raw = mSearchPageContainer.getLayoutParams();
     raw.width = target;
     if (raw instanceof androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params)
-      params.gravity = Gravity.BOTTOM | app.organicmaps.incar.InCarControlPositionPolicy.horizontalGravity(
-          app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext()));
+      params.gravity = Gravity.BOTTOM
+                     | app.organicmaps.incar.InCarControlPositionPolicy.horizontalGravity(
+                         app.organicmaps.incar.InCarSettingsStore.controlsOnLeft(requireContext()));
     mSearchPageContainer.setLayoutParams(raw);
     // In landscape the inner sheet belongs to a width-fraction outer container. Move
     // that container to the selected physical edge, not merely the sheet within it.
