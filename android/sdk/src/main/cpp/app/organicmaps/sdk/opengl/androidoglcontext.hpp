@@ -37,7 +37,7 @@ private:
   // @}
 
   std::atomic<bool> m_presentAvailable;
-  // A failed buffer swap is not made usable by an Activity resume. Only a
+  // A lost native surface is not made usable by an Activity resume. Only a
   // successful surface attachment can admit it again.
   std::atomic<bool> m_surfaceValid{true};
 };

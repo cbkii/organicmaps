@@ -68,7 +68,8 @@ constexpr int EGL_FALSE=0,EGL_TRUE=1,EGL_CONTEXT_CLIENT_VERSION=2,EGL_NONE=3,EGL
 EGL_GREEN_SIZE=5,EGL_BLUE_SIZE=6,EGL_ALPHA_SIZE=7,EGL_STENCIL_SIZE=8,EGL_DEPTH_SIZE=9,
 EGL_RENDERABLE_TYPE=10,EGL_SURFACE_TYPE=11,EGL_PBUFFER_BIT=12,EGL_WINDOW_BIT=13,
 EGL_WIDTH=14,EGL_HEIGHT=15,EGL_NATIVE_VISUAL_ID=16,EGL_RENDER_BUFFER=17,EGL_BACK_BUFFER=18,EGL_DRAW=19;
-extern int queries,destroys,terminates,swaps;extern bool failQuery,failWindow,failSwap;
+constexpr int EGL_BAD_SURFACE=20,EGL_BAD_NATIVE_WINDOW=21,EGL_BAD_CURRENT_SURFACE=22,EGL_BAD_ALLOC=23;
+extern int fakeError,queries,destroys,terminates,swaps;extern bool failQuery,failWindow,failSwap;
 inline int eglGetDisplay(int){return 1;}inline int eglInitialize(int,int*,int*){return 1;}
 inline int eglTerminate(int){++terminates;return 1;}
 inline int eglChooseConfig(int,int*,int* c,int,int* n){*n=1;*c=1;return 1;}
@@ -86,12 +87,12 @@ inline int eglSwapBuffers(int,int){++swaps;return !failSwap;}
             'owner_test.cpp': '''#include <cassert>
 #include "app/organicmaps/sdk/opengl/androidoglcontextfactory.hpp"
 #include "app/organicmaps/sdk/opengl/android_gl_utils.hpp"
-int queries=0,destroys=0,terminates=0,releases=0,swaps=0;
+int fakeError=EGL_BAD_ALLOC,queries=0,destroys=0,terminates=0,releases=0,swaps=0;
 bool failQuery=false,failWindow=false,failSwap=false;
 namespace android {
 ConfigComparator::ConfigComparator(EGLDisplay d):m_display(d){}
 bool ConfigComparator::operator()(EGLConfig const&,EGLConfig const&)const{return false;}
-void CheckEGL(base::SrcPoint const&){}
+EGLint CheckEGL(base::SrcPoint const&){return fakeError;}
 }
 int main(){
  JNIEnv env;
@@ -99,14 +100,16 @@ int main(){
   assert(f.IsValid() && queries==2);f.UpdateSurfaceSize(800,400);
   assert(queries==2 && f.GetWidth()==800 && f.GetHeight()==400);
   f.UpdateSurfaceSize(0,0);assert(f.GetWidth()==800);
-  auto* draw=f.GetDrawContext();failSwap=true;draw->Present();draw->Present();
-  assert(swaps==1 && !draw->Validate());draw->SetPresentAvailable(true);draw->Present();assert(swaps==1);
+  auto* draw=f.GetDrawContext();failSwap=true;draw->Present();
+  assert(swaps==1 && draw->Validate()); // A transient non-surface error retains existing recovery.
+  fakeError=EGL_BAD_SURFACE;draw->Present();draw->Present();
+  assert(swaps==2 && !draw->Validate());draw->SetPresentAvailable(true);draw->Present();assert(swaps==2);
   f.ResetSurface();f.ResetSurface();assert(releases==1 && destroys==1);
   failWindow=true;f.SetSurface(&env,(void*)1);assert(!f.IsValid() && releases==2 && terminates==0);
   failWindow=false;failQuery=true;f.SetSurface(&env,(void*)1);
   assert(!f.IsValid() && releases==3 && destroys==2 && terminates==0);
   failQuery=false;failSwap=false;f.SetSurface(&env,(void*)1);assert(f.IsValid());
-  draw->Present();assert(swaps==2 && draw->Validate());
+  draw->Present();assert(swaps==3 && draw->Validate());
  }
  assert(releases==4 && destroys==4 && terminates==1);
 }

@@ -90,10 +90,11 @@ void AndroidOGLContext::Present()
   ASSERT(m_surface != EGL_NO_SURFACE, ());
   if (eglSwapBuffers(m_display, m_surface) == EGL_FALSE)
   {
-    CHECK_EGL_CALL();
+    EGLint const error = CheckEGL(SRC());
     // Do not repeatedly submit to an invalid native window. Preserve navigation
     // and wait for the existing detach/attach owner to provide a new surface.
-    m_surfaceValid = false;
+    if (error == EGL_BAD_SURFACE || error == EGL_BAD_NATIVE_WINDOW || error == EGL_BAD_CURRENT_SURFACE)
+      m_surfaceValid = false;
   }
 }
 
