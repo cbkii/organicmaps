@@ -43,11 +43,17 @@ void QualifyBookmarks(std::string const & directory)
     kml::SetDefaultStr(data.m_categoryData.m_name, name);
     kml::SetDefaultStr(data.m_categoryData.m_description, description);
     data.m_categoryData.m_lastModified = kml::TimestampClock::from_time_t(timestamp);
+    kml::CategoryData compilation;
+    compilation.m_compilationId = 88;
+    compilation.m_type = kml::CompilationType::Collection;
+    kml::SetDefaultStr(compilation.m_name, "collection");
+    data.m_compilationsData.push_back(std::move(compilation));
     for (size_t i = 0; i < count; ++i)
     {
       kml::BookmarkData bookmark;
       kml::SetDefaultStr(bookmark.m_name, "point " + std::to_string(i));
       bookmark.m_point = m2::PointD(1.0 + i, 2.0);
+      bookmark.m_compilations.push_back(88);
       data.m_bookmarksData.push_back(std::move(bookmark));
     }
     kml::TrackData track;
@@ -71,6 +77,8 @@ void QualifyBookmarks(std::string const & directory)
   Require(id != kml::kInvalidMarkGroupId, "initial category identity");
   auto oldBookmark = *manager.GetUserMarkIds(id).begin();
   auto oldTrack = *manager.GetTrackIds(id).begin();
+  Require(manager.GetChildrenCollections(id).size() == 1, "initial compilation");
+  auto oldCompilation = manager.GetChildrenCollections(id).front();
   auto reload = [&](char const * name, char const * description, std::time_t timestamp, size_t count)
   {
     write(name, description, timestamp, count);
@@ -84,6 +92,11 @@ void QualifyBookmarks(std::string const & directory)
     Require(manager.GetUserMarkIds(id).size() == count && manager.GetTrackIds(id).size() == 1,
             "reload replaces bookmarks and tracks");
     Require(!manager.HasBookmark(oldBookmark) && !manager.HasTrack(oldTrack), "obsolete items are removed");
+    auto const children = manager.GetChildrenCollections(id);
+    Require(children.size() == 1 && children.front() != oldCompilation && !manager.IsCompilation(oldCompilation),
+            "reload retires old compilation identity");
+    Require(manager.GetUserMarkIds(children.front()).size() == count, "replacement compilation owns loaded items");
+    oldCompilation = children.front();
     Require(Platform::GetFileModificationTime(path) == 5000, "reload does not rewrite KML");
     oldBookmark = *manager.GetUserMarkIds(id).begin();
     oldTrack = *manager.GetTrackIds(id).begin();

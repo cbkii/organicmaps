@@ -115,8 +115,9 @@ int main(){
   assert(!f.IsValid() && releases==3 && destroys==2 && terminates==0);
   failQuery=false;failSwap=false;f.SetSurface(&env,(void*)1);assert(f.IsValid());
   draw->Present();assert(swaps==3 && draw->Validate() && presented==1 && epoch>1);
+  auto readyEpoch=epoch;
   failSwap=true;fakeError=EGL_BAD_NATIVE_WINDOW;draw->Present();
-  assert(!draw->Validate() && invalid>=2);
+  assert(!draw->Validate() && invalid>=2 && epoch>readyEpoch);
   int lost=swaps;draw->Present();assert(swaps==lost);
  }
  assert(releases==4 && destroys==4 && terminates==1);

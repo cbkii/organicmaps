@@ -48,7 +48,8 @@ public:
       if (m_ready == ready)
         return;
       m_ready = ready;
-      generation = m_generation;
+      // Every state edge has an ordering token: snapshot callbacks may race the render thread.
+      generation = ++m_generation;
       notify = m_handler;
     }
     if (notify)

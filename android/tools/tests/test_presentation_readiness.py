@@ -32,6 +32,7 @@ public class PresentationTest {
     state.surface(8,800,480);state.activity(8,43,true);state.presentationRequired(8);
     state.presentation(7,true,100);check(!state.ready());
     state.presentation(8,true,1);check(state.ready());
+    state.presentation(8,false,0);check(state.ready()); // Late native registration snapshot.
     // A new observation lease can belong to a recreated native factory.
     state.presentationRequired(8);check(!state.ready());
     state.presentation(8,true,0);check(state.ready());

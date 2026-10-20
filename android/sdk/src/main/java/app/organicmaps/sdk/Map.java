@@ -199,9 +199,9 @@ public final class Map
 
     mSurfaceCreated = true;
     mSurfaceAttached = true;
+    observePresentation();
     if (mMapRenderingListener != null)
       mMapRenderingListener.onRenderingCreated();
-    observePresentation();
     nativeResumeSurfaceRendering();
   }
 
