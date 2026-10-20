@@ -1,0 +1,71 @@
+name: TS18 Temporary InCar Drawing-Rule Sync
+on:
+  push:
+    branches:
+      - codex/ts18-incar-marker-contrast-20261020
+    paths:
+      - .github/workflows/ts18-temp-drules-sync.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Fetch Kothic compiler
+        run: git submodule update --init --depth 1 tools/kothic
+      - name: Generate drawing rules only (no sprite regeneration)
+        run: tools/unix/generate_drules.sh
+      - name: Upload isolated InCar drawing rules
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts18-in-car-only
+          path: |
+            data/drules_in_car.bin
+            data/drules_in_car.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  sync:
+    needs: generate
+    if: github.repository == 'cbkii/organicmaps' && github.ref == 'refs/heads/codex/ts18-incar-marker-contrast-20261020'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v6
+        with:
+          ref: codex/ts18-incar-marker-contrast-20261020
+          persist-credentials: true
+      - name: Retrieve generated files as inert data
+        uses: actions/download-artifact@v4
+        with:
+          name: ts18-in-car-only
+          path: /tmp/ts18-generated-rules
+      - name: Synchronise only three allowlisted rule assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/ts18-generated-rules/drules_in_car.bin
+          test -s /tmp/ts18-generated-rules/drules_in_car.txt
+          cp /tmp/ts18-generated-rules/drules_in_car.bin data/drules_in_car.bin
+          cp /tmp/ts18-generated-rules/drules_in_car.txt data/drules_in_car.txt
+          cp /tmp/ts18-generated-rules/drules_in_car.bin android/sdk/src/main/assets/drules_in_car.bin
+          cmp data/drules_in_car.bin android/sdk/src/main/assets/drules_in_car.bin
+          git add -- data/drules_in_car.bin data/drules_in_car.txt android/sdk/src/main/assets/drules_in_car.bin
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'build: synchronize generated InCar drawing rules without touching sprite atlases'
+            git push origin HEAD:refs/heads/codex/ts18-incar-marker-contrast-20261020
+          fi
