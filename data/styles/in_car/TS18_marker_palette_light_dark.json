@@ -6,7 +6,8 @@
     "source_head": "1f9d5d97e89fa6154e799a2c42848490b2a042d3",
     "scope": "92 vehicle-style POI SVG variants, 16 bookmark colours and 15 MapCSS marker roles only; excludes base, roads, water, polygons, routes",
     "authoritative_dark_source_sprites_sampled": false,
-    "notes": "Proposed dominant colours only; SVGs may contain multiple fills. Source/atlas regeneration and real TS18 verification required."
+    "notes": "Proposed dominant colours only; SVGs may contain multiple fills. Source/atlas regeneration and real TS18 verification required.",
+    "marker_runtime_update": "2026-10-20: approved high-glare palette applied to InCar MapCSS-driven markers only; packed POI sprites unchanged"
   },
   "roles": {
     "fuel": {
@@ -790,105 +791,105 @@
   },
   "bookmarks": {
     "Red": {
-      "light": "#BE3045",
+      "light": "#9D2839",
       "dark": "#FF778A"
     },
     "Pink": {
-      "light": "#BA3D75",
+      "light": "#92305C",
       "dark": "#FF85B8"
     },
     "Purple": {
-      "light": "#7843AA",
+      "light": "#6D3D9B",
       "dark": "#C999F7"
     },
     "DeepPurple": {
-      "light": "#5C45A4",
+      "light": "#5B44A2",
       "dark": "#AD99F2"
     },
     "Blue": {
-      "light": "#2764BA",
+      "light": "#21539B",
       "dark": "#8FB7FF"
     },
     "LightBlue": {
-      "light": "#1879A5",
+      "light": "#125A7B",
       "dark": "#66C7F1"
     },
     "Cyan": {
-      "light": "#067D8B",
+      "light": "#045D68",
       "dark": "#69D9E6"
     },
     "Teal": {
-      "light": "#087A69",
+      "light": "#065F52",
       "dark": "#6AD8BE"
     },
     "Green": {
-      "light": "#347B4C",
+      "light": "#285F3B",
       "dark": "#8DD5A2"
     },
     "Lime": {
-      "light": "#637A26",
+      "light": "#495B1C",
       "dark": "#C5E179"
     },
     "Yellow": {
-      "light": "#8C6D12",
-      "dark": "#DBD337"
+      "light": "#69510D",
+      "dark": "#F9D56B"
     },
     "Orange": {
-      "light": "#A65E21",
+      "light": "#7D4719",
       "dark": "#FFAE67"
     },
     "DeepOrange": {
-      "light": "#BA5130",
+      "light": "#8B3D24",
       "dark": "#FF8D6A"
     },
     "Brown": {
-      "light": "#78604B",
-      "dark": "#C7A861"
+      "light": "#65503F",
+      "dark": "#CDAF92"
     },
     "Gray": {
-      "light": "#727A83",
+      "light": "#50555C",
       "dark": "#ADB8C4"
     },
     "BlueGray": {
-      "light": "#5A758D",
+      "light": "#435668",
       "dark": "#9EAFC4"
     }
   },
   "mapcss_markers": {
     "Selected object": {
-      "light": "#1768C5",
+      "light": "#13549F",
       "dark": "#52E8FF"
     },
     "Location arrow": {
-      "light": "#286BD0",
+      "light": "#1F52A0",
       "dark": "#00B7FF"
     },
     "Search default": {
-      "light": "#2478BF",
+      "light": "#1A578B",
       "dark": "#77B8FA"
     },
     "Search pending": {
-      "light": "#777F89",
+      "light": "#50555C",
       "dark": "#ACB0B8"
     },
     "Search unavailable": {
-      "light": "#91959B",
-      "dark": "#87929D"
+      "light": "#51555A",
+      "dark": "#98A1AA"
     },
     "Unavailable selected": {
-      "light": "#C75B30",
+      "light": "#893F21",
       "dark": "#FFA47A"
     },
     "Rating good": {
-      "light": "#258450",
+      "light": "#1B603A",
       "dark": "#92DEA8"
     },
     "Rating bad": {
-      "light": "#C55D3D",
+      "light": "#883F29",
       "dark": "#FF9072"
     },
     "Rating unrated": {
-      "light": "#5A7DA0",
+      "light": "#3E576F",
       "dark": "#93AFCD"
     },
     "Speed camera": {
@@ -896,7 +897,7 @@
       "dark": "#FF0000"
     },
     "Route via point": {
-      "light": "#087B56",
+      "light": "#066143",
       "dark": "#69D6A3"
     },
     "Transit transfer outer": {
