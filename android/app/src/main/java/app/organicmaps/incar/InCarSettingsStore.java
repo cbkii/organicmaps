@@ -56,7 +56,9 @@ public final class InCarSettingsStore
   @VisibleForTesting
   static boolean compactStartupEnabled(@NonNull SharedPreferences prefs, boolean inCar)
   {
-    return inCar && prefs.getBoolean("InCarCompactStartup", false);
+    // The authenticated HOME owns admission. Enable an unset InCar integration without
+    // overwriting a saved OFF choice; this never launches Maps independently at boot.
+    return inCar && prefs.getBoolean("InCarCompactStartup", true);
   }
 
   public static void setCompactStartupEnabled(@NonNull Context context, boolean enabled)

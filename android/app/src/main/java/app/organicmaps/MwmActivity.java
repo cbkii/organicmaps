@@ -1334,6 +1334,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     cancelInCarNavigationCountdown();
     if (!handleBackPress())
     {
+      if (isTaskRoot() && app.organicmaps.incar.InCarCompactStartupProvider.requestHomeReturn(this, getTaskId()))
+        return;
       try
       {
         super.onBackPressed();
