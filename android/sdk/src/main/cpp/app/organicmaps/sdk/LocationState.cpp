@@ -107,21 +107,20 @@ JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeToggleCamer
   auto const engine = GetDrapeEngine();
   if (engine == nullptr)
     return;
-  engine->ToggleCameraViewAndRecenter(
-      [onNeedsLocation = jni::make_global_ref_safe(onNeedsLocation)](bool dispatched)
-      {
-        if (dispatched)
-          return;
-        GetPlatform().RunTask(Platform::Thread::Gui, [onNeedsLocation]()
-        {
-          JNIEnv * env = jni::GetEnv();
-          env->CallVoidMethod(*onNeedsLocation, jni::GetMethodID(env, *onNeedsLocation, "run", "()V"));
-        });
-      });
+  engine->ToggleCameraViewAndRecenter([onNeedsLocation = jni::make_global_ref_safe(onNeedsLocation)](bool dispatched)
+  {
+    if (dispatched)
+      return;
+    GetPlatform().RunTask(Platform::Thread::Gui, [onNeedsLocation]()
+    {
+      JNIEnv * env = jni::GetEnv();
+      env->CallVoidMethod(*onNeedsLocation, jni::GetMethodID(env, *onNeedsLocation, "run", "()V"));
+    });
+  });
 }
 
-JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeQueryCameraPresentation(
-    JNIEnv *, jclass, jobject listener)
+JNIEXPORT void Java_app_organicmaps_sdk_location_LocationState_nativeQueryCameraPresentation(JNIEnv *, jclass,
+                                                                                             jobject listener)
 {
   auto const engine = GetDrapeEngine();
   if (engine == nullptr)
