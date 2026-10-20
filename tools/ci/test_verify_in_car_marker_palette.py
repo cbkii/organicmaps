@@ -86,6 +86,19 @@ class InCarMarkerContrastTests(unittest.TestCase):
                 self.assertGreaterEqual(
                     self.contrast(detail, token('RouteMarkInterBg')), 7.5 if mode == 'light' else 8.0)
 
+    def test_saved_workbench_overrides_match_applied_runtime_tokens(self):
+        data = json.loads((self.ROOT / 'data/styles/in_car/TS18_marker_palette_light_dark.json').read_text())
+        for key, colour in data.get('user_edits', {}).items():
+            parts = key.split('/')
+            if len(parts) != 3 or parts[0] not in ('bookmark', 'marker'):
+                continue  # Locked POI sprite edits are historical workbench state.
+            category, name, mode = parts
+            self.assertIn(mode, ('day', 'night'), key)
+            applied = data['bookmarks' if category == 'bookmark' else 'mapcss_markers'][name]
+            expected = applied['light' if mode == 'day' else 'dark']
+            with self.subTest(override=key):
+                self.assertEqual(expected.upper(), colour.upper())
+
     def test_poi_sprites_are_outside_the_runtime_colour_contract(self):
         data = json.loads((self.ROOT / 'data/styles/in_car/TS18_marker_palette_light_dark.json').read_text())
         self.assertEqual(92, len(data['poi_symbols']))
