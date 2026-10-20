@@ -75,7 +75,8 @@ class TestingDraftWorkflowTests(unittest.TestCase):
         self.assertIn("The managed marker + fixed title are the durable draft identity.", PUBLISH)
         self.assertIn('contains(\\"$MANAGED_MARKER\\")', PUBLISH)
         self.assertIn("is_expected_draft_tag \"$release_tag\"", PUBLISH)
-        self.assertIn("is_expected_draft_tag \"$final_tag\"", PUBLISH)
+        self.assertIn("tag_name", (ROOT / "scripts/ci/reconcile_testing_release.py").read_text(encoding="utf-8"))
+        self.assertIn("untagged-[0-9a-f]+", (ROOT / "scripts/ci/reconcile_testing_release.py").read_text(encoding="utf-8"))
         self.assertIn(
             "actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5",
             PUBLISH,
