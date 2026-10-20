@@ -10,6 +10,9 @@ on:
       - '.github/workflows/testing-apk-contract.yml'
       - 'scripts/ci/build-incar-testing-input.sh'
       - 'android/tools/tests/test_testing_draft_workflow.py'
+      - 'android/tools/tests/test_testing_release_notes.py'
+      - 'scripts/ci/reconcile_testing_release.py'
+      - '.github/workflows/testing-apk-reconcile-notes.yml'
   push:
     branches:
       - master
@@ -19,6 +22,9 @@ on:
       - '.github/workflows/testing-apk-contract.yml'
       - 'scripts/ci/build-incar-testing-input.sh'
       - 'android/tools/tests/test_testing_draft_workflow.py'
+      - 'android/tools/tests/test_testing_release_notes.py'
+      - 'scripts/ci/reconcile_testing_release.py'
+      - '.github/workflows/testing-apk-reconcile-notes.yml'
   workflow_dispatch:
 
 permissions:
@@ -41,8 +47,8 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/ci/build-incar-testing-input.sh
-          python3 -m py_compile android/tools/tests/test_testing_draft_workflow.py
-          python3 -m unittest android.tools.tests.test_testing_draft_workflow -v
+          python3 -m py_compile scripts/ci/reconcile_testing_release.py android/tools/tests/test_testing_draft_workflow.py android/tools/tests/test_testing_release_notes.py
+          python3 -m unittest android.tools.tests.test_testing_draft_workflow android.tools.tests.test_testing_release_notes -v
           git diff --check HEAD^ HEAD 2>/dev/null || git diff --check
 
   build-input:

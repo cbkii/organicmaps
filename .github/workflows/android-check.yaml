@@ -63,15 +63,7 @@ jobs:
             android/tools/report_in_car_apk_metrics.py \
             android/tools/capture_in_car_runtime_baseline.py \
             android/tools/tests/test_report_in_car_apk_metrics.py
-          python3 -m unittest discover \
-            -s android/tools/tests \
-            -p 'test_report_in_car_apk_metrics.py'
-          python3 -m unittest discover -s android/tools/tests -p 'test_current_road_jni_dex.py'
-          python3 -m unittest discover -s android/tools/tests -p 'test_location_acquisition.py' -v
-          python3 -m unittest discover -s android/tools/tests -p 'test_curated_upstream.py' -v
-          python3 -m unittest discover -s android/tools/tests -p 'test_native_owners.py' -v
-          python3 -m unittest discover -s android/tools/tests -p 'test_in_car_controls.py' -v
-          python3 -m unittest discover -s android/tools/tests -p 'test_compact_startup.py' -v
+          python3 -m unittest discover -s android/tools/tests -v
           bash -n \
             android/tools/ci-adb-logcat-window/adb \
             android/tools/smoke_test_in_car_apk.sh \

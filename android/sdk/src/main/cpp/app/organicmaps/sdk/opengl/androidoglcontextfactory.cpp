@@ -127,6 +127,7 @@ AndroidOGLContextFactory::~AndroidOGLContextFactory()
 
 void AndroidOGLContextFactory::SetSurface(JNIEnv * env, jobject jsurface)
 {
+  m_presentation->Reset();
   if (!jsurface)
     return;
 
@@ -158,6 +159,7 @@ void AndroidOGLContextFactory::SetSurface(JNIEnv * env, jobject jsurface)
 
 void AndroidOGLContextFactory::ResetSurface()
 {
+  m_presentation->Reset();
   {
     std::unique_lock<std::mutex> lock(m_initializationMutex);
     if (m_initializationCounter > 0 && m_initializationCounter < kGLThreadsCount)
@@ -244,7 +246,7 @@ dp::GraphicsContext * AndroidOGLContextFactory::GetDrawContext()
   ASSERT(IsValid(), ());
   ASSERT(m_windowSurface != EGL_NO_SURFACE, ());
   if (m_drawContext == nullptr)
-    m_drawContext = new AndroidOGLContext(m_display, m_windowSurface, m_config, m_uploadContext);
+    m_drawContext = new AndroidOGLContext(m_display, m_windowSurface, m_config, m_uploadContext, m_presentation);
   return m_drawContext;
 }
 

@@ -243,6 +243,8 @@ public class MwmApplication extends Application implements Application.ActivityL
   public void onActivityResumed(@NonNull Activity activity)
   {
     Logger.d(TAG, "activity = " + activity);
+    if (mOrganicMaps.arePlatformAndCoreInitialized())
+      ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
     Utils.showOnLockScreen(Config.isShowOnLockScreenEnabled(), activity);
     getSensorHelper().setRotation(activity.getWindowManager().getDefaultDisplay().getRotation());
 

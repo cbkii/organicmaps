@@ -15,10 +15,12 @@ static EGLint * getContextAttributesList()
 }
 
 AndroidOGLContext::AndroidOGLContext(EGLDisplay display, EGLSurface surface, EGLConfig config,
-                                     AndroidOGLContext * contextToShareWith)
+                                     AndroidOGLContext * contextToShareWith,
+                                     std::shared_ptr<PresentationState> presentation)
   : m_nativeContext(EGL_NO_CONTEXT)
   , m_surface(surface)
   , m_display(display)
+  , m_presentation(std::move(presentation))
   , m_presentAvailable(true)
 {
   ASSERT(m_surface != EGL_NO_SURFACE, ());
@@ -90,12 +92,16 @@ void AndroidOGLContext::Present()
   ASSERT(m_surface != EGL_NO_SURFACE, ());
   if (eglSwapBuffers(m_display, m_surface) == EGL_FALSE)
   {
+    if (m_presentation)
+      m_presentation->Presented(false);
     EGLint const error = CheckEGL(SRC());
     // Do not repeatedly submit to an invalid native window. Preserve navigation
     // and wait for the existing detach/attach owner to provide a new surface.
     if (error == EGL_BAD_SURFACE || error == EGL_BAD_NATIVE_WINDOW || error == EGL_BAD_CURRENT_SURFACE)
       m_surfaceValid = false;
   }
+  else if (m_presentation)
+    m_presentation->Presented(true);
 }
 
 void AndroidOGLContext::SetSurface(EGLSurface surface)

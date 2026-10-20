@@ -100,16 +100,24 @@ int main(){
   assert(f.IsValid() && queries==2);f.UpdateSurfaceSize(800,400);
   assert(queries==2 && f.GetWidth()==800 && f.GetHeight()==400);
   f.UpdateSurfaceSize(0,0);assert(f.GetWidth()==800);
+  int invalid=0,presented=0; unsigned long long epoch=0;
+  f.SetPresentationHandler([&](bool ready,uint64_t generation){
+    epoch=generation;if(ready)++presented;else ++invalid;
+  });
+  assert(invalid==1 && presented==0);
   auto* draw=f.GetDrawContext();failSwap=true;draw->Present();
   assert(swaps==1 && draw->Validate()); // A transient non-surface error retains existing recovery.
   fakeError=EGL_BAD_SURFACE;draw->Present();draw->Present();
-  assert(swaps==2 && !draw->Validate());draw->SetPresentAvailable(true);draw->Present();assert(swaps==2);
+  assert(swaps==2 && !draw->Validate() && presented==0);draw->SetPresentAvailable(true);draw->Present();assert(swaps==2);
   f.ResetSurface();f.ResetSurface();assert(releases==1 && destroys==1);
   failWindow=true;f.SetSurface(&env,(void*)1);assert(!f.IsValid() && releases==2 && terminates==0);
   failWindow=false;failQuery=true;f.SetSurface(&env,(void*)1);
   assert(!f.IsValid() && releases==3 && destroys==2 && terminates==0);
   failQuery=false;failSwap=false;f.SetSurface(&env,(void*)1);assert(f.IsValid());
-  draw->Present();assert(swaps==3 && draw->Validate());
+  draw->Present();assert(swaps==3 && draw->Validate() && presented==1 && epoch>1);
+  failSwap=true;fakeError=EGL_BAD_NATIVE_WINDOW;draw->Present();
+  assert(!draw->Validate() && invalid>=2);
+  int lost=swaps;draw->Present();assert(swaps==lost);
  }
  assert(releases==4 && destroys==4 && terminates==1);
 }

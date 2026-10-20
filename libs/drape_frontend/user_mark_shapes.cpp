@@ -5,6 +5,7 @@
 #include "drape_frontend/map_shape.hpp"
 #include "drape_frontend/poi_symbol_shape.hpp"
 #include "drape_frontend/shape_view_params.hpp"
+#include "drape_frontend/speed_camera_symbol_scale.hpp"
 #include "drape_frontend/text_layout.hpp"
 #include "drape_frontend/text_shape.hpp"
 #include "drape_frontend/visual_params.hpp"
@@ -17,6 +18,7 @@
 #include "drape/utils/vertex_decl.hpp"
 
 #include "indexer/feature_decl.hpp"
+#include "indexer/map_style_reader.hpp"
 #include "indexer/scales.hpp"
 
 #include "geometry/clipping.hpp"
@@ -214,7 +216,7 @@ void GenerateColoredSymbolShapes(ref_ptr<dp::GraphicsContext> context, ref_ptr<d
 void GeneratePoiSymbolShape(ref_ptr<dp::GraphicsContext> context, ref_ptr<dp::TextureManager> textures,
                             UserMarkRenderParams const & renderInfo, TileKey const & tileKey,
                             m2::PointD const & tileCenter, std::string const & symbolName,
-                            m2::PointF const & symbolOffset, dp::Batcher & batcher)
+                            m2::PointF const & symbolOffset, float symbolScale, dp::Batcher & batcher)
 {
   PoiSymbolViewParams params;
   params.m_featureId = renderInfo.m_featureId;
@@ -227,6 +229,7 @@ void GeneratePoiSymbolShape(ref_ptr<dp::GraphicsContext> context, ref_ptr<dp::Te
   params.m_specialDisplacement = renderInfo.m_displacement;
   params.m_specialPriority = renderInfo.m_priority;
   params.m_symbolName = symbolName;
+  params.m_symbolScale = symbolScale;
   params.m_anchor = renderInfo.m_anchor;
   params.m_offset = symbolOffset;
 
@@ -360,12 +363,14 @@ void CacheUserMarks(ref_ptr<dp::GraphicsContext> context, TileKey const & tileKe
   source.ForEachMark(tileKey, renderParams, [&](UserMarkRenderParams const & renderInfo)
   {
     m2::PointF symbolSize(0.0f, 0.0f);
+    float symbolScale = 1.0f;
     dp::TextureManager::SymbolRegion symbolRegion;
     auto const symbolName = GetSymbolNameForZoomLevel(make_ref(renderInfo.m_symbolNames), tileKey);
     if (!symbolName.empty())
     {
       textures->GetSymbolRegion(symbolName, symbolRegion);
-      symbolSize = symbolRegion.GetPixelSize();
+      symbolScale = GetInCarSpeedCameraSymbolScale(GetStyleReader().GetCurrentStyle(), symbolName);
+      symbolSize = symbolRegion.GetPixelSize() * symbolScale;
     }
 
     m2::PointF symbolOffset = m2::PointF::Zero();
@@ -382,7 +387,8 @@ void CacheUserMarks(ref_ptr<dp::GraphicsContext> context, TileKey const & tileKe
     {
       if (renderInfo.m_symbolIsPOI)
       {
-        GeneratePoiSymbolShape(context, textures, renderInfo, tileKey, tileCenter, symbolName, symbolOffset, batcher);
+        GeneratePoiSymbolShape(context, textures, renderInfo, tileKey, tileCenter, symbolName, symbolOffset,
+                               symbolScale, batcher);
       }
       else
       {

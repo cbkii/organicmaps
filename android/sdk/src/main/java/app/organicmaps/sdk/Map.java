@@ -70,6 +70,7 @@ public final class Map
   private boolean mRequireResize;
   private boolean mSurfaceCreated;
   private boolean mSurfaceAttached;
+  private long mPresentationOwner;
   private boolean mLaunchByDeepLink;
   @Nullable
   private MapRenderingListener mMapRenderingListener;
@@ -153,6 +154,7 @@ public final class Map
   {
     Assert.debug(mLocationHelper != null, "LocationHelper must be initialized before calling onSurfaceCreated");
 
+    ++mPresentationOwner;
     Logger.d(TAG, "mSurfaceCreated = " + mSurfaceCreated);
     if (nativeIsEngineCreated())
     {
@@ -172,6 +174,7 @@ public final class Map
       mSurfaceCreated = true;
       mSurfaceAttached = true;
       mRequireResize = true;
+      observePresentation();
       nativeResumeSurfaceRendering();
       return;
     }
@@ -196,9 +199,10 @@ public final class Map
 
     mSurfaceCreated = true;
     mSurfaceAttached = true;
-    nativeResumeSurfaceRendering();
     if (mMapRenderingListener != null)
       mMapRenderingListener.onRenderingCreated();
+    observePresentation();
+    nativeResumeSurfaceRendering();
   }
 
   public void onSurfaceChanged(final Context context, final Surface surface, Rect surfaceFrame,
@@ -237,6 +241,7 @@ public final class Map
 
   public void onSurfaceDestroyed(boolean activityIsChangingConfigurations)
   {
+    ++mPresentationOwner;
     Logger.d(TAG, "mSurfaceCreated = " + mSurfaceCreated + ", mSurfaceAttached = " + mSurfaceAttached);
     if (!mSurfaceCreated || !mSurfaceAttached)
       return;
@@ -270,11 +275,34 @@ public final class Map
   public void onStart()
   {
     nativeSetRenderingInitializationFinishedListener(mMapRenderingListener);
+    observePresentation();
   }
 
   public void onStop()
   {
+    ++mPresentationOwner;
+    nativeSetPresentationListener(null);
     nativeSetRenderingInitializationFinishedListener(null);
+  }
+
+  private void observePresentation()
+  {
+    final MapRenderingListener listener = mMapRenderingListener;
+    final long owner = ++mPresentationOwner;
+    if (listener == null || !mSurfaceAttached)
+      return;
+    boolean observed = nativeSetPresentationListener(new MapRenderingListener() {
+      @Override
+      public void onRenderingPresentationChanged(boolean ready, long generation)
+      {
+        UiThread.runLater(() -> {
+          if (owner == mPresentationOwner && mSurfaceAttached && listener == mMapRenderingListener)
+            listener.onRenderingPresentationChanged(ready, generation);
+        });
+      }
+    });
+    if (observed)
+      listener.onRenderingPresentationRequired();
   }
 
   public void onPause()
@@ -414,6 +442,8 @@ public final class Map
 
   // Surface
   private static native boolean nativeAttachSurface(Surface surface);
+
+  private static native boolean nativeSetPresentationListener(@Nullable MapRenderingListener listener);
 
   private static native void nativeDetachSurface(boolean destroySurface);
 

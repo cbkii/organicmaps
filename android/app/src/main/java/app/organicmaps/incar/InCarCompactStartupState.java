@@ -12,6 +12,9 @@ public final class InCarCompactStartupState
   private boolean mCore;
   private boolean mNative;
   private boolean mAttached;
+  private boolean mPresentationRequired;
+  private boolean mPresented;
+  private long mPresentationGeneration = -1;
   private String mStage = "PROCESS";
 
   public synchronized void splash()
@@ -30,6 +33,8 @@ public final class InCarCompactStartupState
     mTask = task;
     mWidth = mHeight = 0;
     mAttached = mResumed = false;
+    mPresentationRequired = mPresented = false;
+    mPresentationGeneration = -1;
     mStage = "MAP_ACTIVITY";
   }
 
@@ -73,9 +78,27 @@ public final class InCarCompactStartupState
     mHeight = Math.max(0, height);
   }
 
+  public synchronized void presentationRequired(int instance)
+  {
+    if (mActivity != instance)
+      return;
+    mPresentationRequired = true;
+    mPresented = false;
+    mPresentationGeneration = -1;
+  }
+
+  public synchronized void presentation(int instance, boolean ready, long generation)
+  {
+    if (mActivity != instance || generation < mPresentationGeneration)
+      return;
+    mPresentationGeneration = generation;
+    mPresented = ready;
+  }
+
   public synchronized boolean ready()
   {
-    return mCore && mNative && mResumed && mAttached && mWidth > 0 && mHeight > 0;
+    return mCore && mNative && mResumed && mAttached && mWidth > 0 && mHeight > 0
+ && (!mPresentationRequired || mPresented);
   }
 
   public synchronized Object[] row()
