@@ -19,7 +19,7 @@ public final class InCarAccessibilityDelegate extends View.AccessibilityDelegate
   private final BooleanSupplier mDestroyed;
 
   public InCarAccessibilityDelegate(@NonNull View.AccessibilityDelegate original, @NonNull Runnable cancel,
-                                   @NonNull BooleanSupplier pending, @NonNull BooleanSupplier destroyed)
+                                    @NonNull BooleanSupplier pending, @NonNull BooleanSupplier destroyed)
   {
     mOriginal = original;
     mCancel = cancel;
@@ -29,14 +29,16 @@ public final class InCarAccessibilityDelegate extends View.AccessibilityDelegate
 
   @Override
   public boolean onRequestSendAccessibilityEvent(@NonNull ViewGroup host, @NonNull View child,
-                                                @NonNull AccessibilityEvent event)
+                                                 @NonNull AccessibilityEvent event)
   {
     final int type = event.getEventType();
-    final boolean pendingClick = (type == AccessibilityEvent.TYPE_VIEW_CLICKED
-                                 || type == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED) && mPending.getAsBoolean();
-    if (!mDestroyed.getAsBoolean() && (type == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED
-        || type == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED
-        || type == AccessibilityEvent.TYPE_VIEW_SCROLLED || pendingClick))
+    final boolean pendingClick =
+        (type == AccessibilityEvent.TYPE_VIEW_CLICKED || type == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED)
+        && mPending.getAsBoolean();
+    if (!mDestroyed.getAsBoolean()
+        && (type == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED
+            || type == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED
+            || type == AccessibilityEvent.TYPE_VIEW_SCROLLED || pendingClick))
       mCancel.run();
     // Content updates are not interaction. Owned clicks already cancel before dispatch;
     // their later click event must not invalidate a newly posted GO TO/START handoff.
@@ -44,32 +46,47 @@ public final class InCarAccessibilityDelegate extends View.AccessibilityDelegate
   }
 
   @Override
-  public void sendAccessibilityEvent(@NonNull View host, int type) { mOriginal.sendAccessibilityEvent(host, type); }
+  public void sendAccessibilityEvent(@NonNull View host, int type)
+  {
+    mOriginal.sendAccessibilityEvent(host, type);
+  }
 
   @Override
   public void sendAccessibilityEventUnchecked(@NonNull View host, @NonNull AccessibilityEvent event)
-  { mOriginal.sendAccessibilityEventUnchecked(host, event); }
+  {
+    mOriginal.sendAccessibilityEventUnchecked(host, event);
+  }
 
   @Override
   public boolean dispatchPopulateAccessibilityEvent(@NonNull View host, @NonNull AccessibilityEvent event)
-  { return mOriginal.dispatchPopulateAccessibilityEvent(host, event); }
+  {
+    return mOriginal.dispatchPopulateAccessibilityEvent(host, event);
+  }
 
   @Override
   public void onPopulateAccessibilityEvent(@NonNull View host, @NonNull AccessibilityEvent event)
-  { mOriginal.onPopulateAccessibilityEvent(host, event); }
+  {
+    mOriginal.onPopulateAccessibilityEvent(host, event);
+  }
 
   @Override
   public void onInitializeAccessibilityEvent(@NonNull View host, @NonNull AccessibilityEvent event)
-  { mOriginal.onInitializeAccessibilityEvent(host, event); }
+  {
+    mOriginal.onInitializeAccessibilityEvent(host, event);
+  }
 
   @Override
   public void onInitializeAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfo info)
-  { mOriginal.onInitializeAccessibilityNodeInfo(host, info); }
+  {
+    mOriginal.onInitializeAccessibilityNodeInfo(host, info);
+  }
 
   @Nullable
   @Override
   public AccessibilityNodeProvider getAccessibilityNodeProvider(@NonNull View host)
-  { return mOriginal.getAccessibilityNodeProvider(host); }
+  {
+    return mOriginal.getAccessibilityNodeProvider(host);
+  }
 
   @Override
   public void addExtraDataToAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfo info,
@@ -82,5 +99,7 @@ public final class InCarAccessibilityDelegate extends View.AccessibilityDelegate
 
   @Override
   public boolean performAccessibilityAction(@NonNull View host, int action, @Nullable Bundle arguments)
-  { return mOriginal.performAccessibilityAction(host, action, arguments); }
+  {
+    return mOriginal.performAccessibilityAction(host, action, arguments);
+  }
 }

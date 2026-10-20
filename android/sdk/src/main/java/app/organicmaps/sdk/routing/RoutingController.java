@@ -183,7 +183,10 @@ public class RoutingController
   private BuildState mBuildState = BuildState.NONE;
   private long mBuildGeneration;
 
-  public long getBuildGeneration() { return mBuildGeneration; }
+  public long getBuildGeneration()
+  {
+    return mBuildGeneration;
+  }
   private State mState = State.NONE;
   @Nullable
   private RouteMarkType mWaitingPoiPickType = null;
