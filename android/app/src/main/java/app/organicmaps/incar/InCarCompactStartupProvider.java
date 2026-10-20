@@ -197,6 +197,32 @@ public final class InCarCompactStartupProvider extends ContentProvider
     }
   }
 
+  /** Return request to the already authenticated HOME observer; no launch or route mutation. */
+  public static boolean requestHomeReturn(Context context, int task)
+  {
+    if (!BuildConfig.IS_IN_CAR || task <= 0 || !InCarSettingsStore.compactStartupEnabled(context))
+      return false;
+    final android.os.Messenger peer;
+    synchronized (InCarCompactStartupProvider.class)
+    {
+      peer = sPeer;
+    }
+    if (peer == null)
+      return false;
+    try
+    {
+      final android.os.Message message = android.os.Message.obtain(null, 2);
+      message.arg1 = task;
+      message.arg2 = boot(context);
+      peer.send(message);
+      return true;
+    }
+    catch (android.os.RemoteException unavailable)
+    {
+      return false;
+    }
+  }
+
   private static void scheduleSignal()
   {
     if (SIGNAL_PENDING.compareAndSet(false, true))

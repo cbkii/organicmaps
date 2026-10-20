@@ -1,5 +1,6 @@
 package app.organicmaps;
 
+import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.POST_NOTIFICATIONS;
@@ -636,6 +637,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mIntentConsumed = isIntentConsumed(savedInstanceState, getIntent());
 
     setContentView(R.layout.activity_map);
+    if (BuildConfig.IS_IN_CAR)
+      app.organicmaps.location.InCarLocationUi.install(this);
     installInCarAccessibilityCancellation();
     makeNavigationBarTransparentInLightMode();
 
@@ -1331,6 +1334,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     cancelInCarNavigationCountdown();
     if (!handleBackPress())
     {
+      if (isTaskRoot() && app.organicmaps.incar.InCarCompactStartupProvider.requestHomeReturn(this, getTaskId()))
+        return;
       try
       {
         super.onBackPressed();
@@ -1876,7 +1881,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
     {
       Logger.i(LOCATION_TAG, "Location updates are stopped by the user manually.");
-      if (locationHelper.isActive())
+      if (locationHelper.isAcquisitionRequested())
         locationHelper.stop();
       return;
     }
@@ -1955,7 +1960,13 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
     dismissLocationErrorDialog();
     logLocationPromptState("permission", "request launched: " + reason);
-    mLocationPermissionRequest.launch(new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+    // Android 10 can offer all three grant levels in its native dialog. Android 11+ requires
+    // a separate user-initiated settings step after foreground permission (InCar Settings).
+    mLocationPermissionRequest.launch(
+        app.organicmaps.location.InCarLocationPermissionPolicy.includeBackgroundInForegroundRequest(
+            BuildConfig.IS_IN_CAR, Build.VERSION.SDK_INT)
+            ? new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION}
+            : new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
   }
 
   private void showLocationPermissionDeniedDialog(boolean showSettingsAction)
@@ -2081,7 +2092,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationUpdateTimeout()
   {
-    requestBatterySaverPermission();
+    if (!BuildConfig.IS_IN_CAR)
+      requestBatterySaverPermission();
   }
 
   /**
@@ -2403,7 +2415,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!BuildConfig.IS_IN_CAR || mLocationActivityStopped || !Map.isEngineCreated())
       return false;
     final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
-    if (helper.isActive())
+    if (helper.isAcquisitionRequested())
       return true;
     mInCarRecenterRecovery = true;
     if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))

@@ -256,13 +256,14 @@ class FollowAndRotateEvent : public UserEvent
 {
 public:
   FollowAndRotateEvent(m2::PointD const & userPos, m2::PointD const & pixelZero, double azimuth, double autoScale,
-                       TAnimationCreator const & parallelAnimCreator)
+                       TAnimationCreator const & parallelAnimCreator, bool fastAcquisition = false)
     : m_userPos(userPos)
     , m_pixelZero(pixelZero)
     , m_azimuth(azimuth)
     , m_preferredZoomLevel(kDoNotChangeZoom)
     , m_autoScale(autoScale)
     , m_isAutoScale(true)
+    , m_fastAcquisition(fastAcquisition)
     , m_isAnim(true)
     , m_onFinishAction(nullptr)
     , m_parallelAnimCreator(parallelAnimCreator)
@@ -277,6 +278,7 @@ public:
     , m_preferredZoomLevel(preferredZoomLevel)
     , m_autoScale(kDoNotAutoZoom)
     , m_isAutoScale(false)
+    , m_fastAcquisition(false)
     , m_isAnim(isAnim)
     , m_onFinishAction(onFinishAction)
     , m_parallelAnimCreator(parallelAnimCreator)
@@ -290,6 +292,7 @@ public:
   int GetPreferredZoomLelel() const { return m_preferredZoomLevel; }
   double GetAutoScale() const { return m_autoScale; }
   bool IsAutoScale() const { return m_isAutoScale; }
+  bool IsFastAcquisition() const { return m_fastAcquisition; }
   bool IsAnim() const { return m_isAnim; }
   TAnimationCreator const & GetParallelAnimCreator() const { return m_parallelAnimCreator; }
   Animation::TAction const & GetOnFinishAction() const { return m_onFinishAction; }
@@ -301,6 +304,7 @@ private:
   int m_preferredZoomLevel;
   double m_autoScale;
   bool m_isAutoScale;
+  bool m_fastAcquisition;
   bool m_isAnim;
   Animation::TAction m_onFinishAction;
   TAnimationCreator m_parallelAnimCreator;
@@ -486,7 +490,7 @@ private:
   bool SetFollowAndRotate(m2::PointD const & userPos, m2::PointD const & pixelPos, double azimuth,
                           int preferredZoomLevel, double autoScale, bool isAnim, bool isAutoScale,
                           Animation::TAction const & onFinishAction = nullptr,
-                          TAnimationCreator const & parallelAnimCreator = nullptr);
+                          TAnimationCreator const & parallelAnimCreator = nullptr, bool fastAcquisition = false);
   void SetAutoPerspective(bool isAutoPerspective);
 
   m2::AnyRectD GetCurrentRect() const;

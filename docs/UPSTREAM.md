@@ -18,6 +18,15 @@ Broad upstream merges require an explicit repository-scope review because they c
 
 The archived legacy fork remains the historical reference after lineage cutover; it is not a source to mirror back into the clean repository.
 
+## Curated sync — 19 October 2026
+
+The [105-commit audit and decision ledger](UPSTREAM_SYNC_2026_10_19.md) records
+the next history acknowledgement through upstream `e78a075b7ae77bb31510918a26545d77ea4ae690`,
+stacked on PR #69. Twenty upstream changes are selected or adapted; all other
+changes have an explicit disposition. Preserve the history-only merge using
+merge commits; its tree must equal the curated first parent, independently of
+the upstream ancestry/zero-behind check. Physical TS18 qualification is separate.
+
 ## Work package A audit — 3 October 2026
 
 Previously acknowledged upstream: `74668b3a159124a88f161f9a58a694da6dce2a99`.

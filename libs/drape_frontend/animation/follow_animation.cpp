@@ -116,6 +116,16 @@ void MapFollowAnimation::SetMaxDuration(double maxDuration)
     m_offsetInterpolator.SetMaxDuration(maxDuration);
 }
 
+void MapFollowAnimation::SetAcquisitionDuration(double maxDuration)
+{
+  m_angleInterpolator.SetMinDuration(0.0);
+  m_offsetInterpolator.SetMinDuration(0.0);
+  m_scaleInterpolator.SetMinDuration(0.0);
+  SetMaxDuration(maxDuration);
+  if (m_scaleInterpolator.IsActive())
+    m_scaleInterpolator.SetMaxDuration(maxDuration);
+}
+
 void MapFollowAnimation::SetMinDuration(double minDuration)
 {
   if (m_angleInterpolator.IsActive())

@@ -1,14 +1,22 @@
 package app.organicmaps.settings;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.XmlRes;
+import androidx.core.content.ContextCompat;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
@@ -16,6 +24,9 @@ import app.organicmaps.R;
 import app.organicmaps.incar.InCarChoiceAdapter;
 import app.organicmaps.incar.InCarDialogSizing;
 import app.organicmaps.incar.InCarSettingsStore;
+import app.organicmaps.location.InCarLocationPermissionPolicy;
+import app.organicmaps.location.InCarLocationUi;
+import app.organicmaps.sdk.location.LocationUtils;
 import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.Config;
@@ -26,6 +37,19 @@ import java.util.List;
 public final class InCarSettingsFragment extends BaseXmlSettingsFragment
 {
   private int mCompactCheckGeneration;
+  private boolean mLocationAccessPending;
+  private boolean mLocationExplanationShowing;
+  private final ActivityResultLauncher<String> mBackgroundLocationRequest =
+      registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+        mLocationAccessPending = false;
+        updateLocationAccess();
+      });
+  private final ActivityResultLauncher<Intent> mAppPermissionSettings =
+      registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        mLocationAccessPending = false;
+        updateLocationAccess();
+      });
+
   @Override
   protected @XmlRes int getXmlResources()
   {
@@ -36,6 +60,32 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+    mLocationAccessPending = savedInstanceState != null && savedInstanceState.getBoolean("location_access_pending");
+    getPreference("in_car_location_access").setOnPreferenceClickListener(preference -> {
+      if (mLocationAccessPending || mLocationExplanationShowing)
+        return true;
+      mLocationExplanationShowing = true;
+      new AlertDialog.Builder(requireContext())
+          .setTitle(R.string.in_car_location_access)
+          .setMessage(R.string.in_car_location_background_explanation)
+          .setNegativeButton(R.string.close, null)
+          .setOnDismissListener(dialog -> mLocationExplanationShowing = false)
+          .setPositiveButton(R.string.settings, (dialog, which) -> requestLocationAccess())
+          .show();
+      return true;
+    });
+    getPreference("in_car_location_diagnostics").setOnPreferenceClickListener(preference -> {
+      InCarLocationUi.showDetails(requireActivity());
+      return true;
+    });
+    updateLocationAccess();
+    getViewLifecycleOwner().getLifecycle().addObserver(new androidx.lifecycle.DefaultLifecycleObserver() {
+      @Override
+      public void onResume(@NonNull androidx.lifecycle.LifecycleOwner owner)
+      {
+        updateLocationAccess();
+      }
+    });
 
     final TwoStatePreference compact = getPreference("in_car_compact_startup");
     compact.setVisible(app.organicmaps.BuildConfig.IS_IN_CAR);
@@ -143,6 +193,57 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       compact.setSummary(available ? R.string.in_car_compact_startup_summary
                                    : R.string.in_car_compact_startup_unavailable);
     });
+  }
+
+  @Override
+  public void onSaveInstanceState(@NonNull Bundle outState)
+  {
+    outState.putBoolean("location_access_pending", mLocationAccessPending);
+    super.onSaveInstanceState(outState);
+  }
+
+  private void updateLocationAccess()
+  {
+    if (getContext() == null || findPreference("in_car_location_access") == null)
+      return;
+    final boolean foreground = LocationUtils.checkLocationPermission(requireContext());
+    final boolean background =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        || ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+               == PackageManager.PERMISSION_GRANTED;
+    getPreference("in_car_location_access").setSummary(switch (
+        InCarLocationPermissionPolicy.access(Build.VERSION.SDK_INT, foreground, background))
+    {
+      case DENIED -> R.string.in_car_location_denied;
+      case WHILE_USING -> R.string.in_car_location_while_using;
+      case ALWAYS -> R.string.in_car_location_always;
+    });
+    getPreference("in_car_location_access").setEnabled(!mLocationAccessPending);
+  }
+
+  private void requestLocationAccess()
+  {
+    if (mLocationAccessPending)
+      return;
+    mLocationAccessPending = true;
+    updateLocationAccess();
+    try
+    {
+      if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && LocationUtils.checkLocationPermission(requireContext())
+          && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                 != PackageManager.PERMISSION_GRANTED
+          && shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+        mBackgroundLocationRequest.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+      else
+        mAppPermissionSettings.launch(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                 Uri.parse("package:" + requireContext().getPackageName())));
+    }
+    catch (ActivityNotFoundException | SecurityException e)
+    {
+      mLocationAccessPending = false;
+      updateLocationAccess();
+      Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
+    }
   }
 
   private static void filterLegacyManualDrivingView(@NonNull ListPreference preference)
