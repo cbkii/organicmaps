@@ -31,9 +31,9 @@ public final class InCarControlPositionPolicy
     boolean changed;
     if (raw instanceof ConstraintLayout.LayoutParams params)
     {
-      changed = params.startToStart != -1 || params.startToEnd != -1 || params.endToStart != -1
-                || params.endToEnd != -1 || params.leftToLeft != (left ? 0 : -1)
-                || params.rightToRight != (left ? -1 : 0) || params.leftToRight != -1 || params.rightToLeft != -1;
+      changed = params.startToStart != -1 || params.startToEnd != -1 || params.endToStart != -1 || params.endToEnd != -1
+             || params.leftToLeft != (left ? 0 : -1) || params.rightToRight != (left ? -1 : 0)
+             || params.leftToRight != -1 || params.rightToLeft != -1;
       params.startToStart = params.startToEnd = params.endToStart = params.endToEnd = -1;
       params.leftToLeft = left ? ConstraintLayout.LayoutParams.PARENT_ID : -1;
       params.rightToRight = left ? -1 : ConstraintLayout.LayoutParams.PARENT_ID;
@@ -43,8 +43,9 @@ public final class InCarControlPositionPolicy
     {
       final int selected = left ? RelativeLayout.ALIGN_PARENT_LEFT : RelativeLayout.ALIGN_PARENT_RIGHT;
       final int[] rules = params.getRules();
-      changed = rules[selected] == 0 || rules[left ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT] != 0
-                || rules[RelativeLayout.ALIGN_PARENT_START] != 0 || rules[RelativeLayout.ALIGN_PARENT_END] != 0;
+      changed = rules[selected] == 0
+             || rules[left ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT] != 0
+             || rules[RelativeLayout.ALIGN_PARENT_START] != 0 || rules[RelativeLayout.ALIGN_PARENT_END] != 0;
       params.removeRule(RelativeLayout.ALIGN_PARENT_START);
       params.removeRule(RelativeLayout.ALIGN_PARENT_END);
       params.removeRule(left ? RelativeLayout.ALIGN_PARENT_RIGHT : RelativeLayout.ALIGN_PARENT_LEFT);

@@ -33,9 +33,11 @@ public final class InCarNavigationCountdown
   public void cancel()
   {
     mPolicy.cancel();
-    if (mTick != null) mHandler.removeCallbacks(mTick);
+    if (mTick != null)
+      mHandler.removeCallbacks(mTick);
     mTick = null;
-    if (mProgress != null) mProgress.accept(-1);
+    if (mProgress != null)
+      mProgress.accept(-1);
     mProgress = null;
   }
 
@@ -46,24 +48,27 @@ public final class InCarNavigationCountdown
 
   public void arm(String stage, long generation, View button, BooleanSupplier eligible, IntConsumer progress)
   {
-    if (!mPolicy.arm(stage, generation,
-                    InCarSettingsStore.getAutomaticNavigationActionDelaySeconds(mActivity),
-                    SystemClock.elapsedRealtime()))
+    if (!mPolicy.arm(stage, generation, InCarSettingsStore.getAutomaticNavigationActionDelaySeconds(mActivity),
+                     SystemClock.elapsedRealtime()))
       return;
-    if (mTick != null) mHandler.removeCallbacks(mTick);
-    if (mProgress != null) mProgress.accept(-1);
+    if (mTick != null)
+      mHandler.removeCallbacks(mTick);
+    if (mProgress != null)
+      mProgress.accept(-1);
     mProgress = progress;
     final long presentationDeadline = SystemClock.elapsedRealtime() + 3000;
     final boolean[] presented = {false};
     final int[] taskBounds = {0, 0};
     final android.graphics.Rect visibleBounds = new android.graphics.Rect();
-    mTick = () -> {
+    mTick = () ->
+    {
       boolean ready = mActivity.getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
-          && mActivity.hasWindowFocus() && button.isShown() && button.isEnabled()
-          && ((android.os.PowerManager) mActivity.getSystemService(android.content.Context.POWER_SERVICE)).isInteractive()
-          && button.getGlobalVisibleRect(visibleBounds)
-          && visibleBounds.width() == button.getWidth() && visibleBounds.height() == button.getHeight()
-          && !mActivity.getSupportFragmentManager().isStateSaved() && eligible.getAsBoolean();
+                   && mActivity.hasWindowFocus() && button.isShown() && button.isEnabled()
+                   && ((android.os.PowerManager) mActivity.getSystemService(android.content.Context.POWER_SERVICE))
+                          .isInteractive()
+                   && button.getGlobalVisibleRect(visibleBounds) && visibleBounds.width() == button.getWidth()
+                   && visibleBounds.height() == button.getHeight()
+                   && !mActivity.getSupportFragmentManager().isStateSaved() && eligible.getAsBoolean();
       long now = SystemClock.elapsedRealtime();
       if (!presented[0])
       {
@@ -74,21 +79,30 @@ public final class InCarNavigationCountdown
           mHandler.postDelayed(mTick, 100);
           return;
         }
-        if (!ready || mActivity.isInCarTouchActive()) { cancel(); return; }
+        if (!ready || mActivity.isInCarTouchActive())
+        {
+          cancel();
+          return;
+        }
         presented[0] = true;
         taskBounds[0] = button.getRootView().getWidth();
         taskBounds[1] = button.getRootView().getHeight();
         mPolicy.beginCountdown(InCarSettingsStore.getAutomaticNavigationActionDelaySeconds(mActivity), now);
       }
       else if (!ready || button.getRootView().getWidth() != taskBounds[0]
-               || button.getRootView().getHeight() != taskBounds[1]) { cancel(); return; }
+               || button.getRootView().getHeight() != taskBounds[1])
+      {
+        cancel();
+        return;
+      }
       progress.accept(mPolicy.remainingSeconds(now));
       if (mPolicy.dispatch(now, true))
       {
         cancel();
         button.performClick();
       }
-      else mHandler.postDelayed(mTick, 200);
+      else
+        mHandler.postDelayed(mTick, 200);
     };
     // Selection and sheet placement finish before eligibility is examined.
     mHandler.post(mTick);
