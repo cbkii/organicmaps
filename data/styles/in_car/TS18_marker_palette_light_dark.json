@@ -1,13 +1,13 @@
 {
   "metadata": {
-    "name": "TS18 Organic Maps dual-mode vehicle marker palette proposal",
+    "name": "TS18 Organic Maps InCar marker palette: source-supported Day/Night colours",
     "created": "2026-10-17",
     "repository": "cbkii/organicmaps",
-    "source_head": "1f9d5d97e89fa6154e799a2c42848490b2a042d3",
+    "source_head": "f13716f7b1dad1d3efc8cf1191e533bf75da439b",
     "scope": "92 vehicle-style POI SVG variants, 16 bookmark colours and 15 MapCSS marker roles only; excludes base, roads, water, polygons, routes",
     "authoritative_dark_source_sprites_sampled": false,
-    "notes": "Proposed dominant colours only; SVGs may contain multiple fills. Source/atlas regeneration and real TS18 verification required.",
-    "marker_runtime_update": "2026-10-20: approved high-glare palette applied to InCar MapCSS-driven markers only; packed POI sprites unchanged"
+    "notes": "Runtime-editable bookmark and native marker colours are applied via InCar MapCSS and generated drawing rules only. All 92 baked POI sprite entries are documentary/locked and were not modified; no SVG or sprite-atlas regeneration is required or permitted. Real TS18 glare and navigation testing remains outstanding.",
+    "marker_runtime_update": "2026-10-20: compiled InCar Day/Night marker tokens and packaged drawing rules synchronized; existing POI SVG and atlas assets unchanged"
   },
   "roles": {
     "fuel": {
@@ -935,8 +935,8 @@
     "icon/tomb-m.svg/night": "#816A5B",
     "icon/christmas_market-m.svg/night": "#9C721B",
     "icon/christmas_tree-m.svg/night": "#9C721B",
-    "bookmark/Yellow/night": "#DBD337",
-    "bookmark/Brown/night": "#C7A861",
+    "bookmark/Yellow/night": "#F9D56B",
+    "bookmark/Brown/night": "#CDAF92",
     "marker/Selected object/night": "#52E8FF",
     "marker/Location arrow/night": "#00B7FF",
     "marker/Speed camera/day": "#FF0000",
