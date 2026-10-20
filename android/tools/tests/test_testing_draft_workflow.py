@@ -122,15 +122,24 @@ class TestingDraftWorkflowTests(unittest.TestCase):
         self.assertLess(signer, info)
         self.assertLess(sums, info)
 
-    def test_release_notes_are_real_markdown_with_links_and_provenance(self):
-        self.assertIn("testing-release-body.md", PUBLISH)
-        self.assertIn("## Current TESTING builds", PUBLISH)
-        self.assertIn("browser_download_url", PUBLISH)
-        self.assertIn("Current PR head", PUBLISH)
-        self.assertIn("Built SHA", PUBLISH)
-        self.assertIn("Managed by **Refresh Testing APK Draft**", PUBLISH)
-        self.assertIn("testing-apk-draft-managed", PUBLISH)
-        self.assertIn("](null)", PUBLISH)
+    def test_release_notes_are_reconciled_from_txt_and_verified(self):
+        reconciler = (ROOT / "scripts/ci/reconcile_testing_release.py").read_text(encoding="utf-8")
+        repair = (ROOT / ".github/workflows/testing-apk-reconcile-notes.yml").read_text(encoding="utf-8")
+        self.assertIn("reconcile_testing_release.py", PUBLISH)
+        self.assertIn("Checkout trusted release-note reconciler", PUBLISH)
+        self.assertIn("notes_schema_version=2", PUBLISH)
+        self.assertIn("change_%d=%s", PUBLISH)
+        self.assertNotIn('body="$RUNNER_TEMP/testing-release-body.md"', PUBLISH)
+        self.assertIn("## Current TESTING builds", reconciler)
+        self.assertIn("<!-- testing-apk-draft-managed -->", reconciler)
+        self.assertIn("<!-- testing-apk-notes:begin -->", reconciler)
+        self.assertIn("<!-- testing-apk-notes:end -->", reconciler)
+        self.assertIn("BUILD_INFO checksum mismatch", reconciler)
+        self.assertIn("Release PATCH/read-back mismatch", reconciler)
+        self.assertIn("workflow_dispatch:", repair)
+        self.assertIn("testing-only-draft-release-${{ github.repository }}", repair)
+        self.assertIn("reconcile_testing_release.py", repair)
+
 
     def test_changed_testing_ci_jobs_pin_ubuntu_24_04(self):
         self.assertNotIn("ubuntu-latest", DRAFT)
