@@ -197,8 +197,13 @@ public final class InCarCompactStartupProvider extends ContentProvider
     }
   }
 
+  public static void cancelHomeReturn(android.app.Activity activity)
+  {
+    InCarHomeReturn.cancel(activity);
+  }
+
   /** Return request to the already authenticated HOME observer; no launch or route mutation. */
-  public static boolean requestHomeReturn(Context context, int task)
+  public static boolean requestHomeReturn(android.app.Activity context, int task)
   {
     if (!BuildConfig.IS_IN_CAR || task <= 0 || !InCarSettingsStore.compactStartupEnabled(context))
       return false;
@@ -209,18 +214,29 @@ public final class InCarCompactStartupProvider extends ContentProvider
     }
     if (peer == null)
       return false;
-    try
-    {
-      final android.os.Message message = android.os.Message.obtain(null, 2);
-      message.arg1 = task;
-      message.arg2 = boot(context);
-      peer.send(message);
+    if (!InCarHomeReturn.schedule(context, task))
       return true;
-    }
-    catch (android.os.RemoteException unavailable)
-    {
-      return false;
-    }
+    final java.util.concurrent.atomic.AtomicBoolean pending = InCarHomeReturn.pending(context);
+    final Context application = context.getApplicationContext();
+    // Settings/Binder delivery cannot block map input. A send is not a HOME acknowledgement;
+    // the bounded local fallback preserves the task if the peer is stale, saturated or refuses.
+    SIGNALS.execute(() -> {
+      try
+      {
+        if (!pending.get())
+          return;
+        final android.os.Message message = android.os.Message.obtain(null, 2);
+        message.arg1 = task;
+        message.arg2 = boot(application);
+        if (pending.get())
+          peer.send(message);
+      }
+      catch (android.os.RemoteException | RuntimeException unavailable)
+      {
+        android.util.Log.w("InCarCompactStartup", "HOME return delivery unavailable");
+      }
+    });
+    return true;
   }
 
   private static void scheduleSignal()

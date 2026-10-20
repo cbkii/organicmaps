@@ -161,3 +161,11 @@ a 4 GiB heap and two Gradle workers; canonical final-head CI must verify the cha
 ## 20 October execution status
 
 92 Android-tool host tests and the repository scope verifier passed. Full Android/native/emulator gates and physical TS18 timing remain pending; host evidence does not establish pixels, audibility or OEM task behaviour. The matching launcher contains `scripts/diagnostics/coldstart/START-HERE.md` and the v2 P/S/F/N collector kit.
+
+## PR finalisation review — 20 October
+
+An observer Binder send is not acknowledgement that HOME was restored. Integrated root Back now dispatches the cooperative request off the UI thread and starts a 1.5-second task-preserving fallback. If the same Activity still owns window focus, it moves only its own task to the back without finishing or relaunching Maps. HOME success, permission/user focus loss, pause, destruction or task replacement cancels the fallback; a later reopening cannot be affected by its old timer. Duplicate pending Back requests coalesce. Expired/cancelled delivery is dropped before sending. If the framework refuses the local move, the task remains intact and a bounded warning is logged. Normal standalone Back and route/transient handling are unchanged.
+
+The public Android fallback preserves Activity order, but the previous task chosen by the OEM task history may differ from HOME. The authenticated exact-HOME root path remains primary; physical HOME destination, same-task compact rendering, touch and timing require the paired candidate test. Android reference: https://developer.android.com/reference/android/app/Activity#moveTaskToBack(boolean).
+
+Current host evidence includes 93 Android-tool tests (including lifecycle/focus cancellation); current-head native/build/emulator CI must pass after these edits. Earlier CI success belongs to fa35f2d, not the new head. The launcher now provides the v3 Music/Maps/Radio diagnostic kit.
