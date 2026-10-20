@@ -24,14 +24,14 @@ public class MapButtonsControllerPolicyTest
           MapButtonsController.shouldSuppressLegacyButton(false, MapButtonsController.LayoutMode.navigation, button));
       for (MapButtonsController.LayoutMode mode : MapButtonsController.LayoutMode.values())
       {
-        final boolean suppressed = button == MapButtonsController.MapButtons.bookmarks
-                                   || (mode == MapButtonsController.LayoutMode.navigation
-                                       && button == MapButtonsController.MapButtons.search);
+        final boolean suppressed =
+            button == MapButtonsController.MapButtons.bookmarks
+            || (mode == MapButtonsController.LayoutMode.navigation && button == MapButtonsController.MapButtons.search);
         org.junit.Assert.assertEquals(suppressed, MapButtonsController.shouldSuppressLegacyButton(true, mode, button));
         assertFalse(MapButtonsController.shouldSuppressLegacyButton(false, mode, button));
       }
       org.junit.Assert.assertEquals(button == MapButtonsController.MapButtons.bookmarks,
-                                   MapButtonsController.shouldSuppressLegacyButton(true, null, button));
+                                    MapButtonsController.shouldSuppressLegacyButton(true, null, button));
       assertFalse(MapButtonsController.shouldSuppressLegacyButton(false, null, button));
     }
   }
