@@ -14,7 +14,7 @@ final class InCarContrast
     // the deterministic backing, including when the theme itself is translucent.
     final int opaque = ColorUtils.compositeColors(background, ColorUtils.setAlphaComponent(surface, 255));
     return ColorUtils.calculateContrast(Color.BLACK, opaque) >= ColorUtils.calculateContrast(Color.WHITE, opaque)
-        ? Color.BLACK
-        : Color.WHITE;
+      ? Color.BLACK
+      : Color.WHITE;
   }
 }

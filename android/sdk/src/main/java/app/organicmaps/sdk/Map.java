@@ -207,6 +207,8 @@ public final class Map
     final int width = surfaceFrame.width();
     final int height = surfaceFrame.height();
     Logger.d(TAG, "mSurfaceCreated = " + mSurfaceCreated + ", size = " + width + "x" + height);
+    if (!mSurfaceAttached || !surface.isValid())
+      return;
     if (!shouldApplySurfaceChange(mSurfaceCreated, mRequireResize, isSurfaceCreating, width, height,
                                   mLastAppliedSurfaceWidth, mLastAppliedSurfaceHeight))
       return;

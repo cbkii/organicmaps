@@ -77,7 +77,7 @@ void AndroidOGLContext::SetPresentAvailable(bool available)
 
 bool AndroidOGLContext::Validate()
 {
-  if (!m_presentAvailable)
+  if (!m_presentAvailable || !m_surfaceValid)
     return false;
   return eglGetCurrentDisplay() != EGL_NO_DISPLAY && eglGetCurrentSurface(EGL_DRAW) != EGL_NO_SURFACE &&
          eglGetCurrentContext() != EGL_NO_CONTEXT;
@@ -85,21 +85,28 @@ bool AndroidOGLContext::Validate()
 
 void AndroidOGLContext::Present()
 {
-  if (!m_presentAvailable)
+  if (!m_presentAvailable || !m_surfaceValid)
     return;
   ASSERT(m_surface != EGL_NO_SURFACE, ());
   if (eglSwapBuffers(m_display, m_surface) == EGL_FALSE)
+  {
     CHECK_EGL_CALL();
+    // Do not repeatedly submit to an invalid native window. Preserve navigation
+    // and wait for the existing detach/attach owner to provide a new surface.
+    m_surfaceValid = false;
+  }
 }
 
 void AndroidOGLContext::SetSurface(EGLSurface surface)
 {
   m_surface = surface;
   ASSERT(m_surface != EGL_NO_SURFACE, ());
+  m_surfaceValid = true;
 }
 
 void AndroidOGLContext::ResetSurface()
 {
+  m_surfaceValid = false;
   m_surface = EGL_NO_SURFACE;
 }
 }  // namespace android

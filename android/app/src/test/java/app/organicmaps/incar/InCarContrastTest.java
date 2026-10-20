@@ -24,8 +24,9 @@ public class InCarContrastTest
       color.when(() -> Color.green(anyInt())).thenAnswer(call -> ((int) call.getArgument(0) >> 8) & 255);
       color.when(() -> Color.blue(anyInt())).thenAnswer(call -> (int) call.getArgument(0) & 255);
       color.when(() -> Color.argb(anyInt(), anyInt(), anyInt(), anyInt()))
-          .thenAnswer(call -> ((int) call.getArgument(0) << 24) | ((int) call.getArgument(1) << 16)
-                              | ((int) call.getArgument(2) << 8) | (int) call.getArgument(3));
+          .thenAnswer(call
+                      -> ((int) call.getArgument(0) << 24) | ((int) call.getArgument(1) << 16)
+                             | ((int) call.getArgument(2) << 8) | (int) call.getArgument(3));
       for (int surface : new int[] {0x00ffffff, 0xcd4f4e4e, 0xff101010, 0xffffffff})
       {
         for (int alpha = 0; alpha <= 255; ++alpha)

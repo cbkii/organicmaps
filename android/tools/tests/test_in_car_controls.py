@@ -115,7 +115,8 @@ int main() {
             self.skipTest("Java unavailable")
         source = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
         render = controls.method_body(source, "private static void renderRibbon(")
-        foreground = controls.method_body(source, "private static int ribbonForeground(")
+        contrast = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarContrast.java")
+        contrast = re.sub(r"^(?:package|import) .*;\n", "", contrast, flags=re.M).replace("Color.", "android.graphics.Color.")
         self.assertIn("renderRibbon(activity, snapshot.navigating && warning,", source)
         colours = {}
         for path in ("android/app/src/main/res/values/in_car_shared_fallbacks.xml",
@@ -168,11 +169,17 @@ class ColorUtils {
  }
  static double channel(int n){double v=n/255.0;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);}
  static double luminance(int c){return .2126*channel((c>>>16)&255)+.7152*channel((c>>>8)&255)+.0722*channel(c&255);}
- static double calculateContrast(int a,int b){double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
+ static int setAlphaComponent(int c,int a){return (c&0xffffff)|(a<<24);}
+ static int compositeColors(int f,int b){
+  if((b>>>24)!=255)throw new AssertionError("test requires opaque backing");
+  int a=f>>>24,c=0xff000000;
+  for(int shift:new int[]{0,8,16})c|=((((f>>>shift)&255)*a+((b>>>shift)&255)*(255-a))/255)<<shift;
+  return c;
+ }
+ static double calculateContrast(int a,int b){if((b>>>24)!=255)throw new IllegalArgumentException("translucent background");double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
 }
-''' + resources + r'''
+''' + resources + contrast + r'''
 class RibbonTest {
- static int ribbonForeground(int background){''' + foreground + r'''}
  static void renderRibbon(MwmActivity activity,boolean warning,float strength){''' + render + r'''}
  static void check(boolean ok){if(!ok)throw new AssertionError();}
  public static void main(String[] args){
@@ -199,9 +206,9 @@ class RibbonTest {
     check(lanes.background==after.background);
     TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
     TextView distance=now.findViewById(R.id.distance);
-    check(ColorUtils.calculateContrast(label.color,after.background)>=4.5);
-    check(ColorUtils.calculateContrast(distance.color,now.background)>=4.5);
-    check(ColorUtils.calculateContrast(lanes.active,lanes.background)>=4.5);
+    check(ColorUtils.calculateContrast(label.color,ColorUtils.compositeColors(after.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
+    check(ColorUtils.calculateContrast(distance.color,ColorUtils.compositeColors(now.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
+    check(ColorUtils.calculateContrast(lanes.active,ColorUtils.compositeColors(lanes.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
     check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
     check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
     renderRibbon(a,false,0);

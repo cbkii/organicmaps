@@ -139,12 +139,16 @@ void AndroidOGLContextFactory::SetSurface(JNIEnv * env, jobject jsurface)
 
   if (!CreateWindowSurface())
   {
-    CHECK_EGL(eglTerminate(m_display));
+    // A rejected window must not terminate the shared display/upload context.
+    ResetSurface();
     return;
   }
 
   if (!QuerySurfaceSize())
+  {
+    ResetSurface();
     return;
+  }
 
   if (m_drawContext != nullptr)
     m_drawContext->SetSurface(m_windowSurface);
@@ -169,17 +173,21 @@ void AndroidOGLContextFactory::ResetSurface()
   if (m_drawContext != nullptr)
     m_drawContext->ResetSurface();
 
-  if (IsValid())
+  // Partial attachment owns resources too (e.g. a failed size query). Do not
+  // predicate cleanup on full factory validity or pixelbuffer availability.
+  if (m_windowSurface != EGL_NO_SURFACE)
   {
     eglDestroySurface(m_display, m_windowSurface);
     CHECK_EGL_CALL();
     m_windowSurface = EGL_NO_SURFACE;
-
-    ANativeWindow_release(m_nativeWindow);
-    m_nativeWindow = NULL;
-
-    m_windowSurfaceValid = false;
   }
+  if (m_nativeWindow != nullptr)
+  {
+    ANativeWindow_release(m_nativeWindow);
+    m_nativeWindow = nullptr;
+  }
+  m_windowSurfaceValid = false;
+  m_surfaceWidth = m_surfaceHeight = 0;
 }
 
 bool AndroidOGLContextFactory::IsValid() const
@@ -202,16 +210,9 @@ int AndroidOGLContextFactory::GetHeight() const
 void AndroidOGLContextFactory::UpdateSurfaceSize(int w, int h)
 {
   ASSERT(IsValid(), ());
-  if ((m_surfaceWidth != w && m_surfaceWidth != h) || (m_surfaceHeight != w && m_surfaceHeight != h))
-  {
-    LOG(LINFO, ("Surface size changed and must be re-queried."));
-    if (!QuerySurfaceSize())
-    {
-      m_surfaceWidth = w;
-      m_surfaceHeight = h;
-    }
-  }
-  else
+  // SurfaceHolder supplies the current pixel dimensions. Querying EGL here on
+  // the UI thread races the render thread's buffer acquisition on PowerVR.
+  if (w > 0 && h > 0)
   {
     m_surfaceWidth = w;
     m_surfaceHeight = h;
