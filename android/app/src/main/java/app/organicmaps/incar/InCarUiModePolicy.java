@@ -9,8 +9,8 @@ public final class InCarUiModePolicy
 
   public static boolean shouldRecreate(int previousUiMode, int currentUiMode)
   {
-    final boolean nightChanged = (previousUiMode & Configuration.UI_MODE_NIGHT_MASK)
-                                != (currentUiMode & Configuration.UI_MODE_NIGHT_MASK);
+    final boolean nightChanged =
+        (previousUiMode & Configuration.UI_MODE_NIGHT_MASK) != (currentUiMode & Configuration.UI_MODE_NIGHT_MASK);
     final int previousType = previousUiMode & Configuration.UI_MODE_TYPE_MASK;
     final int currentType = currentUiMode & Configuration.UI_MODE_TYPE_MASK;
     final boolean carTransition =
