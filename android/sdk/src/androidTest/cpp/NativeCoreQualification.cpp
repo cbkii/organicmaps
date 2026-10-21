@@ -129,6 +129,6 @@ Java_app_organicmaps_test_NativeCoreQualificationTest_nativeQualifyBookmarks(JNI
   }
   catch (std::exception const & error)
   {
-    env->ThrowNew(env->FindClass("java/lang/AssertionError"), error.what());
+    env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), error.what());
   }
 }
