@@ -75,7 +75,7 @@ class CompactRendererTests(unittest.TestCase):
                 'InCarCompactStartupStateTest.java': (ROOT / 'android/app/src/test/java/app/organicmaps/incar/InCarCompactStartupStateTest.java').read_text(),
                 'org/junit/Test.java': 'package org.junit; public @interface Test {}',
                 'org/junit/Assert.java': 'package org.junit; public class Assert {public static void assertTrue(boolean b){if(!b)throw new AssertionError();}public static void assertFalse(boolean b){assertTrue(!b);}}',
-                'Harness.java': '''class Harness {public static void main(String[] a){var t=new app.organicmaps.incar.InCarCompactStartupStateTest();t.taskAndNativeEngineAloneDoNotProveUsableRendering();t.staleCallbacksCannotInvalidateOrReadyReplacement();System.out.println("PASS actual renderer resize/replacement/stale-callback tests");}}''',
+                'Harness.java': '''class Harness {public static void main(String[] a){var t=new app.organicmaps.incar.InCarCompactStartupStateTest();t.taskAndNativeEngineAloneDoNotProveUsableRendering();t.presentationAndGeometryRecoverIndependentlyAcrossPauseResizeAndReplacement();t.staleCallbacksCannotInvalidateOrReadyReplacement();System.out.println("PASS actual renderer resize/replacement/stale-callback tests");}}''',
             }
             for name, source in files.items():
                 path = root / name

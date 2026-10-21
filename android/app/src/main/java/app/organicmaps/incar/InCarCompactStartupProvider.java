@@ -105,10 +105,29 @@ public final class InCarCompactStartupProvider extends ContentProvider
     if (!"/status".equals(uri.getPath()) || !"1".equals(uri.getQueryParameter("v")) || boot < 0
         || !Integer.toString(boot).equals(uri.getQueryParameter("boot")) || users == null || !users.isUserUnlocked())
       throw new IllegalArgumentException("Incompatible or stale startup request");
-    final MatrixCursor cursor = new MatrixCursor(new String[] {
-        "protocol", "package", "boot", "user", "generation", "enabled", "pid", "elapsed_ms", "stage", "task", "core",
-        "native", "attached", "width", "height", "resumed", "renderer_ready", "boot_signal"});
-    final Object[] row = new Object[18];
+    final MatrixCursor cursor = new MatrixCursor(new String[] {"protocol",
+                                                               "package",
+                                                               "boot",
+                                                               "user",
+                                                               "generation",
+                                                               "enabled",
+                                                               "pid",
+                                                               "elapsed_ms",
+                                                               "stage",
+                                                               "task",
+                                                               "core",
+                                                               "native",
+                                                               "attached",
+                                                               "width",
+                                                               "height",
+                                                               "resumed",
+                                                               "renderer_ready",
+                                                               "boot_signal",
+                                                               "activity_instance",
+                                                               "presentation_required",
+                                                               "presented",
+                                                               "presentation_generation"});
+    final Object[] row = new Object[22];
     final Object[] header = {1,
                              BuildConfig.APPLICATION_ID,
                              boot,
@@ -118,11 +137,13 @@ public final class InCarCompactStartupProvider extends ContentProvider
                              android.os.Process.myPid(),
                              SystemClock.elapsedRealtime()};
     System.arraycopy(header, 0, row, 0, header.length);
-    System.arraycopy(InCarCompactStartupState.INSTANCE.row(), 0, row, header.length, 9);
+    final Object[] state = InCarCompactStartupState.INSTANCE.row();
+    System.arraycopy(state, 0, row, header.length, 9);
     row[17] =
         context
             .getSharedPreferences(context.getString(app.organicmaps.sdk.R.string.pref_file_name), Context.MODE_PRIVATE)
             .getInt("InCarCompactBootSignal", -1);
+    System.arraycopy(state, 9, row, 18, 4);
     cursor.addRow(row);
     return cursor;
   }

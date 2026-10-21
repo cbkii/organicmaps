@@ -101,9 +101,21 @@ public final class InCarCompactStartupState
  && (!mPresentationRequired || mPresented);
   }
 
+  /** One atomic snapshot: structural state and presentation facts belong to the same Activity. */
   public synchronized Object[] row()
   {
-    return new Object[] {mStage, mTask,   mCore ? 1 : 0,    mNative ? 1 : 0, mAttached ? 1 : 0,
-                         mWidth, mHeight, mResumed ? 1 : 0, ready() ? 1 : 0};
+    return new Object[] {mStage,
+                         mTask,
+                         mCore ? 1 : 0,
+                         mNative ? 1 : 0,
+                         mAttached ? 1 : 0,
+                         mWidth,
+                         mHeight,
+                         mResumed ? 1 : 0,
+                         ready() ? 1 : 0,
+                         mActivity,
+                         mPresentationRequired ? 1 : 0,
+                         mPresented ? 1 : 0,
+                         mPresentationGeneration};
   }
 }
