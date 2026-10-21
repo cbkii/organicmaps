@@ -66,6 +66,7 @@ jobs:
           python3 -m unittest discover -s android/tools/tests -v
           bash -n \
             android/tools/ci-adb-logcat-window/adb \
+            android/tools/run_sdk_connected_tests.sh \
             android/tools/smoke_test_in_car_apk.sh \
             android/tools/smoke_test_in_car_warm_reentry.sh \
             android/tools/smoke_test_in_car_window_resize.sh \
@@ -229,7 +230,19 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
-          script: cd android && ./gradlew -Px86_64 sdk:connectedDebugAndroidTest
+          script: bash android/tools/run_sdk_connected_tests.sh
+
+      - name: Upload SDK connected test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-sdk-connected-diagnostics
+          path: |
+            ${{ runner.temp }}/organicmaps-sdk-connected
+            android/sdk/build/outputs/androidTest-results/connected
+            android/sdk/build/reports/androidTests/connected
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Configure CI release signing
         id: ci_release_signing

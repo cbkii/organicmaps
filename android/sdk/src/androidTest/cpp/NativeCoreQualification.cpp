@@ -57,6 +57,8 @@ void QualifyBookmarks(std::string const & directory)
       data.m_bookmarksData.push_back(std::move(bookmark));
     }
     kml::TrackData track;
+    // Match the retained production-core fixture: serialisation/rendering requires a layer.
+    track.m_layers.emplace_back();
     track.m_geometry.AddLine({{{0.0, 0.0}, 1}, {{1.0, 0.0}, 2}});
     track.m_geometry.AddTimestamps({});
     data.m_tracksData.push_back(std::move(track));
