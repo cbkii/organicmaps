@@ -67,7 +67,8 @@ final class SynchronizedThemeController
     }
   };
 
-  private final LocationListener mInitialLocationListener = location -> {
+  private final LocationListener mInitialLocationListener = location ->
+  {
     if (mRunning && mWaitingForInitialLocation)
     {
       stopWaitingForInitialLocation();
@@ -147,8 +148,8 @@ final class SynchronizedThemeController
     final boolean day = !time.isBefore(DEFAULT_LIGHT_THEME_START) && time.isBefore(DEFAULT_LIGHT_THEME_END);
     mThemeDelegate.applyTheme(day ? Config.UiTheme.LIGHT : Config.UiTheme.DARK);
     final LocalTime next = time.isBefore(DEFAULT_LIGHT_THEME_START) || !time.isBefore(DEFAULT_LIGHT_THEME_END)
-                               ? DEFAULT_LIGHT_THEME_START
-                               : DEFAULT_LIGHT_THEME_END;
+                             ? DEFAULT_LIGHT_THEME_START
+                             : DEFAULT_LIGHT_THEME_END;
     ZonedDateTime boundary = now.with(next);
     if (!boundary.isAfter(now))
       boundary = boundary.plusDays(1);

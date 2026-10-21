@@ -38,9 +38,7 @@ public final class InCarLocationUi
             .setTitle(statusText(helper))
             .setMessage(helper.getAcquisitionDiagnostics().replace(", ", "\n"))
             .setNegativeButton(R.string.close, null)
-            .setPositiveButton(R.string.in_car_location_retry, (dialog, which) -> {
-              helper.retryAcquisition();
-            });
+            .setPositiveButton(R.string.in_car_location_retry, (dialog, which) -> { helper.retryAcquisition(); });
     final Location cached = helper.getCachedLocation();
     if (cached != null && Map.isEngineCreated() && !RoutingController.get().isNavigating()
         && !RoutingController.get().isPlanning())
