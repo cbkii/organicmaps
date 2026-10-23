@@ -59,7 +59,7 @@ public final class InCarCompactStartupProvider extends ContentProvider
     final Context context = getContext();
     if (android.os.Build.VERSION.SDK_INT < 28 || context == null || !BuildConfig.IS_IN_CAR
         || !InCarCompactPeer.trusted(context, Binder.getCallingUid()))
-      throw new SecurityException("Untrusted compact startup peer");
+      throw new SecurityException("AUTH_MISMATCH");
     return context;
   }
 
@@ -67,11 +67,16 @@ public final class InCarCompactStartupProvider extends ContentProvider
   public android.os.Bundle call(@NonNull String method, @Nullable String arg, @Nullable android.os.Bundle extras)
   {
     final Context context = requirePeer();
-    if (!"1".equals(arg) || extras == null || boot(context) < 0 || extras.getInt("boot", -1) != boot(context))
-      throw new IllegalArgumentException("Stale startup observer");
+    final int currentBoot = boot(context);
+    if (!"1".equals(arg) || extras == null)
+      throw new IllegalArgumentException("PROTOCOL_MISMATCH");
+    if (currentBoot < 0)
+      throw new IllegalArgumentException("BOOT_UNAVAILABLE");
+    if (extras.getInt("boot", -1) != currentBoot)
+      throw new IllegalArgumentException("BOOT_MISMATCH");
     final android.os.IBinder binder = extras.getBinder("observer");
     if (binder == null)
-      throw new IllegalArgumentException("Observer required");
+      throw new IllegalArgumentException("OBSERVER_REQUIRED");
     synchronized (InCarCompactStartupProvider.class)
     {
       if ("observe".equals(method))
@@ -82,7 +87,7 @@ public final class InCarCompactStartupProvider extends ContentProvider
           sPeer = null;
       }
       else
-        throw new IllegalArgumentException("Unknown startup method");
+        throw new IllegalArgumentException("PROTOCOL_MISMATCH");
     }
     return android.os.Bundle.EMPTY;
   }
@@ -102,9 +107,14 @@ public final class InCarCompactStartupProvider extends ContentProvider
     final Context context = requirePeer();
     final int boot = boot(context);
     final UserManager users = (UserManager) context.getSystemService(Context.USER_SERVICE);
-    if (!"/status".equals(uri.getPath()) || !"1".equals(uri.getQueryParameter("v")) || boot < 0
-        || !Integer.toString(boot).equals(uri.getQueryParameter("boot")) || users == null || !users.isUserUnlocked())
-      throw new IllegalArgumentException("Incompatible or stale startup request");
+    if (!"/status".equals(uri.getPath()) || !"1".equals(uri.getQueryParameter("v")))
+      throw new IllegalArgumentException("PROTOCOL_MISMATCH");
+    if (boot < 0)
+      throw new IllegalArgumentException("BOOT_UNAVAILABLE");
+    if (!Integer.toString(boot).equals(uri.getQueryParameter("boot")))
+      throw new IllegalArgumentException("BOOT_MISMATCH");
+    if (users == null || !users.isUserUnlocked())
+      throw new IllegalArgumentException("USER_LOCKED");
     final MatrixCursor cursor = new MatrixCursor(new String[] {"protocol",
                                                                "package",
                                                                "boot",
