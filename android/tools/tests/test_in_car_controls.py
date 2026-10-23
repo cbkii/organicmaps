@@ -115,7 +115,8 @@ int main() {
             self.skipTest("Java unavailable")
         source = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
         render = controls.method_body(source, "private static void renderRibbon(")
-        foreground = controls.method_body(source, "private static int ribbonForeground(")
+        contrast = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarContrast.java")
+        contrast = re.sub(r"^(?:package|import) .*;\n", "", contrast, flags=re.M).replace("Color.", "android.graphics.Color.")
         self.assertIn("renderRibbon(activity, snapshot.navigating && warning,", source)
         colours = {}
         for path in ("android/app/src/main/res/values/in_car_shared_fallbacks.xml",
@@ -168,11 +169,17 @@ class ColorUtils {
  }
  static double channel(int n){double v=n/255.0;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);}
  static double luminance(int c){return .2126*channel((c>>>16)&255)+.7152*channel((c>>>8)&255)+.0722*channel(c&255);}
- static double calculateContrast(int a,int b){double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
+ static int setAlphaComponent(int c,int a){return (c&0xffffff)|(a<<24);}
+ static int compositeColors(int f,int b){
+  if((b>>>24)!=255)throw new AssertionError("test requires opaque backing");
+  int a=f>>>24,c=0xff000000;
+  for(int shift:new int[]{0,8,16})c|=((((f>>>shift)&255)*a+((b>>>shift)&255)*(255-a))/255)<<shift;
+  return c;
+ }
+ static double calculateContrast(int a,int b){if((b>>>24)!=255)throw new IllegalArgumentException("translucent background");double x=luminance(a)+.05,y=luminance(b)+.05;return Math.max(x,y)/Math.min(x,y);}
 }
-''' + resources + r'''
+''' + resources + contrast + r'''
 class RibbonTest {
- static int ribbonForeground(int background){''' + foreground + r'''}
  static void renderRibbon(MwmActivity activity,boolean warning,float strength){''' + render + r'''}
  static void check(boolean ok){if(!ok)throw new AssertionError();}
  public static void main(String[] args){
@@ -199,9 +206,9 @@ class RibbonTest {
     check(lanes.background==after.background);
     TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
     TextView distance=now.findViewById(R.id.distance);
-    check(ColorUtils.calculateContrast(label.color,after.background)>=4.5);
-    check(ColorUtils.calculateContrast(distance.color,now.background)>=4.5);
-    check(ColorUtils.calculateContrast(lanes.active,lanes.background)>=4.5);
+    check(ColorUtils.calculateContrast(label.color,ColorUtils.compositeColors(after.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
+    check(ColorUtils.calculateContrast(distance.color,ColorUtils.compositeColors(now.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
+    check(ColorUtils.calculateContrast(lanes.active,ColorUtils.compositeColors(lanes.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
     check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
     check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
     renderRibbon(a,false,0);
@@ -1130,6 +1137,7 @@ struct Position { bool routing=false, fresh=true; int calls=0, mode=3;
 struct Renderer {
  Stream m_userEventStream; Position position; Position *m_myPositionController=&position;
  bool m_enablePerspectiveInNavigation=true, m_manualCameraPresentation=false, m_cameraDrivingSession=false;
+ bool m_fastCameraAcquisitionPending=false, m_firstDrivingCoursePending=false;
  void AddUserEvent(std::unique_ptr<SetAutoPerspectiveEvent> e) { m_userEventStream.ApplyCameraPresentation(e->p); }
  void DisablePerspective() { m_userEventStream.ApplyCameraPresentation(false); }
  void driving(bool enabled, bool autoReturn, bool recenter) {""" + session + r"""}
@@ -1148,11 +1156,13 @@ int main() {
  assert(!r.toggle() && !r.m_userEventStream.screen.tilted);
  Renderer session;
  session.driving(true, true, false);
+ assert(session.m_fastCameraAcquisitionPending && session.m_firstDrivingCoursePending);
  assert(session.m_userEventStream.screen.tilted);
  session.toggle(); assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
  session.driving(true, true, false);
  assert(!session.m_userEventStream.screen.tilted && session.m_manualCameraPresentation);
  session.driving(false, true, false);
+ assert(!session.m_fastCameraAcquisitionPending && !session.m_firstDrivingCoursePending);
  assert(!session.m_manualCameraPresentation && !session.m_userEventStream.screen.tilted);
  session.driving(true, true, false); assert(session.m_userEventStream.screen.tilted);
  session.position.routing=true;
@@ -1167,6 +1177,170 @@ int main() {
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "camera.cpp"
             binary = Path(tmp) / "camera"
+            source.write_text(harness)
+            compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
+            subprocess.run([str(binary)], check=True)
+
+    def test_recovered_fix_reaches_one_shot_camera_acquisition(self):
+        compiler = shutil.which("c++") or shutil.which("g++")
+        if not compiler:
+            self.skipTest("C++ compiler unavailable: location/camera integration NOT_RUN")
+        renderer = controls.read("libs/drape_frontend/frontend_renderer.cpp")
+        loss = renderer.split("case ChangeMyPositionModeMessage::LoseLocation:", 1)[1].split("    default:", 1)[0]
+        gps = renderer.split("    auto const & fix = msg->GetInfo();", 1)[1].split(
+            "    location::RouteMatchingInfo const & info", 1)[0]
+        follow = controls.method_body(renderer, "void FrontendRenderer::ChangeModelView(double autoScale,")
+        drag = controls.method_body(renderer, "void FrontendRenderer::OnDragStarted()")
+        position = controls.read("libs/drape_frontend/my_position_controller.cpp")
+        reacquire = controls.method_body(position, "bool MyPositionController::NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const")
+        course = controls.method_body(position, "bool MyPositionController::HasReliableDrivingCourse(location::GpsInfo const & info) const")
+        stale_interval = re.search(r"double const kMaxUpdateLocationInvervalSec = [^;]+;", position).group(0)
+        harness = r"""#include <cassert>
+#include <functional>
+#include <memory>
+#include "drape_frontend/my_position_driving_policy.hpp"
+#include "drape_frontend/current_position_freshness.hpp"
+namespace driving_policy = df::driving_policy;
+using TAnimationCreator = int;
+int64_t fakeNow=100000000000;
+int64_t PositionClockNanos(){return fakeNow;}
+""" + stale_interval + r"""
+struct Fix { bool speed=true, bearing=false; double m_speed=0, m_bearing=90, m_speedAccuracy=-1, m_bearingAccuracy=-1;
+ double m_timestamp=100.0, m_monotonicTimestamp=100.0;
+ bool HasMonotonicTimestamp() const {return m_monotonicTimestamp>0;}
+ bool HasSpeed() const{return speed;} bool HasBearing() const{return bearing;} };
+struct Message { Fix fix; Fix const& GetInfo(){return fix;} bool IsNavigable(){return false;} };
+struct Position {
+ bool routing=false, m_positionIsObsolete=false, m_isPositionAssigned=true;
+ bool m_isDrivingView=true, m_needBlockAutoZoom=false;
+ location::EMyPositionMode m_mode=location::FollowAndRotate;
+ int64_t m_lastRecenterObservationNanos=fakeNow;
+ int losses=0; std::function<void()> apply;
+ bool NeedsDrivingCameraReacquisition(Fix const & info) const {""" + reacquire + r"""}
+ bool HasReliableDrivingCourse(Fix const & info) const {""" + course.replace("m_isInRouting", "routing") + r"""}
+ bool IsInRouting() const {return routing;} void LoseLocation(){losses++;} void DragStarted(){m_mode=location::NotFollow;}
+ void OnLocationUpdate(Fix const&,bool,int){apply();m_positionIsObsolete=false;m_lastRecenterObservationNanos=fakeNow;}
+};
+struct Stream { int GetCurrentScreen(){return 0;} };
+struct FollowAndRotateEvent {
+ bool fast; FollowAndRotateEvent(m2::PointD const&,m2::PointD const&,double,double,int,bool f):fast(f){}
+};
+template<class T,class... A> auto make_unique_dp(A&&... a){return std::make_unique<T>(std::forward<A>(a)...);}
+struct Renderer {
+ Position position; Position* m_myPositionController=&position; Stream m_userEventStream;
+ bool m_cameraDrivingSession=true, m_fastCameraAcquisitionPending=false, m_firstDrivingCoursePending=false;
+ int fastEvents=0, normalEvents=0;
+ Renderer(){position.apply=[this]{ChangeModelView(1,{},0,{},0);};}
+ void AddUserEvent(std::unique_ptr<FollowAndRotateEvent> e){e->fast?fastEvents++:normalEvents++;}
+ void loss(){do {""" + loss + r"""} while(false);}
+ void gps(Message* msg){auto const & fix=msg->GetInfo();""" + gps + r"""}
+ void drag(){""" + drag + r"""}
+ void ChangeModelView(double autoScale,m2::PointD const& userPos,double azimuth,
+                      m2::PointD const& pxZero,TAnimationCreator const& parallelAnimCreator){""" + follow + r"""}
+};
+int main(){
+ Renderer r; Message msg;
+ r.loss(); assert(r.position.losses==1);
+ r.gps(&msg); assert(r.fastEvents==1 && r.m_firstDrivingCoursePending);
+ r.gps(&msg); assert(r.fastEvents==1 && r.normalEvents==1);
+ msg.fix.bearing=true; msg.fix.m_speed=6.0/3.6;
+ fakeNow+=1000000000;msg.fix.m_timestamp=101;
+ r.gps(&msg); assert(r.fastEvents==2 && !r.m_firstDrivingCoursePending);
+ r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==2);
+ // Fresh course is required before spending the one-shot bearing acquisition.
+ Renderer quality;quality.m_firstDrivingCoursePending=true;
+ quality.position.m_lastRecenterObservationNanos=fakeNow-1000000000;
+ msg.fix.m_bearingAccuracy=60;quality.gps(&msg);assert(quality.fastEvents==0&&quality.m_firstDrivingCoursePending);
+ fakeNow+=1000000000;msg.fix.m_timestamp=102;msg.fix.m_bearingAccuracy=10;
+ quality.gps(&msg);assert(quality.fastEvents==1&&!quality.m_firstDrivingCoursePending);
+ fakeNow=100000000000;msg.fix.m_timestamp=100;
+ r.loss(); r.drag(); r.gps(&msg); assert(r.fastEvents==2 && r.normalEvents==3);
+ Renderer repaired; repaired.position.m_positionIsObsolete=true;
+ repaired.position.m_lastRecenterObservationNanos=fakeNow-1000000000; repaired.gps(&msg);
+ assert(repaired.fastEvents==1); // Silent subscription repair never emits LoseLocation.
+ repaired.gps(&msg); assert(repaired.fastEvents==1 && repaired.normalEvents==1);
+ Renderer wake; wake.position.m_lastRecenterObservationNanos=fakeNow-30000000000;
+ wake.gps(&msg); assert(wake.fastEvents==1); // BOOTTIME age works without a rendered obsolete flag.
+ Renderer fresh; fresh.position.m_lastRecenterObservationNanos=fakeNow-29999999999;
+ fresh.gps(&msg); assert(fresh.fastEvents==0);
+ Renderer browsing; browsing.position.m_positionIsObsolete=true; browsing.position.m_mode=location::NotFollow;
+ browsing.gps(&msg); assert(browsing.fastEvents==0);
+ Renderer zoom; zoom.position.m_positionIsObsolete=true; zoom.position.m_needBlockAutoZoom=true;
+ zoom.gps(&msg); assert(zoom.fastEvents==0);
+ Renderer future; future.position.m_lastRecenterObservationNanos=fakeNow+1;
+ future.gps(&msg); assert(future.fastEvents==0);
+ Renderer unknown; unknown.position.m_lastRecenterObservationNanos=0;
+ unknown.gps(&msg); assert(unknown.fastEvents==0);
+ Renderer ordinary; ordinary.position.m_isDrivingView=false; ordinary.position.m_positionIsObsolete=true;
+ ordinary.gps(&msg); assert(ordinary.fastEvents==0);
+ Renderer staleInput; staleInput.position.m_positionIsObsolete=true;
+ staleInput.position.m_lastRecenterObservationNanos=1000000000;
+ msg.fix.m_timestamp=89; staleInput.gps(&msg); assert(staleInput.fastEvents==0);
+ Renderer outOfOrder; outOfOrder.position.m_positionIsObsolete=true;
+ outOfOrder.position.m_lastRecenterObservationNanos=98000000000;
+ msg.fix.m_timestamp=97; outOfOrder.gps(&msg); assert(outOfOrder.fastEvents==0);
+ Renderer futureInput; futureInput.position.m_positionIsObsolete=true;
+ msg.fix.m_timestamp=101; futureInput.gps(&msg); assert(futureInput.fastEvents==0);
+ msg.fix.m_timestamp=100;
+ Renderer route; route.position.routing=true; route.loss(); route.gps(&msg);
+ assert(route.fastEvents==0 && route.normalEvents==1);
+ Renderer disabled; disabled.m_cameraDrivingSession=false; disabled.loss(); disabled.gps(&msg);
+ assert(disabled.fastEvents==0 && disabled.normalEvents==1);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "RecoveredCamera.cpp"
+            binary = Path(tmp) / "RecoveredCamera"
+            source.write_text(harness)
+            compiled = subprocess.run([compiler, "-std=c++20", "-DDEBUG", "-I", str(controls.ROOT / "libs"),
+                                       str(source), "-o", str(binary)], capture_output=True, text=True)
+            self.assertEqual(0, compiled.returncode, compiled.stderr)
+            subprocess.run([str(binary)], check=True)
+
+    def test_initial_driving_camera_caps_scale_without_changing_normal_autozoom(self):
+        compiler = shutil.which("g++")
+        if compiler is None:
+            self.skipTest("C++ compiler unavailable: fast camera animation NOT_RUN")
+        follow = controls.read("libs/drape_frontend/animation/follow_animation.cpp")
+        normal_body = controls.method_body(follow, "void MapFollowAnimation::SetMaxDuration(double maxDuration)")
+        fast_body = controls.method_body(follow, "void MapFollowAnimation::SetAcquisitionDuration(double maxDuration)")
+        stream = controls.read("libs/drape_frontend/user_event_stream.cpp")
+        self.assertIn("followEvent->IsFastAcquisition()", stream)
+        self.assertIn("follow->SetAcquisitionDuration(driving_policy::kFastAcquisitionDurationSec)", stream)
+        harness = r"""#include <algorithm>
+#include <cassert>
+struct Interpolator {
+ bool active = true;
+ double duration = 9.6;
+ double minimum = 0;
+ bool IsActive() const { return active; }
+ void SetMaxDuration(double cap) { duration = std::min(duration, cap); }
+ void SetMinDuration(double floor) { minimum = floor; duration = std::max(duration, floor); }
+};
+class MapFollowAnimation {
+public:
+ bool m_isAutoZoom = true;
+ Interpolator m_angleInterpolator, m_scaleInterpolator, m_offsetInterpolator;
+ void SetMaxDuration(double maxDuration) {""" + normal_body + r"""}
+ void SetAcquisitionDuration(double maxDuration) {""" + fast_body + r"""}
+};
+int main() {
+ MapFollowAnimation normal;
+ normal.SetMaxDuration(1.5);
+ assert(normal.m_scaleInterpolator.duration == 9.6);
+ assert(normal.m_angleInterpolator.duration <= 1.5);
+ MapFollowAnimation fast;
+ fast.SetAcquisitionDuration(0.65);
+ assert(fast.m_scaleInterpolator.duration <= 0.65);
+ assert(fast.m_angleInterpolator.duration <= 0.65);
+ assert(fast.m_offsetInterpolator.duration <= 0.65);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "fast_camera.cpp"
+            binary = Path(tmp) / "fast_camera"
             source.write_text(harness)
             compiled = subprocess.run([compiler, "-std=c++17", str(source), "-o", str(binary)],
                                       capture_output=True, text=True)

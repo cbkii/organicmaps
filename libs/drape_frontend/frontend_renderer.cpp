@@ -7,6 +7,7 @@
 #include "drape_frontend/gui/drape_gui.hpp"
 #include "drape_frontend/gui/ruler_helper.hpp"
 #include "drape_frontend/message_subclasses.hpp"
+#include "drape_frontend/my_position_driving_policy.hpp"
 #include "drape_frontend/postprocess_renderer.hpp"
 #include "drape_frontend/scenario_manager.hpp"
 #include "drape_frontend/screen_operations.hpp"
@@ -430,7 +431,16 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       msg->NotifyRecenterResult(m_myPositionController->RecenterPreservingMode());
       break;
     case ChangeMyPositionModeMessage::StopFollowing: m_myPositionController->StopLocationFollow(); break;
-    case ChangeMyPositionModeMessage::LoseLocation: m_myPositionController->LoseLocation(); break;
+    case ChangeMyPositionModeMessage::LoseLocation:
+    {
+      m_myPositionController->LoseLocation();
+      if (m_cameraDrivingSession && !m_myPositionController->IsInRouting())
+      {
+        m_fastCameraAcquisitionPending = true;
+        m_firstDrivingCoursePending = true;
+      }
+      break;
+    }
     default: ASSERT(false, ("Unknown change type:", static_cast<int>(msg->GetChangeType()))); break;
     }
     break;
@@ -450,7 +460,18 @@ void FrontendRenderer::AcceptMessage(ref_ptr<Message> message)
       break;
 #endif
     ref_ptr<GpsInfoMessage> msg = message;
-    m_myPositionController->OnLocationUpdate(msg->GetInfo(), msg->IsNavigable(), m_userEventStream.GetCurrentScreen());
+    auto const & fix = msg->GetInfo();
+    if (m_cameraDrivingSession && m_myPositionController->NeedsDrivingCameraReacquisition(fix))
+    {
+      m_fastCameraAcquisitionPending = true;
+      m_firstDrivingCoursePending = true;
+    }
+    if (m_firstDrivingCoursePending && m_cameraDrivingSession && m_myPositionController->HasReliableDrivingCourse(fix))
+    {
+      m_firstDrivingCoursePending = false;
+      m_fastCameraAcquisitionPending = true;
+    }
+    m_myPositionController->OnLocationUpdate(fix, msg->IsNavigable(), m_userEventStream.GetCurrentScreen());
 
     location::RouteMatchingInfo const & info = msg->GetRouteInfo();
     if (info.HasDistanceFromBegin())
@@ -1173,6 +1194,8 @@ bool FrontendRenderer::ToggleCameraViewAndRecenter()
 void FrontendRenderer::FollowRoute(int preferredZoomLevel, int preferredZoomLevelIn3d, bool enableAutoZoom,
                                    bool isArrowGlued)
 {
+  m_fastCameraAcquisitionPending = false;
+  m_firstDrivingCoursePending = false;
   m_manualCameraPresentation = false;
   m_myPositionController->ActivateRouting(
       !m_enablePerspectiveInNavigation ? preferredZoomLevel : preferredZoomLevelIn3d, enableAutoZoom, isArrowGlued);
@@ -2212,6 +2235,8 @@ bool FrontendRenderer::OnSingleTouchFiltrate(m2::PointD const & pt, TouchEvent::
 
 void FrontendRenderer::OnDragStarted()
 {
+  m_fastCameraAcquisitionPending = false;
+  m_firstDrivingCoursePending = false;
   m_myPositionController->DragStarted();
 }
 
@@ -2224,6 +2249,8 @@ void FrontendRenderer::OnDragEnded(m2::PointD const & distance)
 
 void FrontendRenderer::OnScaleStarted()
 {
+  m_fastCameraAcquisitionPending = false;
+  m_firstDrivingCoursePending = false;
   m_myPositionController->ScaleStarted();
 }
 
@@ -2234,6 +2261,11 @@ void FrontendRenderer::OnRotated()
 
 void FrontendRenderer::OnScrolled(m2::PointD const & distance)
 {
+  if (distance.Length() > 0.0)
+  {
+    m_fastCameraAcquisitionPending = false;
+    m_firstDrivingCoursePending = false;
+  }
   m_myPositionController->Scrolled(distance);
 }
 
@@ -2676,7 +2708,10 @@ void FrontendRenderer::ChangeModelView(m2::PointD const & userPos, double azimut
 void FrontendRenderer::ChangeModelView(double autoScale, m2::PointD const & userPos, double azimuth,
                                        m2::PointD const & pxZero, TAnimationCreator const & parallelAnimCreator)
 {
-  AddUserEvent(make_unique_dp<FollowAndRotateEvent>(userPos, pxZero, azimuth, autoScale, parallelAnimCreator));
+  bool const fast = m_fastCameraAcquisitionPending && m_cameraDrivingSession && !m_myPositionController->IsInRouting();
+  if (fast)
+    m_fastCameraAcquisitionPending = false;
+  AddUserEvent(make_unique_dp<FollowAndRotateEvent>(userPos, pxZero, azimuth, autoScale, parallelAnimCreator, fast));
 }
 
 void FrontendRenderer::OnEnterBackground()

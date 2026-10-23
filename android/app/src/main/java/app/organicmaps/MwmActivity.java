@@ -1,5 +1,6 @@
 package app.organicmaps;
 
+import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.POST_NOTIFICATIONS;
@@ -286,6 +287,27 @@ public class MwmActivity extends BaseMwmFragmentActivity
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
     }
     MwmApplication.from(getApplicationContext()).onInCarRenderingDetached();
+  }
+
+  @Override
+  public void onRenderingPresentationRequired()
+  {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.presentationRequired(System.identityHashCode(this));
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
+  }
+
+  @Override
+  public void onRenderingPresentationChanged(boolean ready, long generation)
+  {
+    if (BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarCompactStartupState.INSTANCE.presentation(System.identityHashCode(this), ready,
+                                                                           generation);
+      app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+    }
   }
 
   private void notifyInCarRenderingCreated()
@@ -1238,12 +1260,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
   {
     super.onWindowFocusChanged(hasFocus);
     if (!hasFocus)
+    {
       cancelInCarNavigationCountdown();
+      app.organicmaps.incar.InCarCompactStartupProvider.cancelHomeReturn(this);
+    }
   }
 
   @Override
   protected void onPause()
   {
+    app.organicmaps.incar.InCarCompactStartupProvider.cancelHomeReturn(this);
     if (BuildConfig.IS_IN_CAR)
     {
       app.organicmaps.incar.InCarCompactStartupState.INSTANCE.activity(System.identityHashCode(this), getTaskId(),
@@ -1331,6 +1357,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     cancelInCarNavigationCountdown();
     if (!handleBackPress())
     {
+      if (isTaskRoot() && app.organicmaps.incar.InCarCompactStartupProvider.requestHomeReturn(this, getTaskId()))
+        return;
       try
       {
         super.onBackPressed();
@@ -1876,7 +1904,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (LocationState.getMode() == LocationState.NOT_FOLLOW_NO_POSITION)
     {
       Logger.i(LOCATION_TAG, "Location updates are stopped by the user manually.");
-      if (locationHelper.isActive())
+      if (locationHelper.isAcquisitionRequested())
         locationHelper.stop();
       return;
     }
@@ -1955,7 +1983,13 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
     dismissLocationErrorDialog();
     logLocationPromptState("permission", "request launched: " + reason);
-    mLocationPermissionRequest.launch(new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
+    // Android 10 can offer all three grant levels in its native dialog. Android 11+ requires
+    // a separate user-initiated settings step after foreground permission (InCar Settings).
+    mLocationPermissionRequest.launch(
+        app.organicmaps.location.InCarLocationPermissionPolicy.includeBackgroundInForegroundRequest(
+            BuildConfig.IS_IN_CAR, Build.VERSION.SDK_INT)
+            ? new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION}
+            : new String[] {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION});
   }
 
   private void showLocationPermissionDeniedDialog(boolean showSettingsAction)
@@ -2081,7 +2115,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onLocationUpdateTimeout()
   {
-    requestBatterySaverPermission();
+    if (!BuildConfig.IS_IN_CAR)
+      requestBatterySaverPermission();
   }
 
   /**
@@ -2099,14 +2134,16 @@ public class MwmActivity extends BaseMwmFragmentActivity
   @UiThread
   public void onCompassCalibrationRecommended()
   {
-    Toast.makeText(this, getString(R.string.compass_calibration_recommended), Toast.LENGTH_LONG).show();
+    if (!BuildConfig.IS_IN_CAR)
+      Toast.makeText(this, getString(R.string.compass_calibration_recommended), Toast.LENGTH_LONG).show();
   }
 
   @Override
   @UiThread
   public void onCompassCalibrationRequired()
   {
-    Toast.makeText(this, getString(R.string.compass_calibration_required), Toast.LENGTH_LONG).show();
+    if (!BuildConfig.IS_IN_CAR)
+      Toast.makeText(this, getString(R.string.compass_calibration_required), Toast.LENGTH_LONG).show();
   }
 
   /**
@@ -2189,7 +2226,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
         }
         else
         {
-          Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENGTH_LONG).show();
+          if (!BuildConfig.IS_IN_CAR)
+            Toast.makeText(this, R.string.precise_location_is_disabled_long_text, Toast.LENGTH_LONG).show();
         }
       }
       return;
@@ -2403,7 +2441,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (!BuildConfig.IS_IN_CAR || mLocationActivityStopped || !Map.isEngineCreated())
       return false;
     final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
-    if (helper.isActive())
+    if (helper.isAcquisitionRequested())
       return true;
     mInCarRecenterRecovery = true;
     if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))

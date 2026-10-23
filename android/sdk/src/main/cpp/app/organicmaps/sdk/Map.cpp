@@ -58,6 +58,21 @@ JNIEXPORT void Java_app_organicmaps_sdk_Map_nativeSetRenderingInitializationFini
   }
 }
 
+JNIEXPORT jboolean Java_app_organicmaps_sdk_Map_nativeSetPresentationListener(JNIEnv *, jclass, jobject listener)
+{
+  if (!g_framework)
+    return false;
+  if (!listener)
+    return g_framework->SetPresentationHandler(nullptr);
+  auto ref = jni::make_global_ref(listener);
+  return g_framework->SetPresentationHandler([ref](bool ready, uint64_t generation)
+  {
+    JNIEnv * env = jni::GetEnv();
+    env->CallVoidMethod(*ref, jni::GetMethodID(env, *ref, "onRenderingPresentationChanged", "(ZJ)V"),
+                        static_cast<jboolean>(ready), static_cast<jlong>(generation));
+  });
+}
+
 JNIEXPORT jboolean Java_app_organicmaps_sdk_Map_nativeAttachSurface(JNIEnv * env, jclass, jobject surface)
 {
   return g_framework->AttachSurface(env, surface);

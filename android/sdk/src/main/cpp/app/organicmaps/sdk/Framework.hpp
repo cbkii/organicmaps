@@ -24,6 +24,8 @@
 #include "base/checked_ptr.hpp"
 #include "base/timer.hpp"
 
+#include <cstdint>
+#include <functional>
 #include <map>
 
 class DataSource;
@@ -87,6 +89,7 @@ public:
   bool CreateDrapeEngine(JNIEnv * env, jobject jSurface, int densityDpi, bool firstLaunch, bool launchByDeepLink,
                          uint32_t appVersionCode, bool isCustomROM);
   bool IsDrapeEngineCreated() const;
+  bool SetPresentationHandler(std::function<void(bool, uint64_t)> handler);
   void UpdateDpi(int dpi);
   bool DestroySurfaceOnDetach();
   void DetachSurface(bool destroySurface);

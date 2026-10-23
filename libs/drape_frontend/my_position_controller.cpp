@@ -481,10 +481,10 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
 
   bool const isMovingFast = info.HasSpeed() && info.m_speed > kMinSpeedThresholdMps;
   bool const glueArrowInRouting = isNavigable && m_isArrowGluedInRouting;
-  bool const isReliableFreeDrivingCourse =
-      m_isDrivingView && !m_isInRouting && info.HasSpeed() && info.m_speed >= driving_policy::kStationarySpeedMps;
+  bool const isReliableFreeDrivingCourse = HasReliableDrivingCourse(info);
 
-  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) && info.HasBearing())
+  if ((!m_isCompassAvailable || glueArrowInRouting || isMovingFast || isReliableFreeDrivingCourse) &&
+      info.HasBearing() && (!m_isDrivingView || m_isInRouting || isReliableFreeDrivingCourse))
   {
     SetDirection(math::DegToRad(info.m_bearing));
     m_lastGPSBearingTimer.Reset();
@@ -503,7 +503,8 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     location::EMyPositionMode newMode = m_desiredInitMode;
     ChangeMode(newMode);
 
-    if (!m_hints.m_isFirstLaunch || !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane))
+    if (m_isDrivingView || !m_hints.m_isFirstLaunch ||
+        !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane))
     {
       if (m_mode == location::Follow)
       {
@@ -511,9 +512,15 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
       }
       else if (m_mode == location::FollowAndRotate)
       {
-        ChangeModelView(m_position, m_drawDirection,
-                        IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
-                        kDoNotChangeZoom);
+        // Acquire the driving scale in the same follow event as the first position/bearing.
+        if (m_isDrivingView && !m_isInRouting && !m_needBlockAutoZoom)
+          ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                          m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+        else
+          ChangeModelView(
+              m_position, m_drawDirection,
+              IsNavigationStyleCameraActive() ? GetRoutingRotationPixelCenter() : m_visiblePixelRect.Center(),
+              kDoNotChangeZoom);
       }
     }
   }
@@ -522,7 +529,11 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     if (IsNavigationStyleCameraActive())
     {
       ChangeMode(location::FollowAndRotate);
-      UpdateViewport(kMaxScaleZoomLevel);
+      if (m_isDrivingView && !m_isInRouting && !m_needBlockAutoZoom)
+        ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                        m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+      else
+        UpdateViewport(kMaxScaleZoomLevel);
     }
     else
     {
@@ -548,7 +559,11 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     if (IsNavigationStyleCameraActive())
     {
       ChangeMode(location::FollowAndRotate);
-      UpdateViewport(kMaxScaleZoomLevel);
+      if (m_isDrivingView && !m_isInRouting && !m_needBlockAutoZoom)
+        ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                        m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+      else
+        UpdateViewport(kMaxScaleZoomLevel);
     }
     else
     {
@@ -581,6 +596,44 @@ void MyPositionController::RefreshLocationFreshness(location::GpsInfo const & in
   }
   if (m_recenterPending)
     RecenterPreservingMode();
+}
+
+bool MyPositionController::HasReliableDrivingCourse(location::GpsInfo const & info) const
+{
+  if (!driving_policy::HasReliableDrivingCourse(m_isInRouting, m_isDrivingView, info.HasSpeed(), info.m_speed,
+                                                info.HasBearing(), info.m_bearing, info.m_speedAccuracy,
+                                                info.m_bearingAccuracy))
+    return false;
+#if defined(__ANDROID__)
+  double const timestamp = info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0;
+#else
+  double const timestamp = info.m_timestamp;
+#endif
+  if (!driving_policy::IsFiniteCourseValue(timestamp) || timestamp <= 0.0 || timestamp > 9.0e9)
+    return false;
+  int64_t const observed = static_cast<int64_t>(timestamp * 1.0e9);
+  return IsFreshPositionObservation(observed, PositionClockNanos()) && observed > m_lastRecenterObservationNanos;
+}
+
+bool MyPositionController::NeedsDrivingCameraReacquisition(location::GpsInfo const & info) const
+{
+  if (!m_isPositionAssigned || IsInRouting() ||
+      !driving_policy::ShouldUseAutoZoom(m_mode, false, m_isDrivingView, false, m_needBlockAutoZoom))
+    return false;
+  // Subscription repair deliberately preserves mode and position. Detect stale native evidence
+  // before the new accepted fix refreshes it, including suspend/wake without rendered frames.
+#if defined(__ANDROID__)
+  int64_t const observed =
+      static_cast<int64_t>((info.HasMonotonicTimestamp() ? info.m_monotonicTimestamp : 0.0) * 1.0e9);
+#else
+  int64_t const observed = static_cast<int64_t>(info.m_timestamp * 1.0e9);
+#endif
+  int64_t const now = PositionClockNanos();
+  if (!IsFreshPositionObservation(observed, now) || observed <= m_lastRecenterObservationNanos)
+    return false;
+  return m_positionIsObsolete ||
+         (m_lastRecenterObservationNanos > 0 && now >= m_lastRecenterObservationNanos &&
+          now - m_lastRecenterObservationNanos >= static_cast<int64_t>(kMaxUpdateLocationInvervalSec * 1.0e9));
 }
 
 void MyPositionController::LoseLocation()
@@ -698,7 +751,8 @@ void MyPositionController::SetDirection(double bearing)
 
 void MyPositionController::ChangeMode(location::EMyPositionMode newMode)
 {
-  if (IsNavigationStyleCameraActive() && (m_mode != newMode) && (newMode == location::FollowAndRotate))
+  // Entering free-driving follow is not a user zoom gesture; do not impose its 10-second cooldown.
+  if (m_isInRouting && (m_mode != newMode) && (newMode == location::FollowAndRotate))
     ResetBlockAutoZoomTimer();
 
   m_mode = newMode;
@@ -930,8 +984,11 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
     return;
 
   ResetNotification(m_routingNotFollowNotifyId);
-  ResetNotification(m_blockAutoZoomNotifyId);
-  m_needBlockAutoZoom = false;
+  if (!enabled)
+  {
+    ResetNotification(m_blockAutoZoomNotifyId);
+    m_needBlockAutoZoom = false;
+  }
 
   if (!enabled)
   {
@@ -961,15 +1018,23 @@ void MyPositionController::SetDrivingView(bool enabled, bool autoReturn, bool re
   if (recenter || m_mode != location::FollowAndRotate)
   {
     ChangeMode(location::FollowAndRotate);
-    ChangeModelView(m_position, m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter(),
-                    kDoNotChangeZoom);
+    if (!wasDrivingView && !m_needBlockAutoZoom)
+      ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                      m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+    else
+      ChangeModelView(m_position, m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter(),
+                      kDoNotChangeZoom);
   }
   else
   {
-    UpdateViewport(kDoNotChangeZoom);
+    // The native startup mode may already be FollowAndRotate before Driving View takes ownership.
+    if (!wasDrivingView && !m_needBlockAutoZoom)
+      ChangeModelView(m_autoScale3d > 0.0 ? m_autoScale3d : GetScreenScale(kDefaultAutoZoom), m_position,
+                      m_isDirectionAssigned ? m_drawDirection : 0.0, GetRoutingRotationPixelCenter());
+    else
+      UpdateViewport(kDoNotChangeZoom);
   }
   ResetRoutingNotFollowTimer();
-  ResetBlockAutoZoomTimer();
 }
 
 void MyPositionController::ActivateRouting(int zoomLevel, bool enableAutoZoom, bool isArrowGlued)

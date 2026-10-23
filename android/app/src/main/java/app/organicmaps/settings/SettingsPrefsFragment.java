@@ -545,16 +545,8 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
   {
     final Preference pref = getPreference(getString(R.string.pref_auto_night_in_navigation));
 
-    final var isAutoDarkNavigationEnabled = Config.UiTheme.isAutoDarkNavigationEnabled();
-    ((TwoStatePreference) pref).setChecked(isAutoDarkNavigationEnabled);
-    pref.setOnPreferenceChangeListener((preference, newValue) -> {
-      var isChanged = Config.UiTheme.setAutoDarkNavigationEnabled((Boolean) newValue);
-      if (isChanged)
-      {
-        ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
-      }
-      return isChanged;
-    });
+    // One appearance policy; the old navigation override must not contradict manual choices.
+    pref.setVisible(false);
   }
 
   private void initBookmarksTextPlacementPrefsCallbacks()

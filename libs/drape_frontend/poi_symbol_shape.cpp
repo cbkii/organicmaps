@@ -45,7 +45,7 @@ void SolidBatch(ref_ptr<dp::GraphicsContext> context, ref_ptr<dp::Batcher> batch
   UNUSED_VALUE(colorRegion);
 
   m2::PointF const symbolRegionSize = symbolRegion.GetPixelSize();
-  m2::PointF pixelSize = symbolRegionSize;
+  m2::PointF pixelSize = symbolRegionSize * params.m_symbolScale;
   if (pixelSize.x < params.m_pixelWidth)
     pixelSize.x = params.m_pixelWidth;
   m2::PointF const halfSize = pixelSize * 0.5f;
@@ -93,7 +93,7 @@ void MaskedBatch(ref_ptr<dp::GraphicsContext> context, ref_ptr<dp::Batcher> batc
                  dp::TextureManager::ColorRegion const & colorRegion)
 {
   m2::PointF const symbolRegionSize = symbolRegion.GetPixelSize();
-  m2::PointF pixelSize = symbolRegionSize;
+  m2::PointF pixelSize = symbolRegionSize * params.m_symbolScale;
   if (pixelSize.x < params.m_pixelWidth)
     pixelSize.x = params.m_pixelWidth;
   m2::PointF const halfSize = pixelSize * 0.5f;

@@ -15,10 +15,12 @@ static EGLint * getContextAttributesList()
 }
 
 AndroidOGLContext::AndroidOGLContext(EGLDisplay display, EGLSurface surface, EGLConfig config,
-                                     AndroidOGLContext * contextToShareWith)
+                                     AndroidOGLContext * contextToShareWith,
+                                     std::shared_ptr<PresentationState> presentation)
   : m_nativeContext(EGL_NO_CONTEXT)
   , m_surface(surface)
   , m_display(display)
+  , m_presentation(std::move(presentation))
   , m_presentAvailable(true)
 {
   ASSERT(m_surface != EGL_NO_SURFACE, ());
@@ -77,7 +79,7 @@ void AndroidOGLContext::SetPresentAvailable(bool available)
 
 bool AndroidOGLContext::Validate()
 {
-  if (!m_presentAvailable)
+  if (!m_presentAvailable || !m_surfaceValid)
     return false;
   return eglGetCurrentDisplay() != EGL_NO_DISPLAY && eglGetCurrentSurface(EGL_DRAW) != EGL_NO_SURFACE &&
          eglGetCurrentContext() != EGL_NO_CONTEXT;
@@ -85,21 +87,33 @@ bool AndroidOGLContext::Validate()
 
 void AndroidOGLContext::Present()
 {
-  if (!m_presentAvailable)
+  if (!m_presentAvailable || !m_surfaceValid)
     return;
   ASSERT(m_surface != EGL_NO_SURFACE, ());
   if (eglSwapBuffers(m_display, m_surface) == EGL_FALSE)
-    CHECK_EGL_CALL();
+  {
+    if (m_presentation)
+      m_presentation->Presented(false);
+    EGLint const error = CheckEGL(SRC());
+    // Do not repeatedly submit to an invalid native window. Preserve navigation
+    // and wait for the existing detach/attach owner to provide a new surface.
+    if (error == EGL_BAD_SURFACE || error == EGL_BAD_NATIVE_WINDOW || error == EGL_BAD_CURRENT_SURFACE)
+      m_surfaceValid = false;
+  }
+  else if (m_presentation)
+    m_presentation->Presented(true);
 }
 
 void AndroidOGLContext::SetSurface(EGLSurface surface)
 {
   m_surface = surface;
   ASSERT(m_surface != EGL_NO_SURFACE, ());
+  m_surfaceValid = true;
 }
 
 void AndroidOGLContext::ResetSurface()
 {
+  m_surfaceValid = false;
   m_surface = EGL_NO_SURFACE;
 }
 }  // namespace android

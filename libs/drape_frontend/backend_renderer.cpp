@@ -133,6 +133,10 @@ void BackendRenderer::ClearRouteTransitData()
 
 void BackendRenderer::AcceptMessage(ref_ptr<Message> message)
 {
+  // A producer may enqueue its last payload after the cancellation sweep.
+  if (MapShapeReadedMessage::IsCancelledMessage(message))
+    return;
+
   switch (message->GetType())
   {
   case Message::Type::UpdateReadManager:
@@ -234,23 +238,20 @@ void BackendRenderer::AcceptMessage(ref_ptr<Message> message)
   {
     ref_ptr<MapShapeReadedMessage> msg = message;
     auto const & tileKey = msg->GetKey();
-    if (m_requestedTiles->CheckTileKey(tileKey) && m_readManager->CheckTileKey(tileKey))
+    CHECK(m_context != nullptr, ());
+    ref_ptr<dp::Batcher> batcher = m_batchersPool->GetBatcher(tileKey);
+    batcher->SetBatcherHash(tileKey.GetHashValue(BatcherBucket::Default));
+#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
+    DrapeMeasurer::Instance().StartShapesGeneration();
+#endif
+    for (drape_ptr<MapShape> const & shape : msg->GetShapes())
     {
-      CHECK(m_context != nullptr, ());
-      ref_ptr<dp::Batcher> batcher = m_batchersPool->GetBatcher(tileKey);
-      batcher->SetBatcherHash(tileKey.GetHashValue(BatcherBucket::Default));
-#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
-      DrapeMeasurer::Instance().StartShapesGeneration();
-#endif
-      for (drape_ptr<MapShape> const & shape : msg->GetShapes())
-      {
-        batcher->SetFeatureMinZoom(shape->GetFeatureMinZoom());
-        shape->Draw(m_context, batcher, m_texMng);
-      }
-#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
-      DrapeMeasurer::Instance().EndShapesGeneration(static_cast<uint32_t>(msg->GetShapes().size()));
-#endif
+      batcher->SetFeatureMinZoom(shape->GetFeatureMinZoom());
+      shape->Draw(m_context, batcher, m_texMng);
     }
+#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
+    DrapeMeasurer::Instance().EndShapesGeneration(static_cast<uint32_t>(msg->GetShapes().size()));
+#endif
     break;
   }
 
@@ -258,30 +259,27 @@ void BackendRenderer::AcceptMessage(ref_ptr<Message> message)
   {
     ref_ptr<OverlayMapShapeReadedMessage> msg = message;
     auto const & tileKey = msg->GetKey();
-    if (m_requestedTiles->CheckTileKey(tileKey) && m_readManager->CheckTileKey(tileKey))
+    CHECK(m_context != nullptr, ());
+    CleanupOverlays(tileKey);
+
+#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
+    DrapeMeasurer::Instance().StartOverlayShapesGeneration();
+#endif
+    OverlayBatcher batcher(tileKey);
+    for (drape_ptr<MapShape> const & shape : msg->GetShapes())
+      batcher.Batch(m_context, shape, m_texMng);
+
+    TOverlaysRenderData renderData;
+    batcher.Finish(m_context, renderData);
+    if (!renderData.empty())
     {
-      CHECK(m_context != nullptr, ());
-      CleanupOverlays(tileKey);
-
-#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
-      DrapeMeasurer::Instance().StartOverlayShapesGeneration();
-#endif
-      OverlayBatcher batcher(tileKey);
-      for (drape_ptr<MapShape> const & shape : msg->GetShapes())
-        batcher.Batch(m_context, shape, m_texMng);
-
-      TOverlaysRenderData renderData;
-      batcher.Finish(m_context, renderData);
-      if (!renderData.empty())
-      {
-        m_overlays.reserve(m_overlays.size() + renderData.size());
-        std::move(renderData.begin(), renderData.end(), back_inserter(m_overlays));
-      }
-
-#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
-      DrapeMeasurer::Instance().EndOverlayShapesGeneration(static_cast<uint32_t>(msg->GetShapes().size()));
-#endif
+      m_overlays.reserve(m_overlays.size() + renderData.size());
+      std::move(renderData.begin(), renderData.end(), back_inserter(m_overlays));
     }
+
+#if defined(DRAPE_MEASURER_BENCHMARK) && defined(GENERATING_STATISTIC)
+    DrapeMeasurer::Instance().EndOverlayShapesGeneration(static_cast<uint32_t>(msg->GetShapes().size()));
+#endif
     break;
   }
 
@@ -458,7 +456,7 @@ void BackendRenderer::AcceptMessage(ref_ptr<Message> message)
   {
     ref_ptr<FlushTrafficGeometryMessage> msg = message;
     auto const & tileKey = msg->GetKey();
-    if (m_requestedTiles->CheckTileKey(tileKey) && m_readManager->CheckTileKey(tileKey))
+    if (m_readManager->CheckTileKey(tileKey))
     {
       CHECK(m_context != nullptr, ());
       m_trafficGenerator->FlushSegmentsGeometry(m_context, tileKey, msg->GetSegments(), m_texMng);
@@ -846,7 +844,10 @@ void BackendRenderer::RenderFrame()
   if (!m_context->Validate())
     return;
 
+  auto const cancellationRevision = m_readManager->GetCancellationRevision();
   ProcessSingleMessage();
+  if (cancellationRevision != m_readManager->GetCancellationRevision())
+    InstantMessageFilter(MapShapeReadedMessage::IsCancelledMessage);
   m_context->CollectMemory();
 }
 

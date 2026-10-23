@@ -3,6 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
   <uses-permission
       android:name="androidx.car.app.NAVIGATION_TEMPLATES"
       tools:node="remove"/>
@@ -13,6 +15,10 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <queries><package android:name="com.cbkii.ts18launcher" /></queries>
   <application>
+    <!-- Signed cold-consent v1: OrganicMapsPrefs/InCarCompactStartup, unset=true.
+         The paired root broker may read this only while this UID has no process.
+         It conveys preference only; all task/renderer evidence remains boot-local. -->
+    <meta-data android:name="app.organicmaps.incar.COMPACT_CONSENT_PREFS_PROTOCOL" android:value="1" />
     <provider
         android:name="app.organicmaps.incar.InCarCompactStartupProvider"
         android:authorities="${applicationId}.compact.startup"

@@ -93,6 +93,12 @@ set(SRC
 
 omim_add_library(${PROJECT_NAME} SHARED ${SRC})
 
+# SDK connected tests exercise the real native core without Qt/host generator dependencies.
+# Do not expose the test JNI entry point in profileable/release artefacts.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_sources(${PROJECT_NAME} PRIVATE ../../androidTest/cpp/NativeCoreQualification.cpp)
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE .)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
