@@ -128,3 +128,17 @@ System.out.println("PASS actual signal coalescer change-during-send drain");}}
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PersistentColdConsentContractTests(unittest.TestCase):
+    def test_only_incar_advertises_existing_preference_contract(self):
+        import xml.etree.ElementTree as ET
+        android = '{http://schemas.android.com/apk/res/android}'
+        manifest = ET.parse(ROOT / 'android/app/src/inCar/AndroidManifest.xml').getroot()
+        entries = manifest.findall('./application/meta-data')
+        protocol = [e for e in entries if e.get(android + 'name') ==
+                    'app.organicmaps.incar.COMPACT_CONSENT_PREFS_PROTOCOL']
+        self.assertEqual(1, len(protocol))
+        self.assertEqual('1', protocol[0].get(android + 'value'))
+        settings = ET.parse(ROOT / 'android/sdk/src/main/res/values/donottranslate.xml').getroot()
+        self.assertEqual('OrganicMapsPrefs', settings.find("./string[@name='pref_file_name']").text)
