@@ -45,4 +45,5 @@
   <string name="in_car_ia_pref_in_car_optimised_visuals">High-contrast map style</string>
   <string name="in_car_ia_pref_in_car_map_age_warning">Warn about old maps</string>
   <string name="in_car_ia_pref_enable_logging">Save diagnostic logs</string>
+  <string name="in_car_satellite_source_required">Configure Custom Map Imagery first to enable satellite imagery.</string>
 </resources>
