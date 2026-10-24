@@ -2,7 +2,7 @@ package app.organicmaps.incar;
 
 import android.content.Context;
 import android.content.ContextWrapper;
-import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -17,28 +17,24 @@ import app.organicmaps.util.InCarVisuals;
 /** Compact current-speed presentation for the InCar navigation glance cluster. */
 public final class InCarNavigationSpeedView extends AppCompatTextView
 {
-  @Nullable
-  private ColorStateList mDefaultTextColors;
   private boolean mHasWarningState;
   private boolean mWarningState;
+  private boolean mNight;
   private InCarSpeedDisplayPolicy.Severity mSeverity = InCarSpeedDisplayPolicy.Severity.NORMAL;
 
   public InCarNavigationSpeedView(@NonNull Context context)
   {
     super(context);
-    captureDefaultTextColors();
   }
 
   public InCarNavigationSpeedView(@NonNull Context context, @Nullable AttributeSet attrs)
   {
     super(context, attrs);
-    captureDefaultTextColors();
   }
 
   public InCarNavigationSpeedView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr)
   {
     super(context, attrs, defStyleAttr);
-    captureDefaultTextColors();
   }
 
   @Override
@@ -51,12 +47,14 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
   public void setSpeeding(boolean warning)
   {
     final InCarSpeedDisplayPolicy.Severity severity = InCarSpeedDisplayPolicy.severity();
-    if (mHasWarningState && mWarningState == warning && mSeverity == severity)
+    final boolean night = app.organicmaps.util.ThemeUtils.isDarkTheme(getContext());
+    if (mHasWarningState && mWarningState == warning && mSeverity == severity && mNight == night)
       return;
 
     mHasWarningState = true;
     mWarningState = warning;
     mSeverity = severity;
+    mNight = night;
     androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
     setBackgroundResource(!warning ? R.drawable.in_car_speed_circle_background
                           : severity == InCarSpeedDisplayPolicy.Severity.WARNING
@@ -66,14 +64,12 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     {
       // Use a coloured solid instead of tinting the whole drawable: preserve the dark outline.
       // Severe red is bright with black text in daylight, dark with white text at night.
-      final boolean night = app.organicmaps.util.ThemeUtils.isDarkTheme(getContext());
       setTextColor(!night || severity == InCarSpeedDisplayPolicy.Severity.WARNING ? Color.BLACK : Color.WHITE);
     }
     else
     {
       androidx.core.view.ViewCompat.setBackgroundTintList(this, null);
-      if (mDefaultTextColors != null)
-        setTextColor(mDefaultTextColors);
+      setTextColor(app.organicmaps.util.ThemeUtils.getColor(getContext(), R.attr.iconTint));
     }
   }
 
@@ -81,7 +77,6 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
   protected void onAttachedToWindow()
   {
     super.onAttachedToWindow();
-    captureDefaultTextColors();
     if (mHasWarningState)
       setSpeeding(mWarningState);
   }
@@ -108,10 +103,13 @@ public final class InCarNavigationSpeedView extends AppCompatTextView
     super.onMeasure(widthMeasureSpec, heightMeasureSpec);
   }
 
-  private void captureDefaultTextColors()
+  @Override
+  protected void onConfigurationChanged(@NonNull Configuration newConfig)
   {
-    if (!mHasWarningState || !mWarningState)
-      mDefaultTextColors = getTextColors();
+    super.onConfigurationChanged(newConfig);
+    // The same warning severity can survive a scheduled or manual theme change.
+    mHasWarningState = false;
+    setSpeeding(mWarningState);
   }
 
   @Nullable

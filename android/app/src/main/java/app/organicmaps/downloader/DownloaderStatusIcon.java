@@ -52,11 +52,14 @@ public class DownloaderStatusIcon
 
   private @DrawableRes int resolveIcon(@AttrRes int iconAttr)
   {
-    int res = sIconsCache.get(iconAttr);
+    // SYSTEM keeps the same preference across a day/night change. Resolve from the owning
+    // View context, and partition the cache by its effective theme rather than the preference.
+    final int key = iconAttr ^ (ThemeUtils.isDarkTheme(mFrame.getContext()) ? Integer.MIN_VALUE : 0);
+    int res = sIconsCache.get(key);
     if (res == 0)
     {
       res = ThemeUtils.getResource(mFrame.getContext(), R.attr.downloaderTheme, iconAttr);
-      sIconsCache.put(iconAttr, res);
+      sIconsCache.put(key, res);
     }
 
     return res;
