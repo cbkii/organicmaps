@@ -1,5 +1,6 @@
 package app.organicmaps.incar;
 
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -21,6 +22,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.MwmActivity;
+import app.organicmaps.MwmApplication;
 import app.organicmaps.R;
 import app.organicmaps.maplayer.MapButtonsController;
 import app.organicmaps.maplayer.MapButtonsViewModel;
@@ -74,15 +76,17 @@ public final class InCarDrivingUi
     final View speedCluster;
     final InCarSpeedWarningView speedEdgeWarning;
     Insets safeInsets = Insets.NONE;
+    @Nullable
+    SharedPreferences.OnSharedPreferenceChangeListener settingsListener;
     final SpeedLimitView roadSpeedLimit;
 
     Binding(@NonNull View overlay, @NonNull TextView speed, @Nullable TextView navigationSpeed,
             @Nullable SpeedLimitView navigationSpeedLimit, @Nullable View help,
-            @NonNull InCarDrivingViewController controller)
+            @NonNull InCarDrivingViewController controller, @Nullable InCarSpeedWarningView speedEdgeWarning)
     {
       this.overlay = overlay;
       this.speed = speed;
-      this.speedEdgeWarning = overlay.findViewById(R.id.in_car_speed_edge_warning);
+      this.speedEdgeWarning = speedEdgeWarning;
       this.speedCluster = overlay.findViewById(R.id.in_car_driving_speed_cluster);
       this.roadSpeedLimit = overlay.findViewById(R.id.in_car_road_speed_limit);
       this.navigationSpeed = navigationSpeed;
@@ -133,7 +137,11 @@ public final class InCarDrivingUi
       final TextView navigationSpeed = activity.findViewById(R.id.in_car_nav_speed);
       final SpeedLimitView navigationSpeedLimit = activity.findViewById(R.id.nav_speed_limit);
       final View help = activity.findViewById(R.id.help_button);
-      binding = new Binding(overlay, speed, navigationSpeed, navigationSpeedLimit, help, controller);
+      final ViewStub warningStub = activity.findViewById(R.id.in_car_speed_warning_overlay_stub);
+      if (warningStub != null)
+        warningStub.inflate();
+      final InCarSpeedWarningView speedEdgeWarning = activity.findViewById(R.id.in_car_speed_edge_warning);
+      binding = new Binding(overlay, speed, navigationSpeed, navigationSpeedLimit, help, controller, speedEdgeWarning);
       final InCarDrivingViewController.Snapshot initial = controller.getSnapshot().getValue();
       if (initial != null && initial.routeLimitAvailable && app.organicmaps.sdk.Map.isEngineCreated()
           && RoutingController.get().isNavigating())
@@ -161,6 +169,13 @@ public final class InCarDrivingUi
         });
 
       final Binding observed = binding;
+      observed.settingsListener = (preferences, key) ->
+      {
+        if (InCarSettingsStore.KEY_SPEED_EDGE_WARNING.equals(key)
+            || InCarSettingsStore.KEY_CONTROL_POSITION.equals(key))
+          render(activity, observed, observed.controller.getSnapshot().getValue());
+      };
+      MwmApplication.prefs(activity).registerOnSharedPreferenceChangeListener(observed.settingsListener);
       final FragmentManager fragmentManager = activity.getSupportFragmentManager();
       observed.mapButtonsCallbacks = new FragmentManager.FragmentLifecycleCallbacks() {
         @Override
@@ -294,6 +309,8 @@ public final class InCarDrivingUi
       if (binding.mapButtonsCallbacks != null)
         activity.getSupportFragmentManager().unregisterFragmentLifecycleCallbacks(binding.mapButtonsCallbacks);
       clearDrivingViewButton(binding);
+      if (binding.settingsListener != null)
+        MwmApplication.prefs(activity).unregisterOnSharedPreferenceChangeListener(binding.settingsListener);
       if (binding.speedEdgeWarning != null)
         binding.speedEdgeWarning.setVisibility(View.GONE);
     }
@@ -445,8 +462,7 @@ public final class InCarDrivingUi
     if (binding.speedEdgeWarning != null)
     {
       updateSpeedEdgeGeometry(activity, binding);
-      final boolean showEdge =
-          warning && (snapshot.navigating || snapshot.enabled) && InCarSettingsStore.speedEdgeWarningEnabled(activity);
+      final boolean showEdge = warning && InCarSettingsStore.speedEdgeWarningEnabled(activity);
       binding.speedEdgeWarning.render(showEdge, InCarSpeedDisplayPolicy.severity());
     }
 
