@@ -11,9 +11,8 @@
   android:paddingTop="@dimen/margin_half"
   android:paddingBottom="@dimen/margin_half">
 
-  <!-- Main text receives the remaining width after a bounded, content-sized metadata column.
-       Two useful lines are retained before ellipsis so long road/place names do not lose their
-       distinguishing suffix merely because the right column happens to be short. -->
+  <!-- Main text uses the remaining width beside bounded metadata. Long destination names
+       and addresses expand vertically instead of losing their distinguishing suffix. -->
   <TextView
     android:id="@+id/title"
     android:layout_width="0dp"
@@ -32,6 +31,7 @@
     android:layout_height="wrap_content"
     android:minWidth="@dimen/in_car_search_result_meta_min_width"
     android:maxWidth="@dimen/in_car_search_result_meta_max_width"
+    android:ellipsize="end"
     android:gravity="end"
     android:maxLines="1"
     android:text="@string/closed"
@@ -59,6 +59,7 @@
     android:layout_height="wrap_content"
     android:minWidth="@dimen/in_car_search_result_meta_min_width"
     android:maxWidth="@dimen/in_car_search_result_meta_max_width"
+    android:ellipsize="end"
     android:gravity="end"
     android:maxLines="1"
     android:textAppearance="@style/MwmTextAppearance.Body3"

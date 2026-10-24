@@ -81,6 +81,8 @@ class BgTilesSettingsFragment : BaseMwmFragment() {
             urlField.minimumHeight = target
             cacheSizeSlider.minimumHeight = target
             opacitySlider.minimumHeight = target
+            cacheSizeSlider.layoutParams.height = target
+            opacitySlider.layoutParams.height = target
         }
         urlField.doAfterTextChanged { refreshValidation() }
         cacheSizeSlider.bindValueLabel(cacheSizeLabel)
