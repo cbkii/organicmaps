@@ -169,8 +169,10 @@ public final class InCarDrivingUi
         });
 
       final Binding observed = binding;
-      observed.settingsListener = (preferences, key) -> {
-        if (InCarSettingsStore.KEY_SPEED_EDGE_WARNING.equals(key) || InCarSettingsStore.KEY_CONTROL_POSITION.equals(key))
+      observed.settingsListener = (preferences, key) ->
+      {
+        if (InCarSettingsStore.KEY_SPEED_EDGE_WARNING.equals(key)
+            || InCarSettingsStore.KEY_CONTROL_POSITION.equals(key))
           render(activity, observed, observed.controller.getSnapshot().getValue());
       };
       MwmApplication.prefs(activity).registerOnSharedPreferenceChangeListener(observed.settingsListener);
@@ -460,8 +462,7 @@ public final class InCarDrivingUi
     if (binding.speedEdgeWarning != null)
     {
       updateSpeedEdgeGeometry(activity, binding);
-      final boolean showEdge =
-          warning && InCarSettingsStore.speedEdgeWarningEnabled(activity);
+      final boolean showEdge = warning && InCarSettingsStore.speedEdgeWarningEnabled(activity);
       binding.speedEdgeWarning.render(showEdge, InCarSpeedDisplayPolicy.severity());
     }
 

@@ -279,7 +279,7 @@ public class InCarSettingsGeometryTest
       instrumentation.sendPointerSync(down);
       android.os.SystemClock.sleep(20);
       up = android.view.MotionEvent.obtain(now, android.os.SystemClock.uptimeMillis(),
-                                          android.view.MotionEvent.ACTION_UP, x, y, 0);
+                                           android.view.MotionEvent.ACTION_UP, x, y, 0);
       instrumentation.sendPointerSync(up);
       instrumentation.waitForIdleSync();
     }
