@@ -28,7 +28,7 @@
     <androidx.preference.PreferenceCategory android:key="navigation_in_car_group_automatic_route_actions" android:title="@string/in_car_group_automatic_route_actions">
       <ListPreference
       android:key="in_car_navigation_action_delay"
-      android:title="@string/in_car_navigation_action_delay"
+      android:title="@string/in_car_ia_navigation_action_delay"
       android:entries="@array/in_car_navigation_action_delay_entries"
       android:entryValues="@array/in_car_navigation_action_delay_values"
       android:defaultValue="10"
@@ -36,7 +36,7 @@
       app:singleLineTitle="false" />
       <ListPreference
       android:key="in_car_route_resume_minutes"
-      android:title="@string/in_car_route_resume_title"
+      android:title="@string/in_car_ia_route_resume_label"
       android:dialogTitle="@string/in_car_route_resume_description"
       android:persistent="false"
       app:singleLineTitle="false" />
@@ -72,7 +72,7 @@
       <ListPreference
       android:key="@string/pref_in_car_driving_view_mode"
       android:title="@string/in_car_ia_pref_in_car_driving_view_mode"
-      android:summary="@string/in_car_driving_view_mode_summary"
+      android:summary="@string/in_car_ia_driving_view_summary"
       android:entries="@array/in_car_driving_view_mode_entries"
       android:entryValues="@array/in_car_driving_view_mode_values"
       android:defaultValue="AUTOMATIC"
