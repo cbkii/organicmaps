@@ -1,5 +1,6 @@
 package app.organicmaps.incar;
 
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
@@ -31,7 +32,10 @@ public final class InCarSettingsRows
       row.setLayoutParams(params);
     }
     if (row instanceof TextView text)
+    {
       allowMultiline(text);
+      text.setGravity((text.getGravity() & ~Gravity.VERTICAL_GRAVITY_MASK) | Gravity.CENTER_VERTICAL);
+    }
   }
 
   public static void allowMultiline(@NonNull TextView text)
