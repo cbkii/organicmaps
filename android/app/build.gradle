@@ -61,6 +61,7 @@ android {
   }
 
   defaultConfig {
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     versionCode = rootProject.ext.versionCode
     versionName = rootProject.ext.versionName
     println('Version: ' + versionName)
@@ -322,6 +323,8 @@ dependencies {
   implementation libs.devnullorthrow.mpandroidchart
 
   // Test Dependencies
+  androidTestImplementation libs.androidx.junit
+  androidTestImplementation libs.androidx.test.runner
   testImplementation libs.androidx.junit
   testImplementation libs.mockito.core
   testImplementation libs.mockito.inline

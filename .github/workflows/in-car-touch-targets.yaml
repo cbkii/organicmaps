@@ -9,7 +9,14 @@ on:
       - 'android/app/src/inCar/**'
       - 'android/app/src/main/java/app/organicmaps/incar/**'
       - 'android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java'
-      - 'android/app/src/main/java/app/organicmaps/settings/InCarSettingsFragment.java'
+      - 'android/app/src/main/java/app/organicmaps/settings/**'
+      - 'android/app/src/main/java/app/organicmaps/editor/**'
+      - 'android/app/src/main/java/app/organicmaps/help/**'
+      - 'android/app/src/main/java/app/organicmaps/maplayer/**'
+      - 'android/app/src/main/java/app/organicmaps/widget/recycler/**'
+      - 'android/app/src/androidTest/**'
+      - 'android/app/src/main/res/layout/**'
+      - 'android/tools/tests/test_ui_enhancements.py'
       - 'android/app/src/main/java/app/organicmaps/settings/InCarQuickDestinationsSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarWindowGeometryCoordinator.java'
@@ -43,7 +50,14 @@ on:
       - 'android/app/src/inCar/**'
       - 'android/app/src/main/java/app/organicmaps/incar/**'
       - 'android/app/src/main/java/app/organicmaps/maplayer/MapButtonsController.java'
-      - 'android/app/src/main/java/app/organicmaps/settings/InCarSettingsFragment.java'
+      - 'android/app/src/main/java/app/organicmaps/settings/**'
+      - 'android/app/src/main/java/app/organicmaps/editor/**'
+      - 'android/app/src/main/java/app/organicmaps/help/**'
+      - 'android/app/src/main/java/app/organicmaps/maplayer/**'
+      - 'android/app/src/main/java/app/organicmaps/widget/recycler/**'
+      - 'android/app/src/androidTest/**'
+      - 'android/app/src/main/res/layout/**'
+      - 'android/tools/tests/test_ui_enhancements.py'
       - 'android/app/src/main/java/app/organicmaps/settings/InCarQuickDestinationsSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarWindowGeometryCoordinator.java'
@@ -94,8 +108,10 @@ jobs:
             android/tools/verify_in_car_touch_targets_rail.py \
             android/tools/verify_in_car_compact_chrome.py \
             android/tools/verify_in_car_location_recording_controls.py
+          python3 -X dev -W default android/tools/verify_in_car_touch_targets.py
           python3 -X dev -W default android/tools/verify_in_car_touch_targets_rail.py
           python3 -X dev -W default android/tools/verify_in_car_compact_chrome.py
           python3 -X dev -W default android/tools/verify_in_car_location_recording_controls.py
           python3 -m unittest discover -s android/tools/tests -p test_in_car_controls.py
           python3 -m unittest discover -s android/tools/tests -p test_compact_startup.py
+          python3 -m unittest discover -s android/tools/tests -p test_ui_enhancements.py

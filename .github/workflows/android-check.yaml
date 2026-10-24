@@ -230,7 +230,9 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
-          script: bash android/tools/run_sdk_connected_tests.sh
+          script: >-
+            bash android/tools/run_sdk_connected_tests.sh &&
+            cd android && ./gradlew -Px86_64 app:connectedInCarDebugAndroidTest
 
       - name: Upload SDK connected test diagnostics
         if: always()
@@ -241,6 +243,8 @@ jobs:
             ${{ runner.temp }}/organicmaps-sdk-connected
             android/sdk/build/outputs/androidTest-results/connected
             android/sdk/build/reports/androidTests/connected
+            android/app/build/outputs/androidTest-results/connected
+            android/app/build/reports/androidTests/connected
           if-no-files-found: warn
           retention-days: 14
 
