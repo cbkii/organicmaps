@@ -211,6 +211,7 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
   public void onResume()
   {
     super.onResume();
+    updateSectionSummaries();
     final int generation = ++mCompactCheckGeneration;
     final View view = getView();
     if (view == null || !app.organicmaps.BuildConfig.IS_IN_CAR || findPreference("in_car_compact_startup") == null)
@@ -226,6 +227,44 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
       compact.setSummary(available ? R.string.in_car_compact_startup_summary
                                    : R.string.in_car_compact_startup_unavailable);
     });
+  }
+
+  /** Read the owning stores each time Settings returns to its root; no mirrored preference state. */
+  private void updateSectionSummaries()
+  {
+    final Preference appearance = findPreference("in_car_section_map_display");
+    if (appearance != null)
+    {
+      final int label = switch (Config.UiTheme.getUiThemePreference())
+      {
+        case LIGHT -> R.string.in_car_ia_theme_light;
+        case DARK -> R.string.in_car_ia_theme_dark;
+        case SCHEDULED -> R.string.in_car_ia_theme_scheduled;
+        case SYSTEM -> R.string.in_car_ia_theme_system;
+      };
+      appearance.setSummary(getString(R.string.in_car_ia_map_display_state, getString(label)));
+    }
+
+    final Preference driving = findPreference("in_car_section_driving");
+    if (driving != null)
+    {
+      final boolean automatic =
+          app.organicmaps.incar.InCarDrivingViewModePolicy.getMode(requireContext())
+          != app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode.OFF;
+      driving.setSummary(getString(R.string.in_car_ia_driving_state, getString(automatic ? R.string.on : R.string.off)));
+    }
+
+    final Preference places = findPreference("in_car_section_places");
+    if (places != null)
+    {
+      final boolean homeSet = app.organicmaps.incar.InCarQuickDestinationsStore.getHome(requireContext()) != null;
+      final boolean workSet = app.organicmaps.incar.InCarQuickDestinationsStore.getWork(requireContext()) != null;
+      places.setSummary(getString(R.string.in_car_ia_places_state,
+                                  getString(homeSet ? R.string.in_car_quick_configured
+                                                    : R.string.in_car_quick_not_configured),
+                                  getString(workSet ? R.string.in_car_quick_configured
+                                                    : R.string.in_car_quick_not_configured)));
+    }
   }
 
   @Override

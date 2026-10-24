@@ -80,6 +80,9 @@ class InCarSettingsNavigationTest(unittest.TestCase):
         self.assertIn("stackFragment(getFragmentClass()", activity)
         self.assertIn("extends SettingsPrefsFragment", owner)
         self.assertIn("R.xml.prefs_in_car_home", owner)
+        self.assertIn("updateSectionSummaries();", owner)
+        self.assertIn("InCarQuickDestinationsStore.getHome", owner)
+        self.assertIn("UiTheme.getUiThemePreference()", owner)
         self.assertIn("if (findPreference(getString(R.string.pref_3d_buildings)) != null)", settings)
 
     def test_original_automotive_dimensions_unchanged(self):

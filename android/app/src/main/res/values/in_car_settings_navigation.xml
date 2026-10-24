@@ -46,4 +46,11 @@
   <string name="in_car_ia_pref_in_car_map_age_warning">Warn about old maps</string>
   <string name="in_car_ia_pref_enable_logging">Save diagnostic logs</string>
   <string name="in_car_satellite_source_required">Configure Custom Map Imagery first to enable satellite imagery.</string>
+  <string name="in_car_ia_theme_light">Light</string>
+  <string name="in_car_ia_theme_dark">Dark</string>
+  <string name="in_car_ia_theme_scheduled">Scheduled</string>
+  <string name="in_car_ia_theme_system">Follow system</string>
+  <string name="in_car_ia_map_display_state">Appearance: %1$s · layers and labels</string>
+  <string name="in_car_ia_driving_state">Driving View: %1$s · startup and GPS</string>
+  <string name="in_car_ia_places_state">Home: %1$s · Work: %2$s · quick searches</string>
 </resources>
