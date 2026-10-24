@@ -27,14 +27,16 @@ public final class InCarSpeedWarningView extends View
   public void render(boolean active, @NonNull InCarSpeedDisplayPolicy.Severity severity)
   {
     setBackgroundColor(ContextCompat.getColor(getContext(), severity == InCarSpeedDisplayPolicy.Severity.SEVERE
-        ? R.color.in_car_speed_edge_warning_red : R.color.in_car_speed_edge_warning_orange));
+                                                                ? R.color.in_car_speed_edge_warning_red
+                                                                : R.color.in_car_speed_edge_warning_orange));
     setVisibility(active && severity != InCarSpeedDisplayPolicy.Severity.NORMAL ? VISIBLE : GONE);
   }
 
   public void updateGeometry(int circleSizePx, boolean controlsOnLeft, @NonNull Insets safe)
   {
     final FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) getLayoutParams();
-    final int width = circleSizePx + getResources().getDimensionPixelSize(R.dimen.in_car_speed_edge_warning_extra_width);
+    final int width =
+        circleSizePx + getResources().getDimensionPixelSize(R.dimen.in_car_speed_edge_warning_extra_width);
     // The physical driver side must not be mirrored by an RTL locale.
     final int gravity = (controlsOnLeft ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP;
     if (params.width == width && params.gravity == gravity && params.leftMargin == safe.left

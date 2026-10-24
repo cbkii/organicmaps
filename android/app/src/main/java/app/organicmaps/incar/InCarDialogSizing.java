@@ -95,8 +95,8 @@ public final class InCarDialogSizing
     enforceTouchTargets(activity, dialog);
   }
 
-  private static void applyWidth(@NonNull Activity activity, @NonNull Dialog dialog, float fraction,
-                                 int minWidthPx, int maxWidthPx)
+  private static void applyWidth(@NonNull Activity activity, @NonNull Dialog dialog, float fraction, int minWidthPx,
+                                 int maxWidthPx)
   {
     final Window window = dialog.getWindow();
     if (window == null)

@@ -39,7 +39,9 @@ public class InCarSpeedWarningViewTest
             banner.updateGeometry(circle, controlsLeft, Insets.of(3, 5, 7, 11));
             final FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) banner.getLayoutParams();
             assertEquals((controlsLeft ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, params.gravity);
-            assertEquals(circle + activity.getResources().getDimensionPixelSize(R.dimen.in_car_speed_edge_warning_extra_width), params.width);
+            assertEquals(
+                circle + activity.getResources().getDimensionPixelSize(R.dimen.in_car_speed_edge_warning_extra_width),
+                params.width);
             frame.measure(View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
                           View.MeasureSpec.makeMeasureSpec(300, View.MeasureSpec.EXACTLY));
             banner.render(true, InCarSpeedDisplayPolicy.Severity.WARNING);
@@ -118,8 +120,8 @@ public class InCarSpeedWarningViewTest
       scenario.onActivity(activity -> {
         final Configuration day = new Configuration(activity.getResources().getConfiguration());
         day.uiMode = (day.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | Configuration.UI_MODE_NIGHT_NO;
-        final android.content.Context context = new android.view.ContextThemeWrapper(
-            activity.createConfigurationContext(day), R.style.MwmTheme);
+        final android.content.Context context =
+            new android.view.ContextThemeWrapper(activity.createConfigurationContext(day), R.style.MwmTheme);
         final InCarNavigationSpeedView speed = new InCarNavigationSpeedView(context);
         InCarSpeedDisplayPolicy.isSpeeding(111, 100);
         speed.setSpeeding(true);

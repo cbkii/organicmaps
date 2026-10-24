@@ -146,8 +146,8 @@ public final class InCarDrivingUi
       overlay.setVisibility(View.VISIBLE);
       applyInsets(activity, binding);
       final Binding geometryBinding = binding;
-      overlay.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
-          updateSpeedEdgeGeometry(activity, geometryBinding));
+      overlay.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight,
+                                         oldBottom) -> updateSpeedEdgeGeometry(activity, geometryBinding));
       binding.speedCluster.addOnLayoutChangeListener(
           (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
@@ -445,8 +445,8 @@ public final class InCarDrivingUi
     if (binding.speedEdgeWarning != null)
     {
       updateSpeedEdgeGeometry(activity, binding);
-      final boolean showEdge = warning && (snapshot.navigating || snapshot.enabled)
-                            && InCarSettingsStore.speedEdgeWarningEnabled(activity);
+      final boolean showEdge =
+          warning && (snapshot.navigating || snapshot.enabled) && InCarSettingsStore.speedEdgeWarningEnabled(activity);
       binding.speedEdgeWarning.render(showEdge, InCarSpeedDisplayPolicy.severity());
     }
 
@@ -513,8 +513,8 @@ public final class InCarDrivingUi
   private static void applyInsets(@NonNull MwmActivity activity, @NonNull Binding binding)
   {
     ViewCompat.setOnApplyWindowInsetsListener(binding.overlay, (view, windowInsets) -> {
-      final Insets bars = windowInsets.getInsets(
-          WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+      final Insets bars =
+          windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
       binding.safeInsets = bars;
       updateSpeedEdgeGeometry(activity, binding);
       final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.speedCluster.getLayoutParams();

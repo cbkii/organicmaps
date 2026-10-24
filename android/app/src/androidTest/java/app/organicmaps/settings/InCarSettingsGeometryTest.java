@@ -51,7 +51,11 @@ public class InCarSettingsGeometryTest
         final RecyclerView list = new RecyclerView(activity);
         list.setLayoutManager(new LinearLayoutManager(activity));
         final BaseXmlSettingsFragment fragment = new BaseXmlSettingsFragment() {
-          @Override protected int getXmlResources() { return R.xml.prefs_in_car; }
+          @Override
+          protected int getXmlResources()
+          {
+            return R.xml.prefs_in_car;
+          }
         };
         list.setAdapter(fragment.onCreateAdapter(screen));
         activity.setContentView(list);
@@ -69,6 +73,69 @@ public class InCarSettingsGeometryTest
         measure(list, target * 6, target * 5);
         assertTrue(list.findViewHolderForAdapterPosition(2).itemView.getHeight() >= target);
       });
+    }
+  }
+
+  @Test
+  public void actualPreferenceKeysMatchRealTapBoundsAndDisabledRowsStayInert()
+  {
+    final java.util.concurrent.atomic.AtomicReference<String> selected =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    final int[][] bounds = new int[4][4];
+    try (ActivityScenario<InCarUiTestActivity> scenario = ActivityScenario.launch(InCarUiTestActivity.class))
+    {
+      scenario.onActivity(activity -> {
+        final PreferenceScreen screen = new PreferenceManager(activity).createPreferenceScreen(activity);
+        for (int i = 0; i < 4; i++)
+        {
+          final Preference preference = i == 0 ? new PreferenceCategory(activity) : new Preference(activity);
+          final String key = "row" + i;
+          preference.setKey(key);
+          preference.setTitle(key);
+          preference.setEnabled(i != 2);
+          preference.setOnPreferenceClickListener(item -> {
+            selected.set(item.getKey());
+            return true;
+          });
+          screen.addPreference(preference);
+        }
+        final RecyclerView list = new RecyclerView(activity);
+        list.setId(android.R.id.list);
+        list.setLayoutManager(new LinearLayoutManager(activity));
+        final BaseXmlSettingsFragment fragment = new BaseXmlSettingsFragment() {
+          @Override
+          protected int getXmlResources()
+          {
+            return R.xml.prefs_in_car;
+          }
+        };
+        list.setAdapter(fragment.onCreateAdapter(screen));
+        activity.setContentView(list);
+      });
+      InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+      scenario.onActivity(activity -> {
+        final RecyclerView list = activity.findViewById(android.R.id.list);
+        for (int i = 0; i < 4; i++)
+        {
+          final View row = list.findViewHolderForAdapterPosition(i).itemView;
+          final android.graphics.Rect visible = new android.graphics.Rect();
+          assertTrue(row.getGlobalVisibleRect(visible));
+          bounds[i] = new int[] {visible.left, visible.top, visible.width(), visible.height()};
+        }
+      });
+      for (int i = 0; i < 4; i++)
+      {
+        final int[] row = bounds[i];
+        for (float y : new float[] {2, row[3] / 2f, row[3] - 2})
+        {
+          for (float x : new float[] {2, row[2] / 2f, row[2] - 2})
+          {
+            selected.set(null);
+            tap(row[0] + x, row[1] + y);
+            assertEquals(i == 0 || i == 2 ? null : "row" + i, selected.get());
+          }
+        }
+      }
     }
   }
 
@@ -99,7 +166,8 @@ public class InCarSettingsGeometryTest
       });
       InstrumentationRegistry.getInstrumentation().waitForIdleSync();
       scenario.onActivity(activity -> {
-        final LinearLayout content = (LinearLayout) ((ViewGroup) activity.findViewById(android.R.id.content)).getChildAt(0);
+        final LinearLayout content =
+            (LinearLayout) ((ViewGroup) activity.findViewById(android.R.id.content)).getChildAt(0);
         for (int i = 0; i < 2; i++)
         {
           final View row = content.getChildAt(i);
@@ -139,26 +207,29 @@ public class InCarSettingsGeometryTest
       });
       scenario.recreate();
       scenario.onActivity(activity -> {
-        final InCarListPreferenceDialogFragment fragment = (InCarListPreferenceDialogFragment)
-            activity.getSupportFragmentManager().findFragmentByTag("choiceDialog");
+        final InCarListPreferenceDialogFragment fragment =
+            (InCarListPreferenceDialogFragment) activity.getSupportFragmentManager().findFragmentByTag("choiceDialog");
         assertNotNull(fragment);
         fragment.requireDialog().cancel();
       });
       InstrumentationRegistry.getInstrumentation().waitForIdleSync();
       scenario.onActivity(activity -> {
-        final DialogOwnerFragment owner = (DialogOwnerFragment) activity.getSupportFragmentManager().findFragmentByTag("owner");
+        final DialogOwnerFragment owner =
+            (DialogOwnerFragment) activity.getSupportFragmentManager().findFragmentByTag("owner");
         final androidx.preference.ListPreference preference = owner.findPreference("choice");
         assertEquals("light", preference.getValue());
         assertEquals(0, DialogOwnerFragment.changes.get());
         final InCarListPreferenceDialogFragment fragment = InCarListPreferenceDialogFragment.newInstance("choice");
         fragment.setTargetFragment(owner, 0);
         fragment.showNow(activity.getSupportFragmentManager(), "choiceDialog");
-        final android.widget.ListView list = ((androidx.appcompat.app.AlertDialog) fragment.requireDialog()).getListView();
+        final android.widget.ListView list =
+            ((androidx.appcompat.app.AlertDialog) fragment.requireDialog()).getListView();
         list.performItemClick(list.getChildAt(1), 1, list.getAdapter().getItemId(1));
       });
       InstrumentationRegistry.getInstrumentation().waitForIdleSync();
       scenario.onActivity(activity -> {
-        final DialogOwnerFragment owner = (DialogOwnerFragment) activity.getSupportFragmentManager().findFragmentByTag("owner");
+        final DialogOwnerFragment owner =
+            (DialogOwnerFragment) activity.getSupportFragmentManager().findFragmentByTag("owner");
         final androidx.preference.ListPreference preference = owner.findPreference("choice");
         assertEquals("dark", preference.getValue());
         assertEquals(1, DialogOwnerFragment.changes.get());
@@ -180,7 +251,10 @@ public class InCarSettingsGeometryTest
       preference.setEntries(new String[] {"Light", "Dark"});
       preference.setEntryValues(new String[] {"light", "dark"});
       preference.setValue("light");
-      preference.setOnPreferenceChangeListener((item, value) -> { changes.incrementAndGet(); return true; });
+      preference.setOnPreferenceChangeListener((item, value) -> {
+        changes.incrementAndGet();
+        return true;
+      });
       screen.addPreference(preference);
       setPreferenceScreen(screen);
     }
@@ -197,8 +271,10 @@ public class InCarSettingsGeometryTest
   {
     final android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     final long now = android.os.SystemClock.uptimeMillis();
-    final android.view.MotionEvent down = android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, x, y, 0);
-    final android.view.MotionEvent up = android.view.MotionEvent.obtain(now, now + 20, android.view.MotionEvent.ACTION_UP, x, y, 0);
+    final android.view.MotionEvent down =
+        android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, x, y, 0);
+    final android.view.MotionEvent up =
+        android.view.MotionEvent.obtain(now, now + 20, android.view.MotionEvent.ACTION_UP, x, y, 0);
     try
     {
       instrumentation.sendPointerSync(down);

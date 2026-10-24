@@ -50,7 +50,8 @@ public class SpanningLinearLayoutManager extends LinearLayoutManager
   {
     if (getOrientation() == HORIZONTAL)
     {
-      layoutParams.width = Math.max(mMinimumItemSizePx, (int) Math.round(getHorizontalSpace() / (double) Math.max(1, getItemCount())));
+      layoutParams.width =
+          Math.max(mMinimumItemSizePx, (int) Math.round(getHorizontalSpace() / (double) Math.max(1, getItemCount())));
     }
     else if (getOrientation() == VERTICAL)
     {

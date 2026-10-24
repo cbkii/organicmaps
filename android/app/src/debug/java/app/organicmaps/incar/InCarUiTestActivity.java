@@ -14,8 +14,9 @@ public final class InCarUiTestActivity extends AppCompatActivity
     // Real injected taps must remain in the app-owned area on target-35+ edge-to-edge emulators.
     final android.view.View content = findViewById(android.R.id.content);
     androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
-      final androidx.core.graphics.Insets safe = insets.getInsets(
-          androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+      final androidx.core.graphics.Insets safe =
+          insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                           | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
       view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
       return insets;
     });

@@ -58,11 +58,11 @@ public final class InCarListPreferenceDialogFragment extends PreferenceDialogFra
     for (CharSequence entry : mEntries)
       labels.add(entry.toString());
     builder.setSingleChoiceItems(InCarChoiceAdapter.singleChoice(builder.getContext(), labels), mSelected,
-                                (dialog, which) -> {
-                                  mSelected = which;
-                                  onClick(dialog, DialogInterface.BUTTON_POSITIVE);
-                                  dialog.dismiss();
-                                });
+                                 (dialog, which) -> {
+                                   mSelected = which;
+                                   onClick(dialog, DialogInterface.BUTTON_POSITIVE);
+                                   dialog.dismiss();
+                                 });
     builder.setPositiveButton(null, null);
   }
 

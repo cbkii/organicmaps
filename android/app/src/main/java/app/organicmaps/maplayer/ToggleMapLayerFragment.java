@@ -54,11 +54,11 @@ public class ToggleMapLayerFragment extends Fragment
   private void initRecycler(@NonNull View root)
   {
     RecyclerView recycler = root.findViewById(R.id.recycler);
-    RecyclerView.LayoutManager layoutManager =
-        new SpanningLinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false,
-                                        app.organicmaps.BuildConfig.IS_IN_CAR
-                                            ? getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred)
-                                            : 0);
+    RecyclerView.LayoutManager layoutManager = new SpanningLinearLayoutManager(
+        requireContext(), LinearLayoutManager.HORIZONTAL, false,
+        app.organicmaps.BuildConfig.IS_IN_CAR
+            ? getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred)
+            : 0);
     recycler.setLayoutManager(layoutManager);
     mAdapter = new LayersAdapter(getLayersItems());
     recycler.setAdapter(mAdapter);
