@@ -51,7 +51,7 @@
   <dimen name="in_car_place_page_other_icon_size">28dp</dimen>
   <dimen name="in_car_place_page_route_text_gap">4dp</dimen>
 
-  <!-- Runtime rows keep the preferred automotive touch height; 80dp remains the content cap. -->
+  <!-- Runtime rows retain 76dp normally and grow for content; keep the old max token for source compatibility. -->
   <dimen name="in_car_runtime_row_min_height">@dimen/in_car_touch_target_preferred</dimen>
   <dimen name="in_car_runtime_row_max_height">80dp</dimen>
 
@@ -59,4 +59,10 @@
   <string name="in_car_go_to">Go To</string>
   <string name="in_car_walk_to">Walk to</string>
   <string name="in_car_return_to_driving">Return to Driving</string>
+  <item name="in_car_speed_edge_warning" type="id" />
+  <dimen name="in_car_speed_edge_warning_extra_width">8dp</dimen>
+  <color name="in_car_speed_edge_warning_orange">#FF9800</color>
+  <color name="in_car_speed_edge_warning_red">#F44336</color>
+  <string name="in_car_speed_edge_warning_title">Full-height speed warning</string>
+  <string name="in_car_speed_edge_warning_summary">Display a translucent orange/red warning along the driver-side edge when speeding.</string>
 </resources>

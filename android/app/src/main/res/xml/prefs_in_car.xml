@@ -68,6 +68,14 @@
   <androidx.preference.PreferenceCategory
     android:title="@string/in_car_settings_map_display">
 
+    <SwitchPreferenceCompat
+      android:key="in_car_speed_edge_warning"
+      android:title="@string/in_car_speed_edge_warning_title"
+      android:summary="@string/in_car_speed_edge_warning_summary"
+      android:defaultValue="true"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+
     <ListPreference
       android:key="in_car_control_position"
       android:title="@string/in_car_control_position"

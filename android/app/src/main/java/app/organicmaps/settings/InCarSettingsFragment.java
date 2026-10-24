@@ -97,6 +97,13 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       return true;
     });
 
+    final TwoStatePreference edgeWarning = getPreference("in_car_speed_edge_warning");
+    edgeWarning.setChecked(InCarSettingsStore.speedEdgeWarningEnabled(requireContext()));
+    edgeWarning.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setSpeedEdgeWarningEnabled(requireContext(), (boolean) value);
+      return true;
+    });
+
     final ListPreference position = getPreference("in_car_control_position");
     position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
     position.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
