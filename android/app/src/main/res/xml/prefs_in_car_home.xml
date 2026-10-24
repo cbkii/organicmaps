@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+  <androidx.preference.PreferenceScreen android:key="in_car_section_navigation" android:title="@string/in_car_section_navigation" android:summary="@string/in_car_section_navigation_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="navigation_in_car_group_route_display" android:title="@string/in_car_group_route_display">
+      <SwitchPreferenceCompat
+      android:key="@string/pref_3d"
+      android:title="@string/pref_map_3d_title"
+      app:singleLineTitle="false"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_auto_zoom"
+      android:title="@string/pref_map_auto_zoom"
+      app:singleLineTitle="false"
+      />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="navigation_in_car_group_route_planning" android:title="@string/in_car_group_route_planning">
+      <PreferenceScreen
+      android:key="@string/prefs_routing"
+      
+      android:title="@string/driving_options_title">
+      <intent
+      android:targetClass="app.organicmaps.settings.DrivingOptionsActivity"
+      android:targetPackage="@string/app_id">
+      <extra android:name="from" android:value="settings" />
+      </intent>
+      </PreferenceScreen>
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="navigation_in_car_group_automatic_route_actions" android:title="@string/in_car_group_automatic_route_actions">
+      <ListPreference
+      android:key="in_car_navigation_action_delay"
+      android:title="@string/in_car_navigation_action_delay"
+      android:entries="@array/in_car_navigation_action_delay_entries"
+      android:entryValues="@array/in_car_navigation_action_delay_values"
+      android:defaultValue="10"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+      <ListPreference
+      android:key="in_car_route_resume_minutes"
+      android:title="@string/in_car_route_resume_title"
+      android:dialogTitle="@string/in_car_route_resume_description"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="navigation_in_car_group_voice_and_alerts" android:title="@string/in_car_group_voice_and_alerts">
+      <Preference
+      android:key="@string/pref_tts_screen"
+      android:title="@string/pref_tts_enable_title"
+      app:singleLineTitle="false"
+      android:persistent="false"
+      >
+      </Preference>
+      <ListPreference
+      android:defaultValue="tone_all"
+      android:dialogTitle="@string/in_car_navigation_fallback_title"
+      android:entries="@array/in_car_navigation_fallback_mode_entries"
+      android:entryValues="@array/in_car_navigation_fallback_mode_values"
+      android:key="@string/pref_in_car_navigation_fallback_mode"
+      android:persistent="false"
+      android:title="@string/in_car_ia_pref_in_car_navigation_fallback_mode"
+      app:singleLineTitle="false" />
+      <SwitchPreferenceCompat
+      android:key="in_car_speed_edge_warning"
+      android:title="@string/in_car_speed_edge_warning_title"
+      android:summary="@string/in_car_speed_edge_warning_summary"
+      android:defaultValue="true"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+  <androidx.preference.PreferenceScreen android:key="in_car_section_driving" android:title="@string/in_car_section_driving" android:summary="@string/in_car_section_driving_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="driving_in_car_group_driving_view" android:title="@string/in_car_group_driving_view">
+      <ListPreference
+      android:key="@string/pref_in_car_driving_view_mode"
+      android:title="@string/in_car_ia_pref_in_car_driving_view_mode"
+      android:summary="@string/in_car_driving_view_mode_summary"
+      android:entries="@array/in_car_driving_view_mode_entries"
+      android:entryValues="@array/in_car_driving_view_mode_values"
+      android:defaultValue="AUTOMATIC"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_auto_return_driving_view"
+      android:title="@string/in_car_ia_pref_in_car_auto_return_driving_view"
+      android:summary="@string/in_car_auto_return_driving_view_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="driving_in_car_group_starting_the_map" android:title="@string/in_car_group_starting_the_map">
+      <SwitchPreferenceCompat
+      android:key="@string/pref_auto_follow_location_on_launch"
+      android:title="@string/in_car_ia_pref_auto_follow_location_on_launch"
+      android:summary="@string/auto_follow_location_on_launch_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+      <ListPreference
+      android:key="@string/pref_in_car_startup_map_view"
+      android:title="@string/in_car_ia_pref_in_car_startup_map_view"
+      android:summary="@string/in_car_startup_map_view_summary"
+      android:entries="@array/in_car_startup_map_view_entries"
+      android:entryValues="@array/in_car_startup_map_view_values"
+      android:defaultValue="DRIVING_AREA"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+      <SwitchPreferenceCompat
+      android:key="in_car_compact_startup"
+      android:title="@string/in_car_ia_in_car_compact_startup"
+      android:summary="@string/in_car_compact_startup_summary"
+      android:defaultValue="false"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="driving_in_car_group_location_and_gps" android:title="@string/in_car_group_location_and_gps">
+      <Preference
+      android:key="in_car_location_access"
+      android:title="@string/in_car_location_access"
+      android:persistent="false" />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_location_disabled_warning"
+      android:title="@string/in_car_location_disabled_warning_title"
+      android:summary="@string/in_car_location_disabled_warning_summary"
+      android:defaultValue="false"
+      android:persistent="false" />
+      <Preference
+      android:key="@string/pref_in_car_open_location_settings"
+      android:title="@string/in_car_open_location_settings" />
+      <Preference
+      android:key="in_car_location_diagnostics"
+      android:title="@string/in_car_location_diagnostics"
+      android:persistent="false" />
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+  <androidx.preference.PreferenceScreen android:key="in_car_section_map_display" android:title="@string/in_car_section_map_display" android:summary="@string/in_car_section_map_display_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="map_display_in_car_group_appearance" android:title="@string/in_car_group_appearance">
+      <ListPreference
+      android:key="@string/pref_map_appearance"
+      android:title="@string/pref_appearance_title"
+      app:singleLineTitle="false"
+      android:entries="@array/map_appearance"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_optimised_visuals"
+      android:title="@string/in_car_ia_pref_in_car_optimised_visuals"
+      android:summary="@string/in_car_optimised_visuals_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="map_display_in_car_group_map_layers_and_imagery" android:title="@string/in_car_group_map_layers_and_imagery">
+      <Preference
+      android:key="in_car_map_layers"
+      android:title="@string/layers_title"
+      app:fragment="app.organicmaps.settings.InCarMapLayersSettingsFragment"
+      app:singleLineTitle="false" />
+      <Preference
+      android:key="@string/pref_bg_tiles_screen"
+      android:title="@string/pref_bg_tiles_title"
+      app:singleLineTitle="false"
+      android:persistent="false"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_show_downloaded_regions"
+      android:title="@string/show_downloaded_regions"
+      app:singleLineTitle="false"
+      android:defaultValue="true"
+      />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="map_display_in_car_group_labels_and_reading" android:title="@string/in_car_group_labels_and_reading">
+      <Preference
+      android:key="@string/pref_map_locale"
+      android:title="@string/change_map_locale"
+      app:singleLineTitle="false"
+      android:persistent="false"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_transliteration"
+      android:title="@string/transliteration_title"
+      app:singleLineTitle="false"
+      android:defaultValue="false"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_large_fonts_size"
+      android:title="@string/big_font"
+      app:singleLineTitle="false"
+      android:defaultValue="false"
+      />
+      <ListPreference
+      android:key="@string/pref_bookmarks_text_placement"
+      android:title="@string/bookmarks_text_placement_title"
+      app:singleLineTitle="false"
+      android:summary="@string/bookmarks_text_placement_description"
+      android:entries="@array/bookmarks_text_placement_options"
+      android:entryValues="@array/bookmarks_text_placement_values"
+      />
+      <ListPreference
+      android:key="@string/pref_munits"
+      android:title="@string/measurement_units"
+      app:singleLineTitle="false"
+      android:summary="@string/measurement_units_summary"
+      android:entries="@array/measument_units"
+      android:entryValues="@array/measument_units_values"
+      />
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+  <androidx.preference.PreferenceScreen android:key="in_car_section_places" android:title="@string/in_car_section_places" android:summary="@string/in_car_section_places_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="places_in_car_group_quick_destinations" android:title="@string/in_car_group_quick_destinations">
+      <Preference
+      android:key="@string/pref_in_car_quick_destinations"
+      android:title="@string/in_car_quick_destinations_title"
+      android:summary="@string/in_car_quick_destinations_summary"
+      app:fragment="app.organicmaps.settings.InCarQuickDestinationsSettingsFragment" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="places_in_car_group_recording" android:title="@string/in_car_group_recording">
+      <app.organicmaps.settings.TrackRecordingAutoResumePreference
+      android:key="@string/pref_track_recording_auto_resume"
+      android:title="@string/track_recording_auto_resume_title"
+      android:summary="@string/track_recording_auto_resume_summary"
+      android:defaultValue="false"
+      
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+  <androidx.preference.PreferenceScreen android:key="in_car_section_offline" android:title="@string/in_car_section_offline" android:summary="@string/in_car_section_offline_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="offline_in_car_group_maps_and_downloads" android:title="@string/in_car_group_maps_and_downloads">
+      <SwitchPreferenceCompat
+      android:key="@string/pref_autodownload"
+      android:title="@string/autodownload"
+      app:singleLineTitle="false"
+      />
+      <ListPreference
+      android:key="@string/pref_use_mobile_data"
+      android:title="@string/mobile_data"
+      app:singleLineTitle="false"
+      android:summary="@string/mobile_data_description"
+      android:entries="@array/mobile_data_options"
+      android:entryValues="@array/mobile_data_options_values"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_map_age_warning"
+      android:title="@string/in_car_ia_pref_in_car_map_age_warning"
+      android:summary="@string/in_car_map_age_warning_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="offline_in_car_group_storage" android:title="@string/in_car_group_storage">
+      <Preference
+      android:key="@string/pref_storage"
+      android:title="@string/maps_storage"
+      app:singleLineTitle="false"
+      android:summary="@string/maps_storage_summary"
+      />
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+  <androidx.preference.PreferenceScreen android:key="in_car_section_controls" android:title="@string/in_car_section_controls" android:summary="@string/in_car_section_controls_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="controls_in_car_group_vehicle_controls" android:title="@string/in_car_group_vehicle_controls">
+      <ListPreference
+      android:key="in_car_control_position"
+      android:title="@string/in_car_ia_in_car_control_position"
+      android:entries="@array/in_car_control_position_entries"
+      android:entryValues="@array/in_car_control_position_values"
+      android:defaultValue="RHD"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="controls_in_car_group_rendering_and_power" android:title="@string/in_car_group_rendering_and_power">
+      <ListPreference
+      android:key="@string/pref_power_management"
+      android:title="@string/power_managment_title"
+      app:singleLineTitle="false"
+      android:summary="@string/power_managment_description"
+      android:entries="@array/power_management_scheme"
+      android:entryValues="@array/power_management_scheme_values"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_in_car_budget_rendering"
+      android:title="@string/in_car_ia_pref_in_car_budget_rendering"
+      android:summary="@string/in_car_budget_rendering_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_3d_buildings"
+      android:title="@string/pref_map_3d_buildings_title"
+      app:singleLineTitle="false"
+      />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="controls_in_car_group_screen" android:title="@string/in_car_group_screen">
+      <SwitchPreferenceCompat
+      android:key="@string/pref_keep_screen_on"
+      android:title="@string/enable_keep_screen_on"
+      app:singleLineTitle="false"
+      android:summary="@string/enable_keep_screen_on_description"
+      android:defaultValue="false"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_show_on_lock_screen"
+      android:title="@string/enable_show_on_lock_screen"
+      app:singleLineTitle="false"
+      android:summary="@string/enable_show_on_lock_screen_description"
+      android:defaultValue="true"
+      />
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+  <androidx.preference.PreferenceScreen android:key="in_car_section_privacy" android:title="@string/in_car_section_privacy" android:summary="@string/in_car_section_privacy_summary" app:singleLineTitle="false">
+    <androidx.preference.PreferenceCategory android:key="@string/pref_privacy" android:title="@string/in_car_group_privacy">
+      <SwitchPreferenceCompat
+      android:key="@string/pref_search_history"
+      android:title="@string/search_history_title"
+      app:singleLineTitle="false"
+      android:defaultValue="true"
+      />
+      <SwitchPreferenceCompat
+      android:key="@string/pref_play_services"
+      android:title="@string/google_play_services"
+      app:singleLineTitle="false"
+      android:summary="@string/pref_use_google_play"
+      android:defaultValue="true"
+      />
+    </androidx.preference.PreferenceCategory>
+    <androidx.preference.PreferenceCategory android:key="privacy_in_car_group_support" android:title="@string/in_car_group_support">
+      <SwitchPreferenceCompat
+      android:key="@string/pref_enable_logging"
+      android:title="@string/in_car_ia_pref_enable_logging"
+      app:singleLineTitle="false"
+      android:summary="@string/enable_logging_warning_message"
+      android:defaultValue="false"
+      />
+      <Preference
+      android:key="@string/pref_help"
+      android:title="@string/help"
+      app:singleLineTitle="false"
+      >
+      </Preference>
+    </androidx.preference.PreferenceCategory>
+  </androidx.preference.PreferenceScreen>
+</androidx.preference.PreferenceScreen>
