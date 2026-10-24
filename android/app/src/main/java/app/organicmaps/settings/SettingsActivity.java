@@ -10,8 +10,8 @@ import androidx.fragment.app.Fragment;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
-import app.organicmaps.R;
 import app.organicmaps.BuildConfig;
+import app.organicmaps.R;
 import app.organicmaps.base.BaseToolbarActivity;
 
 public class SettingsActivity

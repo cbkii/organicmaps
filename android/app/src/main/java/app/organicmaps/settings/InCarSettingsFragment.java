@@ -86,7 +86,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
           updateLocationAccess();
         }
       });
-
     }
 
     if (findPreference("in_car_compact_startup") != null)
@@ -100,7 +99,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
         InCarSettingsStore.setCompactStartupEnabled(requireContext(), (boolean) value);
         return true;
       });
-
     }
 
     if (findPreference("in_car_speed_edge_warning") != null)
@@ -111,7 +109,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
         InCarSettingsStore.setSpeedEdgeWarningEnabled(requireContext(), (boolean) value);
         return true;
       });
-
     }
 
     if (findPreference("in_car_control_position") != null)
@@ -134,7 +131,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
         InCarSettingsStore.setAutomaticNavigationActionDelaySeconds(requireContext(), Integer.parseInt((String) value));
         return true;
       });
-
     }
 
     if (findPreference("in_car_location_access") != null)
@@ -163,7 +159,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
           return false;
         }
       });
-
     }
 
     if (findPreference(getString(R.string.pref_in_car_driving_view_mode)) != null)
@@ -173,7 +168,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
       // has been removed. The runtime policy normalises legacy MANUAL installs to AUTOMATIC.
       final ListPreference drivingView = getPreference(getString(R.string.pref_in_car_driving_view_mode));
       filterLegacyManualDrivingView(drivingView);
-
     }
 
     if (findPreference("in_car_route_resume_minutes") != null)
@@ -194,7 +188,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
         InCarSettingsStore.setRouteResumeMinutes(requireContext(), Integer.parseInt((String) value));
         return true;
       });
-
     }
 
     if (findPreference(getString(R.string.pref_in_car_navigation_fallback_mode)) != null)
@@ -212,7 +205,6 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
         return true;
       });
     }
-
   }
 
   @Override
@@ -221,8 +213,7 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
     super.onResume();
     final int generation = ++mCompactCheckGeneration;
     final View view = getView();
-    if (view == null || !app.organicmaps.BuildConfig.IS_IN_CAR
-        || findPreference("in_car_compact_startup") == null)
+    if (view == null || !app.organicmaps.BuildConfig.IS_IN_CAR || findPreference("in_car_compact_startup") == null)
       return;
     final TwoStatePreference compact = getPreference("in_car_compact_startup");
     compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
