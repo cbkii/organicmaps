@@ -32,6 +32,13 @@ public class InCarSettingsGeometryTest
     try (ActivityScenario<InCarUiTestActivity> scenario = ActivityScenario.launch(InCarUiTestActivity.class))
     {
       scenario.onActivity(activity -> {
+        final TextView language = (TextView) activity.getLayoutInflater().inflate(
+            R.layout.item_language, new android.widget.FrameLayout(activity), false);
+        final int horizontalGravity = language.getGravity() & ~android.view.Gravity.VERTICAL_GRAVITY_MASK;
+        InCarSettingsRows.apply(language);
+        assertEquals(android.view.Gravity.CENTER_VERTICAL,
+                     language.getGravity() & android.view.Gravity.VERTICAL_GRAVITY_MASK);
+        assertEquals(horizontalGravity, language.getGravity() & ~android.view.Gravity.VERTICAL_GRAVITY_MASK);
         final PreferenceManager manager = new PreferenceManager(activity);
         final PreferenceScreen screen = manager.createPreferenceScreen(activity);
         final PreferenceCategory heading = new PreferenceCategory(activity);
