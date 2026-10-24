@@ -2,6 +2,7 @@ package app.organicmaps.incar;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.res.Resources;
 import android.view.Gravity;
 import android.view.View;
@@ -21,7 +22,7 @@ public final class InCarDialogSizing
 {
   private InCarDialogSizing() {}
 
-  public static void applyCompactWidth(@NonNull Activity activity, @NonNull AlertDialog dialog)
+  public static void applyCompactWidth(@NonNull Activity activity, @NonNull Dialog dialog)
   {
     final Resources resources = activity.getResources();
     applyWidth(activity, dialog, resources.getFraction(R.fraction.in_car_compact_dialog_width_fraction, 1, 1),
@@ -94,8 +95,8 @@ public final class InCarDialogSizing
     enforceTouchTargets(activity, dialog);
   }
 
-  private static void applyWidth(@NonNull Activity activity, @NonNull AlertDialog dialog, float fraction,
-                                 int minWidthPx, int maxWidthPx)
+  private static void applyWidth(@NonNull Activity activity, @NonNull Dialog dialog, float fraction, int minWidthPx,
+                                 int maxWidthPx)
   {
     final Window window = dialog.getWindow();
     if (window == null)
@@ -108,7 +109,7 @@ public final class InCarDialogSizing
    * Dialog chrome otherwise falls back to phone defaults (commonly 48dp). Apply the InCar preferred
    * interaction height after the dialog is shown, while leaving layout width/height free to wrap or scroll.
    */
-  private static void enforceTouchTargets(@NonNull Activity activity, @NonNull AlertDialog dialog)
+  private static void enforceTouchTargets(@NonNull Activity activity, @NonNull Dialog dialog)
   {
     final Window window = dialog.getWindow();
     if (window == null)

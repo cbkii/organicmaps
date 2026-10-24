@@ -16,6 +16,13 @@
       android:layout_width="match_parent"
       android:layout_height="match_parent" />
 
+    <ViewStub
+      android:id="@+id/in_car_speed_warning_overlay_stub"
+      android:inflatedId="@id/in_car_speed_warning_overlay"
+      android:layout="@layout/in_car_speed_warning_overlay"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent" />
+
     <include
       android:id="@+id/onmap_downloader"
       layout="@layout/onmap_downloader"

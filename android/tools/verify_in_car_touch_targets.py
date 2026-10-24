@@ -428,7 +428,7 @@ def verify_code(root: Path) -> None:
     quick_policy = root / "android/app/src/main/java/app/organicmaps/incar/InCarQuickDestinationsLayoutPolicy.java"
     choice_adapter = root / "android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java"
     dialog_sizing = root / "android/app/src/main/java/app/organicmaps/incar/InCarDialogSizing.java"
-    settings_fragment = root / "android/app/src/main/java/app/organicmaps/settings/InCarSettingsFragment.java"
+    settings_fragment = root / "android/app/src/main/java/app/organicmaps/settings/BaseXmlSettingsFragment.java"
     routing_layouts = (
         root / "android/app/src/main/res/layout/routing_bottom_sheet.xml",
         root / "android/app/src/main/res/layout-land/routing_bottom_sheet.xml",
@@ -470,7 +470,7 @@ def verify_code(root: Path) -> None:
         "InCar list-preference dialog override",
     )
     require_text(
-        settings_fragment,
+        root / "android/app/src/main/java/app/organicmaps/settings/InCarListPreferenceDialogFragment.java",
         r"InCarChoiceAdapter\.singleChoice\(",
         "automotive-sized single-choice InCar preference rows",
     )
@@ -481,6 +481,37 @@ def verify_code(root: Path) -> None:
             raise VerificationError(f"{layout}: route actions still hard-code a 40dp touch target")
         if text.count('app:fabCustomSize="@dimen/routing_action_button_size"') != 4:
             raise VerificationError(f"{layout}: expected four resource-sized routing action FABs")
+
+
+def verify_settings_and_speed_edge(root: Path) -> None:
+    java = root / "android/app/src/main/java/app/organicmaps"
+    base = java / "settings/BaseXmlSettingsFragment.java"
+    require_text(base, r"if \(!BuildConfig\.IS_IN_CAR\)\s*return super\.onCreateAdapter", "InCar-only row adapter")
+    require_text(base, r"onBindViewHolder[\s\S]*InCarPreferenceRowPolicy\.bind", "row sizing before measurement")
+    reject_text(base, r"addOnChildAttachStateChangeListener", "attachment-time row sizing")
+    policy = java / "settings/InCarPreferenceRowPolicy.java"
+    require_text(policy, r"instanceof PreferenceCategory[\s\S]*setMinimumHeight\(0\)[\s\S]*else if \(preference\.isSelectable\(\)\)",
+                 "compact headings and selectable action rows")
+    rows = java / "incar/InCarSettingsRows.java"
+    require_text(rows, r"R\.dimen\.in_car_runtime_row_min_height", "76dp settings row owner")
+    require_text(rows, r"if \(!BuildConfig\.IS_IN_CAR\)", "flavour-isolated custom rows")
+    require_text(rows, r"button\.setClickable\(false\)[\s\S]*row\.setOnClickListener", "single whole-row toggle owner")
+    choice = java / "incar/InCarChoiceAdapter.java"
+    require_text(choice, r"setMaxHeight\(Integer\.MAX_VALUE\)", "content-expanding choice rows")
+    require_text(choice, r"setMaxLines\(Integer\.MAX_VALUE\)", "unclipped translated choice labels")
+    banner = root / "android/app/src/main/res/layout/in_car_speed_warning_overlay.xml"
+    for attr, value in (("alpha", "0.5"), ("clickable", "false"), ("focusable", "false"),
+                        ("importantForAccessibility", "no"), ("layout_height", "match_parent")):
+        require_layout_attr(banner, "in_car_speed_edge_warning", ANDROID_NS, attr, value)
+    layout = read_text(root / "android/app/src/main/res/layout/activity_map.xml")
+    warning_layer = layout.index('android:id="@+id/in_car_speed_warning_overlay_stub"')
+    controls = layout.index('android:id="@+id/map_buttons"')
+    speed_layer = layout.index('android:id="@+id/in_car_driving_overlay_stub"')
+    if not warning_layer < controls < speed_layer:
+        raise VerificationError("speed paint must be below controls; the speed readout must remain above controls")
+    driving = java / "incar/InCarDrivingUi.java"
+    require_text(driving, r"registerOnSharedPreferenceChangeListener", "immediate warning setting observation")
+    require_text(driving, r"unregisterOnSharedPreferenceChangeListener", "warning setting observation cleanup")
 
 
 def main() -> int:
@@ -495,6 +526,7 @@ def main() -> int:
         verify_driving_view_lifecycle(root)
         verify_camera_rail_movement(root)
         verify_code(root)
+        verify_settings_and_speed_edge(root)
     except VerificationError as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 1

@@ -39,6 +39,12 @@ public class ToggleMapLayerFragment extends Fragment
     mMapButtonsController =
         (MapButtonsController) requireActivity().getSupportFragmentManager().findFragmentById(R.id.map_buttons);
     MaterialButton mCloseButton = mRoot.findViewById(R.id.close_button);
+    if (app.organicmaps.BuildConfig.IS_IN_CAR)
+    {
+      final int target = getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred);
+      mCloseButton.getLayoutParams().width = target;
+      mCloseButton.getLayoutParams().height = target;
+    }
     mCloseButton.setOnClickListener(view -> closeLayerBottomSheet());
 
     initRecycler(mRoot);
@@ -48,8 +54,11 @@ public class ToggleMapLayerFragment extends Fragment
   private void initRecycler(@NonNull View root)
   {
     RecyclerView recycler = root.findViewById(R.id.recycler);
-    RecyclerView.LayoutManager layoutManager =
-        new SpanningLinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
+    RecyclerView.LayoutManager layoutManager = new SpanningLinearLayoutManager(
+        requireContext(), LinearLayoutManager.HORIZONTAL, false,
+        app.organicmaps.BuildConfig.IS_IN_CAR
+            ? getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred)
+            : 0);
     recycler.setLayoutManager(layoutManager);
     mAdapter = new LayersAdapter(getLayersItems());
     recycler.setAdapter(mAdapter);
