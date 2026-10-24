@@ -59,45 +59,70 @@ public class SettingsPrefsFragment extends BaseXmlSettingsFragment implements La
         profile.setVisible(false);
     }
 
-    initStoragePrefCallbacks();
-    initMeasureUnitsPrefsCallbacks();
-    initZoomPrefsCallbacks();
-    initMapStylePrefsCallbacks();
-    initAutoDownloadPrefsCallbacks();
-    initLargeFontSizePrefsCallbacks();
-    initTransliterationPrefsCallbacks();
-    init3dModePrefsCallbacks();
-    initPerspectivePrefsCallbacks();
-    initAutoZoomPrefsCallbacks();
-    initLoggingEnabledPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_storage)) != null)
+      initStoragePrefCallbacks();
+    if (findPreference(getString(R.string.pref_munits)) != null)
+      initMeasureUnitsPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_show_zoom_buttons)) != null)
+      initZoomPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_map_appearance)) != null)
+      initMapStylePrefsCallbacks();
+    if (findPreference(getString(R.string.pref_autodownload)) != null)
+      initAutoDownloadPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_large_fonts_size)) != null)
+      initLargeFontSizePrefsCallbacks();
+    if (findPreference(getString(R.string.pref_transliteration)) != null)
+      initTransliterationPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_3d_buildings)) != null)
+      init3dModePrefsCallbacks();
+    if (findPreference(getString(R.string.pref_3d)) != null)
+      initPerspectivePrefsCallbacks();
+    if (findPreference(getString(R.string.pref_auto_zoom)) != null)
+      initAutoZoomPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_enable_logging)) != null)
+      initLoggingEnabledPrefsCallbacks();
     initEmulationBadStorage();
-    initUseMobileDataPrefsCallbacks();
-    initPowerManagementPrefsCallbacks();
-    initBookmarksTextPlacementPrefsCallbacks();
-    initShowDownloadedRegionsPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_use_mobile_data)) != null)
+      initUseMobileDataPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_power_management)) != null)
+      initPowerManagementPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_bookmarks_text_placement)) != null)
+      initBookmarksTextPlacementPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_show_downloaded_regions)) != null)
+      initShowDownloadedRegionsPrefsCallbacks();
     initPlayServicesPrefsCallbacks();
-    initSearchPrivacyPrefsCallbacks();
-    initScreenSleepEnabledPrefsCallbacks();
-    initShowOnLockScreenPrefsCallbacks();
-    initNightNavigationPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_search_history)) != null)
+      initSearchPrivacyPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_keep_screen_on)) != null)
+      initScreenSleepEnabledPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_show_on_lock_screen)) != null)
+      initShowOnLockScreenPrefsCallbacks();
+    if (findPreference(getString(R.string.pref_auto_night_in_navigation)) != null)
+      initNightNavigationPrefsCallbacks();
   }
 
   private void updateVoiceInstructionsPrefsSummary()
   {
-    final Preference pref = getPreference(getString(R.string.pref_tts_screen));
+    final Preference pref = findPreference(getString(R.string.pref_tts_screen));
+    if (pref == null)
+      return;
     pref.setSummary(Config.TTS.isEnabled() ? R.string.on : R.string.off);
   }
 
   private void updateMapLanguageCodeSummary()
   {
-    final Preference pref = getPreference(getString(R.string.pref_map_locale));
+    final Preference pref = findPreference(getString(R.string.pref_map_locale));
+    if (pref == null)
+      return;
     Locale locale = new Locale(MapLanguageCode.getMapLanguageCode());
     pref.setSummary(locale.getDisplayLanguage());
   }
 
   private void updateRoutingSettingsPrefsSummary()
   {
-    final Preference pref = getPreference(getString(R.string.prefs_routing));
+    final Preference pref = findPreference(getString(R.string.prefs_routing));
+    if (pref == null)
+      return;
     pref.setSummary(RoutingOptions.hasAnyOptions() ? R.string.on : R.string.off);
   }
 
