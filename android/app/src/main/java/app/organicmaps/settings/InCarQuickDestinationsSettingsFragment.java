@@ -128,7 +128,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     query.setSingleLine(true);
     query.setHint(R.string.in_car_quick_search_hint);
     query.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
-    query.setMinHeight(dp(56));
+    query.setMinHeight(getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height));
     root.addView(
         query, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -185,7 +185,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
                                                             ViewGroup.LayoutParams.MATCH_PARENT));
 
     final AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(root).create();
-    savedPlacesBtn.setOnClickListener(v -> showSavedPlacesDialog(preference, home));
+    savedPlacesBtn.setOnClickListener(v -> showSavedPlacesDialog(preference, home, dialog::dismiss));
     currentLocationBtn.setOnClickListener(v -> {
       final int labelRes = home ? R.string.in_car_quick_home : R.string.in_car_quick_work;
       saveCurrentLocation(preference, labelRes, home);
@@ -362,7 +362,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
     statusText.setText(messageRes);
   }
 
-  private void showSavedPlacesDialog(@NonNull Preference preference, boolean home)
+  private void showSavedPlacesDialog(@NonNull Preference preference, boolean home, @NonNull Runnable onSaved)
   {
     if (BookmarkManager.INSTANCE.isAsyncBookmarksLoadingInProgress())
     {
@@ -397,6 +397,7 @@ public final class InCarQuickDestinationsSettingsFragment extends BaseXmlSetting
                                                      choices.get(which).destination;
                                                  saveDestination(home, destination);
                                                  updateDestinationSummary(preference, destination);
+                                                 onSaved.run();
                                                })
                                    .create();
     dialog.setOnShowListener(ignored -> InCarDialogSizing.applyPickerSize(requireActivity(), dialog));

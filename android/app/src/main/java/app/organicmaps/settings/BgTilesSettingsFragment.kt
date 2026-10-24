@@ -10,6 +10,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.widget.doAfterTextChanged
 import app.organicmaps.R
 import app.organicmaps.base.BaseMwmFragment
+import app.organicmaps.incar.InCarSettingsRows
 import app.organicmaps.sdk.Framework
 import app.organicmaps.util.WindowInsetUtils.ScrollableContentInsetsListener
 import com.google.android.material.slider.Slider
@@ -73,6 +74,13 @@ class BgTilesSettingsFragment : BaseMwmFragment() {
         enabledSwitch.setOnCheckedChangeListener { _, isChecked ->
             updateFieldsEnabled(isChecked)
             refreshValidation()
+        }
+        InCarSettingsRows.bindToggle(enabledSwitch, getString(R.string.pref_bg_tiles_title))
+        if (app.organicmaps.BuildConfig.IS_IN_CAR) {
+            val target = resources.getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height)
+            urlField.minimumHeight = target
+            cacheSizeSlider.minimumHeight = target
+            opacitySlider.minimumHeight = target
         }
         urlField.doAfterTextChanged { refreshValidation() }
         cacheSizeSlider.bindValueLabel(cacheSizeLabel)

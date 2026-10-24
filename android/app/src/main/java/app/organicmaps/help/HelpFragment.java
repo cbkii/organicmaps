@@ -33,6 +33,7 @@ public class HelpFragment extends BaseMwmFragment implements View.OnClickListene
   {
     final TextView view = frame.findViewById(id);
     view.setOnClickListener(this);
+    app.organicmaps.incar.InCarSettingsRows.apply(view);
     if (tint)
       Graphics.tint(view);
     return view;

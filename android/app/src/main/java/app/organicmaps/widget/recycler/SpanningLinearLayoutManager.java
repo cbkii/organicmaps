@@ -9,9 +9,17 @@ import androidx.recyclerview.widget.RecyclerView;
 
 public class SpanningLinearLayoutManager extends LinearLayoutManager
 {
+  private final int mMinimumItemSizePx;
   public SpanningLinearLayoutManager(@NonNull Context context, int orientation, boolean reverseLayout)
   {
+    this(context, orientation, reverseLayout, 0);
+  }
+
+  public SpanningLinearLayoutManager(@NonNull Context context, int orientation, boolean reverseLayout,
+                                     int minimumItemSizePx)
+  {
     super(context, orientation, reverseLayout);
+    mMinimumItemSizePx = Math.max(0, minimumItemSizePx);
   }
 
   @Override
@@ -42,7 +50,7 @@ public class SpanningLinearLayoutManager extends LinearLayoutManager
   {
     if (getOrientation() == HORIZONTAL)
     {
-      layoutParams.width = (int) Math.round(getHorizontalSpace() / (double) getItemCount());
+      layoutParams.width = Math.max(mMinimumItemSizePx, (int) Math.round(getHorizontalSpace() / (double) Math.max(1, getItemCount())));
     }
     else if (getOrientation() == VERTICAL)
     {
@@ -60,7 +68,7 @@ public class SpanningLinearLayoutManager extends LinearLayoutManager
   @Override
   public boolean canScrollHorizontally()
   {
-    return false;
+    return mMinimumItemSizePx > 0 && getItemCount() * mMinimumItemSizePx > getHorizontalSpace();
   }
 
   private int getHorizontalSpace()

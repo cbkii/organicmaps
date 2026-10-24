@@ -28,7 +28,18 @@ class LayerHolder extends RecyclerView.ViewHolder
     mTitle = root.findViewById(R.id.name);
     mNewMarker = root.findViewById(R.id.marker);
     mButton = root.findViewById(R.id.btn);
-    mButton.setOnClickListener(this::onItemClicked);
+    if (app.organicmaps.BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarSettingsRows.apply(root);
+      root.setMinimumWidth(root.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred));
+      root.setOnClickListener(this::onItemClicked);
+      root.setFocusable(true);
+      mButton.setClickable(false);
+      mButton.setFocusable(false);
+      mButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+    }
+    else
+      mButton.setOnClickListener(this::onItemClicked);
   }
 
   public void onItemClicked(@NonNull View v)
