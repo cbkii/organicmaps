@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
+import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.base.BaseToolbarActivity;
 
@@ -34,7 +35,7 @@ public class SettingsActivity
   @Override
   protected Class<? extends Fragment> getFragmentClass()
   {
-    return SettingsPrefsFragment.class;
+    return BuildConfig.IS_IN_CAR ? InCarSettingsFragment.class : SettingsPrefsFragment.class;
   }
 
   @Override
@@ -69,7 +70,7 @@ public class SettingsActivity
   {
     Bundle args = new Bundle();
     args.putString(PreferenceFragmentCompat.ARG_PREFERENCE_ROOT, preferenceScreen.getKey());
-    stackFragment(SettingsPrefsFragment.class, preferenceScreen.getTitle().toString(), args);
+    stackFragment(getFragmentClass(), preferenceScreen.getTitle().toString(), args);
     return true;
   }
 }

@@ -44,9 +44,20 @@ public final class InCarMapLayersSettingsFragment extends BaseXmlSettingsFragmen
     final SwitchPreferenceCompat preference = getPreference(key);
     final Context context = requireContext();
     final boolean available = LayersUtils.getAvailableLayers().contains(mode);
+    // A missing XYZ source makes Satellite unavailable, not a user choice. Explain the
+    // prerequisite instead of silently removing the option from the settings screen.
+    if (!available && mode == Mode.SATELLITE)
+    {
+      preference.setVisible(true);
+      preference.setEnabled(false);
+      preference.setSummary(R.string.in_car_satellite_source_required);
+      return;
+    }
     preference.setVisible(available);
     if (!available)
       return;
+    preference.setEnabled(true);
+    preference.setSummary(null);
 
     preference.setChecked(mode.isEnabled(context));
     preference.setOnPreferenceChangeListener((ignored, newValue) -> {

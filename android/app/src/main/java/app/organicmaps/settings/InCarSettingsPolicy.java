@@ -206,7 +206,7 @@ final class InCarSettingsPolicy
 
   private static void installGenericPreferenceGuardObserver(@NonNull PreferenceFragmentCompat fragment)
   {
-    if (!BuildConfig.IS_IN_CAR || fragment instanceof InCarSettingsFragment)
+    if (!BuildConfig.IS_IN_CAR || fragment.findPreference(fragment.getString(R.string.pref_3d_buildings)) == null)
       return;
 
     fragment.getLifecycle().addObserver(new DefaultLifecycleObserver() {
@@ -258,7 +258,7 @@ final class InCarSettingsPolicy
 
   private static void applyGenericPreferenceGuards(@NonNull PreferenceFragmentCompat fragment)
   {
-    if (!BuildConfig.IS_IN_CAR || fragment instanceof InCarSettingsFragment)
+    if (!BuildConfig.IS_IN_CAR || fragment.findPreference(fragment.getString(R.string.pref_3d_buildings)) == null)
       return;
 
     @Nullable
