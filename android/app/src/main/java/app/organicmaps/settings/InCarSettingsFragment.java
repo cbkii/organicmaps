@@ -248,10 +248,10 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
     final Preference driving = findPreference("in_car_section_driving");
     if (driving != null)
     {
-      final boolean automatic =
-          app.organicmaps.incar.InCarDrivingViewModePolicy.getMode(requireContext())
-          != app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode.OFF;
-      driving.setSummary(getString(R.string.in_car_ia_driving_state, getString(automatic ? R.string.on : R.string.off)));
+      final boolean automatic = app.organicmaps.incar.InCarDrivingViewModePolicy.getMode(requireContext())
+                             != app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode.OFF;
+      driving.setSummary(
+          getString(R.string.in_car_ia_driving_state, getString(automatic ? R.string.on : R.string.off)));
     }
 
     final Preference places = findPreference("in_car_section_places");
@@ -259,11 +259,10 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
     {
       final boolean homeSet = app.organicmaps.incar.InCarQuickDestinationsStore.getHome(requireContext()) != null;
       final boolean workSet = app.organicmaps.incar.InCarQuickDestinationsStore.getWork(requireContext()) != null;
-      places.setSummary(getString(R.string.in_car_ia_places_state,
-                                  getString(homeSet ? R.string.in_car_quick_configured
-                                                    : R.string.in_car_quick_not_configured),
-                                  getString(workSet ? R.string.in_car_quick_configured
-                                                    : R.string.in_car_quick_not_configured)));
+      places.setSummary(
+          getString(R.string.in_car_ia_places_state,
+                    getString(homeSet ? R.string.in_car_quick_configured : R.string.in_car_quick_not_configured),
+                    getString(workSet ? R.string.in_car_quick_configured : R.string.in_car_quick_not_configured)));
     }
   }
 
