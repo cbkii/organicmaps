@@ -499,13 +499,19 @@ def verify_settings_and_speed_edge(root: Path) -> None:
     choice = java / "incar/InCarChoiceAdapter.java"
     require_text(choice, r"setMaxHeight\(Integer\.MAX_VALUE\)", "content-expanding choice rows")
     require_text(choice, r"setMaxLines\(Integer\.MAX_VALUE\)", "unclipped translated choice labels")
-    banner = root / "android/app/src/inCar/res/layout/in_car_driving_overlay.xml"
+    banner = root / "android/app/src/main/res/layout/in_car_speed_warning_overlay.xml"
     for attr, value in (("alpha", "0.5"), ("clickable", "false"), ("focusable", "false"),
                         ("importantForAccessibility", "no"), ("layout_height", "match_parent")):
         require_layout_attr(banner, "in_car_speed_edge_warning", ANDROID_NS, attr, value)
     layout = read_text(root / "android/app/src/main/res/layout/activity_map.xml")
-    if layout.index('android:id="@+id/in_car_driving_overlay_stub"') > layout.index('android:id="@+id/map_buttons"'):
-        raise VerificationError("speed edge must paint below map interaction chrome")
+    warning_layer = layout.index('android:id="@+id/in_car_speed_warning_overlay_stub"')
+    controls = layout.index('android:id="@+id/map_buttons"')
+    speed_layer = layout.index('android:id="@+id/in_car_driving_overlay_stub"')
+    if not warning_layer < controls < speed_layer:
+        raise VerificationError("speed paint must be below controls; the speed readout must remain above controls")
+    driving = java / "incar/InCarDrivingUi.java"
+    require_text(driving, r"registerOnSharedPreferenceChangeListener", "immediate warning setting observation")
+    require_text(driving, r"unregisterOnSharedPreferenceChangeListener", "warning setting observation cleanup")
 
 
 def main() -> int:

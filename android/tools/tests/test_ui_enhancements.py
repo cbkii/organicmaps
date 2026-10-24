@@ -18,7 +18,7 @@ class UiEnhancementGateTest(unittest.TestCase):
     def test_invalid_sizing_and_banner_contracts_are_rejected(self):
         mutations = [
             ("android/app/src/main/res/values/in_car_runtime_ui.xml", "76dp", "69dp", verifier.verify_resources),
-            ("android/app/src/inCar/res/layout/in_car_driving_overlay.xml", 'android:alpha="0.5"', 'android:alpha="1.0"', verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/res/layout/in_car_speed_warning_overlay.xml", 'android:alpha="0.5"', 'android:alpha="1.0"', verifier.verify_settings_and_speed_edge),
             ("android/app/src/main/java/app/organicmaps/settings/BaseXmlSettingsFragment.java", "if (!BuildConfig.IS_IN_CAR)", "if (false)", verifier.verify_settings_and_speed_edge),
             ("android/app/src/main/java/app/organicmaps/settings/InCarPreferenceRowPolicy.java", "instanceof PreferenceCategory", "instanceof Preference", verifier.verify_settings_and_speed_edge),
         ]

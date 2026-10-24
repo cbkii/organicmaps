@@ -13,7 +13,8 @@ public final class InCarSettingsStore
   private static final String KEY_AUTO_DRIVING_VIEW = "InCarAutomaticDrivingView";
   private static final String KEY_AUTO_RETURN_DRIVING_VIEW = "InCarAutoReturnDrivingView";
   private static final String KEY_BUDGET_RENDERING = "InCarBudgetRendering";
-  private static final String KEY_SPEED_EDGE_WARNING = "InCarSpeedEdgeWarning";
+  static final String KEY_CONTROL_POSITION = "InCarControlPosition";
+  static final String KEY_SPEED_EDGE_WARNING = "InCarSpeedEdgeWarning";
   private static final String KEY_MAP_AGE_WARNING = "InCarMapAgeWarning";
   private static final String KEY_DRIVING_VIEW_SESSION_ENABLED = "InCarDrivingViewSessionEnabled";
   private static final String KEY_DRIVING_VIEW_SESSION_SOURCE = "InCarDrivingViewSessionSource";
@@ -27,12 +28,12 @@ public final class InCarSettingsStore
 
   public static boolean controlsOnLeft(@NonNull Context context)
   {
-    return InCarControlPositionPolicy.isLeft(prefs(context).getString("InCarControlPosition", "RHD"));
+    return InCarControlPositionPolicy.isLeft(prefs(context).getString(KEY_CONTROL_POSITION, "RHD"));
   }
 
   public static void setControlPosition(@NonNull Context context, @NonNull String position)
   {
-    prefs(context).edit().putString("InCarControlPosition", "LHD".equals(position) ? "LHD" : "RHD").apply();
+    prefs(context).edit().putString(KEY_CONTROL_POSITION, "LHD".equals(position) ? "LHD" : "RHD").apply();
   }
 
   public static int getAutomaticNavigationActionDelaySeconds(@NonNull Context context)

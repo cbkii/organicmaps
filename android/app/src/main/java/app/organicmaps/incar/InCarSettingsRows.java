@@ -23,7 +23,7 @@ public final class InCarSettingsRows
     if (!BuildConfig.IS_IN_CAR)
       return;
     row.setMinimumHeight(Math.max(row.getMinimumHeight(),
-                                 row.getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height)));
+                                  row.getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height)));
     final ViewGroup.LayoutParams params = row.getLayoutParams();
     if (params != null && params.height >= 0)
     {
