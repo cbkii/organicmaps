@@ -526,7 +526,7 @@ void MyPositionController::OnLocationUpdate(location::GpsInfo const & info, bool
     ChangeMode(newMode);
 
     if (!recenterOnThisFix && (m_isDrivingView || !m_hints.m_isFirstLaunch ||
-                              !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane)))
+                               !AnimationSystem::Instance().AnimationExists(Animation::Object::MapPlane)))
     {
       if (m_mode == location::Follow)
       {
