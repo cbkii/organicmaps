@@ -169,7 +169,7 @@ public final class InCarQuickDestinationsUi
       mActivity = activity;
       mRoot = root;
       mContainer = container;
-      // The destination rail provides the opaque backing for its black glyphs.
+      // The destination rail provides the translucent backing for its black glyphs.
       mContainer.setBackgroundResource(R.drawable.in_car_quick_rail);
       mContainer.setClipToOutline(true);
       mPrefs = MwmApplication.prefs(activity);

@@ -556,7 +556,7 @@ public class AccessibilityTest {
         for source in (day, night):
             _, *ink = resolve(source, "in_car_quick_foreground")
             alpha, *surface = resolve(source, "in_car_quick_surface")
-            self.assertEqual(alpha, 255)
+            self.assertEqual(alpha, 230)
             self.assertEqual(ink, [0, 0, 0])
             for tile in (0, 255):
                 composited = tuple(round((alpha * x + (255 - alpha) * tile) / 255)

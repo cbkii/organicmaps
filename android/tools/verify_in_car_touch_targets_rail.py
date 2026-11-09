@@ -170,11 +170,14 @@ def verify_navigation_refinements(root):
     base.require_layout_attr(layout, "nav_next_turn_container", base.ANDROID_NS, "layoutDirection", "ltr")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_width", "0dp")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_weight", "1")
-    for view in ("street", "distance"):
+    for view, horizontal_gravity in (("street", "right"), ("distance", "end")):
         base.require_layout_attr(layout, view, base.APP_NS, "autoSizeTextType", "uniform")
         node = by_id[view]
-        if android("ellipsize") in node.attrib or "center_vertical" not in node.get(android("gravity"), ""):
+        base.require_layout_attr(layout, view, base.ANDROID_NS, "gravity", f"{horizontal_gravity}|center_vertical")
+        if android("ellipsize") in node.attrib:
             raise base.VerificationError(f"NOW {view} must fit and stay vertically centred")
+    base.require_layout_attr(layout, "in_car_nav_immediate_group", base.ANDROID_NS, "baselineAligned", "false")
+    base.require_layout_attr(layout, "nav_next_turn_frame", base.ANDROID_NS, "baselineAligned", "false")
     shields = root / "android/sdk/src/main/java/app/organicmaps/sdk/widget/roadshield/RoadShieldUtils.java"
     base.require_method_text(shields, "public int getSize(", r"paint\.getFontMetricsInt\(fm\)",
                              "a shield-only road label needs the line metrics to draw")

@@ -36,7 +36,7 @@ class ContrastCheck:
 
 
 QUICK_DESTINATION_CHECKS = (
-    ContrastCheck("quick controls", "in_car_quick_foreground", "in_car_quick_surface", 5.5),
+    ContrastCheck("quick controls", "in_car_quick_foreground", "in_car_quick_surface", 7.0),
 )
 
 DAY_CHECKS = (
@@ -231,7 +231,12 @@ def verify_palette(label: str, palette: dict[str, str], checks: tuple[ContrastCh
     for check in checks:
         foreground = resolve_color(check.foreground, palette)
         background = resolve_color(check.background, palette)
-        ratio = contrast_ratio(foreground, background)
+        if check in QUICK_DESTINATION_CHECKS:
+            # An unknown map tile may range from black to white. Measure the weaker extreme.
+            map_tiles = (Rgba(0.0, 0.0, 0.0, 1.0), Rgba(1.0, 1.0, 1.0, 1.0))
+            ratio = min(contrast_ratio(foreground, composite(background, tile)) for tile in map_tiles)
+        else:
+            ratio = contrast_ratio(foreground, background)
         status = "PASS" if ratio + 1e-9 >= check.minimum else "FAIL"
         print(f"{status} {check.label}: {ratio:.2f}:1 >= {check.minimum:.2f}:1")
         if status == "FAIL":

@@ -20,7 +20,7 @@
   <!-- Translucent locator edge follows the shared map-rail surface. -->
   <color name="in_car_map_control_outline">#66000000</color>
 
-  <color name="in_car_quick_surface">#FFFAFAFA</color>
+  <color name="in_car_quick_surface">#E6FAFAFA</color>
   <color name="in_car_quick_foreground">#FF000000</color>
   <color name="in_car_selection_accent">#FF0072B1</color>
   <color name="in_car_selection_foreground">#FFFFFFFF</color>
