@@ -165,6 +165,14 @@ node[place],
 area[place]
 {text-color: @in_car_place_label; text-halo-color: @label_halo_medium; text-halo-opacity: 1; text-halo-radius: 2;}
 
+/* Restore useful suburb names in the driving overview, within the zooms already indexed by default. */
+node|z10-14[place=suburb]
+{text: name; font-size: 12; text-color: @in_car_place_label; text-halo-color: @label_halo_medium;
+ text-halo-opacity: 1; text-halo-radius: 2;}
+
+node|z13-14[place=suburb]
+{font-size: 14;}
+
 /* Ordinary feature captions only. Keep locality/road/shield/address owners separate.
  * No text/font/icon properties here: visibility, placement and marker semantics stay native.
  */

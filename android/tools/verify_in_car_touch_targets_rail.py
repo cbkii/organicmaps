@@ -158,7 +158,7 @@ def verify_navigation_refinements(root):
         raise base.VerificationError("immediate guidance must not retain NOW/NEXT caption ids")
     base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "text", "@string/in_car_nav_after")
     base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "layout_height", "@dimen/in_car_nav_label_height")
-    base.require_value(values, "in_car_nav_guidance_label_width", "60dp", values_path)
+    base.require_layout_attr(layout, "in_car_nav_guidance_label", base.ANDROID_NS, "layout_width", "0dp")
     group = by_id["in_car_nav_immediate_group"]
     if not {"nav_next_turn_frame", "street_frame"}.issubset({base.resource_id(e, android("id")) for e in list(group)}):
         raise base.VerificationError("manoeuvre and road must share one immediate guidance group")
@@ -170,6 +170,15 @@ def verify_navigation_refinements(root):
     base.require_layout_attr(layout, "nav_next_turn_container", base.ANDROID_NS, "layoutDirection", "ltr")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_width", "0dp")
     base.require_layout_attr(layout, "street_frame", base.ANDROID_NS, "layout_weight", "1")
+    for view in ("street", "distance"):
+        base.require_layout_attr(layout, view, base.APP_NS, "autoSizeTextType", "uniform")
+        node = by_id[view]
+        if android("ellipsize") in node.attrib or "center_vertical" not in node.get(android("gravity"), ""):
+            raise base.VerificationError(f"NOW {view} must fit and stay vertically centred")
+    base.require_layout_attr(layout, "in_car_nav_guidance_group", base.ANDROID_NS, "layout_width", "0dp")
+    base.require_layout_attr(layout, "in_car_nav_guidance_group", base.ANDROID_NS, "background",
+                             "@color/in_car_nav_immediate_background")
+
     now = float(values["in_car_nav_now_icon_size"][:-2])
     after = float(values["in_car_nav_after_icon_size"][:-2])
     distance = float(values["in_car_nav_distance_text_size"][:-2])
@@ -256,9 +265,7 @@ def verify_warning_foreground_contrast(root):
         qualifier = "values-night" if night else "values"
         semantic = contrast.read_colors(root / f"android/app/src/inCar/res/{qualifier}/in_car_navigation_colours.xml")
         palette = {**fallbacks, **contrast.build_palette(root, night), **semantic}
-        stages = (("IMMEDIATE", "in_car_nav_immediate_background", "in_car_nav_immediate_foreground"),
-                  ("AFTER", "in_car_nav_after_background", "in_car_nav_after_foreground"),
-                  ("LANES", "in_car_nav_lanes_background", "in_car_nav_lanes_foreground"))
+        stages = (("NAVIGATION", "in_car_nav_immediate_background", "in_car_nav_immediate_foreground"),)
         for severity in ("in_car_nav_warning", "in_car_nav_warning_orange"):
             warning = contrast.resolve_color(severity, palette)
             for strength in (0.0, 0.44, 0.47, 0.50):

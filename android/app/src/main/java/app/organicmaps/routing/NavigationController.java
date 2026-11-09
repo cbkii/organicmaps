@@ -219,7 +219,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updateVehicle(@NonNull RoutingInfo info)
   {
-    mNextTurnDistance.setText(Utils.formatDistance(mFrame.getContext(), info.distToTurn));
+    mNextTurnDistance.setText(isInCarLandscape() ? info.distToTurn.toString(mFrame.getContext())
+                                                 : Utils.formatDistance(mFrame.getContext(), info.distToTurn));
     mNextTurnImage.setImageResource(info.carDirection.getTurnRes(info.exitNum));
 
     final boolean hasLanes = info.lanes != null && info.lanes.length > 0;
@@ -248,7 +249,8 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
 
   private void updatePedestrian(@NonNull RoutingInfo info)
   {
-    mNextTurnDistance.setText(Utils.formatDistance(mFrame.getContext(), info.distToTurn));
+    mNextTurnDistance.setText(isInCarLandscape() ? info.distToTurn.toString(mFrame.getContext())
+                                                 : Utils.formatDistance(mFrame.getContext(), info.distToTurn));
     mNextTurnImage.setImageResource(info.pedestrianDirection.getTurnRes());
   }
 
@@ -283,8 +285,11 @@ public class NavigationController implements TrafficManager.TrafficCallback, Nav
     // https://github.com/organicmaps/organicmaps/issues/3732
     UiUtils.visibleIf(hasStreet, mStreetFrame);
     if (!TextUtils.isEmpty(info.nextStreet))
-      mNextStreet.setText(RoadShieldUtils.createStreetTextWithShields(info.nextStreet, info.nextStreetRoadShields,
-                                                                      mNextStreet.getTextSize()));
+      mNextStreet.setText(
+          isInCarLandscape()
+              ? RoadShieldUtils.createAdaptiveStreetTextWithShields(info.nextStreet, info.nextStreetRoadShields)
+              : RoadShieldUtils.createStreetTextWithShields(info.nextStreet, info.nextStreetRoadShields,
+                                                            mNextStreet.getTextSize()));
     int margin = dimen(mFrame.getContext(), R.dimen.nav_frame_padding);
     if (isInCarLandscape())
       margin += computeNavContentHeight();

@@ -169,7 +169,7 @@ public final class InCarQuickDestinationsUi
       mActivity = activity;
       mRoot = root;
       mContainer = container;
-      // Both map rails use one source-set-specific, day/night surface and clipped shared cells.
+      // The destination rail provides the opaque backing for its black glyphs.
       mContainer.setBackgroundResource(R.drawable.in_car_quick_rail);
       mContainer.setClipToOutline(true);
       mPrefs = MwmApplication.prefs(activity);
@@ -723,7 +723,7 @@ public final class InCarQuickDestinationsUi
       final InCarQuickActionButton button = new InCarQuickActionButton(mActivity);
       resizeButton(button);
       final int actionSize = currentActionSizePx();
-      final int iconSize = currentActionIconSizePx();
+      final int iconSize = currentActionIconSizePx() + dp(4);
       final int iconPadding = Math.max(0, (actionSize - iconSize) / 2);
       button.setAppearance(iconRes, ContextCompat.getColor(mActivity, colorRes), quickForegroundColor(),
                            dp(InCarQuickDestinationsLayoutPolicy.ACTION_CORNER_RADIUS_DP), iconPadding);
@@ -744,7 +744,7 @@ public final class InCarQuickDestinationsUi
     private void resizeButton(@NonNull InCarQuickActionButton button)
     {
       final int size = currentActionSizePx();
-      final int iconSize = currentActionIconSizePx();
+      final int iconSize = currentActionIconSizePx() + dp(4);
       final int iconPadding = Math.max(0, (size - iconSize) / 2);
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams

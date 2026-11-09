@@ -14,7 +14,7 @@ class RouteSummarySpansTest(unittest.TestCase):
             self.skipTest('JDK unavailable')
         files = {
             'androidx/annotation/NonNull.java': 'package androidx.annotation;public @interface NonNull {}',
-            'android/graphics/Color.java': 'package android.graphics;public class Color{public static int WHITE=-1;}',
+            'androidx/annotation/ColorInt.java': 'package androidx.annotation;public @interface ColorInt {}',
             'android/text/Spannable.java': 'package android.text;public interface Spannable {int SPAN_EXCLUSIVE_EXCLUSIVE=33;}',
             'android/text/style/ForegroundColorSpan.java': 'package android.text.style;public class ForegroundColorSpan{public final int colour;public ForegroundColorSpan(int c){colour=c;}}',
             'android/text/SpannableStringBuilder.java': '''package android.text;import java.util.*;
@@ -24,11 +24,11 @@ public int length(){return text.length();}public char charAt(int i){return text.
 @SuppressWarnings("unchecked")public <T>T[] getSpans(int a,int b,Class<T> k){return spans.stream().filter(k::isInstance).toArray(n->(T[])java.lang.reflect.Array.newInstance(k,n));}
 public void removeSpan(Object o){spans.remove(o);}public void setSpan(Object o,int a,int b,int flags){if(a!=0||b!=length()||flags!=33)throw new AssertionError("incorrect range");spans.add(o);}}''',
             'Harness.java': '''import android.text.*;import android.text.style.*;import app.organicmaps.incar.InCarRouteSummary;
-class Harness {public static void main(String[] args){for(String text:new String[]{"2 min • 1.4 km","123 hours • 99999 km","٢ دقيقة • ١٫٤ كم",""}){
+class Harness {public static void main(String[] args){for(int ink:new int[]{0xff17222a,0xfff1f3f4})for(String text:new String[]{"2 min • 1.4 km","123 hours • 99999 km","٢ دقيقة • ١٫٤ كم",""}){
 var source=new SpannableStringBuilder(text);Object formatting=new Object();source.spans.add(formatting);source.spans.add(new ForegroundColorSpan(0xff000000));source.spans.add(new ForegroundColorSpan(0xff444444));
-var result=(SpannableStringBuilder)InCarRouteSummary.onBlackRail(source);var colours=result.getSpans(0,result.length(),ForegroundColorSpan.class);
+var result=(SpannableStringBuilder)InCarRouteSummary.withForeground(source,ink);var colours=result.getSpans(0,result.length(),ForegroundColorSpan.class);
 if(!text.equals(result.toString())||source.spans.size()!=3||!result.spans.contains(formatting))throw new AssertionError("format/source changed");
-if(colours.length!=(text.isEmpty()?0:1)||!text.isEmpty()&&colours[0].colour!=-1)throw new AssertionError("dark colour survived black rail");
+if(colours.length!=(text.isEmpty()?0:1)||!text.isEmpty()&&colours[0].colour!=ink)throw new AssertionError("summary did not take the rail foreground");
 }System.out.println("PASS production route-summary span copy / colours / formatting / RTL / empty");}}''',
         }
         with tempfile.TemporaryDirectory() as tmp:

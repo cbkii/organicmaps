@@ -2,7 +2,9 @@ package app.organicmaps.sdk.widgets.lanes;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -69,6 +71,8 @@ public class LanesDrawable extends Drawable
   @NonNull
   private final LaneDrawable[] mLanes;
 
+  private final Paint mActiveLaneBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
+
   private int mWidth;
   private int mHeight;
   private boolean mVerticalAlignmentTop;
@@ -78,6 +82,7 @@ public class LanesDrawable extends Drawable
     final TintColorInfo tintColorInfo = new TintColorInfo(ContextCompat.getColor(context, ACTIVE_LANE_TINT_RES),
                                                           ContextCompat.getColor(context, INACTIVE_LANE_TINT_RES));
     mLanes = createLaneDrawables(context, lanes, tintColorInfo);
+    mActiveLaneBackground.setColor(Color.TRANSPARENT);
   }
 
   public LanesDrawable(@NonNull final Context context, @NonNull LaneInfo[] lanes, @ColorInt int activeLaneTint,
@@ -85,10 +90,17 @@ public class LanesDrawable extends Drawable
   {
     final TintColorInfo tintColorInfo = new TintColorInfo(activeLaneTint, inactiveLaneTint);
     mLanes = createLaneDrawables(context, lanes, tintColorInfo);
+    mActiveLaneBackground.setColor(Color.TRANSPARENT);
   }
 
   public void setLaneColors(@ColorInt int active, @ColorInt int inactive)
   {
+    setLaneColors(active, inactive, Color.TRANSPARENT);
+  }
+
+  public void setLaneColors(@ColorInt int active, @ColorInt int inactive, @ColorInt int activeBackground)
+  {
+    mActiveLaneBackground.setColor(activeBackground);
     for (LaneDrawable lane : mLanes)
       lane.mDrawable.setTint(lane.mActive ? active : inactive);
     invalidateSelf();
@@ -145,7 +157,16 @@ public class LanesDrawable extends Drawable
   public void draw(@NonNull Canvas canvas)
   {
     for (final LaneDrawable drawable : mLanes)
+    {
+      if (drawable.mActive && mActiveLaneBackground.getColor() != Color.TRANSPARENT)
+      {
+        final Rect bounds = drawable.mDrawable.getBounds();
+        final float radius = Math.min(bounds.width(), bounds.height()) / 5.0f;
+        canvas.drawRoundRect(bounds.left, bounds.top, bounds.right, bounds.bottom, radius, radius,
+                             mActiveLaneBackground);
+      }
       drawable.draw(canvas);
+    }
   }
 
   @Override
