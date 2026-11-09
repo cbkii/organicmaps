@@ -932,12 +932,12 @@ public class MwmActivity extends BaseMwmFragmentActivity
         return;
       LocationState.nativeSwitchToNextMode();
     }
-    case cameraViewRecenter ->
+    case recenterPosition ->
     {
       if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
         return;
       final MwmApplication application = MwmApplication.from(this);
-      LocationState.nativeToggleCameraViewAndRecenter(application::requestInCarRecenterRecovery);
+      LocationState.nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery);
     }
     case toggleMapLayer -> toggleMapLayerBottomSheet();
     case bookmarks -> showBookmarks();

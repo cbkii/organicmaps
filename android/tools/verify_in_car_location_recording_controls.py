@@ -77,11 +77,12 @@ def verify_my_position() -> None:
     click = method_body(activity, "case myPosition ->")
     require("LocationState.nativeSwitchToNextMode()" in click,
             "Follow control must dispatch the native upstream mode cycle")
-    require("nativeRecenter" not in click, "Follow must not alias Camera View / Recentre")
-    camera = method_body(activity, "case cameraViewRecenter ->")
-    require("nativeToggleCameraViewAndRecenter(application::requestInCarRecenterRecovery)" in camera,
+    require("nativeRecenter" not in click, "Follow must not alias My Position")
+    camera = method_body(activity, "case recenterPosition ->")
+    require("nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery)" in camera,
             "camera action must retain bounded native recovery")
-    require("nativeSwitchToNextMode" not in camera, "camera must not alias Follow")
+    require("nativeSwitchToNextMode" not in camera and "nativeToggleCameraView" not in camera,
+            "My Position must not change Follow mode or camera presentation")
     acquisition = method_body(activity, "boolean recoverInCarRecenterLocation()")
     require("helper.isAcquisitionRequested()" in acquisition, "already-pending acquisition must stay pending")
     require("LocationState.getMode()" not in acquisition,
@@ -159,16 +160,20 @@ def verify_my_position() -> None:
             "JNI must not maintain a second provider position cache")
     controller = read("libs/drape_frontend/my_position_controller.cpp")
     recenter = method_body(controller, "bool MyPositionController::RecenterPreservingMode()")
-    for token in ("m_listener", "return false", "return true", "m_isPositionAssigned", "IsFreshPositionObservation", "m_recenterPending = true",
-                  "m_recenterPending = false", "m_position", "m_drawDirection", "GetRoutingRotationPixelCenter()",
-                  "m_visiblePixelRect.Center()", "kDoNotChangeZoom"):
-        require(token in recenter, f"native recenter owner missing {token}")
-    for forbidden in ("ChangeMode", "NextMode", "SetDrivingView"):
-        require(re.search(r"\b" + forbidden + r"\s*\(", recenter) is None,
+    apply = method_body(controller, "bool MyPositionController::TryRecenterPosition(int64_t now)")
+    for token in ("m_listener", "m_isPositionAssigned", "IsUsableRecenterObservation",
+                  "m_recenterDeadlineNanos = 0", "m_listener->RecenterPosition(m_position)"):
+        require(token in apply, f"native recenter owner missing {token}")
+    for forbidden in ("ChangeMode", "NextMode", "SetDrivingView", "ChangeModelView"):
+        require(re.search(r"\b" + forbidden + r"\s*\(", recenter + apply) is None,
                 f"native recenter must not change intent via {forbidden}")
     fresh = method_body(controller, "void MyPositionController::RefreshLocationFreshness(")
-    require("if (m_recenterPending)" in fresh and "RecenterPreservingMode()" in fresh,
-            "accepted fresh native position must consume a pending request")
+    require("now >= m_recenterDeadlineNanos" in fresh and "TryRecenterPosition(now)" in fresh,
+            "an accepted fix can consume a pending request only within its original deadline")
+    centre = method_body(renderer, "void FrontendRenderer::RecenterPosition(")
+    require("SetCenterEvent>(position, kDoNotChangeZoom, false" in centre
+            and "ApplyCameraPresentation" not in centre,
+            "My Position must use a direct centre move with existing zoom and presentation")
 
 
 def verify_track_recording() -> None:
