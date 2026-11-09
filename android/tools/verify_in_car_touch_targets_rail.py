@@ -175,6 +175,9 @@ def verify_navigation_refinements(root):
         node = by_id[view]
         if android("ellipsize") in node.attrib or "center_vertical" not in node.get(android("gravity"), ""):
             raise base.VerificationError(f"NOW {view} must fit and stay vertically centred")
+    shields = root / "android/sdk/src/main/java/app/organicmaps/sdk/widget/roadshield/RoadShieldUtils.java"
+    base.require_method_text(shields, "public int getSize(", r"paint\.getFontMetricsInt\(fm\)",
+                             "a shield-only road label needs the line metrics to draw")
     base.require_layout_attr(layout, "in_car_nav_guidance_group", base.ANDROID_NS, "layout_width", "0dp")
     base.require_layout_attr(layout, "in_car_nav_guidance_group", base.ANDROID_NS, "background",
                              "@color/in_car_nav_immediate_background")

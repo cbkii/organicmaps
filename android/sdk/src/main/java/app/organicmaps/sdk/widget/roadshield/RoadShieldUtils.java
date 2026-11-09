@@ -85,48 +85,39 @@ public class RoadShieldUtils
   /** Measure and draw at the TextView's chosen size, including during autosize trial layouts. */
   private static final class AdaptiveShieldSpan extends ReplacementSpan
   {
-    private final RoadShield mShield;
-    private RoadShieldDrawable mDrawable;
-    private float mTextSize;
+    private static final float DESIGN_TEXT_SIZE = 32.0f;
+    private final RoadShieldDrawable mDrawable;
 
     AdaptiveShieldSpan(RoadShield shield)
     {
-      mShield = shield;
+      mDrawable = new RoadShieldDrawable(shield, DESIGN_TEXT_SIZE, true);
     }
 
-    private RoadShieldDrawable drawable(Paint paint)
+    private float scale(Paint paint)
     {
-      if (mDrawable == null || mTextSize != paint.getTextSize())
-      {
-        mTextSize = paint.getTextSize();
-        mDrawable = new RoadShieldDrawable(mShield, mTextSize, true);
-      }
-      return mDrawable;
-    }
-
-    private static float fitHeight(Paint paint, RoadShieldDrawable drawable)
-    {
-      return Math.min(1.0f, (paint.descent() - paint.ascent()) / drawable.getIntrinsicHeight());
+      return Math.min(paint.getTextSize() / DESIGN_TEXT_SIZE,
+                      (paint.descent() - paint.ascent()) / mDrawable.getIntrinsicHeight());
     }
 
     @Override
     public int getSize(@NonNull Paint paint, CharSequence text, int start, int end, @Nullable Paint.FontMetricsInt fm)
     {
-      final RoadShieldDrawable drawable = drawable(paint);
-      return (int) Math.ceil(drawable.getIntrinsicWidth() * fitHeight(paint, drawable));
+      // Supply a line envelope even when the shield occupies the entire label.
+      if (fm != null)
+        paint.getFontMetricsInt(fm);
+      return (int) Math.ceil(mDrawable.getIntrinsicWidth() * scale(paint));
     }
 
     @Override
     public void draw(@NonNull Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom,
                      @NonNull Paint paint)
     {
-      final RoadShieldDrawable drawable = drawable(paint);
-      final float scale = fitHeight(paint, drawable);
-      final float offset = (paint.ascent() + paint.descent() - drawable.getIntrinsicHeight() * scale) / 2.0f;
+      final float scale = scale(paint);
+      final float offset = (paint.ascent() + paint.descent() - mDrawable.getIntrinsicHeight() * scale) / 2.0f;
       final int save = canvas.save();
       canvas.translate(x, y + offset);
       canvas.scale(scale, scale);
-      drawable.draw(canvas);
+      mDrawable.draw(canvas);
       canvas.restoreToCount(save);
     }
   }
