@@ -487,7 +487,9 @@ def verify_settings_and_speed_edge(root: Path) -> None:
     java = root / "android/app/src/main/java/app/organicmaps"
     base = java / "settings/BaseXmlSettingsFragment.java"
     require_text(base, r"if \(!BuildConfig\.IS_IN_CAR\)\s*return super\.onCreateAdapter", "InCar-only row adapter")
-    require_text(base, r"onBindViewHolder[\s\S]*InCarPreferenceRowPolicy\.bind", "row sizing before measurement")
+    require_method_text(base, "public void onBindViewHolder(",
+                        r"super\.onBindViewHolder\(holder,\s*position\)[\s\S]*InCarPreferenceRowPolicy\.bind",
+                        "row sizing before measurement")
     reject_text(base, r"addOnChildAttachStateChangeListener", "attachment-time row sizing")
     policy = java / "settings/InCarPreferenceRowPolicy.java"
     require_text(policy, r"instanceof PreferenceCategory[\s\S]*setMinimumHeight\(0\)[\s\S]*else if \(preference\.isSelectable\(\)\)",
@@ -497,21 +499,37 @@ def verify_settings_and_speed_edge(root: Path) -> None:
     require_text(rows, r"if \(!BuildConfig\.IS_IN_CAR\)", "flavour-isolated custom rows")
     require_text(rows, r"button\.setClickable\(false\)[\s\S]*row\.setOnClickListener", "single whole-row toggle owner")
     choice = java / "incar/InCarChoiceAdapter.java"
-    require_text(choice, r"setMaxHeight\(Integer\.MAX_VALUE\)", "content-expanding choice rows")
-    require_text(choice, r"setMaxLines\(Integer\.MAX_VALUE\)", "unclipped translated choice labels")
+    require_method_text(choice, "public View getView(", r"setMinHeight\([^;]*R\.dimen\.in_car_runtime_row_min_height",
+                        "76dp minimum choice row height")
+    require_method_text(choice, "public View getView(", r"setMaxHeight\(Integer\.MAX_VALUE\)", "content-expanding choice rows")
+    require_method_text(choice, "public View getView(", r"setMaxLines\(Integer\.MAX_VALUE\)", "unclipped translated choice labels")
     banner = root / "android/app/src/main/res/layout/in_car_speed_warning_overlay.xml"
+    for attr, value in (("clickable", "false"), ("focusable", "false"),
+                        ("importantForAccessibility", "noHideDescendants")):
+        require_layout_attr(banner, "in_car_speed_warning_overlay", ANDROID_NS, attr, value)
     for attr, value in (("alpha", "0.5"), ("clickable", "false"), ("focusable", "false"),
                         ("importantForAccessibility", "no"), ("layout_height", "match_parent")):
         require_layout_attr(banner, "in_car_speed_edge_warning", ANDROID_NS, attr, value)
-    layout = read_text(root / "android/app/src/main/res/layout/activity_map.xml")
-    warning_layer = layout.index('android:id="@+id/in_car_speed_warning_overlay_stub"')
-    controls = layout.index('android:id="@+id/map_buttons"')
-    speed_layer = layout.index('android:id="@+id/in_car_driving_overlay_stub"')
-    if not warning_layer < controls < speed_layer:
+    layout = parse_xml(root / "android/app/src/main/res/layout/activity_map.xml")
+    id_attr = f"{{{ANDROID_NS}}}id"
+    container = next((element for element in layout if resource_id(element, id_attr) == "map_container"), None)
+    if container is None:
+        raise VerificationError("activity_map.xml: missing map container")
+    positions = {resource_id(element, id_attr): index for index, element in enumerate(container)}
+    layers = ("in_car_speed_warning_overlay_stub", "map_buttons", "in_car_driving_overlay_stub")
+    if not all(layer in positions for layer in layers) or not positions[layers[0]] < positions[layers[1]] < positions[layers[2]]:
         raise VerificationError("speed paint must be below controls; the speed readout must remain above controls")
     driving = java / "incar/InCarDrivingUi.java"
-    require_text(driving, r"registerOnSharedPreferenceChangeListener", "immediate warning setting observation")
-    require_text(driving, r"unregisterOnSharedPreferenceChangeListener", "warning setting observation cleanup")
+    require_text(driving, r"settingsListener\s*=\s*\([^)]*\)\s*->\s*\{\s*if\s*\(InCarSettingsStore\.KEY_SPEED_EDGE_WARNING\.equals\(key\)",
+                 "speed-edge warning key handling")
+    require_text(driving, r"\.registerOnSharedPreferenceChangeListener\(observed\.settingsListener\)",
+                 "immediate warning setting observation")
+    require_method_text(driving, "public static void release(",
+                        r"\.unregisterOnSharedPreferenceChangeListener\(binding\.settingsListener\)",
+                        "warning setting observation cleanup")
+    require_method_text(driving, "private static void render(",
+                        r"speedEdgeWarning\.render\(showEdge,\s*InCarSpeedDisplayPolicy\.severity\(\)\)",
+                        "speed-edge warning rendering")
 
 
 def main() -> int:

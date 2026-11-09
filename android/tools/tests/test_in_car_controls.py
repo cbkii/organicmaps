@@ -196,13 +196,13 @@ class RibbonTest {
    LanesView lanes=new LanesView(); lanes.visibility=hasLanes?View.VISIBLE:View.INVISIBLE;
    a.children.put(R.id.lanes,lanes);
    if(!landscape){a.children.remove(R.id.in_car_nav_guidance_group);a.children.remove(R.id.in_car_nav_immediate_group);}
-   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{.18f,.5f,.8f,1f}){
+   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{0f,.18f,.5f,.8f,1f}){
     InCarSpeedDisplayPolicy.current=severity;
     renderRibbon(a,false,0);
     int original=a.children.get(R.id.nav_next_next_turn_frame).background;
-    renderRibbon(a,true,strength);
+    renderRibbon(a,strength>0,strength);
     View after=a.children.get(R.id.nav_next_next_turn_frame),now=a.children.get(R.id.nav_next_turn_frame);
-    check(after.background!=original);
+    check((after.background!=original)==(strength>0));
     check(lanes.background==after.background && after.background==now.background);
     TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
     TextView distance=now.findViewById(R.id.distance);
