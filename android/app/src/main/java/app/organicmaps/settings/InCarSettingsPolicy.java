@@ -180,6 +180,7 @@ final class InCarSettingsPolicy
       final boolean enabled = (boolean) newValue;
       InCarSettingsStore.setBudgetRenderingEnabled(fragment.requireContext(), enabled);
       InCarBudgetRendering.apply(fragment.requireContext(), enabled);
+      applyGenericPreferenceGuards(fragment);
       return true;
     });
   }

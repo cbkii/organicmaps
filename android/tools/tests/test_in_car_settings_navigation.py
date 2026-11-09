@@ -85,6 +85,15 @@ class InCarSettingsNavigationTest(unittest.TestCase):
         self.assertIn("UiTheme.getUiThemePreference()", owner)
         self.assertIn("if (findPreference(getString(R.string.pref_3d_buildings)) != null)", settings)
 
+    def test_budget_rendering_change_refreshes_buildings_on_same_screen(self):
+        policy = (FRAGMENT / "InCarSettingsPolicy.java").read_text()
+        binding = policy.split("private static void bindBudgetRendering(", 1)[1].split(
+            "private static void bindMapAgeWarning(", 1)[0]
+        self.assertRegex(binding, re.compile(
+            r"setOnPreferenceChangeListener.*?setBudgetRenderingEnabled\([^;]+;\s*"
+            r"InCarBudgetRendering\.apply\([^;]+;\s*"
+            r"applyGenericPreferenceGuards\(fragment\);\s*return true;", re.S))
+
     def test_original_automotive_dimensions_unchanged(self):
         source = (RES / "xml/prefs_in_car_home.xml").read_text()
         self.assertNotRegex(source, r"(?:minHeight|minWidth|layout_width|layout_height)=.*(?:[0-9]+dp)")

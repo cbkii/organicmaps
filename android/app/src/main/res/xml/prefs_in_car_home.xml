@@ -16,7 +16,7 @@
     <androidx.preference.PreferenceCategory android:key="navigation_in_car_group_route_planning" android:title="@string/in_car_group_route_planning">
       <PreferenceScreen
       android:key="@string/prefs_routing"
-      
+
       android:title="@string/driving_options_title">
       <intent
       android:targetClass="app.organicmaps.settings.DrivingOptionsActivity"
@@ -214,7 +214,7 @@
       android:title="@string/track_recording_auto_resume_title"
       android:summary="@string/track_recording_auto_resume_summary"
       android:defaultValue="false"
-      
+
       app:singleLineTitle="false" />
     </androidx.preference.PreferenceCategory>
   </androidx.preference.PreferenceScreen>
