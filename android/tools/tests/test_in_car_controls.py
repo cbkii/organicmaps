@@ -1581,7 +1581,7 @@ public class GuardTest {
         original_read = controls.read
         cases = [
             ("my_position_controller.cpp", "  m_recenterDeadlineNanos = 0;", "  ChangeMode(location::Follow);\n  m_recenterDeadlineNanos = 0;", "must not change intent"),
-            ("MwmActivity.java", "    mLocationActivityStopped = true;", "    mLocationActivityStopped = true;\n    mInCarRecenterRecovery = false;", "settings handoff"),
+            ("MwmActivity.java", "    mLocationActivityStopped = true;", "    mLocationActivityStopped = true;\n    mLocationPromptCoordinator.finishInCarRecenterRecovery();", "settings handoff"),
         ]
         for path, before, after, expected in cases:
             def altered(name):
@@ -1603,16 +1603,17 @@ public class GuardTest {
             with self.assertRaisesRegex(SystemExit, "dedicated regular layout"):
                 controls.verify_track_recording()
 
-    def test_restore_comment_spoof_is_rejected(self):
+    def test_persisting_recenter_recovery_is_rejected(self):
         original_read = controls.read
         def altered(path):
             source = original_read(path)
             if path.endswith("MwmActivity.java"):
-                source = source.replace("    mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean",
-                                        "    // mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean")
+                source = source.replace("    super.onRestoreInstanceState(savedInstanceState);",
+                                        "    super.onRestoreInstanceState(savedInstanceState);\n"
+                                        '    savedInstanceState.getBoolean("IN_CAR_RECENTER_RECOVERY", false);')
             return source
         with patch.object(controls, "read", altered):
-            with self.assertRaisesRegex(SystemExit, "configuration recreation"):
+            with self.assertRaisesRegex(SystemExit, "must not survive process recreation"):
                 controls.verify_my_position()
 
     def test_qualified_incar_resource_cannot_restore_recording(self):
@@ -1671,32 +1672,40 @@ public class GuardTest {
         if "jdk.compiler@" not in probe.stdout:
             self.skipTest("jdk.compiler unavailable: recovery delivery isolation NOT_RUN")
         application = controls.read("android/app/src/main/java/app/organicmaps/MwmApplication.java")
-        request = controls.method_body(application, "void requestInCarRecenterRecovery()")
+        request = controls.method_body(application, "void requestInCarRecenterRecovery(long deadlineMs)")
         retry = controls.method_body(application, "private void retryPendingInCarRecenterRecovery()")
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "RelayTest.java"
             source.write_text('''class BuildConfig { static final boolean IS_IN_CAR=true; }
-class MwmActivity { boolean ready; int deliveries;
- boolean recoverInCarRecenterLocation() { deliveries++; return ready; }
+class SystemClock { static long now=1000; static long elapsedRealtime() { return now; } }
+class MwmActivity { boolean ready; int deliveries; long deadline;
+ boolean recoverInCarRecenterLocation(long deadlineMs) { deliveries++; deadline=deadlineMs; return ready; }
 }
 class Relay {
- boolean mPendingInCarRecenterRecovery; Object current;
+ long mPendingInCarRecenterRecoveryDeadlineMs; Object current;
  Object getTopActivity() { return current; }
- void requestInCarRecenterRecovery() {''' + request + ''' }
+ void requestInCarRecenterRecovery(long deadlineMs) {''' + request + ''' }
  void retryPendingInCarRecenterRecovery() {''' + retry + ''' }
 }
 public class RelayTest {
  public static void main(String[] args) {
-  Relay app=new Relay(); app.requestInCarRecenterRecovery();
-  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("lost between Activities");
+  Relay app=new Relay(); app.requestInCarRecenterRecovery(31_000);
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=31_000) throw new AssertionError("lost between Activities");
   MwmActivity old=new MwmActivity(); app.current=old; app.retryPendingInCarRecenterRecovery();
-  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("lost while stopped/rendering unavailable");
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=31_000) throw new AssertionError("lost while stopped");
   app.current=new Object(); app.retryPendingInCarRecenterRecovery();
-  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("stolen by another Activity");
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=31_000) throw new AssertionError("stolen by another Activity");
   MwmActivity replacement=new MwmActivity(); replacement.ready=true; app.current=replacement;
+  SystemClock.now=30_999;
   app.retryPendingInCarRecenterRecovery(); app.retryPendingInCarRecenterRecovery();
-  if (app.mPendingInCarRecenterRecovery || replacement.deliveries!=1 || old.deliveries!=1)
-   throw new AssertionError("recovery not rebound/consumed once");
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=0 || replacement.deliveries!=1 || old.deliveries!=1
+      || replacement.deadline!=31_000)
+   throw new AssertionError("recovery not rebound with its original deadline and consumed once");
+  app.current=null; app.requestInCarRecenterRecovery(60_999);
+  app.current=replacement; SystemClock.now=60_999; app.retryPendingInCarRecenterRecovery();
+  app.requestInCarRecenterRecovery(60_999);
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=0 || replacement.deliveries!=1)
+   throw new AssertionError("expired Activity handoff or delayed renderer callback restarted recovery");
  }
 }''')
             compiler = Path(tmp) / "Compile.java"

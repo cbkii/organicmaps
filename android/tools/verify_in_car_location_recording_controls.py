@@ -79,27 +79,34 @@ def verify_my_position() -> None:
             "Follow control must dispatch the native upstream mode cycle")
     require("nativeRecenter" not in click, "Follow must not alias My Position")
     camera = method_body(activity, "case recenterPosition ->")
-    require("nativeRecenterToCurrentPosition(application::requestInCarRecenterRecovery)" in camera,
-            "camera action must retain bounded native recovery")
+    require("SystemClock.elapsedRealtime() + IN_CAR_RECENTER_RECOVERY_MS" in camera
+            and "nativeRecenterToCurrentPosition(() -> application.requestInCarRecenterRecovery(deadlineMs))" in camera,
+            "camera action must capture the Android recovery deadline before native dispatch")
     require("nativeSwitchToNextMode" not in camera and "nativeToggleCameraView" not in camera,
             "My Position must not change Follow mode or camera presentation")
-    acquisition = method_body(activity, "boolean recoverInCarRecenterLocation()")
+    acquisition = method_body(activity, "boolean recoverInCarRecenterLocation(long deadlineMs)")
     require("helper.isAcquisitionRequested()" in acquisition, "already-pending acquisition must stay pending")
+    require("deadlineMs <= SystemClock.elapsedRealtime()" in acquisition
+            and "mLocationPromptCoordinator.beginInCarRecenterRecovery(deadlineMs)" in acquisition,
+            "Activity must accept only a live tap deadline and retain it in the permission owner")
     require("LocationState.getMode()" not in acquisition,
             "assigned modes must not suppress acquisition after native rejects a stale position")
     recovery = method_body(activity, "private void restartLocationAfterAvailabilityConfirmed(")
-    explicit = method_body(recovery, "if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)")
+    require("final boolean recenterRecovery = BuildConfig.IS_IN_CAR && hasInCarRecenterRecovery()" in recovery,
+            "explicit-off and recenter dispatch must share the same deadline decision")
+    explicit = method_body(recovery, "if (recenterRecovery)")
     require("resumeLocationInForeground(true)" in explicit, "recenter recovery must reuse existing provider acquisition")
     for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
         require(forbidden not in explicit, f"recenter acquisition must preserve intent: {forbidden}")
     stopped = method_body(activity, "protected void onStop()")
-    require("mInCarRecenterRecovery = false" not in stopped,
+    require("finishInCarRecenterRecovery()" not in stopped,
             "settings handoff must retain bounded recenter recovery context")
-    restore = method_body(activity, "protected void onRestoreInstanceState(")
-    restore = re.sub(r"/\*.*?\*/|//[^\n]*", " ", restore, flags=re.S)
-    require(re.search(r"mInCarRecenterRecovery\s*=\s*BuildConfig\.IS_IN_CAR\s*&&\s*"
-                      r"savedInstanceState\.getBoolean\(IN_CAR_RECENTER_RECOVERY,\s*false\)", restore) is not None,
-            "configuration recreation must retain Android recovery context")
+    for signature in ("protected void onSaveInstanceState(", "protected void onRestoreInstanceState("):
+        require("RECENTER_RECOVERY" not in method_body(activity, signature),
+                "Android recovery context must not survive process recreation via saved state")
+    settle = method_body(activity, "private void settleInCarLocation()")
+    require("if (recenterRecovery && !hasInCarRecenterRecovery())" in settle,
+            "settling callbacks started for recenter must stop after expiry")
     render = method_body(java, "public void update(int mode)")
     for icon in ("ic_menu_location_pending", "ic_location_off", "ic_not_follow", "ic_follow", "ic_follow_and_rotate"):
         require(icon in render, f"Follow must render the actual native mode: {icon}")

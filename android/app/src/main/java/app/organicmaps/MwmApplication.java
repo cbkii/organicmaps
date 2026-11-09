@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
@@ -70,7 +71,7 @@ public class MwmApplication extends Application implements Application.ActivityL
   @Nullable
   private WeakReference<Activity> mTopActivity;
   // Deferred Android recovery delivery only; position and the pending camera request remain native-owned.
-  private boolean mPendingInCarRecenterRecovery;
+  private long mPendingInCarRecenterRecoveryDeadlineMs;
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
@@ -84,20 +85,22 @@ public class MwmApplication extends Application implements Application.ActivityL
   }
 
   @UiThread
-  void requestInCarRecenterRecovery()
+  void requestInCarRecenterRecovery(long deadlineMs)
   {
-    if (!BuildConfig.IS_IN_CAR)
+    if (!BuildConfig.IS_IN_CAR || deadlineMs <= SystemClock.elapsedRealtime()
+        || deadlineMs <= mPendingInCarRecenterRecoveryDeadlineMs)
       return;
-    mPendingInCarRecenterRecovery = true;
+    mPendingInCarRecenterRecoveryDeadlineMs = deadlineMs;
     retryPendingInCarRecenterRecovery();
   }
 
   @UiThread
   private void retryPendingInCarRecenterRecovery()
   {
-    if (mPendingInCarRecenterRecovery && getTopActivity() instanceof MwmActivity current
-        && current.recoverInCarRecenterLocation())
-      mPendingInCarRecenterRecovery = false;
+    final long deadlineMs = mPendingInCarRecenterRecoveryDeadlineMs;
+    if (deadlineMs <= SystemClock.elapsedRealtime()
+        || (getTopActivity() instanceof MwmActivity current && current.recoverInCarRecenterLocation(deadlineMs)))
+      mPendingInCarRecenterRecoveryDeadlineMs = 0;
   }
 
   @Nullable
