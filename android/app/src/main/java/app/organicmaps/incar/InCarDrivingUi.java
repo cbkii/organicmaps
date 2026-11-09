@@ -281,11 +281,13 @@ public final class InCarDrivingUi
       lanes.setBackgroundColor(immediateBackground);
       final int active = ContextCompat.getColor(activity, R.color.in_car_nav_lane_active);
       final int inactive = ContextCompat.getColor(activity, R.color.in_car_nav_lane_inactive);
-      final int highlight = ColorUtils.calculateContrast(active, immediateBackground) >= 4.5
-                              ? Color.TRANSPARENT
-                              : ContextCompat.getColor(activity, R.color.in_car_nav_lane_highlight);
       final int secondary =
           ColorUtils.calculateContrast(inactive, immediateBackground) >= 3.0 ? inactive : immediateForeground;
+      // A warning wash can force both glyphs to dark ink. Keep the guided lane distinct in that state too.
+      final boolean needsHighlight = ColorUtils.calculateContrast(active, immediateBackground) < 4.5
+                                  || ColorUtils.calculateContrast(active, secondary) < 1.5;
+      final int highlight =
+          needsHighlight ? ContextCompat.getColor(activity, R.color.in_car_nav_lane_highlight) : Color.TRANSPARENT;
       lanes.setLaneColors(active, secondary, highlight);
     }
   }

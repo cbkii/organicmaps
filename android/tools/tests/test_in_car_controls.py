@@ -210,6 +210,7 @@ class RibbonTest {
     check(ColorUtils.calculateContrast(distance.color,ColorUtils.compositeColors(now.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
     check(ColorUtils.calculateContrast(lanes.active,lanes.highlight==0?lanes.background:lanes.highlight)>=4.5);
     check(ColorUtils.calculateContrast(lanes.inactive,lanes.background)>=3.0);
+    check(lanes.highlight!=0||ColorUtils.calculateContrast(lanes.active,lanes.inactive)>=1.5);
     check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
     check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
     renderRibbon(a,false,0);
@@ -561,6 +562,13 @@ public class AccessibilityTest {
                 composited = tuple(round((alpha * x + (255 - alpha) * tile) / 255)
                                    for x in surface)
                 self.assertGreaterEqual(ratio(ink, composited), 7.0, (ink, tile))
+
+    def test_incar_start_build_progress_keeps_label_on_disabled_surface(self):
+        progress = controls.read("android/app/src/main/java/app/organicmaps/widget/RoutingProgressButton.kt")
+        self.assertIn("if (BuildConfig.IS_IN_CAR) height - resources.getDimension(R.dimen.nav_progress) else 0f",
+                      progress)
+        self.assertIn("drawRect(width - fillWidth, top", progress)
+        self.assertIn("drawRect(0f, top, fillWidth", progress)
 
     def test_start_rail_uses_padded_width_and_physical_anchor(self):
         java = shutil.which("java")
