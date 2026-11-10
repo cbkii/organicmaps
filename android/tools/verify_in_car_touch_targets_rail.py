@@ -176,6 +176,9 @@ def verify_navigation_refinements(root):
         base.require_layout_attr(layout, view, base.ANDROID_NS, "gravity", f"{horizontal_gravity}|center_vertical")
         if android("ellipsize") in node.attrib:
             raise base.VerificationError(f"NOW {view} must fit and stay vertically centred")
+    if android("maxLines") in by_id["street"].attrib:
+        raise base.VerificationError("NOW road text must use measured height instead of a fixed line cap")
+    base.require_layout_attr(layout, "street", base.ANDROID_NS, "breakStrategy", "balanced")
     base.require_layout_attr(layout, "in_car_nav_immediate_group", base.ANDROID_NS, "baselineAligned", "false")
     base.require_layout_attr(layout, "nav_next_turn_frame", base.ANDROID_NS, "baselineAligned", "false")
     shields = root / "android/sdk/src/main/java/app/organicmaps/sdk/widget/roadshield/RoadShieldUtils.java"

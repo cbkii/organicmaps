@@ -18,6 +18,7 @@ on:
       - 'android/app/src/main/res/layout/**'
       - 'android/app/src/main/res/layout-*/**'
       - 'android/tools/tests/test_ui_enhancements.py'
+      - 'android/tools/tests/test_navigation_ribbon_fit.py'
       - 'android/app/src/main/java/app/organicmaps/settings/InCarQuickDestinationsSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarWindowGeometryCoordinator.java'
@@ -61,6 +62,7 @@ on:
       - 'android/app/src/main/res/layout/**'
       - 'android/app/src/main/res/layout-*/**'
       - 'android/tools/tests/test_ui_enhancements.py'
+      - 'android/tools/tests/test_navigation_ribbon_fit.py'
       - 'android/app/src/main/java/app/organicmaps/settings/InCarQuickDestinationsSettingsFragment.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarVisuals.java'
       - 'android/app/src/main/java/app/organicmaps/util/InCarWindowGeometryCoordinator.java'
@@ -119,3 +121,4 @@ jobs:
           python3 -m unittest discover -s android/tools/tests -p test_in_car_controls.py
           python3 -m unittest discover -s android/tools/tests -p test_compact_startup.py
           python3 -m unittest discover -s android/tools/tests -p test_ui_enhancements.py
+          python3 -m unittest discover -s android/tools/tests -p test_navigation_ribbon_fit.py
