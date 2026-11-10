@@ -16,10 +16,25 @@ class UiEnhancementGateTest(unittest.TestCase):
         verifier.verify_resources(ROOT)
 
     def test_invalid_sizing_and_banner_contracts_are_rejected(self):
+        layout_path = "android/app/src/main/res/layout/activity_map.xml"
+        layout = (ROOT / layout_path).read_text()
+        warning_start = layout.index("    <ViewStub")
+        warning_end = layout.index("    <include", warning_start)
+        after_controls = layout.index("    <ViewStub", warning_end)
+        warning = layout[warning_start:warning_end]
+        between = layout[warning_end:after_controls]
         mutations = [
-            ("android/app/src/main/res/values/in_car_runtime_ui.xml", "76dp", "69dp", verifier.verify_resources),
+            ("android/app/src/main/res/values/in_car_runtime_ui.xml", 'name="in_car_touch_target_preferred">76dp', 'name="in_car_touch_target_preferred">69dp', verifier.verify_resources),
             ("android/app/src/main/res/layout/in_car_speed_warning_overlay.xml", 'android:alpha="0.5"', 'android:alpha="1.0"', verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/res/layout/in_car_speed_warning_overlay.xml", 'android:clickable="false"', 'android:clickable="true"', verifier.verify_settings_and_speed_edge),
+            (layout_path, warning + between, between + warning, verifier.verify_settings_and_speed_edge),
             ("android/app/src/main/java/app/organicmaps/settings/BaseXmlSettingsFragment.java", "if (!BuildConfig.IS_IN_CAR)", "if (false)", verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/java/app/organicmaps/settings/BaseXmlSettingsFragment.java", "InCarPreferenceRowPolicy.bind(holder.itemView, preference);", "return;", verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java", "R.dimen.in_car_runtime_row_min_height", "R.dimen.in_car_touch_target_extra_compact", verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/java/app/organicmaps/incar/InCarChoiceAdapter.java", "row.setMaxLines(Integer.MAX_VALUE);", "row.setMaxLines(1);", verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java", "KEY_SPEED_EDGE_WARNING.equals(key)", "KEY_CONTROL_POSITION.equals(key)", verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java", "unregisterOnSharedPreferenceChangeListener(binding.settingsListener)", "registerOnSharedPreferenceChangeListener(binding.settingsListener)", verifier.verify_settings_and_speed_edge),
+            ("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java", "binding.speedEdgeWarning.render(showEdge, InCarSpeedDisplayPolicy.severity());", "binding.speedEdgeWarning.setVisibility(View.GONE);", verifier.verify_settings_and_speed_edge),
             ("android/app/src/main/java/app/organicmaps/settings/InCarPreferenceRowPolicy.java", "instanceof PreferenceCategory", "instanceof Preference", verifier.verify_settings_and_speed_edge),
         ]
         for name, old, new, check in mutations:
@@ -38,7 +53,11 @@ class UiEnhancementGateTest(unittest.TestCase):
                 content = path.read_text()
                 self.assertIn(old, content)
                 path.unlink()
-                path.write_text(content.replace(old, new))
+                path.write_text(content.replace(old, new, 1))
                 with self.assertRaises(verifier.VerificationError):
                     check(root)
         verifier.verify_settings_and_speed_edge(ROOT)
+
+
+if __name__ == "__main__":
+    unittest.main()

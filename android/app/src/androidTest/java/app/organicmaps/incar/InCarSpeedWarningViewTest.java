@@ -24,10 +24,9 @@ public class InCarSpeedWarningViewTest
     try (ActivityScenario<InCarUiTestActivity> scenario = ActivityScenario.launch(InCarUiTestActivity.class))
     {
       scenario.onActivity(activity -> {
-        final FrameLayout frame = new FrameLayout(activity);
-        final InCarSpeedWarningView banner = new InCarSpeedWarningView(activity, null);
-        frame.addView(banner, new FrameLayout.LayoutParams(1, FrameLayout.LayoutParams.MATCH_PARENT));
-        activity.setContentView(frame);
+        activity.setContentView(R.layout.in_car_speed_warning_overlay);
+        final View frame = activity.findViewById(R.id.in_car_speed_warning_overlay);
+        final InCarSpeedWarningView banner = frame.findViewById(R.id.in_car_speed_edge_warning);
         assertEquals(0.5f, banner.getAlpha(), 0.001f);
         assertFalse(banner.isClickable());
         assertFalse(banner.isFocusable());
@@ -72,11 +71,11 @@ public class InCarSpeedWarningViewTest
     {
       scenario.onActivity(activity -> {
         final android.content.SharedPreferences prefs = app.organicmaps.MwmApplication.prefs(activity);
-        final boolean hadKey = prefs.contains("InCarSpeedEdgeWarning");
+        final boolean hadKey = prefs.contains(InCarSettingsStore.KEY_SPEED_EDGE_WARNING);
         final boolean saved = InCarSettingsStore.speedEdgeWarningEnabled(activity);
         try
         {
-          prefs.edit().remove("InCarSpeedEdgeWarning").commit();
+          prefs.edit().remove(InCarSettingsStore.KEY_SPEED_EDGE_WARNING).commit();
           assertTrue(InCarSettingsStore.speedEdgeWarningEnabled(activity));
           InCarSettingsStore.setSpeedEdgeWarningEnabled(activity, false);
           assertFalse(InCarSettingsStore.speedEdgeWarningEnabled(activity));
@@ -86,9 +85,9 @@ public class InCarSpeedWarningViewTest
         finally
         {
           if (hadKey)
-            prefs.edit().putBoolean("InCarSpeedEdgeWarning", saved).commit();
+            prefs.edit().putBoolean(InCarSettingsStore.KEY_SPEED_EDGE_WARNING, saved).commit();
           else
-            prefs.edit().remove("InCarSpeedEdgeWarning").commit();
+            prefs.edit().remove(InCarSettingsStore.KEY_SPEED_EDGE_WARNING).commit();
         }
         final FrameLayout frame = new FrameLayout(activity);
         final View map = new View(activity);
@@ -123,19 +122,25 @@ public class InCarSpeedWarningViewTest
         final android.content.Context context =
             new android.view.ContextThemeWrapper(activity.createConfigurationContext(day), R.style.MwmTheme);
         final InCarNavigationSpeedView speed = new InCarNavigationSpeedView(context);
-        InCarSpeedDisplayPolicy.isSpeeding(111, 100);
-        speed.setSpeeding(true);
-        assertEquals(Color.BLACK, speed.getCurrentTextColor());
-        final Configuration night = new Configuration(day);
-        night.uiMode = (night.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | Configuration.UI_MODE_NIGHT_YES;
-        context.getResources().updateConfiguration(night, context.getResources().getDisplayMetrics());
-        context.getTheme().applyStyle(R.style.MwmTheme, true);
-        speed.onConfigurationChanged(night);
-        speed.setSpeeding(true);
-        assertEquals(Color.WHITE, speed.getCurrentTextColor());
         InCarSpeedDisplayPolicy.resetSpeeding();
-        speed.setSpeeding(false);
-        assertEquals(app.organicmaps.util.ThemeUtils.getColor(context, R.attr.iconTint), speed.getCurrentTextColor());
+        try
+        {
+          assertTrue(InCarSpeedDisplayPolicy.isSpeeding(111, 100));
+          speed.setSpeeding(true);
+          assertEquals(Color.BLACK, speed.getCurrentTextColor());
+          final Configuration night = new Configuration(day);
+          night.uiMode = (night.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | Configuration.UI_MODE_NIGHT_YES;
+          context.getResources().updateConfiguration(night, context.getResources().getDisplayMetrics());
+          context.getTheme().applyStyle(R.style.MwmTheme, true);
+          speed.onConfigurationChanged(night);
+          assertEquals(Color.WHITE, speed.getCurrentTextColor());
+          speed.setSpeeding(false);
+          assertEquals(app.organicmaps.util.ThemeUtils.getColor(context, R.attr.iconTint), speed.getCurrentTextColor());
+        }
+        finally
+        {
+          InCarSpeedDisplayPolicy.resetSpeeding();
+        }
       });
     }
   }

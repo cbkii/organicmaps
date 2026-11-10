@@ -20,7 +20,7 @@ final class InCarQuickActionButton extends AppCompatImageButton
   InCarQuickActionButton(@NonNull Context context)
   {
     super(context);
-    setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+    setScaleType(ImageView.ScaleType.FIT_CENTER);
     setClickable(true);
     setFocusable(true);
   }

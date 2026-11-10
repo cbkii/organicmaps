@@ -224,17 +224,15 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run SDK connected tests
+      - name: Run SDK and InCar app connected tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           arch: x86_64
           target: google_apis
-          script: >-
-            bash android/tools/run_sdk_connected_tests.sh &&
-            cd android && ./gradlew -Px86_64 app:connectedInCarDebugAndroidTest
+          script: bash android/tools/run_sdk_connected_tests.sh --with-in-car-app
 
-      - name: Upload SDK connected test diagnostics
+      - name: Upload SDK and InCar app connected test diagnostics
         if: always()
         uses: actions/upload-artifact@v7
         with:

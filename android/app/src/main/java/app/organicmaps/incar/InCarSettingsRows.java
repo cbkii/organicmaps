@@ -48,12 +48,14 @@ public final class InCarSettingsRows
   /** One semantic switch and one action for the whole labelled row, including the switch artwork. */
   public static void bindToggle(@NonNull SwitchCompat button, @NonNull CharSequence label)
   {
-    if (!BuildConfig.IS_IN_CAR || !(button.getParent() instanceof View row))
+    if (!BuildConfig.IS_IN_CAR || !(button.getParent() instanceof ViewGroup row))
       return;
     apply(row);
     button.setClickable(false);
     button.setFocusable(false);
-    button.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+    for (int index = 0; index < row.getChildCount(); index++)
+      row.getChildAt(index).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+    row.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
     row.setFocusable(true);
     row.setContentDescription(label);
     row.setBackgroundResource(ThemeUtils.getResource(row.getContext(), R.attr.clickableBackground));

@@ -169,7 +169,7 @@ public final class InCarQuickDestinationsUi
       mActivity = activity;
       mRoot = root;
       mContainer = container;
-      // Both map rails use one source-set-specific, day/night surface and clipped shared cells.
+      // The destination rail provides the translucent backing for its black glyphs.
       mContainer.setBackgroundResource(R.drawable.in_car_quick_rail);
       mContainer.setClipToOutline(true);
       mPrefs = MwmApplication.prefs(activity);
@@ -285,9 +285,9 @@ public final class InCarQuickDestinationsUi
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, @Nullable String key)
     {
-      if (InCarQuickDestinationsStore.isQuickPreferenceKey(key) || "InCarControlPosition".equals(key))
+      if (InCarQuickDestinationsStore.isQuickPreferenceKey(key) || InCarSettingsStore.KEY_CONTROL_POSITION.equals(key))
         rebuildButtons();
-      if ("InCarControlPosition".equals(key))
+      if (InCarSettingsStore.KEY_CONTROL_POSITION.equals(key))
         mActivity.updateBottomWidgetsOffset(0); // Also reset left clearance after switching back to right.
     }
 
@@ -717,14 +717,18 @@ public final class InCarQuickDestinationsUi
       return InCarVisuals.currentQuickActionIconSizePx(mActivity);
     }
 
+    private int currentActionIconPaddingPx(int actionSize)
+    {
+      final int iconSize = currentActionIconSizePx() + dp(4);
+      return Math.max(0, (actionSize - iconSize) / 2);
+    }
+
     @NonNull
     private InCarQuickActionButton createButton(@ColorRes int colorRes, @DrawableRes int iconRes)
     {
       final InCarQuickActionButton button = new InCarQuickActionButton(mActivity);
       resizeButton(button);
-      final int actionSize = currentActionSizePx();
-      final int iconSize = currentActionIconSizePx();
-      final int iconPadding = Math.max(0, (actionSize - iconSize) / 2);
+      final int iconPadding = currentActionIconPaddingPx(currentActionSizePx());
       button.setAppearance(iconRes, ContextCompat.getColor(mActivity, colorRes), quickForegroundColor(),
                            dp(InCarQuickDestinationsLayoutPolicy.ACTION_CORNER_RADIUS_DP), iconPadding);
       // Only the rail surface owns elevation; cells contain pressed/focus feedback.
@@ -744,8 +748,7 @@ public final class InCarQuickDestinationsUi
     private void resizeButton(@NonNull InCarQuickActionButton button)
     {
       final int size = currentActionSizePx();
-      final int iconSize = currentActionIconSizePx();
-      final int iconPadding = Math.max(0, (size - iconSize) / 2);
+      final int iconPadding = currentActionIconPaddingPx(size);
       final ViewGroup.LayoutParams raw = button.getLayoutParams();
       final LinearLayout.LayoutParams params = raw instanceof LinearLayout.LayoutParams layoutParams
                                                  ? layoutParams

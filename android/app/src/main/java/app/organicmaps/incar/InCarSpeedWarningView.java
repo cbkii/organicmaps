@@ -20,7 +20,6 @@ public final class InCarSpeedWarningView extends View
     setClickable(false);
     setFocusable(false);
     setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-    setAlpha(0.5f);
     setVisibility(GONE);
   }
 
@@ -37,7 +36,7 @@ public final class InCarSpeedWarningView extends View
     final FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) getLayoutParams();
     final int width =
         circleSizePx + getResources().getDimensionPixelSize(R.dimen.in_car_speed_edge_warning_extra_width);
-    // The physical driver side must not be mirrored by an RTL locale.
+    // RHD puts the controls on the left and the driver on the right. Use a physical edge in RTL too.
     final int gravity = (controlsOnLeft ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP;
     if (params.width == width && params.gravity == gravity && params.leftMargin == safe.left
         && params.topMargin == safe.top && params.rightMargin == safe.right && params.bottomMargin == safe.bottom)

@@ -2,13 +2,18 @@ package app.organicmaps.settings;
 
 import static org.junit.Assert.*;
 
+import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -84,7 +89,7 @@ public class InCarSettingsGeometryTest
   }
 
   @Test
-  public void actualPreferenceKeysMatchRealTapBoundsAndDisabledRowsStayInert()
+  public void adapterTapBoundsKeepSyntheticDisabledRowsInert()
   {
     final java.util.concurrent.atomic.AtomicReference<String> selected =
         new java.util.concurrent.atomic.AtomicReference<>();
@@ -143,6 +148,72 @@ public class InCarSettingsGeometryTest
           }
         }
       }
+    }
+  }
+
+  /** Loads production preference XML without starting the native map engine. */
+  public static class InCarPreferenceFixture extends PreferenceFragmentCompat
+  {
+    @Override
+    public void onCreatePreferences(@Nullable Bundle state, @Nullable String root)
+    {
+      setPreferencesFromResource(R.xml.prefs_in_car, root);
+    }
+
+    @NonNull
+    @Override
+    protected RecyclerView.Adapter onCreateAdapter(@NonNull PreferenceScreen screen)
+    {
+      return new BaseXmlSettingsFragment() {
+        @Override
+        protected int getXmlResources()
+        {
+          return R.xml.prefs_in_car;
+        }
+      }.onCreateAdapter(screen);
+    }
+  }
+
+  @Test
+  public void productionPreferenceXmlKeepsAutomotiveTapBounds()
+  {
+    final String key = "in_car_map_layers";
+    final AtomicInteger taps = new AtomicInteger();
+    final int[] point = new int[2];
+    final InCarPreferenceFixture fragment = new InCarPreferenceFixture();
+    try (ActivityScenario<InCarUiTestActivity> scenario = ActivityScenario.launch(InCarUiTestActivity.class))
+    {
+      scenario.onActivity(activity -> {
+        final FrameLayout frame = new FrameLayout(activity);
+        frame.setId(View.generateViewId());
+        activity.setContentView(frame);
+        activity.getSupportFragmentManager().beginTransaction().add(frame.getId(), fragment).commitNow();
+        final Preference preference = fragment.findPreference(key);
+        assertNotNull(preference);
+        assertEquals(activity.getString(R.string.layers_title), preference.getTitle().toString());
+        preference.setOnPreferenceClickListener(item -> {
+          taps.incrementAndGet();
+          return true;
+        });
+        fragment.scrollToPreference(key);
+      });
+      InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+      scenario.onActivity(activity -> {
+        final RecyclerView list = fragment.getListView();
+        final var adapter = (androidx.preference.PreferenceGroup.PreferencePositionCallback) list.getAdapter();
+        final RecyclerView.ViewHolder holder =
+            list.findViewHolderForAdapterPosition(adapter.getPreferenceAdapterPosition(key));
+        assertNotNull(holder);
+        final View row = holder.itemView;
+        assertTrue(row.getHeight()
+                   >= activity.getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height));
+        final android.graphics.Rect visible = new android.graphics.Rect();
+        assertTrue(row.getGlobalVisibleRect(visible));
+        point[0] = visible.centerX();
+        point[1] = visible.bottom - 2;
+      });
+      tap(point[0], point[1]);
+      assertEquals(1, taps.get());
     }
   }
 

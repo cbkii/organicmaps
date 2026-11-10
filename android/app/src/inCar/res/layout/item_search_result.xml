@@ -11,13 +11,14 @@
   android:paddingTop="@dimen/margin_half"
   android:paddingBottom="@dimen/margin_half">
 
-  <!-- Main text uses the remaining width beside bounded metadata. Long destination names
-       and addresses expand vertically instead of losing their distinguishing suffix. -->
+  <!-- Give titles and addresses two lines while keeping long results glanceable. -->
   <TextView
     android:id="@+id/title"
     android:layout_width="0dp"
     android:layout_height="wrap_content"
     android:layout_marginEnd="@dimen/margin_half"
+    android:ellipsize="end"
+    android:maxLines="2"
     android:textAlignment="viewStart"
     android:textAppearance="@style/MwmTextAppearance.Body1"
     app:layout_constraintEnd_toStartOf="@id/open"
@@ -46,6 +47,8 @@
     android:layout_marginTop="@dimen/margin_quarter"
     android:layout_marginEnd="@dimen/margin_half"
     android:fontFamily="@font/organic_maps_emoji"
+    android:ellipsize="end"
+    android:maxLines="2"
     android:textAlignment="viewStart"
     android:textAppearance="@style/MwmTextAppearance.Body3"
     app:layout_constraintEnd_toStartOf="@id/distance"

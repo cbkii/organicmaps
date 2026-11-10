@@ -2,6 +2,7 @@ package app.organicmaps.incar;
 
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
@@ -156,6 +157,11 @@ public final class InCarDrivingUi
       final Binding geometryBinding = binding;
       overlay.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight,
                                          oldBottom) -> updateSpeedEdgeGeometry(activity, geometryBinding));
+      binding.speed.addOnLayoutChangeListener(
+          (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (right - left != oldRight - oldLeft)
+              updateSpeedEdgeGeometry(activity, geometryBinding);
+          });
       binding.speedCluster.addOnLayoutChangeListener(
           (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
@@ -242,21 +248,13 @@ public final class InCarDrivingUi
     final View then = activity.findViewById(R.id.nav_next_next_turn_frame);
     final View immediateGroup = activity.findViewById(R.id.in_car_nav_immediate_group);
     final LanesView lanes = activity.findViewById(R.id.lanes);
-    final boolean hasLanes = lanes != null && lanes.getVisibility() == View.VISIBLE;
     final int normal = ContextCompat.getColor(activity, R.color.bg_cards);
     final int immediateBase = ContextCompat.getColor(activity, R.color.in_car_nav_immediate_background);
-    final int afterBase = ContextCompat.getColor(
-        activity, hasLanes ? R.color.in_car_nav_lanes_background : R.color.in_car_nav_after_background);
     final int immediateBackground = warning ? ColorUtils.blendARGB(immediateBase, red, strength) : immediateBase;
-    final int afterBackground = warning ? ColorUtils.blendARGB(afterBase, red, strength) : afterBase;
     final int immediateForeground = warning ? InCarContrast.foreground(immediateBackground, normal)
                                             : ContextCompat.getColor(activity, R.color.in_car_nav_immediate_foreground);
-    final int foreground = warning ? InCarContrast.foreground(afterBackground, normal)
-                                   : ContextCompat.getColor(activity, hasLanes ? R.color.in_car_nav_lanes_foreground
-                                                                               : R.color.in_car_nav_after_foreground);
-    // Paint every section itself: child surfaces must not cover the parent's warning wash.
-    // The speed circles retain their own separate severity/limit presentation.
-    ribbon.setBackgroundColor(warning ? ColorUtils.blendARGB(normal, red, strength) : normal);
+    // One surface for NOW, LANES and AFTER, including the overspeed wash and intervening gaps.
+    ribbon.setBackgroundColor(immediateBackground);
     if (immediateGroup != null)
       immediateGroup.setBackgroundColor(immediateBackground);
     if (immediate != null)
@@ -273,22 +271,29 @@ public final class InCarDrivingUi
       ((TextView) streetFrame.findViewById(R.id.street)).setTextColor(immediateForeground);
     }
     if (group != null)
-      group.setBackgroundColor(afterBackground);
+      group.setBackgroundColor(immediateBackground);
     if (then != null)
     {
-      then.setBackgroundColor(afterBackground);
-      ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn), ColorStateList.valueOf(foreground));
+      then.setBackgroundColor(immediateBackground);
+      ImageViewCompat.setImageTintList((ImageView) then.findViewById(R.id.turn),
+                                       ColorStateList.valueOf(immediateForeground));
     }
     final TextView label = activity.findViewById(R.id.in_car_nav_guidance_label);
     if (label != null)
-      label.setTextColor(foreground);
+      label.setTextColor(immediateForeground);
     if (lanes != null)
     {
-      lanes.setBackgroundColor(afterBackground);
-      final int active = warning ? foreground : ContextCompat.getColor(activity, R.color.in_car_nav_lanes_foreground);
-      final int secondary = warning ? ColorUtils.blendARGB(afterBackground, active, 0.75f)
-                                    : ContextCompat.getColor(activity, R.color.in_car_nav_secondary);
-      lanes.setLaneColors(active, secondary);
+      lanes.setBackgroundColor(immediateBackground);
+      final int active = ContextCompat.getColor(activity, R.color.in_car_nav_lane_active);
+      final int inactive = ContextCompat.getColor(activity, R.color.in_car_nav_lane_inactive);
+      final int secondary =
+          ColorUtils.calculateContrast(inactive, immediateBackground) >= 3.0 ? inactive : immediateForeground;
+      // A warning wash can force both glyphs to dark ink. Keep the guided lane distinct in that state too.
+      final boolean needsHighlight = ColorUtils.calculateContrast(active, immediateBackground) < 4.5
+                                  || ColorUtils.calculateContrast(active, secondary) < 1.5;
+      final int highlight =
+          needsHighlight ? ContextCompat.getColor(activity, R.color.in_car_nav_lane_highlight) : Color.TRANSPARENT;
+      lanes.setLaneColors(active, secondary, highlight);
     }
   }
 
@@ -522,8 +527,11 @@ public final class InCarDrivingUi
   {
     if (binding.speedEdgeWarning == null)
       return;
-    binding.speedEdgeWarning.updateGeometry(app.organicmaps.util.InCarVisuals.currentSpeedCircleSizePx(activity),
-                                            InCarSettingsStore.controlsOnLeft(activity), binding.safeInsets);
+    final int measuredWidth = binding.speed.getWidth();
+    final int circleSize =
+        measuredWidth > 0 ? measuredWidth : app.organicmaps.util.InCarVisuals.currentSpeedCircleSizePx(activity);
+    binding.speedEdgeWarning.updateGeometry(circleSize, InCarSettingsStore.controlsOnLeft(activity),
+                                            binding.safeInsets);
   }
 
   private static void applyInsets(@NonNull MwmActivity activity, @NonNull Binding binding)
