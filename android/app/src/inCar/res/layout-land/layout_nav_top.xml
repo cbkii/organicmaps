@@ -57,7 +57,7 @@
           android:layout_height="match_parent"
           android:gravity="right|center_vertical"
           android:includeFontPadding="false"
-          android:maxLines="3"
+          android:breakStrategy="balanced"
           android:layoutDirection="locale"
           android:textDirection="locale"
           android:textColor="@color/in_car_nav_immediate_foreground"
