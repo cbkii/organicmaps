@@ -2679,6 +2679,16 @@ void FrontendRenderer::PositionChanged(m2::PointD const & position, bool hasPosi
   m_userPositionChangedHandler(position, hasPosition);
 }
 
+void FrontendRenderer::RecenterPosition(m2::PointD const & position)
+{
+  // A completed manual recenter supersedes any startup camera acquisition from the same fix.
+  m_fastCameraAcquisitionPending = false;
+  m_firstDrivingCoursePending = false;
+  // Translate to the live visible viewport using the existing scale, angle and perspective.
+  AddUserEvent(make_unique_dp<SetCenterEvent>(position, kDoNotChangeZoom, false /* isAnim */,
+                                              false /* trackVisibleViewport */, nullptr));
+}
+
 void FrontendRenderer::ChangeModelView(m2::PointD const & center, int zoomLevel,
                                        TAnimationCreator const & parallelAnimCreator)
 {

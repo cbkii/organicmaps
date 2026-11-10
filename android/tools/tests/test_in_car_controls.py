@@ -1057,7 +1057,7 @@ class TrackRecorder { static boolean nativeIsTrackRecordingEnabled() { return fa
 class Value { LayoutMode mode; LayoutMode getValue() { return mode; } }
 class Model { Value value=new Value(); Value getLayoutMode() { return value; } }
 enum LayoutMode { regular, planning, navigation }
-enum MapButtons { zoom, toggleMapLayer, myPosition, search, bookmarks, cameraViewRecenter, menu, trackRecordingStatus }
+enum MapButtons { zoom, toggleMapLayer, myPosition, search, bookmarks, recenterPosition, menu, trackRecordingStatus }
 class Position { void showButton(boolean show) {} }
 class Wheel { void show(boolean show) {} }
 class Controller {
@@ -1356,81 +1356,6 @@ int main() {
             self.assertEqual(0, compiled.returncode, compiled.stderr)
             subprocess.run([str(binary)], check=True)
 
-    def test_production_recenter_consumes_only_fresh_held_driving_fix(self):
-        compiler = shutil.which("c++") or shutil.which("g++")
-        if not compiler:
-            self.skipTest("C++ compiler unavailable: native recenter seam NOT_RUN")
-        native = controls.read("libs/drape_frontend/my_position_controller.cpp")
-        body = controls.method_body(native, "bool MyPositionController::RecenterPreservingMode()")
-        source = r"""
-#include <cstdint>
-struct Point { int value=0; };
-struct Rect { Point Center() const { return {}; } };
-namespace location { constexpr int FollowAndRotate=3; }
-constexpr int kDoNotChangeZoom=-1;
-int64_t nowNanos=20000000000;
-int64_t PositionClockNanos() { return nowNanos; }
-""" + controls.read("libs/drape_frontend/current_position_freshness.hpp").replace("#pragma once", "") + r"""
-struct Listener {
- int events=0,last=-1;
- void PositionChanged(Point p,bool) { ++events; last=p.value; }
-};
-class MyPositionController {
-public:
- Listener * m_listener=nullptr;
- Point m_position={7},m_lastHeldDrivingPosition={42};
- bool m_isPositionAssigned=true,m_positionIsObsolete=false,m_recenterPending=false;
- bool m_hasLastHeldDrivingPosition=true;
- int64_t m_lastRecenterObservationNanos=20000000000;
- int m_mode=location::FollowAndRotate;
- double m_drawDirection=0;
- Rect m_visiblePixelRect;
- int recentered=-1;
- bool IsNavigationStyleCameraActive() const { return true; }
- Point GetRoutingRotationPixelCenter() const { return {}; }
- Point Position() const { return m_position; }
- bool IsModeHasPosition() const { return true; }
- void ChangeModelView(Point p,int) { recentered=p.value; }
- void ChangeModelView(Point p,double,Point,int) { recentered=p.value; }
- bool RecenterPreservingMode();
-};
-bool MyPositionController::RecenterPreservingMode() {
-""" + body + r"""
-}
-int main() {
- Listener listener;
- MyPositionController controller;
- controller.m_listener=&listener;
- if (!controller.RecenterPreservingMode() || controller.recentered!=42 ||
-     controller.m_position.value!=42 || controller.m_hasLastHeldDrivingPosition ||
-     listener.events!=1 || listener.last!=42) return 1;
- MyPositionController stale;
- stale.m_listener=&listener;
- stale.m_lastRecenterObservationNanos=100;
- if (stale.RecenterPreservingMode() || stale.m_position.value!=7 ||
-     !stale.m_hasLastHeldDrivingPosition || stale.recentered!=-1 ||
-     listener.events!=1 || listener.last!=42) return 2;
- MyPositionController noListener;
- if (noListener.RecenterPreservingMode()) return 3;
- MyPositionController future;
- future.m_listener=&listener;
- nowNanos=19999999999;
- if (future.RecenterPreservingMode() || listener.events!=1) return 4;
- nowNanos=30000000001;
- if (future.RecenterPreservingMode() || listener.events!=1) return 5;
- nowNanos=30000000000;
- if (!future.RecenterPreservingMode() || listener.events!=2) return 6;
- return 0;
-}
-"""
-        with tempfile.TemporaryDirectory() as tmp:
-            src = Path(tmp) / "recenter.cpp"
-            binary = Path(tmp) / "recenter"
-            src.write_text(source)
-            subprocess.run([compiler, "-std=c++17", str(src), "-o", str(binary)],
-                           check=True, timeout=30)
-            subprocess.run([str(binary)], check=True, timeout=10)
-
     def test_camera_presentation_invalidates_scene_without_fresh_location(self):
         compiler = shutil.which("g++")
         if compiler is None:
@@ -1539,74 +1464,91 @@ int main() {
     def test_native_owner_preserves_modes_and_consumes_pending_once(self):
         compiler = shutil.which("g++")
         if not compiler:
-            self.skipTest("C++ compiler unavailable: native method isolation NOT_RUN")
+            self.skipTest("C++ compiler unavailable: native recenter seam NOT_RUN")
         production = controls.read("libs/drape_frontend/my_position_controller.cpp")
-        body = controls.method_body(production, "bool MyPositionController::RecenterPreservingMode()")
-        # Execute the actual owner method with listener/clock seams; full drape integration is separate.
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "owner.cpp"
-            source.write_text(r'''#include "current_position_freshness.hpp"
+        request = controls.method_body(production, "bool MyPositionController::RecenterPreservingMode()")
+        apply = controls.method_body(production, "bool MyPositionController::TryRecenterPosition(int64_t now)")
+        refresh = controls.method_body(production, "void MyPositionController::RefreshLocationFreshness(")
+        gate = production[production.index("int64_t constexpr kRecenterWaitNanos"):
+                          production.index("int const kPositionRoutingOffsetY")]
+        harness = r'''#include "current_position_freshness.hpp"
 #include <cassert>
-namespace location { enum Mode { NotFollow, Follow, FollowAndRotate, PendingPosition, NotFollowNoPosition }; }
-struct Point { int value; };
-struct Rect { Point Center() const { return {42}; } };
-struct Listener { int notifications=0; void PositionChanged(Point,bool) { ++notifications; } };
-int constexpr kDoNotChangeZoom = -1;
-int64_t now = 2000000000;
+#include <cmath>
+#include <initializer_list>
+''' + gate + r'''
+int64_t now = 20'000'000'000;
 int64_t PositionClockNanos() { return now; }
+struct Point { int value; };
+struct Listener {
+  int calls = 0, centre = 0, published = 0;
+  void PositionChanged(Point p, bool) { published = p.value; }
+  void RecenterPosition(Point p) { ++calls; centre = p.value; }
+};
+struct GpsInfo { double m_timestamp; };
+struct Timer { void Reset() {} };
+void ResetNotification(int) {}
 struct Owner {
- Listener listener;
- Listener * m_listener=&listener;
- bool m_hasLastHeldDrivingPosition=false;
- Point m_lastHeldDrivingPosition{7};
- Point Position() const { return m_position; }
- bool IsModeHasPosition() const { return true; }
- bool m_isPositionAssigned=true, m_positionIsObsolete=false, m_recenterPending=false, routing=false, driving=false;
- int64_t m_lastRecenterObservationNanos=1000000000;
- location::Mode m_mode=location::NotFollow;
- Point m_position{7}; double m_drawDirection=0.75; Rect m_visiblePixelRect;
- int calls=0, center=0, pixel=0, zoom=0; double angle=0.25;
- bool IsNavigationStyleCameraActive() const { return routing || driving; }
- Point GetRoutingRotationPixelCenter() const { return {99}; }
- void ChangeModelView(Point p, int z) { ++calls; center=p.value; zoom=z; }
- void ChangeModelView(Point p, double a, Point px, int z) { ++calls; center=p.value; angle=a; pixel=px.value; zoom=z; }
- bool recenter() {''' + body + r''' }
+  Listener listener;
+  Listener * m_listener = &listener;
+  int mode = 0;
+  Point m_position{7}, m_lastHeldDrivingPosition{42};
+  bool m_isPositionAssigned = true, m_positionIsObsolete = false, m_hasLastHeldDrivingPosition = false;
+  bool m_isDirtyViewport = true, m_isDirtyAutoZoom = true, m_isPendingAnimation = true;
+  int64_t m_lastRecenterObservationNanos = now, m_recenterDeadlineNanos = 0;
+  double m_horizontalAccuracy = 5, m_lastLocationTimestamp = 0;
+  Timer m_updateLocationTimer;
+  void * m_animCreator = nullptr;
+  int m_updateLocationNotifyId = 0;
+  Point Position() const { return m_position; }
+  bool IsModeHasPosition() const { return true; }
+  bool request() {''' + request + r''' }
+  bool TryRecenterPosition(int64_t now) {''' + apply + r''' }
+  void refresh(GpsInfo const & info) {''' + refresh + r''' }
 };
 int main() {
- for (auto mode : {location::NotFollow, location::Follow, location::FollowAndRotate}) {
-   Owner o; o.m_mode=mode;
-   assert(o.recenter()); assert(o.recenter());
-   assert(o.calls==2 && o.center==7 && o.zoom==-1 && o.m_mode==mode && !o.m_recenterPending);
-   assert(!o.routing && !o.driving);
-   if (mode==location::FollowAndRotate) assert(o.angle==0.75 && o.pixel==42);
-   else assert(o.angle==0.25);
-   now=12000000000;
-   assert(!o.recenter() && o.calls==2 && o.m_recenterPending && o.m_mode==mode);
-   o.m_lastRecenterObservationNanos=now;
-   if (o.m_recenterPending) assert(o.recenter());
-   if (o.m_recenterPending) o.recenter();
-   assert(o.calls==3 && !o.m_recenterPending && o.m_mode==mode);
-   now=2000000000;
- }
- Owner routed; routed.routing=true; routed.driving=true; routed.m_mode=location::FollowAndRotate;
- routed.recenter(); assert(routed.routing && routed.driving && routed.pixel==99 && routed.m_mode==location::FollowAndRotate);
- Owner o; o.m_isPositionAssigned=false; o.m_mode=location::PendingPosition;
- for (int i=0;i<100;++i) assert(!o.recenter());
- assert(o.calls==0 && o.m_recenterPending && o.m_mode==location::PendingPosition);
- o.m_isPositionAssigned=true; now=12000000000; assert(!o.recenter());
- assert(o.calls==0 && o.m_recenterPending);
- o.m_lastRecenterObservationNanos=now;
- if (o.m_recenterPending) o.recenter();
- if (o.m_recenterPending) o.recenter();
- assert(o.calls==1 && !o.m_recenterPending && o.m_mode==location::PendingPosition);
+  for (int mode : {0, 1, 2, 3, 4}) {
+    Owner o;
+    o.mode = mode;
+    assert(o.request() && o.request());
+    assert(o.listener.calls == 2 && o.listener.centre == 7 && o.mode == mode);
+    assert(!o.m_isDirtyViewport && !o.m_isDirtyAutoZoom && !o.m_isPendingAnimation);
+  }
+  Owner o;
+  o.m_lastRecenterObservationNanos = 1;
+  o.m_hasLastHeldDrivingPosition = true;
+  assert(!o.request() && o.listener.calls == 0 && o.listener.published == 0);
+  auto const deadline = o.m_recenterDeadlineNanos;
+  ++now;
+  assert(o.request() && o.m_recenterDeadlineNanos == deadline);
+  o.m_horizontalAccuracy = 500;
+  o.refresh({20});
+  assert(o.listener.calls == 0 && o.m_recenterDeadlineNanos == deadline);
+  o.m_horizontalAccuracy = 50;
+  o.refresh({20});
+  o.refresh({20});
+  assert(o.listener.calls == 1 && o.listener.centre == 42 && o.listener.published == 42);
+  assert(o.m_recenterDeadlineNanos == 0);
+  Owner late;
+  late.m_isPositionAssigned = false;
+  assert(!late.request());
+  now = late.m_recenterDeadlineNanos;
+  late.m_isPositionAssigned = true;
+  late.refresh({50});
+  assert(late.listener.calls == 0 && late.m_recenterDeadlineNanos == 0);
+  assert(late.request() && late.listener.calls == 1);
+  Owner future;
+  future.m_lastRecenterObservationNanos = now + 1;
+  assert(!future.request() && future.listener.calls == 0);
 }
-''')
-            # initializer_list is deliberately added by the harness, not production.
-            source.write_text("#include <initializer_list>\n" + source.read_text())
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "owner.cpp"
+            source.write_text(harness)
             binary = Path(tmp) / "owner"
-            subprocess.run([compiler, "-std=c++17", "-I", str(ROOT / "libs/drape_frontend"),
-                            str(source), "-o", str(binary)], check=True, capture_output=True)
-            subprocess.run([str(binary)], check=True)
+            result = subprocess.run([compiler, "-std=c++17", "-I", str(ROOT / "libs/drape_frontend"),
+                                     str(source), "-o", str(binary)], capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            subprocess.run([str(binary)], check=True, timeout=10)
 
     def test_production_menu_command_guard(self):
         compiler, runtime = shutil.which("javac"), shutil.which("java")
@@ -1647,8 +1589,8 @@ public class GuardTest {
     def test_native_mode_mutation_and_settings_handoff_regressions_are_rejected(self):
         original_read = controls.read
         cases = [
-            ("my_position_controller.cpp", "  m_recenterPending = true;", "  ChangeMode(location::Follow);\n  m_recenterPending = true;", "must not change intent"),
-            ("MwmActivity.java", "    mLocationActivityStopped = true;", "    mLocationActivityStopped = true;\n    mInCarRecenterRecovery = false;", "settings handoff"),
+            ("my_position_controller.cpp", "  m_recenterDeadlineNanos = 0;", "  ChangeMode(location::Follow);\n  m_recenterDeadlineNanos = 0;", "must not change intent"),
+            ("MwmActivity.java", "    mLocationActivityStopped = true;", "    mLocationActivityStopped = true;\n    mLocationPromptCoordinator.finishInCarRecenterRecovery();", "settings handoff"),
         ]
         for path, before, after, expected in cases:
             def altered(name):
@@ -1670,16 +1612,17 @@ public class GuardTest {
             with self.assertRaisesRegex(SystemExit, "dedicated regular layout"):
                 controls.verify_track_recording()
 
-    def test_restore_comment_spoof_is_rejected(self):
+    def test_persisting_recenter_recovery_is_rejected(self):
         original_read = controls.read
         def altered(path):
             source = original_read(path)
             if path.endswith("MwmActivity.java"):
-                source = source.replace("    mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean",
-                                        "    // mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean")
+                source = source.replace("    super.onRestoreInstanceState(savedInstanceState);",
+                                        "    super.onRestoreInstanceState(savedInstanceState);\n"
+                                        '    savedInstanceState.getBoolean("IN_CAR_RECENTER_RECOVERY", false);')
             return source
         with patch.object(controls, "read", altered):
-            with self.assertRaisesRegex(SystemExit, "configuration recreation"):
+            with self.assertRaisesRegex(SystemExit, "must not survive process recreation"):
                 controls.verify_my_position()
 
     def test_qualified_incar_resource_cannot_restore_recording(self):
@@ -1738,32 +1681,40 @@ public class GuardTest {
         if "jdk.compiler@" not in probe.stdout:
             self.skipTest("jdk.compiler unavailable: recovery delivery isolation NOT_RUN")
         application = controls.read("android/app/src/main/java/app/organicmaps/MwmApplication.java")
-        request = controls.method_body(application, "void requestInCarRecenterRecovery()")
+        request = controls.method_body(application, "void requestInCarRecenterRecovery(long deadlineMs)")
         retry = controls.method_body(application, "private void retryPendingInCarRecenterRecovery()")
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "RelayTest.java"
             source.write_text('''class BuildConfig { static final boolean IS_IN_CAR=true; }
-class MwmActivity { boolean ready; int deliveries;
- boolean recoverInCarRecenterLocation() { deliveries++; return ready; }
+class SystemClock { static long now=1000; static long elapsedRealtime() { return now; } }
+class MwmActivity { boolean ready; int deliveries; long deadline;
+ boolean recoverInCarRecenterLocation(long deadlineMs) { deliveries++; deadline=deadlineMs; return ready; }
 }
 class Relay {
- boolean mPendingInCarRecenterRecovery; Object current;
+ long mPendingInCarRecenterRecoveryDeadlineMs; Object current;
  Object getTopActivity() { return current; }
- void requestInCarRecenterRecovery() {''' + request + ''' }
+ void requestInCarRecenterRecovery(long deadlineMs) {''' + request + ''' }
  void retryPendingInCarRecenterRecovery() {''' + retry + ''' }
 }
 public class RelayTest {
  public static void main(String[] args) {
-  Relay app=new Relay(); app.requestInCarRecenterRecovery();
-  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("lost between Activities");
+  Relay app=new Relay(); app.requestInCarRecenterRecovery(31_000);
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=31_000) throw new AssertionError("lost between Activities");
   MwmActivity old=new MwmActivity(); app.current=old; app.retryPendingInCarRecenterRecovery();
-  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("lost while stopped/rendering unavailable");
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=31_000) throw new AssertionError("lost while stopped");
   app.current=new Object(); app.retryPendingInCarRecenterRecovery();
-  if (!app.mPendingInCarRecenterRecovery) throw new AssertionError("stolen by another Activity");
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=31_000) throw new AssertionError("stolen by another Activity");
   MwmActivity replacement=new MwmActivity(); replacement.ready=true; app.current=replacement;
+  SystemClock.now=30_999;
   app.retryPendingInCarRecenterRecovery(); app.retryPendingInCarRecenterRecovery();
-  if (app.mPendingInCarRecenterRecovery || replacement.deliveries!=1 || old.deliveries!=1)
-   throw new AssertionError("recovery not rebound/consumed once");
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=0 || replacement.deliveries!=1 || old.deliveries!=1
+      || replacement.deadline!=31_000)
+   throw new AssertionError("recovery not rebound with its original deadline and consumed once");
+  app.current=null; app.requestInCarRecenterRecovery(60_999);
+  app.current=replacement; SystemClock.now=60_999; app.retryPendingInCarRecenterRecovery();
+  app.requestInCarRecenterRecovery(60_999);
+  if (app.mPendingInCarRecenterRecoveryDeadlineMs!=0 || replacement.deliveries!=1)
+   throw new AssertionError("expired Activity handoff or delayed renderer callback restarted recovery");
  }
 }''')
             compiler = Path(tmp) / "Compile.java"

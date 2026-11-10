@@ -77,28 +77,36 @@ def verify_my_position() -> None:
     click = method_body(activity, "case myPosition ->")
     require("LocationState.nativeSwitchToNextMode()" in click,
             "Follow control must dispatch the native upstream mode cycle")
-    require("nativeRecenter" not in click, "Follow must not alias Camera View / Recentre")
-    camera = method_body(activity, "case cameraViewRecenter ->")
-    require("nativeToggleCameraViewAndRecenter(application::requestInCarRecenterRecovery)" in camera,
-            "camera action must retain bounded native recovery")
-    require("nativeSwitchToNextMode" not in camera, "camera must not alias Follow")
-    acquisition = method_body(activity, "boolean recoverInCarRecenterLocation()")
+    require("nativeRecenter" not in click, "Follow must not alias My Position")
+    camera = method_body(activity, "case recenterPosition ->")
+    require("SystemClock.elapsedRealtime() + IN_CAR_RECENTER_RECOVERY_MS" in camera
+            and "nativeRecenterToCurrentPosition(() -> application.requestInCarRecenterRecovery(deadlineMs))" in camera,
+            "camera action must capture the Android recovery deadline before native dispatch")
+    require("nativeSwitchToNextMode" not in camera and "nativeToggleCameraView" not in camera,
+            "My Position must not change Follow mode or camera presentation")
+    acquisition = method_body(activity, "boolean recoverInCarRecenterLocation(long deadlineMs)")
     require("helper.isAcquisitionRequested()" in acquisition, "already-pending acquisition must stay pending")
+    require("deadlineMs <= SystemClock.elapsedRealtime()" in acquisition
+            and "mLocationPromptCoordinator.beginInCarRecenterRecovery(deadlineMs)" in acquisition,
+            "Activity must accept only a live tap deadline and retain it in the permission owner")
     require("LocationState.getMode()" not in acquisition,
             "assigned modes must not suppress acquisition after native rejects a stale position")
     recovery = method_body(activity, "private void restartLocationAfterAvailabilityConfirmed(")
-    explicit = method_body(recovery, "if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)")
+    require("final boolean recenterRecovery = BuildConfig.IS_IN_CAR && hasInCarRecenterRecovery()" in recovery,
+            "explicit-off and recenter dispatch must share the same deadline decision")
+    explicit = method_body(recovery, "if (recenterRecovery)")
     require("resumeLocationInForeground(true)" in explicit, "recenter recovery must reuse existing provider acquisition")
     for forbidden in ("nativeSwitchToNextMode", "setExplicitLocationOff", ".recenter()"):
         require(forbidden not in explicit, f"recenter acquisition must preserve intent: {forbidden}")
     stopped = method_body(activity, "protected void onStop()")
-    require("mInCarRecenterRecovery = false" not in stopped,
+    require("finishInCarRecenterRecovery()" not in stopped,
             "settings handoff must retain bounded recenter recovery context")
-    restore = method_body(activity, "protected void onRestoreInstanceState(")
-    restore = re.sub(r"/\*.*?\*/|//[^\n]*", " ", restore, flags=re.S)
-    require(re.search(r"mInCarRecenterRecovery\s*=\s*BuildConfig\.IS_IN_CAR\s*&&\s*"
-                      r"savedInstanceState\.getBoolean\(IN_CAR_RECENTER_RECOVERY,\s*false\)", restore) is not None,
-            "configuration recreation must retain Android recovery context")
+    for signature in ("protected void onSaveInstanceState(", "protected void onRestoreInstanceState("):
+        require("RECENTER_RECOVERY" not in method_body(activity, signature),
+                "Android recovery context must not survive process recreation via saved state")
+    settle = method_body(activity, "private void settleInCarLocation()")
+    require("if (recenterRecovery && !hasInCarRecenterRecovery())" in settle,
+            "settling callbacks started for recenter must stop after expiry")
     render = method_body(java, "public void update(int mode)")
     for icon in ("ic_menu_location_pending", "ic_location_off", "ic_not_follow", "ic_follow", "ic_follow_and_rotate"):
         require(icon in render, f"Follow must render the actual native mode: {icon}")
@@ -159,16 +167,20 @@ def verify_my_position() -> None:
             "JNI must not maintain a second provider position cache")
     controller = read("libs/drape_frontend/my_position_controller.cpp")
     recenter = method_body(controller, "bool MyPositionController::RecenterPreservingMode()")
-    for token in ("m_listener", "return false", "return true", "m_isPositionAssigned", "IsFreshPositionObservation", "m_recenterPending = true",
-                  "m_recenterPending = false", "m_position", "m_drawDirection", "GetRoutingRotationPixelCenter()",
-                  "m_visiblePixelRect.Center()", "kDoNotChangeZoom"):
-        require(token in recenter, f"native recenter owner missing {token}")
-    for forbidden in ("ChangeMode", "NextMode", "SetDrivingView"):
-        require(re.search(r"\b" + forbidden + r"\s*\(", recenter) is None,
+    apply = method_body(controller, "bool MyPositionController::TryRecenterPosition(int64_t now)")
+    for token in ("m_listener", "m_isPositionAssigned", "IsUsableRecenterObservation",
+                  "m_recenterDeadlineNanos = 0", "m_listener->RecenterPosition(m_position)"):
+        require(token in apply, f"native recenter owner missing {token}")
+    for forbidden in ("ChangeMode", "NextMode", "SetDrivingView", "ChangeModelView"):
+        require(re.search(r"\b" + forbidden + r"\s*\(", recenter + apply) is None,
                 f"native recenter must not change intent via {forbidden}")
     fresh = method_body(controller, "void MyPositionController::RefreshLocationFreshness(")
-    require("if (m_recenterPending)" in fresh and "RecenterPreservingMode()" in fresh,
-            "accepted fresh native position must consume a pending request")
+    require("now >= m_recenterDeadlineNanos" in fresh and "TryRecenterPosition(now)" in fresh,
+            "an accepted fix can consume a pending request only within its original deadline")
+    centre = method_body(renderer, "void FrontendRenderer::RecenterPosition(")
+    require("SetCenterEvent>(position, kDoNotChangeZoom, false" in centre
+            and "ApplyCameraPresentation" not in centre,
+            "My Position must use a direct centre move with existing zoom and presentation")
 
 
 def verify_track_recording() -> None:

@@ -169,7 +169,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private static final String LAYERS_MENU_ID = "LAYERS_MENU_BOTTOM_SHEET";
   private static final String ADVANCED_MENU_ID = "ADVANCED_MENU_BOTTOM_SHEET";
 
-  private static final String IN_CAR_RECENTER_RECOVERY = "IN_CAR_RECENTER_RECOVERY";
+  // Match the native recenter window, starting before the request leaves the UI thread.
+  private static final long IN_CAR_RECENTER_RECOVERY_MS = 30_000;
   private static final String POWER_SAVE_DISCLAIMER_SHOWN = "POWER_SAVE_DISCLAIMER_SHOWN";
 
   @SuppressWarnings("NotNullFieldNotInitialized")
@@ -212,8 +213,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private int mLocationRecoveryGeneration;
   private boolean mLocationActivityStopped = true;
   private boolean mLocationWarningIssued;
-  // Android recovery context only; the render controller owns the pending camera request.
-  private boolean mInCarRecenterRecovery;
   private boolean mLocationSettlingExhausted;
   private final BroadcastReceiver mLocationModeReceiver = new BroadcastReceiver() {
     @Override
@@ -932,12 +931,13 @@ public class MwmActivity extends BaseMwmFragmentActivity
         return;
       LocationState.nativeSwitchToNextMode();
     }
-    case cameraViewRecenter ->
+    case recenterPosition ->
     {
       if (!BuildConfig.IS_IN_CAR || !Map.isEngineCreated())
         return;
       final MwmApplication application = MwmApplication.from(this);
-      LocationState.nativeToggleCameraViewAndRecenter(application::requestInCarRecenterRecovery);
+      final long deadlineMs = SystemClock.elapsedRealtime() + IN_CAR_RECENTER_RECOVERY_MS;
+      LocationState.nativeRecenterToCurrentPosition(() -> application.requestInCarRecenterRecovery(deadlineMs));
     }
     case toggleMapLayer -> toggleMapLayerBottomSheet();
     case bookmarks -> showBookmarks();
@@ -1081,7 +1081,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
       // orientation changing, etc. Otherwise, the saved route might be restored at undesirable moment.
       RoutingController.get().deleteSavedRoute();
 
-    outState.putBoolean(IN_CAR_RECENTER_RECOVERY, mInCarRecenterRecovery);
     outState.putBoolean(POWER_SAVE_DISCLAIMER_SHOWN, mPowerSaveDisclaimerShown);
     outState.putBoolean(EXTRA_CONSUMED, mIntentConsumed);
     super.onSaveInstanceState(outState);
@@ -1093,7 +1092,6 @@ public class MwmActivity extends BaseMwmFragmentActivity
     super.onRestoreInstanceState(savedInstanceState);
     // The routing plan fragment is restored by the FragmentManager and re-applies its own saved sheet state,
     // so there is nothing routing-related to restore here.
-    mInCarRecenterRecovery = BuildConfig.IS_IN_CAR && savedInstanceState.getBoolean(IN_CAR_RECENTER_RECOVERY, false);
     mPowerSaveDisclaimerShown = savedInstanceState.getBoolean(POWER_SAVE_DISCLAIMER_SHOWN, false);
   }
 
@@ -2380,7 +2378,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
         showLocationPermissionDeniedDialog(true);
       else if (action == ProviderAction.RESTORE_LOCATION)
       {
-        if (InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery)
+        if (InCarSettingsStore.isExplicitLocationOff(this) && !hasInCarRecenterRecovery())
           mLocationPromptCoordinator.finishProviderRecoveryAttempt();
         else
           restartLocationAfterAvailabilityConfirmed("InCar provider callback with Location enabled");
@@ -2436,19 +2434,25 @@ public class MwmActivity extends BaseMwmFragmentActivity
   }
 
   /** Called only when the native camera owner could not use its accepted position. */
-  boolean recoverInCarRecenterLocation()
+  boolean recoverInCarRecenterLocation(long deadlineMs)
   {
     if (!BuildConfig.IS_IN_CAR || mLocationActivityStopped || !Map.isEngineCreated())
       return false;
     final LocationHelper helper = MwmApplication.from(this).getLocationHelper();
-    if (helper.isAcquisitionRequested())
+    if (deadlineMs <= SystemClock.elapsedRealtime() || helper.isAcquisitionRequested())
       return true;
-    mInCarRecenterRecovery = true;
+    mLocationPromptCoordinator.beginInCarRecenterRecovery(deadlineMs);
     if (LocationUtils.checkLocationPermission(this) && LocationUtils.areLocationServicesTurnedOn(this))
       restartLocationAfterAvailabilityConfirmed("My Position recenter acquisition");
     else
       settleInCarLocation();
     return true;
+  }
+
+  private boolean hasInCarRecenterRecovery()
+  {
+    return !mLocationActivityStopped
+ && mLocationPromptCoordinator.hasInCarRecenterRecovery(SystemClock.elapsedRealtime());
   }
 
   private void resumeInCarLocationIfAllowed()
@@ -2478,7 +2482,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
   /** Checks Android's master switch for at most ten seconds, without polling for a GNSS fix. */
   private void settleInCarLocation()
   {
-    if (mLocationActivityStopped || (InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery))
+    if (mLocationActivityStopped || (InCarSettingsStore.isExplicitLocationOff(this) && !hasInCarRecenterRecovery()))
       return;
     if (!LocationUtils.checkLocationPermission(this))
     {
@@ -2505,6 +2509,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
 
     final int generation = ++mLocationRecoveryGeneration;
+    final boolean recenterRecovery = hasInCarRecenterRecovery();
     final long deadline = SystemClock.uptimeMillis() + LocationSettlePolicy.WINDOW_MS;
     mLocationRecoveryCheck = new Runnable() {
       @Override
@@ -2512,6 +2517,11 @@ public class MwmActivity extends BaseMwmFragmentActivity
       {
         if (generation != mLocationRecoveryGeneration || mLocationActivityStopped)
           return;
+        if (recenterRecovery && !hasInCarRecenterRecovery())
+        {
+          cancelInCarLocationRecovery();
+          return;
+        }
         if (!LocationUtils.checkLocationPermission(MwmActivity.this))
         {
           cancelInCarLocationRecovery();
@@ -2533,17 +2543,17 @@ public class MwmActivity extends BaseMwmFragmentActivity
         mLocationRecoveryCheck = null;
         mLocationSettlingExhausted = true;
         if (!InCarSettingsStore.showLocationDisabledWarning(MwmActivity.this)
-            || (InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) && !mInCarRecenterRecovery)
+            || (InCarSettingsStore.isExplicitLocationOff(MwmActivity.this) && !hasInCarRecenterRecovery())
             || isLocationErrorDialogShowing() || mLocationPromptCoordinator.isLocationSettingsTransitionPending())
           return;
         mLocationWarningIssued = true;
-        showInCarLocationDisabledWarning(generation);
+        showInCarLocationDisabledWarning(generation, recenterRecovery);
       }
     };
     mLocationRecoveryHandler.postDelayed(mLocationRecoveryCheck, LocationSettlePolicy.INTERVAL_MS);
   }
 
-  private void showInCarLocationDisabledWarning(int generation)
+  private void showInCarLocationDisabledWarning(int generation, boolean recenterRecovery)
   {
     final Intent intent = Utils.makeSystemLocationSettingIntent(this);
     final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.MwmTheme_AlertDialog)
@@ -2554,7 +2564,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (intent != null)
       builder.setPositiveButton(R.string.location_settings, (dialog, which) -> {
         if (generation == mLocationRecoveryGeneration && !mLocationActivityStopped
-            && LocationUtils.checkLocationPermission(this) && !LocationUtils.areLocationServicesTurnedOn(this))
+            && (!recenterRecovery || hasInCarRecenterRecovery()) && LocationUtils.checkLocationPermission(this)
+            && !LocationUtils.areLocationServicesTurnedOn(this))
           launchLocationSettings(intent, "confirmed InCar location disabled");
       });
     mLocationErrorDialog = builder.show();
@@ -2574,16 +2585,17 @@ public class MwmActivity extends BaseMwmFragmentActivity
       return;
     }
 
-    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this) && !mInCarRecenterRecovery)
+    final boolean recenterRecovery = BuildConfig.IS_IN_CAR && hasInCarRecenterRecovery();
+    if (BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this) && !recenterRecovery)
     {
       mLocationPromptCoordinator.finishProviderRecoveryAttempt();
       return;
     }
 
-    if (BuildConfig.IS_IN_CAR && mInCarRecenterRecovery)
+    if (recenterRecovery)
     {
       MwmApplication.from(this).getLocationHelper().resumeLocationInForeground(true);
-      mInCarRecenterRecovery = false;
+      mLocationPromptCoordinator.finishInCarRecenterRecovery();
       mLocationPromptCoordinator.finishProviderRecoveryAttempt();
       return;
     }

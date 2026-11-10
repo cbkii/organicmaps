@@ -34,7 +34,6 @@ import app.organicmaps.routing.RoutingPlanViewModel;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.downloader.MapManager;
 import app.organicmaps.sdk.downloader.UpdateInfo;
-import app.organicmaps.sdk.location.LocationState;
 import app.organicmaps.sdk.location.TrackRecorder;
 import app.organicmaps.sdk.maplayer.isolines.IsolinesManager;
 import app.organicmaps.sdk.maplayer.subway.SubwayManager;
@@ -172,12 +171,9 @@ public class MapButtonsController extends Fragment
     mNavMyPosition =
         new MyPositionButton(myPosition, v -> mMapButtonClickListener.onMapButtonClick(MapButtons.myPosition));
 
-    final View cameraView = mFrame.findViewById(R.id.in_car_camera_view_recenter);
-    if (cameraView != null)
-      cameraView.setOnClickListener(v -> {
-        mMapButtonClickListener.onMapButtonClick(MapButtons.cameraViewRecenter);
-        updateCameraPresentation();
-      });
+    final View recenter = mFrame.findViewById(R.id.in_car_camera_view_recenter);
+    if (recenter != null)
+      recenter.setOnClickListener(v -> mMapButtonClickListener.onMapButtonClick(MapButtons.recenterPosition));
 
     // Some buttons do not exist in navigation mode.
     mToggleMapLayerButton = mFrame.findViewById(R.id.layers_button);
@@ -242,8 +238,8 @@ public class MapButtonsController extends Fragment
     mButtonsMap = new HashMap<>();
     mButtonsMap.put(MapButtons.zoom, zoomFrame);
     mButtonsMap.put(MapButtons.myPosition, myPosition);
-    if (cameraView != null)
-      mButtonsMap.put(MapButtons.cameraViewRecenter, cameraView);
+    if (recenter != null)
+      mButtonsMap.put(MapButtons.recenterPosition, recenter);
     mButtonsMap.put(MapButtons.bookmarks, bookmarksButton);
     mButtonsMap.put(MapButtons.search, searchButton);
 
@@ -409,7 +405,7 @@ public class MapButtonsController extends Fragment
       break;
     case search: mSearchWheel.show(show);
     case bookmarks:
-    case cameraViewRecenter:
+    case recenterPosition:
     case menu: UiUtils.showIf(show, buttonView); break;
     case trackRecordingStatus:
       UiUtils.showIf(show, buttonView);
@@ -652,7 +648,6 @@ public class MapButtonsController extends Fragment
   {
     if (mNavMyPosition != null)
       mNavMyPosition.update(newMode);
-    updateCameraPresentation();
   }
 
   private int getViewTopOffset(float translation, View v)
@@ -695,24 +690,6 @@ public class MapButtonsController extends Fragment
       });
   }
 
-  private void updateCameraPresentation()
-  {
-    if (!BuildConfig.IS_IN_CAR || !app.organicmaps.sdk.Map.isEngineCreated())
-      return;
-    final View frame = mFrame;
-    LocationState.nativeQueryCameraPresentation(perspective -> {
-      if (getView() != frame || !isAdded())
-        return;
-      final View button = frame.findViewById(R.id.in_car_camera_view_recenter);
-      if (button != null)
-      {
-        button.setActivated(perspective);
-        button.setContentDescription(
-            getString(perspective ? R.string.in_car_camera_driving : R.string.in_car_camera_top_down));
-      }
-    });
-  }
-
   @Override
   public void onResume()
   {
@@ -723,7 +700,6 @@ public class MapButtonsController extends Fragment
     mTrackRecorderObserver.onChanged(TrackRecorder.nativeIsTrackRecordingEnabled());
     updateLayerButton();
     updateHelpButtonIcon();
-    updateCameraPresentation();
     // A returning launcher/search window may already have focus; keep the old Android fallback.
     if (mFrame.hasWindowFocus())
       ViewCompat.requestApplyInsets(mFrame);
@@ -771,7 +747,7 @@ public class MapButtonsController extends Fragment
   public enum MapButtons
   {
     myPosition,
-    cameraViewRecenter,
+    recenterPosition,
     toggleMapLayer,
     zoomIn,
     zoomOut,
