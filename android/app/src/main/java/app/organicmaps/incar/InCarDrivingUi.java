@@ -157,6 +157,11 @@ public final class InCarDrivingUi
       final Binding geometryBinding = binding;
       overlay.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight,
                                          oldBottom) -> updateSpeedEdgeGeometry(activity, geometryBinding));
+      binding.speed.addOnLayoutChangeListener(
+          (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (right - left != oldRight - oldLeft)
+              updateSpeedEdgeGeometry(activity, geometryBinding);
+          });
       binding.speedCluster.addOnLayoutChangeListener(
           (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom)
@@ -522,8 +527,11 @@ public final class InCarDrivingUi
   {
     if (binding.speedEdgeWarning == null)
       return;
-    binding.speedEdgeWarning.updateGeometry(app.organicmaps.util.InCarVisuals.currentSpeedCircleSizePx(activity),
-                                            InCarSettingsStore.controlsOnLeft(activity), binding.safeInsets);
+    final int measuredWidth = binding.speed.getWidth();
+    final int circleSize =
+        measuredWidth > 0 ? measuredWidth : app.organicmaps.util.InCarVisuals.currentSpeedCircleSizePx(activity);
+    binding.speedEdgeWarning.updateGeometry(circleSize, InCarSettingsStore.controlsOnLeft(activity),
+                                            binding.safeInsets);
   }
 
   private static void applyInsets(@NonNull MwmActivity activity, @NonNull Binding binding)
