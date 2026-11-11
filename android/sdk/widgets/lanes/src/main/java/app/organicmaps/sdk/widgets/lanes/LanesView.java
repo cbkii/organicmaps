@@ -41,6 +41,8 @@ public class LanesView extends View
   private int mActiveLaneTintColor;
   @ColorInt
   private int mInactiveLaneTintColor;
+  @ColorInt
+  private int mActiveLaneBackground;
 
   @NonNull
   private final Paint mBackgroundPaint;
@@ -82,12 +84,19 @@ public class LanesView extends View
 
   public void setLaneColors(@ColorInt int active, @ColorInt int inactive)
   {
-    if (mActiveLaneTintColor == active && mInactiveLaneTintColor == inactive)
+    setLaneColors(active, inactive, Color.TRANSPARENT);
+  }
+
+  public void setLaneColors(@ColorInt int active, @ColorInt int inactive, @ColorInt int activeBackground)
+  {
+    if (mActiveLaneTintColor == active && mInactiveLaneTintColor == inactive
+        && mActiveLaneBackground == activeBackground)
       return;
     mActiveLaneTintColor = active;
     mInactiveLaneTintColor = inactive;
+    mActiveLaneBackground = activeBackground;
     if (mLanesDrawable != null)
-      mLanesDrawable.setLaneColors(active, inactive);
+      mLanesDrawable.setLaneColors(active, inactive, activeBackground);
     invalidate();
   }
 
@@ -98,6 +107,7 @@ public class LanesView extends View
     else
     {
       mLanesDrawable = new LanesDrawable(getContext(), lanes, mActiveLaneTintColor, mInactiveLaneTintColor);
+      mLanesDrawable.setLaneColors(mActiveLaneTintColor, mInactiveLaneTintColor, mActiveLaneBackground);
       mLanesDrawable.setVerticalAlignmentTop(mVerticalAlignmentTop);
     }
     update();

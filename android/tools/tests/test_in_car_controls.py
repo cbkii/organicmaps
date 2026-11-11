@@ -114,7 +114,7 @@ int main() {
         if not runtime:
             self.skipTest("Java unavailable")
         source = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
-        render = controls.method_body(source, "private static void renderRibbon(")
+        render = controls.method_body(source, "private static void renderRibbon(").replace("Color.TRANSPARENT", "0")
         contrast = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarContrast.java")
         contrast = re.sub(r"^(?:package|import) .*;\n", "", contrast, flags=re.M).replace("Color.", "android.graphics.Color.")
         self.assertIn("renderRibbon(activity, snapshot.navigating && warning,", source)
@@ -152,7 +152,7 @@ class View {
 }
 class TextView extends View { int color; void setTextColor(int c){color=c;} }
 class ImageView extends View { int tint; }
-class LanesView extends View { int active,inactive; void setLaneColors(int a,int b){active=a;inactive=b;} }
+class LanesView extends View { int active,inactive,highlight; void setLaneColors(int a,int b,int c){active=a;inactive=b;highlight=c;} }
 class MwmActivity extends View { int[] colors; }
 class ColorStateList { int color; static ColorStateList valueOf(int c){var r=new ColorStateList();r.color=c;return r;} }
 class ImageViewCompat { static void setImageTintList(ImageView v,ColorStateList c){v.tint=c.color;} }
@@ -196,19 +196,21 @@ class RibbonTest {
    LanesView lanes=new LanesView(); lanes.visibility=hasLanes?View.VISIBLE:View.INVISIBLE;
    a.children.put(R.id.lanes,lanes);
    if(!landscape){a.children.remove(R.id.in_car_nav_guidance_group);a.children.remove(R.id.in_car_nav_immediate_group);}
-   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{.18f,.5f,.8f,1f}){
+   for(var severity:InCarSpeedDisplayPolicy.Severity.values())for(float strength:new float[]{0f,.18f,.5f,.8f,1f}){
     InCarSpeedDisplayPolicy.current=severity;
     renderRibbon(a,false,0);
     int original=a.children.get(R.id.nav_next_next_turn_frame).background;
-    renderRibbon(a,true,strength);
+    renderRibbon(a,strength>0,strength);
     View after=a.children.get(R.id.nav_next_next_turn_frame),now=a.children.get(R.id.nav_next_turn_frame);
-    check(after.background!=original);
-    check(lanes.background==after.background);
+    check((after.background!=original)==(strength>0));
+    check(lanes.background==after.background && after.background==now.background);
     TextView label=a.findViewById(R.id.in_car_nav_guidance_label);
     TextView distance=now.findViewById(R.id.distance);
     check(ColorUtils.calculateContrast(label.color,ColorUtils.compositeColors(after.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
     check(ColorUtils.calculateContrast(distance.color,ColorUtils.compositeColors(now.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
-    check(ColorUtils.calculateContrast(lanes.active,ColorUtils.compositeColors(lanes.background,a.colors[R.color.bg_cards]|0xff000000))>=4.5);
+    check(ColorUtils.calculateContrast(lanes.active,lanes.highlight==0?lanes.background:lanes.highlight)>=4.5);
+    check(ColorUtils.calculateContrast(lanes.inactive,lanes.background)>=3.0);
+    check(lanes.highlight!=0||ColorUtils.calculateContrast(lanes.active,lanes.inactive)>=1.5);
     check(a.children.get(R.id.in_car_nav_speed).background==0x12345678);
     check(a.children.get(R.id.nav_speed_limit).background==0x12345678);
     renderRibbon(a,false,0);
@@ -415,20 +417,18 @@ public class AccessibilityTest {
             self.assertIn(token, day)
             self.assertIn(token, night)
             if token == "in_car_quick_foreground":
-                # Both flavours resolve the same semantic role to opposite
-                # colour values; comparing the raw alias cannot prove contrast.
-                self.assertEqual("@color/in_car_icon_primary", day[token])
-                self.assertEqual("@color/in_car_icon_primary", night[token])
-                self.assertNotEqual(day["in_car_icon_primary"], night["in_car_icon_primary"])
+                self.assertEqual("#FF000000", day[token])
+                self.assertEqual(day[token], night[token])
             else:
                 self.assertNotEqual(day[token], night[token])
         camera = controls.read("android/app/src/inCar/res/drawable/in_car_camera_rail.xml")
         quick = controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml")
-        for expected in ("@color/in_car_camera_rail_surface", "@color/in_car_map_control_outline"):
-            self.assertIn(expected, camera)
-            self.assertIn(expected, quick)
+        self.assertIn("@color/in_car_camera_rail_surface", camera)
+        self.assertIn("@color/in_car_quick_surface", quick)
+        for rail in (camera, quick):
+            self.assertIn("@color/in_car_map_control_outline", rail)
         overlay = controls.read("android/app/src/main/java/app/organicmaps/incar/InCarDrivingUi.java")
-        self.assertIn("group.setBackgroundColor(afterBackground)", overlay)
+        self.assertIn("group.setBackgroundColor(immediateBackground)", overlay)
         self.assertIn("immediateGroup.setBackgroundColor(immediateBackground)", overlay)
         theme = controls.read("android/app/src/main/java/app/organicmaps/util/ThemeSwitcher.java")
         self.assertIn("ThemeUtils.isDarkTheme(context)", theme)
@@ -522,12 +522,12 @@ public class AccessibilityTest {
 
 
     def test_incar_quick_icon_contrast_on_extreme_map_tiles(self):
-        """Verify rendered icon contrast at the 75%-opaque map-rail extremes."""
+        """Verify black glyph contrast is independent of the map underneath."""
         day = controls.read("android/app/src/inCar/res/values/colors.xml")
         night = controls.read("android/app/src/inCar/res/values-night/colors.xml")
         rail = ET.fromstring(controls.read("android/app/src/inCar/res/drawable/in_car_quick_rail.xml"))
         ns = "{http://schemas.android.com/apk/res/android}"
-        self.assertEqual("@color/in_car_camera_rail_surface", rail.find("solid").get(ns + "color"))
+        self.assertEqual("@color/in_car_quick_surface", rail.find("solid").get(ns + "color"))
 
         def resolve(source, name):
             resources = {node.get("name"): (node.text or "").strip()
@@ -555,11 +555,20 @@ public class AccessibilityTest {
 
         for source in (day, night):
             _, *ink = resolve(source, "in_car_quick_foreground")
-            alpha, *surface = resolve(source, "in_car_camera_rail_surface")
+            alpha, *surface = resolve(source, "in_car_quick_surface")
+            self.assertEqual(alpha, 230)
+            self.assertEqual(ink, [0, 0, 0])
             for tile in (0, 255):
                 composited = tuple(round((alpha * x + (255 - alpha) * tile) / 255)
                                    for x in surface)
-                self.assertGreaterEqual(ratio(ink, composited), 3.0, (ink, tile))
+                self.assertGreaterEqual(ratio(ink, composited), 7.0, (ink, tile))
+
+    def test_incar_start_build_progress_keeps_label_on_disabled_surface(self):
+        progress = controls.read("android/app/src/main/java/app/organicmaps/widget/RoutingProgressButton.kt")
+        self.assertIn("if (BuildConfig.IS_IN_CAR) height - resources.getDimension(R.dimen.nav_progress) else 0f",
+                      progress)
+        self.assertIn("drawRect(width - fillWidth, top", progress)
+        self.assertIn("drawRect(0f, top, fillWidth", progress)
 
     def test_start_rail_uses_padded_width_and_physical_anchor(self):
         java = shutil.which("java")

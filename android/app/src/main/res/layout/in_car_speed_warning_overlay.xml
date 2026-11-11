@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:id="@+id/in_car_speed_warning_overlay"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:clickable="false"
+  android:focusable="false"
+  android:importantForAccessibility="noHideDescendants">
+
+  <!-- Passive paint only: map gestures pass through, and map/nav controls draw above it. -->
+  <app.organicmaps.incar.InCarSpeedWarningView
+    android:id="@id/in_car_speed_edge_warning"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:layout_gravity="right"
+    android:alpha="0.5"
+    android:clickable="false"
+    android:focusable="false"
+    android:importantForAccessibility="no"
+    android:visibility="gone"
+    tools:ignore="RtlHardcoded" />
+
+</FrameLayout>

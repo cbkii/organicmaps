@@ -15,6 +15,7 @@ import androidx.core.view.ViewCompat;
 import app.organicmaps.BuildConfig;
 import app.organicmaps.R;
 import app.organicmaps.base.BaseMwmFragment;
+import app.organicmaps.incar.InCarSettingsRows;
 import app.organicmaps.sdk.Framework;
 import app.organicmaps.sdk.util.Constants;
 import app.organicmaps.sdk.util.DateUtils;
@@ -33,6 +34,7 @@ public class HelpFragment extends BaseMwmFragment implements View.OnClickListene
   {
     final TextView view = frame.findViewById(id);
     view.setOnClickListener(this);
+    InCarSettingsRows.apply(view);
     if (tint)
       Graphics.tint(view);
     return view;
@@ -96,6 +98,8 @@ public class HelpFragment extends BaseMwmFragment implements View.OnClickListene
     setupItem(R.id.copyright, false, root);
     View termOfUseView = root.findViewById(R.id.term_of_use_link);
     View privacyPolicyView = root.findViewById(R.id.privacy_policy);
+    InCarSettingsRows.apply(termOfUseView);
+    InCarSettingsRows.apply(privacyPolicyView);
     termOfUseView.setOnClickListener(
         v -> Utils.openUrl(requireActivity(), getResources().getString(R.string.translated_om_site_url) + "terms/"));
     privacyPolicyView.setOnClickListener(

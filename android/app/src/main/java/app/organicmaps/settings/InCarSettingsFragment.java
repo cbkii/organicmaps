@@ -21,8 +21,6 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 import app.organicmaps.R;
-import app.organicmaps.incar.InCarChoiceAdapter;
-import app.organicmaps.incar.InCarDialogSizing;
 import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.location.InCarLocationPermissionPolicy;
 import app.organicmaps.location.InCarLocationUi;
@@ -94,6 +92,13 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     compact.setEnabled(false);
     compact.setOnPreferenceChangeListener((preference, value) -> {
       InCarSettingsStore.setCompactStartupEnabled(requireContext(), (boolean) value);
+      return true;
+    });
+
+    final TwoStatePreference edgeWarning = getPreference("in_car_speed_edge_warning");
+    edgeWarning.setChecked(InCarSettingsStore.speedEdgeWarningEnabled(requireContext()));
+    edgeWarning.setOnPreferenceChangeListener((preference, value) -> {
+      InCarSettingsStore.setSpeedEdgeWarningEnabled(requireContext(), (boolean) value);
       return true;
     });
 
@@ -264,48 +269,6 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
     }
     preference.setEntries(filteredEntries.toArray(new CharSequence[0]));
     preference.setEntryValues(filteredValues.toArray(new CharSequence[0]));
-  }
-
-  @Override
-  public void onDisplayPreferenceDialog(@NonNull Preference preference)
-  {
-    if (!(preference instanceof ListPreference listPreference))
-    {
-      super.onDisplayPreferenceDialog(preference);
-      return;
-    }
-
-    final CharSequence[] entries = listPreference.getEntries();
-    final CharSequence[] values = listPreference.getEntryValues();
-    if (entries == null || values == null || entries.length != values.length)
-    {
-      super.onDisplayPreferenceDialog(preference);
-      return;
-    }
-
-    final List<String> labels = new ArrayList<>(entries.length);
-    for (CharSequence entry : entries)
-      labels.add(entry.toString());
-
-    final InCarChoiceAdapter adapter = InCarChoiceAdapter.singleChoice(requireContext(), labels);
-    final CharSequence title =
-        listPreference.getDialogTitle() != null ? listPreference.getDialogTitle() : listPreference.getTitle();
-    final AlertDialog dialog =
-        new AlertDialog.Builder(requireContext())
-            .setTitle(title)
-            .setSingleChoiceItems(adapter, listPreference.findIndexOfValue(listPreference.getValue()),
-                                  (dialogInterface, which) -> {
-                                    if (which < 0 || which >= values.length)
-                                      return;
-                                    final String value = values[which].toString();
-                                    if (listPreference.callChangeListener(value))
-                                      listPreference.setValue(value);
-                                    dialogInterface.dismiss();
-                                  })
-            .setNegativeButton(R.string.cancel, null)
-            .create();
-    dialog.setOnShowListener(ignored -> InCarDialogSizing.applyCompactWidth(requireActivity(), dialog));
-    dialog.show();
   }
 
   private void updateFallbackSummary(@NonNull ListPreference preference, @NonNull OfflineNavigationVoicePack.Mode mode)

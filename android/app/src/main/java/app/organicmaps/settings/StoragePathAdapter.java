@@ -76,6 +76,7 @@ class StoragePathAdapter extends BaseAdapter
                sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
     checkedView.setText(sb);
+    app.organicmaps.incar.InCarSettingsRows.apply(checkedView);
 
     return convertView;
   }

@@ -22,6 +22,7 @@
     <item name="android:windowTranslucentNavigation">false</item>
 
     <item name="alertDialogTheme">@style/MwmTheme.AlertDialog</item>
+    <item name="android:alertDialogTheme">@style/MwmTheme.AlertDialog</item>
     <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.SmallComponent</item>
     <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.App.MediumComponent</item>
     <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.App.LargeComponent</item>

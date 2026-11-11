@@ -1,0 +1,3 @@
+# Below town labels and primary-road shields, above ordinary locality labels.
+place-suburb
+=== 3100

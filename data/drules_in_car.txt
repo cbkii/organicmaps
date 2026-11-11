@@ -7995,6 +7995,17 @@ type place-state-major
     caption primary[height=12 color=c184 stroke=c117] secondary[height=11 color=c138 stroke=c002 dy=1] priority=3400
   z10
     caption primary[height=12 color=c184 stroke=c117] secondary[height=11 color=c138 stroke=c002 dy=1] priority=3400
+type place-suburb
+  z10
+    caption primary[height=12 color=c184 stroke=c117] priority=3100
+  z11
+    caption primary[height=12 color=c184 stroke=c117] priority=3100
+  z12
+    caption primary[height=12 color=c184 stroke=c117] priority=3100
+  z13
+    caption primary[height=14 color=c184 stroke=c117] priority=3100
+  z14
+    caption primary[height=14 color=c184 stroke=c117] priority=3100
 type place-town
   z8 if "population>=40000"
     caption primary[height=10 color=c184 stroke=c117] secondary[height=9 color=c129 stroke=c002 dy=1] priority=3250
