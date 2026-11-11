@@ -126,9 +126,29 @@ jobs:
             echo "::error::GitHub release '${tag}' already exists."
             exit 1
           fi
+          # The version is always above the newest tag, but signer continuity and the
+          # notes range need a published APK. If the newest tag's release was removed,
+          # anchor to the newest earlier tag that still has a readable release.
           if [[ -n "${previous_tag}" ]] && ! gh release view "${previous_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "::error::Previous in-car tag ${previous_tag} has no readable GitHub release."
-            exit 1
+            anchor=""
+            while IFS= read -r candidate; do
+              [[ -n "${candidate}" && "${candidate}" != "${previous_tag}" ]] || continue
+              if gh release view "${candidate}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+                anchor="${candidate}"
+                break
+              fi
+            done < <(
+              git tag --list 'in-car-v*' \
+                | grep -E '^in-car-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
+                | sort -V -r \
+                || true
+            )
+            if [[ -z "${anchor}" ]]; then
+              echo "::error::Previous in-car tag ${previous_tag} has no readable GitHub release, and no earlier in-car tag has one."
+              exit 1
+            fi
+            echo "::warning::Previous in-car tag ${previous_tag} has no readable GitHub release; verifying signer continuity against ${anchor} instead."
+            previous_tag="${anchor}"
           fi
 
           requested="$(printf '%s' "${INPUT_VERSION}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
