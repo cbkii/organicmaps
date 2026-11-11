@@ -3,6 +3,8 @@
 #include "std/target_os.hpp"
 #include "timezone/serdes.hpp"
 
+#include <atomic>
+
 namespace feature
 {
 namespace
@@ -258,10 +260,22 @@ void RegionData::AddPublicHoliday(int8_t month, int8_t offset)
 
 void RegionData::LoadTimeZone()
 {
-  if (auto res = om::tz::Deserialize(Get(RD_TIMEZONE)))
+  m_timeZone.reset();
+  auto const data = Get(RD_TIMEZONE);
+  // Older maps legitimately omit this field. nullopt immediately uses the
+  // system-zone fallback in opening_hours; do not parse/log absence as damage.
+  if (data.empty())
+    return;
+  if (auto res = om::tz::Deserialize(data))
     m_timeZone = std::move(res.value());
   else
-    LOG(LWARNING, ("Failed to read timezone info:", res.error()));
+  {
+    // A malformed legacy region can be read repeatedly during search. Preserve
+    // one diagnostic per process without flooding every feature/load operation.
+    static std::atomic_flag reported = ATOMIC_FLAG_INIT;
+    if (!reported.test_and_set())
+      LOG(LWARNING, ("Failed to read timezone info; using system timezone:", res.error()));
+  }
 }
 
 void RegionData::MergeFrom(RegionData const & rhs)

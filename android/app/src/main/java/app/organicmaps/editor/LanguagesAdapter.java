@@ -46,6 +46,7 @@ public class LanguagesAdapter extends RecyclerView.Adapter<LanguagesAdapter.Hold
     {
       super(itemView);
       name = (TextView) itemView;
+      app.organicmaps.incar.InCarSettingsRows.apply(itemView);
       itemView.setOnClickListener(v -> mFragment.onLanguageSelected(mLanguages[getBindingAdapterPosition()]));
     }
 

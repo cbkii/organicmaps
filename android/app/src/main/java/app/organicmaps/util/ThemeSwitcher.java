@@ -2,7 +2,10 @@ package app.organicmaps.util;
 
 import android.annotation.SuppressLint;
 import android.app.UiModeManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -32,7 +35,20 @@ public enum ThemeSwitcher
 
   public void initialize(@NonNull Context context)
   {
-    mContext = context;
+    if (mSynchronizedThemeController != null)
+      return;
+    mContext = context.getApplicationContext();
+    IntentFilter filter = new IntentFilter(Intent.ACTION_TIME_CHANGED);
+    filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+    filter.addAction(Intent.ACTION_SCREEN_ON);
+    mContext.registerReceiver(new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent)
+      {
+        if (app.organicmaps.sdk.Map.isEngineCreated())
+          synchronizeApplicationTheme();
+      }
+    }, filter);
     mSynchronizedThemeController =
         new SynchronizedThemeController(MwmApplication.from(context).getLocationHelper(), this::setTheme);
   }
@@ -51,13 +67,10 @@ public enum ThemeSwitcher
   {
     final Config.UiTheme themePreference = Config.UiTheme.getUiThemePreference();
     final boolean isScheduledTheme = themePreference == Config.UiTheme.SCHEDULED;
-    final boolean isNavigationAutoDark =
-        RoutingController.get().isNavigating() && Config.UiTheme.isAutoDarkNavigationEnabled();
-
-    if (isScheduledTheme || isNavigationAutoDark)
+    // Manual choices and Follow system are authoritative, including during navigation.
+    if (isScheduledTheme)
     {
-      final var dayTheme = isScheduledTheme ? Config.UiTheme.LIGHT : themePreference;
-      mSynchronizedThemeController.synchronizeTimeDependentTheme(dayTheme);
+      mSynchronizedThemeController.synchronizeTimeDependentTheme();
     }
     else
     {
@@ -99,6 +112,8 @@ public enum ThemeSwitcher
 
   private void setTheme(@NonNull Config.UiTheme theme)
   {
+    if (theme == mLatestTheme)
+      return;
     UiModeManager uiModeManager = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
     switch (theme)
     {

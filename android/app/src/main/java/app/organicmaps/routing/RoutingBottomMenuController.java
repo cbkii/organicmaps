@@ -308,7 +308,8 @@ final class RoutingBottomMenuController
         compactSummary.setVisibility(vehicleSummary ? View.VISIBLE : View.GONE);
         if (vehicleSummary)
         {
-          compactSummary.setText(mTimeVehicle.getText());
+          compactSummary.setText(app.organicmaps.incar.InCarRouteSummary.withForeground(
+              mTimeVehicle.getText(), ContextCompat.getColor(mContext, R.color.in_car_nav_immediate_foreground)));
           // The same summary is already available in the compact START rail; do not render a
           // detached second text row in the InCar vehicle-planning presentation.
           UiUtils.hide(mAltitudeChartFrame);

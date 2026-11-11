@@ -282,6 +282,14 @@ void Framework::Resize(JNIEnv * env, jobject jSurface, int w, int h)
   m_work.OnSize(w, h);
 }
 
+bool Framework::SetPresentationHandler(std::function<void(bool, uint64_t)> handler)
+{
+  if (!m_oglContextFactory)
+    return false;
+  m_oglContextFactory->CastFactory<AndroidOGLContextFactory>()->SetPresentationHandler(std::move(handler));
+  return true;
+}
+
 void Framework::DetachSurface(bool destroySurface)
 {
   LOG(LINFO, ("Detach surface started. destroySurface =", destroySurface));

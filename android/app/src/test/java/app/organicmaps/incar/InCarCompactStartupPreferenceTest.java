@@ -14,13 +14,13 @@ import org.junit.Test;
 public class InCarCompactStartupPreferenceTest
 {
   @Test
-  public void absentPreferenceAndNonInCarFlavoursStayOff()
+  public void unsetInCarPreferenceEnablesPeerButExplicitOffAndOtherFlavoursStayOff()
   {
     final SharedPreferences prefs = mock(SharedPreferences.class);
-    when(prefs.getBoolean("InCarCompactStartup", false)).thenReturn(false);
-    assertFalse(InCarSettingsStore.compactStartupEnabled(prefs, true));
-    when(prefs.getBoolean("InCarCompactStartup", false)).thenReturn(true);
+    when(prefs.getBoolean("InCarCompactStartup", true)).thenReturn(true);
     assertTrue(InCarSettingsStore.compactStartupEnabled(prefs, true));
+    when(prefs.getBoolean("InCarCompactStartup", true)).thenReturn(false);
+    assertFalse(InCarSettingsStore.compactStartupEnabled(prefs, true));
     assertFalse(InCarSettingsStore.compactStartupEnabled(prefs, false));
     verify(prefs, never()).edit();
   }
@@ -35,7 +35,7 @@ public class InCarCompactStartupPreferenceTest
       stored.set(call.getArgument(1));
       return editor;
     });
-    when(prefs.getBoolean("InCarCompactStartup", false)).thenAnswer(call -> stored.get());
+    when(prefs.getBoolean("InCarCompactStartup", true)).thenAnswer(call -> stored.get());
     assertFalse(InCarSettingsStore.compactStartupEnabled(prefs, true));
     InCarSettingsStore.setCompactStartupEnabled(prefs, true, true);
     assertTrue(InCarSettingsStore.compactStartupEnabled(prefs, true));

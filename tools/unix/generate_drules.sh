@@ -15,7 +15,7 @@ function BuildStyle() {
   styleType=$1
   styleName=$2
   outBase=$3
-  priorityType=${4:-$styleType}
+  priorityPath=${4:-$DATA_PATH/styles/$styleType/include}
   echo "Building drawing rules for style $styleType/$styleName"
   # Each invocation also (re)writes the side files (classificator.txt, types.txt, visibility.txt,
   # colors.txt, patterns.txt) into DATA_PATH; the single-variant drules go to a temp dir and are
@@ -23,7 +23,7 @@ function BuildStyle() {
   python3 "$KOTHIC/libkomwm.py" \
     -s "$DATA_PATH/styles/$styleType/$styleName/style.mapcss" \
     -o "$outBase" \
-    -p "$DATA_PATH/styles/$priorityType/include/" \
+    -p "$priorityPath" \
     -d "$DATA_PATH"
 }
 
@@ -39,9 +39,15 @@ BuildStyle default  light    "$TMP_DIR/default_light"
 BuildStyle default  dark     "$TMP_DIR/default_dark"
 BuildStyle outdoors light    "$TMP_DIR/outdoors_light"
 BuildStyle outdoors dark     "$TMP_DIR/outdoors_dark"
-# In-car style intentionally shares the vehicle priority tables.
-BuildStyle in_car   light    "$TMP_DIR/in_car_light" vehicle
-BuildStyle in_car   dark     "$TMP_DIR/in_car_dark" vehicle
+# Kothic rewrites priority files in place. Extend a scratch copy for InCar only.
+inCarPriorities="$TMP_DIR/in_car_priorities"
+mkdir -p "$inCarPriorities"
+cp "$DATA_PATH/styles/vehicle/include/"*.prio.txt "$inCarPriorities/"
+printf '\n' >> "$inCarPriorities/priorities_4_overlays.prio.txt"
+cat "$DATA_PATH/styles/in_car/include/priorities_4_overlays.extra.txt" \
+  >> "$inCarPriorities/priorities_4_overlays.prio.txt"
+BuildStyle in_car   light    "$TMP_DIR/in_car_light" "$inCarPriorities"
+BuildStyle in_car   dark     "$TMP_DIR/in_car_dark" "$inCarPriorities"
 # Keep vehicle style last to produce the same visibility.txt & classificator.txt.
 BuildStyle vehicle  light    "$TMP_DIR/vehicle_light"
 BuildStyle vehicle  dark     "$TMP_DIR/vehicle_dark"

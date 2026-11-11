@@ -7,7 +7,7 @@ import androidx.annotation.VisibleForTesting;
 public final class InCarDrivingViewPolicy
 {
   @VisibleForTesting
-  static final double AUTO_ENTER_SPEED_MPS = 30.0 / 3.6;
+  static final double AUTO_ENTER_SPEED_MPS = 12.0 / 3.6;
   @VisibleForTesting
   static final double AUTO_EXIT_SPEED_MPS = 5.0 / 3.6;
   @VisibleForTesting
@@ -94,7 +94,7 @@ public final class InCarDrivingViewPolicy
   @NonNull
   public Transition disableManually()
   {
-    // A manual OFF must not be undone by the next >30 km/h fix. Re-arm only after the
+    // A manual OFF must not be undone by the next >12 km/h fix. Re-arm only after the
     // same sustained low-speed condition that ends an automatically started session.
     mAutomaticRearmSuppressed = true;
     resetSpeedEvidence();

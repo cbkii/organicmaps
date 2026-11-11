@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
@@ -70,7 +71,7 @@ public class MwmApplication extends Application implements Application.ActivityL
   @Nullable
   private WeakReference<Activity> mTopActivity;
   // Deferred Android recovery delivery only; position and the pending camera request remain native-owned.
-  private boolean mPendingInCarRecenterRecovery;
+  private long mPendingInCarRecenterRecoveryDeadlineMs;
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
@@ -84,20 +85,22 @@ public class MwmApplication extends Application implements Application.ActivityL
   }
 
   @UiThread
-  void requestInCarRecenterRecovery()
+  void requestInCarRecenterRecovery(long deadlineMs)
   {
-    if (!BuildConfig.IS_IN_CAR)
+    if (!BuildConfig.IS_IN_CAR || deadlineMs <= SystemClock.elapsedRealtime()
+        || deadlineMs <= mPendingInCarRecenterRecoveryDeadlineMs)
       return;
-    mPendingInCarRecenterRecovery = true;
+    mPendingInCarRecenterRecoveryDeadlineMs = deadlineMs;
     retryPendingInCarRecenterRecovery();
   }
 
   @UiThread
   private void retryPendingInCarRecenterRecovery()
   {
-    if (mPendingInCarRecenterRecovery && getTopActivity() instanceof MwmActivity current
-        && current.recoverInCarRecenterLocation())
-      mPendingInCarRecenterRecovery = false;
+    final long deadlineMs = mPendingInCarRecenterRecoveryDeadlineMs;
+    if (deadlineMs <= SystemClock.elapsedRealtime()
+        || (getTopActivity() instanceof MwmActivity current && current.recoverInCarRecenterLocation(deadlineMs)))
+      mPendingInCarRecenterRecoveryDeadlineMs = 0;
   }
 
   @Nullable
@@ -243,6 +246,8 @@ public class MwmApplication extends Application implements Application.ActivityL
   public void onActivityResumed(@NonNull Activity activity)
   {
     Logger.d(TAG, "activity = " + activity);
+    if (mOrganicMaps.arePlatformAndCoreInitialized())
+      ThemeSwitcher.INSTANCE.synchronizeApplicationTheme();
     Utils.showOnLockScreen(Config.isShowOnLockScreenEnabled(), activity);
     getSensorHelper().setRotation(activity.getWindowManager().getDefaultDisplay().getRotation());
 
@@ -380,7 +385,7 @@ public class MwmApplication extends Application implements Application.ActivityL
     final boolean foreground =
         ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
     final boolean hasResumedActivity = getTopActivity() != null;
-    final boolean active = getLocationHelper().isActive();
+    final boolean active = getLocationHelper().isAcquisitionRequested();
     final boolean explicitlyOff = BuildConfig.IS_IN_CAR && InCarSettingsStore.isExplicitLocationOff(this);
     if (LocationFeatureStopPolicy.shouldStopExplicitlyOffProvider(foreground, active, explicitlyOff))
       getLocationHelper().stop();
@@ -398,7 +403,8 @@ public class MwmApplication extends Application implements Application.ActivityL
       Logger.i(LOCATION_TAG, "Android Auto is active, keeping location in the background");
     else if (RoutingController.get().isNavigating())
       Logger.i(LOCATION_TAG, "Navigation is in progress, keeping location in the background");
-    else if (!Map.isEngineCreated() || LocationState.getMode() == LocationState.PENDING_POSITION)
+    else if (!BuildConfig.IS_IN_CAR
+             && (!Map.isEngineCreated() || LocationState.getMode() == LocationState.PENDING_POSITION))
       Logger.i(LOCATION_TAG, "PENDING_POSITION mode, keeping location in the background");
     else if (TrackRecorder.nativeIsTrackRecordingEnabled())
       Logger.i(LOCATION_TAG, "Track Recordr is active, keeping location in the background");

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="in_car_location_access">Location access</string>
+  <string name="in_car_location_always">Always</string>
+  <string name="in_car_location_while_using">While using the app</string>
+  <string name="in_car_location_denied">Denied</string>
+  <string name="in_car_location_background_explanation">Allow location all the time to let an existing navigation session use location when another app is visible. This does not start permanent tracking. You can keep While using the app for foreground navigation. In Android app permissions, select Location, then Allow all the time.</string>
+  <string name="in_car_location_diagnostics">GPS acquisition details</string>
+  <string name="in_car_location_acquiring">Acquiring GPS</string>
+  <string name="in_car_location_approximate">Approximate location · acquiring GPS</string>
+  <string name="in_car_location_confirmed">GPS fix established</string>
+  <string name="in_car_location_stale">GPS fix stale · acquiring</string>
+  <string name="in_car_location_stopped">Location stopped</string>
+  <string name="in_car_location_unavailable">Location unavailable</string>
+  <string name="in_car_location_permission_required">Location permission needed</string>
+  <string name="in_car_location_retry">Retry GPS acquisition</string>
+  <string name="in_car_location_retry_started">GPS acquisition restarted</string>
+  <string name="in_car_location_retry_wait">Retry is cooling down, or location is stopped. Enable location first if needed.</string>
+  <string name="in_car_location_show_cache">Show approximate position</string>
+  <string name="in_car_location_recovering">Restoring GPS acquisition</string>
+</resources>

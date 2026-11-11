@@ -138,6 +138,7 @@ public:
   void AddUserEvent(drape_ptr<UserEvent> && event);
 
   void PositionChanged(m2::PointD const & position, bool hasPosition) override;
+  void RecenterPosition(m2::PointD const & position) override;
   void ChangeModelView(m2::PointD const & center, int zoomLevel,
                        TAnimationCreator const & parallelAnimCreator) override;
   void ChangeModelView(double azimuth, TAnimationCreator const & parallelAnimCreator) override;
@@ -156,6 +157,16 @@ public:
   {
     bool const changed = m_cameraDrivingSession != enabled;
     m_cameraDrivingSession = enabled;
+    if (!enabled)
+    {
+      m_fastCameraAcquisitionPending = false;
+      m_firstDrivingCoursePending = false;
+    }
+    else if ((changed || recenter) && !m_myPositionController->IsInRouting())
+    {
+      m_fastCameraAcquisitionPending = true;
+      m_firstDrivingCoursePending = true;
+    }
     if (changed)
       m_manualCameraPresentation = false;
     m_myPositionController->SetDrivingView(enabled, autoReturn, recenter);
@@ -357,6 +368,8 @@ private:
   bool m_enablePerspectiveInNavigation;
   bool m_manualCameraPresentation = false;
   bool m_cameraDrivingSession = false;
+  bool m_fastCameraAcquisitionPending = false;
+  bool m_firstDrivingCoursePending = false;
   bool m_enable3dBuildings;
   bool m_isIsometry;
 

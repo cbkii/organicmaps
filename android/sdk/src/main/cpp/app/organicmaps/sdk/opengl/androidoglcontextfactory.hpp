@@ -18,6 +18,7 @@ public:
   ~AndroidOGLContextFactory();
 
   bool IsValid() const;
+  void SetPresentationHandler(PresentationState::Handler handler) { m_presentation->SetHandler(std::move(handler)); }
 
   dp::GraphicsContext * GetDrawContext() override;
   dp::GraphicsContext * GetResourcesUploadContext() override;
@@ -40,6 +41,7 @@ private:
   bool CreateWindowSurface();
   bool CreatePixelbufferSurface();
 
+  std::shared_ptr<PresentationState> m_presentation = std::make_shared<PresentationState>();
   AndroidOGLContext * m_drawContext;
   AndroidOGLContext * m_uploadContext;
 

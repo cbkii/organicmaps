@@ -218,6 +218,7 @@ public:
   template <class Source>
   void Deserialize(Source & src)
   {
+    MetadataBase::Clear();
     MetadataBase::DeserializeFromMwmTmp(src);
     LoadTimeZone();
   }

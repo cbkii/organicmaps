@@ -38,4 +38,29 @@ TEST(TimeZoneInMetadata, ShouldCorrectlyStoreAndLoadTimeZone)
   feature::RegionData rd2;
   rd2.Deserialize(src);
   EXPECT_EQ(tz, Deserialize(rd2.Get(feature::RegionData::RD_TIMEZONE)).value());
+  ASSERT_TRUE(rd2.GetTimeZone().has_value());
+
+  // Reusing the receiver for an old map must not keep the previous map's zone.
+  buf.clear();
+  feature::RegionData legacy;
+  MemWriter legacyWriter(buf);
+  legacy.Serialize(legacyWriter);
+  MemReader const legacyReader(buf.data(), buf.size());
+  ReaderSource legacySource(legacyReader);
+  rd2.Deserialize(legacySource);
+  EXPECT_FALSE(rd2.GetTimeZone().has_value());
+}
+
+TEST(TimeZoneInMetadata, MalformedDataUsesSystemFallback)
+{
+  feature::RegionData malformed;
+  malformed.Set(feature::RegionData::RD_TIMEZONE, "x");
+  std::vector<uint8_t> buf;
+  MemWriter writer(buf);
+  malformed.Serialize(writer);
+  MemReader const reader(buf.data(), buf.size());
+  ReaderSource source(reader);
+  feature::RegionData loaded;
+  loaded.Deserialize(source);
+  EXPECT_FALSE(loaded.GetTimeZone().has_value());
 }

@@ -22,6 +22,12 @@ on:
       - 'tools/ci/verify_in_car_light_glare.py'
       - 'tools/ci/verify_in_car_marker_palette.py'
       - 'tools/ci/test_verify_in_car_marker_palette.py'
+      - 'tools/ci/test_in_car_speed_camera_scale.cpp'
+      - 'libs/drape_frontend/speed_camera_symbol_scale.hpp'
+      - 'libs/drape_frontend/shape_view_params.hpp'
+      - 'libs/drape_frontend/apply_feature_functors.cpp'
+      - 'libs/drape_frontend/poi_symbol_shape.cpp'
+      - 'libs/drape_frontend/user_mark_shapes.cpp'
       - 'tools/kothic'
       - 'tools/kothic/**'
   pull_request:
@@ -43,6 +49,12 @@ on:
       - 'tools/ci/verify_in_car_light_glare.py'
       - 'tools/ci/verify_in_car_marker_palette.py'
       - 'tools/ci/test_verify_in_car_marker_palette.py'
+      - 'tools/ci/test_in_car_speed_camera_scale.cpp'
+      - 'libs/drape_frontend/speed_camera_symbol_scale.hpp'
+      - 'libs/drape_frontend/shape_view_params.hpp'
+      - 'libs/drape_frontend/apply_feature_functors.cpp'
+      - 'libs/drape_frontend/poi_symbol_shape.cpp'
+      - 'libs/drape_frontend/user_mark_shapes.cpp'
       - 'tools/kothic'
       - 'tools/kothic/**'
 
@@ -63,6 +75,14 @@ jobs:
       - name: Checkout Kothic style compiler
         shell: bash
         run: git submodule update --init --depth 1 tools/kothic
+
+      - name: Verify native InCar speed-camera geometry-scale policy
+        shell: bash
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Ilibs \
+            tools/ci/test_in_car_speed_camera_scale.cpp \
+            -o /tmp/ts18-camera-scale-contract
+          /tmp/ts18-camera-scale-contract
 
       - name: Generate drawing rules
         shell: bash

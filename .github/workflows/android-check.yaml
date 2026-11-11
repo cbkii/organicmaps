@@ -63,12 +63,10 @@ jobs:
             android/tools/report_in_car_apk_metrics.py \
             android/tools/capture_in_car_runtime_baseline.py \
             android/tools/tests/test_report_in_car_apk_metrics.py
-          python3 -m unittest discover \
-            -s android/tools/tests \
-            -p 'test_report_in_car_apk_metrics.py'
-          python3 -m unittest discover -s android/tools/tests -p 'test_current_road_jni_dex.py'
+          python3 -m unittest discover -s android/tools/tests -v
           bash -n \
             android/tools/ci-adb-logcat-window/adb \
+            android/tools/run_sdk_connected_tests.sh \
             android/tools/smoke_test_in_car_apk.sh \
             android/tools/smoke_test_in_car_warm_reentry.sh \
             android/tools/smoke_test_in_car_window_resize.sh \
@@ -120,8 +118,17 @@ jobs:
       - name: Install build tools and dependencies
         shell: bash
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ninja-build
+          if command -v ninja >/dev/null 2>&1; then
+            echo "ninja $(ninja --version) is already available"
+          elif sudo apt-get update -y && sudo apt-get install -y ninja-build; then
+            ninja --version
+          else
+            # Hosted-runner Ubuntu mirrors have failed DNS resolution; PyPI ships the same tool.
+            echo '::warning::Ubuntu archive unavailable; installing ninja from PyPI instead'
+            python3 -m pip install --user --break-system-packages 'ninja>=1.11,<2'
+            echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+            "${HOME}/.local/bin/ninja" --version
+          fi
 
       - name: Checkout sources
         uses: actions/checkout@v6
@@ -144,18 +151,28 @@ jobs:
         run: ./configure.sh
 
       - name: Configure ccache
+        # ccache only speeds up native builds. The action installs it with apt, so an
+        # Ubuntu mirror outage must not fail the build; the next step then builds without it.
+        continue-on-error: true
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.workflow }}-InCarProfileable
           # Restore-only on PRs: master populates the shared cache, PRs read it.
           save: ${{ github.ref == 'refs/heads/master' }}
 
+      - name: Select native compiler launcher
+        shell: bash
+        run: |
+          if command -v ccache >/dev/null 2>&1; then
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+          else
+            echo '::warning::ccache unavailable; compiling native code without a compiler cache'
+          fi
+
       - name: Compile InCarProfileable
         shell: bash
         working-directory: android
-        env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           cmake --version
           ninja --version
@@ -193,9 +210,6 @@ jobs:
       - name: Build x86_64 InCarDebug tests and InCarProfileable smoke APK
         shell: bash
         working-directory: android
-        env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         # Resource merging exceeded the default 2 GiB heap on the hosted runner.
         # The job-level heap is identical across all invocations, avoiding duplicate daemons.
         run: ./gradlew --max-workers=2 -Px86_64 assembleInCarDebug assembleInCarProfileable
@@ -226,13 +240,27 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run SDK connected tests
+      - name: Run SDK and InCar app connected tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           arch: x86_64
           target: google_apis
-          script: cd android && ./gradlew -Px86_64 sdk:connectedDebugAndroidTest
+          script: bash android/tools/run_sdk_connected_tests.sh --with-in-car-app
+
+      - name: Upload SDK and InCar app connected test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-sdk-connected-diagnostics
+          path: |
+            ${{ runner.temp }}/organicmaps-sdk-connected
+            android/sdk/build/outputs/androidTest-results/connected
+            android/sdk/build/reports/androidTests/connected
+            android/app/build/outputs/androidTest-results/connected
+            android/app/build/reports/androidTests/connected
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Configure CI release signing
         id: ci_release_signing
@@ -282,8 +310,6 @@ jobs:
         shell: bash
         working-directory: android
         env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
           KEYSTORE_PATH: ${{ steps.ci_release_signing.outputs.keystore }}
           KEYSTORE_PASSWORD: ${{ steps.ci_release_signing.outputs.store_password }}
           KEY_ALIAS: ${{ steps.ci_release_signing.outputs.alias }}

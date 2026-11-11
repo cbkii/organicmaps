@@ -52,6 +52,7 @@ struct CommonOverlayViewParams : public CommonViewParams
 struct PoiSymbolViewParams : CommonOverlayViewParams
 {
   std::string m_symbolName;
+  float m_symbolScale = 1.0f;  // Geometry-only scale; the symbol's atlas region is unchanged.
   uint32_t m_extendingSize = 0;
   float m_posZ = 0;
   bool m_hasArea = false;

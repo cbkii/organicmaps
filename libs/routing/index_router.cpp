@@ -27,6 +27,7 @@
 
 #include "routing_common/bicycle_model.hpp"
 #include "routing_common/car_model.hpp"
+#include "routing_common/num_mwm_tree.hpp"
 #include "routing_common/pedestrian_model.hpp"
 
 #include "indexer/classificator.hpp"
@@ -457,7 +458,22 @@ RouterResultCode IndexRouter::CalculateRoute(Checkpoints const & checkpoints, m2
 
   try
   {
-    SCOPE_GUARD(featureRoadGraphClear, [this] { ClearRouteCalculationState(); });
+    // Freeze the existing car-option contract for this calculation. A changed mask
+    // must not reuse active or alternative suffixes built under earlier avoidances.
+    m_requestRoutingOptions = RoutingOptions::LoadCarOptionsFromSettings();
+    if (m_previousRoutingOptions != m_requestRoutingOptions->GetOptions())
+    {
+      m_lastRoute.reset();
+      m_lastFakeEdges.reset();
+      m_lastAltRoute.reset();
+      m_lastAltFakeEdges.reset();
+    }
+    m_previousRoutingOptions = m_requestRoutingOptions->GetOptions();
+    SCOPE_GUARD(featureRoadGraphClear, [this]
+    {
+      ClearRouteCalculationState();
+      m_requestRoutingOptions.reset();
+    });
 
     // Both the adjustment and the full build below keep the strategy of the route the user follows.
     // Guides edges are priced at max speed (see SetGuidesGraphParams), above the DistanceBiased cap,
@@ -1301,7 +1317,8 @@ RouterResultCode IndexRouter::AdjustRoute(Checkpoints const & checkpoints, m2::P
 std::unique_ptr<WorldGraph> IndexRouter::MakeWorldGraph()
 {
   // Use saved routing options for all types (car, bicycle, pedestrian).
-  RoutingOptions const routingOptions = RoutingOptions::LoadCarOptionsFromSettings();
+  RoutingOptions const routingOptions =
+      m_requestRoutingOptions ? *m_requestRoutingOptions : RoutingOptions::LoadCarOptionsFromSettings();
   /// @DebugNote
   // Add avoid roads here for debug purpose.
   // routingOptions.Add(RoutingOptions::Road::Motorway);
@@ -1980,7 +1997,7 @@ bool IndexRouter::AreMwmsNear(IndexGraphStarter const & starter) const
   {
     m2::RectD const & rect = m_countryRectFn(m_numMwmIds->GetFile(startMwmId).GetName());
     bool found = false;
-    m_numMwmTree->ForEachInRect(rect, [&finishMwmIds, &found](NumMwmId id)
+    ForEachNumMwmInRect(*m_numMwmTree, rect, [&finishMwmIds, &found](NumMwmId id)
     {
       if (!found && finishMwmIds.count(id) > 0)
         found = true;

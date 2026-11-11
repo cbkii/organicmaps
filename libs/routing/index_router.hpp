@@ -15,6 +15,7 @@
 #include "routing/regions_decl.hpp"
 #include "routing/router.hpp"
 #include "routing/routing_callbacks.hpp"
+#include "routing/routing_options.hpp"
 #include "routing/segment.hpp"
 #include "routing/segmented_route.hpp"
 
@@ -30,6 +31,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -330,5 +332,8 @@ private:
   CountryParentNameGetterFn m_countryParentNameGetterFn;
 
   TimeGetterT m_currentTimeGetter;
+
+  std::optional<RoutingOptions> m_requestRoutingOptions;
+  RoutingOptions::RoadType m_previousRoutingOptions = 0;
 };
 }  // namespace routing

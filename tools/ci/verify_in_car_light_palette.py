@@ -450,6 +450,31 @@ def verify_compiled_feature_captions(root: Path) -> None:
         raise VerificationError("packaged InCar drawing rules differ from the generated binary")
 
 
+def verify_suburb_caption_priority(drules_path: Path) -> None:
+    rules = drules_path.read_text(encoding="utf-8")
+
+    def captions(feature: str) -> str:
+        match = re.search(rf"^type {re.escape(feature)}\n(.*?)(?=^type |\Z)", rules, re.M | re.S)
+        if match is None:
+            raise VerificationError(f"{drules_path}: missing {feature} drawing rules")
+        return match.group(1)
+
+    def priority(feature: str) -> int:
+        match = re.search(r"^    caption .*priority=(-?\d+)$", captions(feature), re.M)
+        if match is None:
+            raise VerificationError(f"{drules_path}: {feature} caption priority missing")
+        return int(match.group(1))
+
+    suburb = captions("place-suburb")
+    bands = re.findall(r"^  z(\d+)\n    caption .*priority=(-?\d+)$", suburb, re.M)
+    if [int(zoom) for zoom, _ in bands] != list(range(10, 15)):
+        raise VerificationError(f"{drules_path}: suburb captions must cover the existing z10–14 range")
+    locality = priority("place-locality")
+    town = priority("place-town")
+    if not all(locality < int(priority) < town for _, priority in bands):
+        raise VerificationError(f"{drules_path}: suburbs must outrank localities and yield to towns")
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     palette_path = root / "data/styles/in_car/light/colors.mapcss"
@@ -458,6 +483,7 @@ def main() -> int:
     drules_path = root / "data/drules_in_car.txt"
 
     try:
+        verify_suburb_caption_priority(drules_path)
         verify_compiled_feature_captions(root)
         palette = read_values(palette_path, VAR)
         style_colours = read_values(style_path, STYLE_COLOR)

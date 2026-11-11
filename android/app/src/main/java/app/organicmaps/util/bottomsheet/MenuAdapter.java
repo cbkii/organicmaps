@@ -128,6 +128,12 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.ViewHolder>
       titleTextView = view.findViewById(R.id.bottom_sheet_menu_item_text);
       badgeTextView = view.findViewById(R.id.bottom_sheet_menu_item_badge);
       toggle = view.findViewById(R.id.bottom_sheet_menu_item_switch);
+      if (app.organicmaps.BuildConfig.IS_IN_CAR)
+      {
+        app.organicmaps.incar.InCarSettingsRows.apply(container);
+        app.organicmaps.incar.InCarSettingsRows.allowMultiline(titleTextView);
+        titleTextView.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+      }
     }
 
     public ImageView getIconImageView()

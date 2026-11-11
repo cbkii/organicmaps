@@ -2,6 +2,8 @@
 
 #include "base/assert.hpp"
 
+#include <algorithm>
+
 namespace df
 {
 drape_ptr<Message> MessageQueue::PopMessage(bool waitForMessage)
@@ -84,17 +86,13 @@ void MessageQueue::FilterMessagesImpl()
 {
   CHECK(m_filter != nullptr, ());
 
-  for (auto it = m_messages.begin(); it != m_messages.end();)
-    if (m_filter(make_ref(it->first)))
-      it = m_messages.erase(it);
-    else
-      ++it;
-
-  for (auto it = m_lowPriorityMessages.begin(); it != m_lowPriorityMessages.end();)
-    if (m_filter(make_ref(*it)))
-      it = m_lowPriorityMessages.erase(it);
-    else
-      ++it;
+  auto const filter = [this](auto const & message)
+  {
+    bool const remove = m_filter(make_ref(message));
+    return remove;
+  };
+  std::erase_if(m_messages, [&filter](auto const & message) { return filter(message.first); });
+  std::erase_if(m_lowPriorityMessages, filter);
 }
 
 void MessageQueue::EnableMessageFiltering(FilterMessageFn && filter)

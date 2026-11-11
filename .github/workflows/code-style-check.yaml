@@ -2,7 +2,7 @@ name: Code style check
 
 on:
   pull_request:
-    branches: [ master ]
+    # Stacked InCar PRs need the same formatting gate as master-targeted PRs.
     paths: # Should stay in sync with tools/unix/clang-format.sh
       - '.github/workflows/code-style-check.yaml'
       - 'android/app/src/**.java'
@@ -19,7 +19,7 @@ on:
 
 jobs:
   code-style-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:

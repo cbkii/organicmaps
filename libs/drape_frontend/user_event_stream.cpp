@@ -7,6 +7,7 @@
 #include "drape_frontend/animation_constants.hpp"
 #include "drape_frontend/animation_system.hpp"
 #include "drape_frontend/animation_utils.hpp"
+#include "drape_frontend/my_position_driving_policy.hpp"
 #include "drape_frontend/screen_animations.hpp"
 #include "drape_frontend/screen_operations.hpp"
 #include "drape_frontend/visual_params.hpp"
@@ -243,10 +244,11 @@ ScreenBase const & UserEventStream::ProcessEvents(bool & modelViewChanged, bool 
     {
       m_needTrackCenter = false;
       ref_ptr<FollowAndRotateEvent> followEvent = make_ref(e);
-      breakAnim = SetFollowAndRotate(followEvent->GetUserPos(), followEvent->GetPixelZero(), followEvent->GetAzimuth(),
-                                     followEvent->GetPreferredZoomLelel(), followEvent->GetAutoScale(),
-                                     followEvent->IsAnim(), followEvent->IsAutoScale(),
-                                     followEvent->GetOnFinishAction(), followEvent->GetParallelAnimCreator());
+      breakAnim =
+          SetFollowAndRotate(followEvent->GetUserPos(), followEvent->GetPixelZero(), followEvent->GetAzimuth(),
+                             followEvent->GetPreferredZoomLelel(), followEvent->GetAutoScale(), followEvent->IsAnim(),
+                             followEvent->IsAutoScale(), followEvent->GetOnFinishAction(),
+                             followEvent->GetParallelAnimCreator(), followEvent->IsFastAcquisition());
     }
     break;
     case UserEvent::EventType::AutoPerspective:
@@ -627,10 +629,10 @@ bool UserEventStream::InterruptFollowAnimations(bool force)
 bool UserEventStream::SetFollowAndRotate(m2::PointD const & userPos, m2::PointD const & pixelPos, double azimuth,
                                          int preferredZoomLevel, double autoScale, bool isAnim, bool isAutoScale,
                                          Animation::TAction const & onFinishAction,
-                                         TAnimationCreator const & parallelAnimCreator)
+                                         TAnimationCreator const & parallelAnimCreator, bool fastAcquisition)
 {
-  // Reset current follow-and-rotate animation if possible.
-  if (isAnim && !InterruptFollowAnimations(false /* force */))
+  // Acquisition may replace the previous camera animation; routine Follow remains interruptible as before.
+  if (isAnim && !InterruptFollowAnimations(fastAcquisition /* force */))
     return false;
 
   m2::PointD const adjustedUserPos = AdjustPointForViewport(userPos, GetCurrentScreen());
@@ -655,14 +657,26 @@ bool UserEventStream::SetFollowAndRotate(m2::PointD const & userPos, m2::PointD 
     double const moveDuration =
         PositionInterpolator::GetMoveDuration(currentScreen.GetOrg(), screen.GetOrg(), currentScreen.PixelRectIn3d(),
                                               (currentScreen.GetScale() + screen.GetScale()) / 2.0);
-    if (moveDuration > kMaxAnimationTimeSec)
+    if (fastAcquisition && moveDuration > kMaxAnimationTimeSec && parallelAnimCreator == nullptr)
     {
-      // Run pretty move animation if we are far from adjustedUserPos.
+      // A far-away first fix should not use three sequential cinematic camera movements.
+      ResetMapPlaneAnimations();
+      m_navigator.SetFromScreen(screen);
+      return true;
+    }
+    if (fastAcquisition)
+    {
+      auto follow =
+          GetFollowAnimation(currentScreen, adjustedUserPos, screen.GetScale(), -azimuth, pixelPos, isAutoScale);
+      follow->SetAcquisitionDuration(driving_policy::kFastAcquisitionDurationSec);
+      anim = std::move(follow);
+    }
+    else if (moveDuration > kMaxAnimationTimeSec)
+    {
       anim = GetPrettyFollowAnimation(currentScreen, adjustedUserPos, screen.GetScale(), -azimuth, pixelPos);
     }
     else
     {
-      // Run follow-and-rotate animation.
       anim = GetFollowAnimation(currentScreen, adjustedUserPos, screen.GetScale(), -azimuth, pixelPos, isAutoScale);
     }
 

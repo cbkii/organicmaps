@@ -112,6 +112,11 @@ public class DrivingOptionsFragment extends BaseMwmToolbarFragment
     dirtyRoadsBtn.setChecked(RoutingOptions.hasOption(RoadType.Dirty));
     CompoundButton.OnCheckedChangeListener dirtyBtnListener = new ToggleRoutingOptionListener(RoadType.Dirty);
     dirtyRoadsBtn.setOnCheckedChangeListener(dirtyBtnListener);
+
+    app.organicmaps.incar.InCarSettingsRows.bindToggle(tollsBtn, getString(R.string.avoid_tolls));
+    app.organicmaps.incar.InCarSettingsRows.bindToggle(motorwaysBtn, getString(R.string.avoid_motorways));
+    app.organicmaps.incar.InCarSettingsRows.bindToggle(ferriesBtn, getString(R.string.avoid_ferry));
+    app.organicmaps.incar.InCarSettingsRows.bindToggle(dirtyRoadsBtn, getString(R.string.avoid_unpaved));
   }
 
   private static class ToggleRoutingOptionListener implements CompoundButton.OnCheckedChangeListener

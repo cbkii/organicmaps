@@ -1788,11 +1788,11 @@ kml::CategoryData const & BookmarkManager::GetCategoryData(kml::MarkGroupId cate
   return GetBmCategory(categoryId)->GetCategoryData();
 }
 
-kml::MarkGroupId BookmarkManager::GetCategoryId(std::string const & name) const
+kml::MarkGroupId BookmarkManager::GetCategoryId(std::string const & name, kml::MarkGroupId excludedGroupId) const
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
   for (auto const & category : m_categories)
-    if (category.second->GetName() == name)
+    if (category.first != excludedGroupId && category.second->GetName() == name)
       return category.first;
   return kml::kInvalidMarkGroupId;
 }
@@ -2431,7 +2431,10 @@ BookmarkCategory * BookmarkManager::GetBmCategorySafe(kml::MarkGroupId categoryI
     return compilationIt->second.get();
 
   auto const it = m_categories.find(categoryId);
-  return (it != m_categories.end() ? it->second.get() : nullptr);
+  if (it == m_categories.end())
+    return nullptr;
+  ASSERT_EQUAL(it->second->GetID(), categoryId, ());
+  return it->second.get();
 }
 
 void BookmarkManager::GetBookmarksInfo(kml::MarkIdSet const & marks, std::vector<BookmarkInfo> & bookmarksInfo) const
@@ -2579,8 +2582,7 @@ kml::MarkGroupId BookmarkManager::CreateBookmarkCategory(kml::CategoryData && da
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
 
-  // _group id_ is not persistant and assigned every time on loading from file.
-  /// @todo Is there any reason to keep and update kLastBookmarkCategoryId in SecureStorage (settings).
+  // Text formats omit category IDs; allocate one when the loaded category has none.
   if (data.m_id == kml::kInvalidMarkGroupId)
     data.m_id = UserMarkIdStorage::Instance().GetNextCategoryId();
   auto groupId = data.m_id;
@@ -2606,15 +2608,18 @@ kml::MarkGroupId BookmarkManager::CreateBookmarkCategory(std::string const & nam
   return groupId;
 }
 
-void BookmarkManager::UpdateBookmarkCategory(kml::MarkGroupId groupId, kml::CategoryData && data,
-                                             bool autoSave /* = true */)
+void BookmarkManager::UpdateBookmarkCategory(kml::MarkGroupId groupId, kml::CategoryData && data)
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
-  CHECK_NOT_EQUAL(m_categories.count(groupId), 0, ());
-  // The current implementation reloads the provided group.
-  /// @todo implement more accurate merging instead of full reloading
+  auto const it = m_categories.find(groupId);
+  CHECK(it != m_categories.end(), (groupId));
+  // UI and search retain the group ID when a category is reloaded from its file.
   ClearGroup(groupId);
-  m_categories.emplace(groupId, std::make_unique<BookmarkCategory>(std::move(data), autoSave));
+  // This fork retains compilations: retire the old groups before replacing their
+  // owning category. Newly loaded compilations have distinct, validated IDs.
+  DeleteCompilations(it->second->GetCategoryData().m_compilationIds);
+  data.m_id = groupId;
+  it->second = std::make_unique<BookmarkCategory>(std::move(data), false /* autoSave */);
   m_changesTracker.OnAddGroup(groupId);
 }
 
@@ -2766,10 +2771,10 @@ UserMarkLayer * BookmarkManager::GetGroup(kml::MarkGroupId groupId) const
 
   auto const catIt = m_categories.find(groupId);
   CHECK(catIt != m_categories.end(), (groupId));
+  ASSERT_EQUAL(catIt->second->GetID(), groupId, ());
   return catIt->second.get();
 }
 
-// Despite the name, this method is called not only for newly created categories, but also for loaded/imported ones.
 void BookmarkManager::CreateCategories(KMLDataCollection && dataCollection, bool autoSave /* = false */)
 {
   CHECK_THREAD_CHECKER(m_threadChecker, ());
@@ -2780,15 +2785,15 @@ void BookmarkManager::CreateCategories(KMLDataCollection && dataCollection, bool
   {
     auto & fileData = *fileDataPtr;
     auto & categoryData = fileData.m_categoryData;
+    auto groupId = GetCategoryByFileName(fileName);
 
-    // Initialize timestamp for newly created or imported categories.
+    // A file's modification time provides ordering when its category timestamp is absent.
     if (categoryData.m_lastModified == kml::Timestamp{})
       categoryData.m_lastModified = fileName.empty() ? kml::TimestampClock::now() : FileModificationTimestamp(fileName);
 
     if (!UserMarkIdStorage::Instance().CheckIds(fileData) || HasDuplicatedIds(fileData))
     {
       LOG(LINFO, ("Reset bookmark ids in the file", fileName));
-      // TODO: notify subscribers(like search subsystem). This KML could have been indexed.
       ResetIds(fileData);
     }
 
@@ -2808,17 +2813,22 @@ void BookmarkManager::CreateCategories(KMLDataCollection && dataCollection, bool
       childGroup->SetServerId(fileData.m_serverId);
     }
 
-    SetUniqueName(categoryData, [this](auto const & name) { return !IsUsedCategoryName(name); });
+    SetUniqueName(categoryData, [this, groupId](auto const & name)
+    {
+      for (auto const & [id, category] : m_categories)
+        if (id != groupId && category->GetName() == name)
+          return false;
+      return true;
+    });
 
     UserMarkIdStorage::Instance().EnableSaving(false);
 
-    auto groupId = GetCategoryByFileName(fileName);
     // Set autoSave = false now to avoid useless saving in NotifyChanges().
     // autoSave flag will be assigned in the end of this function.
     if (groupId != kml::kInvalidMarkGroupId)
     {
       isUpdating = true;
-      UpdateBookmarkCategory(groupId, std::move(categoryData), false /* autoSave */);
+      UpdateBookmarkCategory(groupId, std::move(categoryData));
     }
     else
       groupId = CreateBookmarkCategory(std::move(categoryData), false /* autoSave */);
@@ -3141,11 +3151,7 @@ bool BookmarkManager::IsCategoryEmpty(kml::MarkGroupId categoryId) const
 
 bool BookmarkManager::IsUsedCategoryName(std::string const & name) const
 {
-  CHECK_THREAD_CHECKER(m_threadChecker, ());
-  for (auto const & c : m_categories)
-    if (c.second->GetName() == name)
-      return true;
-  return false;
+  return GetCategoryId(name) != kml::kInvalidMarkGroupId;
 }
 
 bool BookmarkManager::AreAllCategoriesVisible() const

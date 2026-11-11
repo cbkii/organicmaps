@@ -66,14 +66,16 @@ std::string GetEglError(EGLint error)
 
 }  // namespace
 
-void CheckEGL(base::SrcPoint const & src)
+EGLint CheckEGL(base::SrcPoint const & src)
 {
   EGLint error = eglGetError();
+  EGLint const firstError = error;
   while (error != EGL_SUCCESS)
   {
     LOG(LERROR, ("SrcPoint : ", src, ". EGL error : ", GetEglError(error)));
     error = eglGetError();
   }
+  return firstError;
 }
 
 }  // namespace android

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <memory>
 #include "drape/gl_includes.hpp"
 #include "drape/oglcontext.hpp"
+#include "presentation_state.hpp"
 
 #include <atomic>
 
@@ -10,7 +12,8 @@ namespace android
 class AndroidOGLContext : public dp::OGLContext
 {
 public:
-  AndroidOGLContext(EGLDisplay display, EGLSurface surface, EGLConfig config, AndroidOGLContext * contextToShareWith);
+  AndroidOGLContext(EGLDisplay display, EGLSurface surface, EGLConfig config, AndroidOGLContext * contextToShareWith,
+                    std::shared_ptr<PresentationState> presentation = {});
   ~AndroidOGLContext();
 
   void MakeCurrent() override;
@@ -36,6 +39,10 @@ private:
   EGLDisplay m_display;
   // @}
 
+  std::shared_ptr<PresentationState> m_presentation;
   std::atomic<bool> m_presentAvailable;
+  // A lost native surface is not made usable by an Activity resume. Only a
+  // successful surface attachment can admit it again.
+  std::atomic<bool> m_surfaceValid{true};
 };
 }  // namespace android

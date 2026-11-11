@@ -5,6 +5,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.view.AccessibilityDelegateCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import app.organicmaps.R;
 import app.organicmaps.adapter.OnItemClickListener;
@@ -28,7 +31,30 @@ class LayerHolder extends RecyclerView.ViewHolder
     mTitle = root.findViewById(R.id.name);
     mNewMarker = root.findViewById(R.id.marker);
     mButton = root.findViewById(R.id.btn);
-    mButton.setOnClickListener(this::onItemClicked);
+    if (app.organicmaps.BuildConfig.IS_IN_CAR)
+    {
+      app.organicmaps.incar.InCarSettingsRows.apply(root);
+      root.setMinimumWidth(root.getResources().getDimensionPixelSize(R.dimen.in_car_touch_target_preferred));
+      root.setOnClickListener(this::onItemClicked);
+      root.setFocusable(true);
+      mButton.setClickable(false);
+      mButton.setFocusable(false);
+      mButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+      mTitle.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+      ViewCompat.setAccessibilityDelegate(root, new AccessibilityDelegateCompat() {
+        @Override
+        public void onInitializeAccessibilityNodeInfo(@NonNull View host, @NonNull AccessibilityNodeInfoCompat info)
+        {
+          super.onInitializeAccessibilityNodeInfo(host, info);
+          info.setClassName("android.widget.Switch");
+          info.setText(mTitle.getText());
+          info.setCheckable(true);
+          info.setChecked(mButton.isSelected());
+        }
+      });
+    }
+    else
+      mButton.setOnClickListener(this::onItemClicked);
   }
 
   public void onItemClicked(@NonNull View v)

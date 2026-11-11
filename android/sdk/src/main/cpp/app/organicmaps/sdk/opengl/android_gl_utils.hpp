@@ -22,7 +22,7 @@ private:
   EGLDisplay m_display;
 };
 
-void CheckEGL(base::SrcPoint const & src);
+EGLint CheckEGL(base::SrcPoint const & src);
 }  // namespace android
 
 #define CHECK_EGL(x)          \

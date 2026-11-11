@@ -27,6 +27,8 @@ public:
   void Finish() override;
 
   void SetMaxDuration(double maxDuration) override;
+  // Unlike normal automatic zoom, initial InCar camera acquisition caps the scale transition too.
+  void SetAcquisitionDuration(double maxDuration);
   void SetMinDuration(double minDuration) override;
   double GetDuration() const override;
   double GetMinDuration() const override;

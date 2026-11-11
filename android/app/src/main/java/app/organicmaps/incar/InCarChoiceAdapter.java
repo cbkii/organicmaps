@@ -2,7 +2,6 @@ package app.organicmaps.incar;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -63,13 +62,13 @@ public final class InCarChoiceAdapter extends ArrayAdapter<String>
   {
     final TextView row = (TextView) super.getView(position, convertView, parent);
     row.setMinHeight(getContext().getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_min_height));
-    row.setMaxHeight(getContext().getResources().getDimensionPixelSize(R.dimen.in_car_runtime_row_max_height));
+    row.setMaxHeight(Integer.MAX_VALUE);
     row.setGravity(Gravity.CENTER_VERTICAL);
     row.setPadding(dp(getContext(), HORIZONTAL_PADDING_DP), dp(getContext(), VERTICAL_PADDING_DP),
                    dp(getContext(), HORIZONTAL_PADDING_DP), dp(getContext(), VERTICAL_PADDING_DP));
     row.setSingleLine(false);
-    row.setMaxLines(2);
-    row.setEllipsize(TextUtils.TruncateAt.END);
+    row.setMaxLines(Integer.MAX_VALUE);
+    row.setEllipsize(null);
     row.setTextSize(TypedValue.COMPLEX_UNIT_SP, TEXT_SIZE_SP);
     applyIcon(row, position);
     return row;

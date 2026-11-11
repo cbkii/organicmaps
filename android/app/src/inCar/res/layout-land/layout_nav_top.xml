@@ -13,7 +13,8 @@
     android:id="@+id/nav_next_turn_container"
     android:layout_width="0dp"
     android:layout_height="@dimen/in_car_nav_ribbon_height"
-    android:background="@color/bg_cards"
+    android:background="@color/in_car_nav_immediate_background"
+    android:baselineAligned="false"
     android:clickable="true"
     android:clipChildren="true"
     android:clipToPadding="true"
@@ -34,15 +35,15 @@
       android:id="@+id/in_car_nav_immediate_group"
       android:layout_width="0dp"
       android:layout_height="match_parent"
-      android:layout_weight="1"
+      android:layout_weight="3"
+      android:baselineAligned="false"
       android:background="@color/in_car_nav_immediate_background"
       android:gravity="end|center_vertical"
       android:layoutDirection="ltr"
       android:orientation="horizontal"
       android:paddingRight="10dp"
       tools:ignore="RtlHardcoded">
-      <!-- Physical-left to physical-right: road name, distance, glyph. Flexible road text
-           yields to fixed manoeuvre information; the 10dp trailing edge separates AFTER. -->
+      <!-- Physical-left to physical-right: road name, distance, glyph. The road, distance and glyph share the measured width; the 10dp trailing edge separates AFTER. -->
       <FrameLayout
         android:id="@+id/street_frame"
         android:layout_width="0dp"
@@ -50,45 +51,57 @@
         android:layout_weight="1"
         android:paddingLeft="6dp"
         android:paddingRight="8dp">
-        <TextView
+        <androidx.appcompat.widget.AppCompatTextView
           android:id="@+id/street"
           android:layout_width="match_parent"
           android:layout_height="match_parent"
-          android:ellipsize="end"
           android:gravity="right|center_vertical"
           android:includeFontPadding="false"
-          android:maxLines="1"
+          android:breakStrategy="balanced"
+          tools:targetApi="23"
           android:layoutDirection="locale"
           android:textDirection="locale"
           android:textColor="@color/in_car_nav_immediate_foreground"
           android:textSize="@dimen/in_car_nav_instruction_text_size"
           android:textStyle="bold"
+          app:autoSizeTextType="uniform"
+          app:autoSizeMinTextSize="10sp"
+          app:autoSizeMaxTextSize="@dimen/in_car_nav_instruction_text_size"
+          app:autoSizeStepGranularity="1sp"
           tools:text="Northbourne Avenue towards City" />
       </FrameLayout>
       <LinearLayout
         android:id="@+id/nav_next_turn_frame"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:baselineAligned="false"
         android:gravity="end|center_vertical"
         android:orientation="horizontal">
-        <TextView
+        <androidx.appcompat.widget.AppCompatTextView
           android:id="@+id/distance"
           style="@style/MwmWidget.TextView.NavNextTurn"
-          android:layout_width="wrap_content"
+          android:layout_width="0dp"
           android:layout_height="match_parent"
+          android:layout_weight="1.4"
           android:layout_marginRight="6dp"
-          android:ellipsize="end"
           android:gravity="end|center_vertical"
           android:includeFontPadding="false"
           android:maxLines="1"
           android:textColor="@color/in_car_nav_immediate_foreground"
           android:textSize="@dimen/in_car_nav_distance_text_size"
           android:textStyle="bold"
+          app:autoSizeTextType="uniform"
+          app:autoSizeMinTextSize="10sp"
+          app:autoSizeMaxTextSize="@dimen/in_car_nav_distance_text_size"
+          app:autoSizeStepGranularity="1sp"
           tools:text="320 m" />
         <ImageView
           android:id="@+id/turn"
-          android:layout_width="@dimen/in_car_nav_now_icon_size"
-          android:layout_height="match_parent"
+          android:layout_width="0dp"
+          android:layout_height="@dimen/in_car_nav_now_icon_size"
+          android:layout_weight="1"
+          android:layout_gravity="center_vertical"
           android:scaleType="fitCenter"
           app:tint="@color/in_car_nav_immediate_foreground"
           tools:src="@drawable/ic_roundabout_exit_12" />
@@ -98,35 +111,44 @@
     <!-- Labels sit beside full-height graphics: a common baseline without reducing lane height. -->
     <LinearLayout
       android:id="@+id/in_car_nav_guidance_group"
-      android:layout_width="@dimen/in_car_nav_guidance_width"
+      android:layout_width="0dp"
       android:layout_height="match_parent"
+      android:layout_weight="1"
+      android:baselineAligned="false"
+      android:background="@color/in_car_nav_immediate_background"
       android:layout_marginRight="@dimen/in_car_nav_section_gap"
       android:orientation="horizontal"
       tools:ignore="RtlHardcoded">
-      <TextView
+      <androidx.appcompat.widget.AppCompatTextView
         android:id="@+id/in_car_nav_guidance_label"
-        android:layout_width="@dimen/in_car_nav_guidance_label_width"
+        android:layout_width="0dp"
+        android:layout_weight="1"
         android:layout_height="@dimen/in_car_nav_label_height"
         android:alpha="1.0"
         android:gravity="top"
         android:includeFontPadding="false"
         android:text="@string/in_car_nav_after"
-        android:textColor="@color/in_car_nav_foreground"
+        android:textColor="@color/in_car_nav_immediate_foreground"
         android:textSize="14sp"
+        android:maxLines="1"
+        app:autoSizeTextType="uniform"
+        app:autoSizeMinTextSize="8sp"
+        app:autoSizeMaxTextSize="14sp"
+        app:autoSizeStepGranularity="1sp"
         android:visibility="invisible" />
       <FrameLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1">
+        android:layout_weight="2.5">
         <app.organicmaps.sdk.widgets.lanes.LanesView
           android:id="@+id/lanes"
           android:layout_width="match_parent"
           android:layout_height="@dimen/in_car_nav_lanes_height"
           android:layout_gravity="center_vertical"
           android:visibility="gone"
-          app:lanesActiveLaneTintColor="@color/in_car_nav_lanes_foreground"
+          app:lanesActiveLaneTintColor="@color/in_car_nav_lane_active"
           app:lanesBackgroundColor="@android:color/transparent"
-          app:lanesInactiveLaneTintColor="@color/in_car_nav_secondary"
+          app:lanesInactiveLaneTintColor="@color/in_car_nav_lane_inactive"
           tools:visibility="visible" />
         <FrameLayout
           android:id="@+id/nav_next_next_turn_frame"
@@ -136,13 +158,13 @@
           android:visibility="gone">
           <ImageView
             android:id="@id/turn"
-            android:layout_width="@dimen/in_car_nav_after_icon_size"
+            android:layout_width="match_parent"
             android:layout_height="@dimen/in_car_nav_after_icon_size"
             android:layout_gravity="center"
             android:layout_marginLeft="@dimen/in_car_nav_icon_gap"
             android:layout_marginRight="@dimen/in_car_nav_icon_gap"
             android:scaleType="fitCenter"
-            app:tint="@color/in_car_nav_foreground"
+            app:tint="@color/in_car_nav_immediate_foreground"
             tools:src="@drawable/ic_roundabout_exit_12" />
         </FrameLayout>
       </FrameLayout>

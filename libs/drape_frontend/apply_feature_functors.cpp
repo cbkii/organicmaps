@@ -8,9 +8,11 @@
 #include "drape_frontend/path_symbol_shape.hpp"
 #include "drape_frontend/path_text_shape.hpp"
 #include "drape_frontend/poi_symbol_shape.hpp"
+#include "drape_frontend/speed_camera_symbol_scale.hpp"
 #include "drape_frontend/text_layout.hpp"
 #include "drape_frontend/text_shape.hpp"
 
+#include "indexer/map_style_reader.hpp"
 #include "indexer/road_shields_parser.hpp"
 
 #include "geometry/clipping.hpp"
@@ -412,6 +414,7 @@ void ApplyPointFeature::ProcessPointRules(drule::SymbolRule const * symbolRule, 
     params.m_depthTestEnabled = false;
     params.m_depth = PriorityToDepth(symbolRule->priority, drule::symbol, 0);
     params.m_symbolName = symbolRule->name;
+    params.m_symbolScale = GetInCarSpeedCameraSymbolScale(GetStyleReader().GetCurrentStyle(), params.m_symbolName);
     ASSERT_GREATER_OR_EQUAL(symbolRule->min_distance, 0, ());
 
     // Where 0.1 comes from: https://github.com/organicmaps/organicmaps/pull/649
@@ -426,7 +429,7 @@ void ApplyPointFeature::ProcessPointRules(drule::SymbolRule const * symbolRule, 
 
     dp::TextureManager::SymbolRegion region;
     texMng->GetSymbolRegion(params.m_symbolName, region);
-    symbolSize = region.GetPixelSize();
+    symbolSize = region.GetPixelSize() * params.m_symbolScale;
 
     if (region.IsValid())
       m_params.m_insertShape(make_unique_dp<PoiSymbolShape>(centerPoint, params, m_params.m_tileKey, 0));

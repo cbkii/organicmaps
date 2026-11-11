@@ -53,3 +53,28 @@ retarget #69 to master and close superseded PRs only after proving inclusion.
 Qualify the final camera/location head separately; request its signed TESTING
 snapshot from that exact SHA and preserve rollback provenance. No device
 installation or production publication is part of this checkpoint.
+
+## Combined camera/location candidate
+
+PR #69 incorporates the checkpoint and independent #70 by ordinary merge
+ancestry. Its review base is the checkpoint branch while the physical master
+merge gate is pending; retarget to master after the checkpoint is accepted.
+The settings conflict retains compact capability-generation checks and both
+location permission launchers, saved pending state, explanation and diagnostics.
+Manifest permissions, renderer evidence and location-supervisor ownership coexist.
+
+A compiled production-method regression exercises location loss, first accepted
+stationary fix, first reliable moving course, one-shot follow events, manual
+interruption and routing/disabled-session exclusions. Together with the actual
+LocationHelper/provider registration/stall/quiet-receiver harness this qualifies
+those source boundaries, not GNSS hardware, JNI timing or rendered TS18 latency.
+The final signed TESTING candidate must report source/built SHA, package,
+version, signer and APK checksum before physical testing.
+
+The combined regression exposed a silent-repair gap: provider repair preserves
+native state and does not emit LoseLocation. Rapid acquisition now also re-arms
+before a fresh, strictly newer native observation replaces evidence stale for
+30 seconds (or marked obsolete). BOOTTIME evidence covers suspended rendering.
+Routing, ordinary non-driving mode, manual pan/zoom cooldown, stale/replayed/future
+input and invalid clocks do not gain rapid camera ownership. The production-method
+regression fails on the prior candidate and passes after this targeted native fix.
