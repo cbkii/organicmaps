@@ -138,6 +138,7 @@ public:
   void AddUserEvent(drape_ptr<UserEvent> && event);
 
   void PositionChanged(m2::PointD const & position, bool hasPosition) override;
+  void RecenterPosition(m2::PointD const & position) override;
   void ChangeModelView(m2::PointD const & center, int zoomLevel,
                        TAnimationCreator const & parallelAnimCreator) override;
   void ChangeModelView(double azimuth, TAnimationCreator const & parallelAnimCreator) override;

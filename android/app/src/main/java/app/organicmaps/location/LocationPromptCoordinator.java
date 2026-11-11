@@ -33,6 +33,23 @@ public final class LocationPromptCoordinator extends ViewModel
   private boolean mProviderRecoveryPending;
   private boolean mPermissionPermanentlyDenied;
   private boolean mTrackRecordingRequested;
+  // Survives Activity configuration changes with the permission flow, but is never persisted.
+  private long mInCarRecenterRecoveryDeadlineMs;
+
+  public void beginInCarRecenterRecovery(long deadlineMs)
+  {
+    mInCarRecenterRecoveryDeadlineMs = deadlineMs;
+  }
+
+  public boolean hasInCarRecenterRecovery(long nowMs)
+  {
+    return nowMs < mInCarRecenterRecoveryDeadlineMs;
+  }
+
+  public void finishInCarRecenterRecovery()
+  {
+    mInCarRecenterRecoveryDeadlineMs = 0;
+  }
 
   /**
    * Classifies a location operation which currently requires Android runtime permission.

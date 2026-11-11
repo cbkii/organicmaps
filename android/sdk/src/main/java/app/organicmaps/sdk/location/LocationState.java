@@ -43,7 +43,8 @@ public final class LocationState
 
   /**
    * Requests recentering on the render controller's accepted fresh position without changing the native My Position
-   * mode. If no usable position exists, one recenter stays pending and onNeedsLocation runs on the GUI thread
+   * mode or camera presentation. If no usable position exists, one bounded recenter stays pending and
+   * onNeedsLocation runs on the GUI thread
    * so the existing Android provider/permission owner can recover acquisition without guessing from the mode.
    */
   @Keep

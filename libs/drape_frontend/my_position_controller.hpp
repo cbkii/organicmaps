@@ -32,6 +32,7 @@ public:
   public:
     virtual ~Listener() = default;
     virtual void PositionChanged(m2::PointD const & position, bool hasPosition) = 0;
+    virtual void RecenterPosition(m2::PointD const & position) = 0;
     // Show map with center in "center" point and current zoom.
     virtual void ChangeModelView(m2::PointD const & center, int zoomLevel,
                                  TAnimationCreator const & parallelAnimCreator) = 0;
@@ -139,6 +140,7 @@ public:
   void UpdateRoutingOffsetY(bool useDefault, int offsetY);
 
 private:
+  bool TryRecenterPosition(int64_t now);
   void ChangeMode(location::EMyPositionMode newMode);
   void SetDirection(double bearing);
 
@@ -206,7 +208,7 @@ private:
   base::Timer m_updateLocationTimer;
   double m_lastLocationTimestamp;
   int64_t m_lastRecenterObservationNanos = 0;
-  bool m_recenterPending = false;
+  int64_t m_recenterDeadlineNanos = 0;
 
   m2::RectD m_pixelRect;
   m2::RectD m_visiblePixelRect;

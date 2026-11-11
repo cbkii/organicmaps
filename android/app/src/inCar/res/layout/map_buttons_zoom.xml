@@ -22,7 +22,7 @@
     app:srcCompat="@drawable/ic_in_car_driving_view"
     app:tint="@color/icon_tint" />
 
-  <!-- One shared surface: zoom, native Follow Mode and independent camera/recenter. -->
+  <!-- One shared surface: zoom, native Follow Mode and independent My Position. -->
   <LinearLayout
     android:id="@+id/zoom_buttons_container"
     android:background="@drawable/in_car_camera_rail"
@@ -91,7 +91,7 @@
       android:tint="?attr/iconTint"
       android:padding="@dimen/in_car_map_rail_icon_padding"
       android:contentDescription="@string/in_car_camera_view_recenter"
-      app:srcCompat="@drawable/ic_not_follow" />
+      app:srcCompat="@drawable/ic_location_crosshair" />
   </LinearLayout>
 
 </LinearLayout>

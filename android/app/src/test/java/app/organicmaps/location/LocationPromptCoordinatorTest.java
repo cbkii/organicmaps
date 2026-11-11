@@ -11,6 +11,23 @@ import org.junit.Test;
 public class LocationPromptCoordinatorTest
 {
   @Test
+  public void recenterRecoveryExpiresAcrossSettingsHandoffAndIsConsumedAfterRestart()
+  {
+    final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
+    coordinator.beginInCarRecenterRecovery(31_000);
+
+    assertTrue(coordinator.beginLocationSettingsTransition());
+    coordinator.finishLocationSettingsTransition();
+    assertTrue(coordinator.hasInCarRecenterRecovery(30_999));
+    assertFalse(coordinator.hasInCarRecenterRecovery(31_000));
+    assertFalse(new LocationPromptCoordinator().hasInCarRecenterRecovery(1_000));
+
+    coordinator.beginInCarRecenterRecovery(61_000);
+    coordinator.finishInCarRecenterRecovery();
+    assertFalse(coordinator.hasInCarRecenterRecovery(32_000));
+  }
+
+  @Test
   public void grantedAndEnabledRestoresLocationWithoutPrompt()
   {
     final LocationPromptCoordinator coordinator = new LocationPromptCoordinator();
