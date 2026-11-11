@@ -151,18 +151,28 @@ jobs:
         run: ./configure.sh
 
       - name: Configure ccache
+        # ccache only speeds up native builds. The action installs it with apt, so an
+        # Ubuntu mirror outage must not fail the build; the next step then builds without it.
+        continue-on-error: true
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.workflow }}-InCarProfileable
           # Restore-only on PRs: master populates the shared cache, PRs read it.
           save: ${{ github.ref == 'refs/heads/master' }}
 
+      - name: Select native compiler launcher
+        shell: bash
+        run: |
+          if command -v ccache >/dev/null 2>&1; then
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "${GITHUB_ENV}"
+          else
+            echo '::warning::ccache unavailable; compiling native code without a compiler cache'
+          fi
+
       - name: Compile InCarProfileable
         shell: bash
         working-directory: android
-        env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           cmake --version
           ninja --version
@@ -200,9 +210,6 @@ jobs:
       - name: Build x86_64 InCarDebug tests and InCarProfileable smoke APK
         shell: bash
         working-directory: android
-        env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         # Resource merging exceeded the default 2 GiB heap on the hosted runner.
         # The job-level heap is identical across all invocations, avoiding duplicate daemons.
         run: ./gradlew --max-workers=2 -Px86_64 assembleInCarDebug assembleInCarProfileable
@@ -303,8 +310,6 @@ jobs:
         shell: bash
         working-directory: android
         env:
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
           KEYSTORE_PATH: ${{ steps.ci_release_signing.outputs.keystore }}
           KEYSTORE_PASSWORD: ${{ steps.ci_release_signing.outputs.store_password }}
           KEY_ALIAS: ${{ steps.ci_release_signing.outputs.alias }}
