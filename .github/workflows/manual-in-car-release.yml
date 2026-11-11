@@ -126,9 +126,48 @@ jobs:
             echo "::error::GitHub release '${tag}' already exists."
             exit 1
           fi
-          if [[ -n "${previous_tag}" ]] && ! gh release view "${previous_tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "::error::Previous in-car tag ${previous_tag} has no readable GitHub release."
-            exit 1
+          # The version is always above the newest tag, but signer continuity and the
+          # notes range need a published APK. If the newest tag's release is confirmed
+          # absent (HTTP 404), anchor to the newest earlier tag whose release has exactly
+          # one InCar APK. Any other lookup failure stops the run rather than skipping a
+          # release that may exist.
+          release_apk_count() {
+            local output
+            if output="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$1" \
+                --jq '[.assets[].name | select(test("^OrganicMaps-InCar-v.*-arm64-v8a\\.apk$"))] | length' 2>&1)"; then
+              printf '%s\n' "${output}"
+            elif grep -q 'HTTP 404' <<< "${output}"; then
+              printf 'missing\n'
+            else
+              echo "::error::Unable to read the GitHub release for $1: ${output}" >&2
+              return 1
+            fi
+          }
+          if [[ -n "${previous_tag}" ]]; then
+            previous_state="$(release_apk_count "${previous_tag}")"
+            if [[ "${previous_state}" == missing ]]; then
+              anchor=""
+              while IFS= read -r candidate; do
+                [[ -n "${candidate}" && "${candidate}" != "${previous_tag}" ]] || continue
+                candidate_state="$(release_apk_count "${candidate}")"
+                if [[ "${candidate_state}" == 1 ]]; then
+                  anchor="${candidate}"
+                  break
+                fi
+                echo "::notice::Skipping ${candidate} as a continuity anchor (release APKs: ${candidate_state})."
+              done < <(
+                git tag --list 'in-car-v*' \
+                  | grep -E '^in-car-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
+                  | sort -V -r \
+                  || true
+              )
+              if [[ -z "${anchor}" ]]; then
+                echo "::error::Previous in-car tag ${previous_tag} has no GitHub release, and no earlier in-car release has exactly one InCar APK."
+                exit 1
+              fi
+              echo "::warning::Previous in-car tag ${previous_tag} has no GitHub release; verifying signer continuity against ${anchor} instead."
+              previous_tag="${anchor}"
+            fi
           fi
 
           requested="$(printf '%s' "${INPUT_VERSION}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
