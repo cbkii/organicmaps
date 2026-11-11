@@ -58,6 +58,7 @@
           android:gravity="right|center_vertical"
           android:includeFontPadding="false"
           android:breakStrategy="balanced"
+          tools:targetApi="23"
           android:layoutDirection="locale"
           android:textDirection="locale"
           android:textColor="@color/in_car_nav_immediate_foreground"
