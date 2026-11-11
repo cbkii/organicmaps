@@ -32,7 +32,7 @@ import app.organicmaps.util.Utils;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class InCarSettingsFragment extends BaseXmlSettingsFragment
+public final class InCarSettingsFragment extends SettingsPrefsFragment
 {
   private int mCompactCheckGeneration;
   private boolean mLocationAccessPending;
@@ -51,141 +51,170 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
   @Override
   protected @XmlRes int getXmlResources()
   {
-    return R.xml.prefs_in_car;
+    return R.xml.prefs_in_car_home;
   }
 
   @Override
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
-    mLocationAccessPending = savedInstanceState != null && savedInstanceState.getBoolean("location_access_pending");
-    getPreference("in_car_location_access").setOnPreferenceClickListener(preference -> {
-      if (mLocationAccessPending || mLocationExplanationShowing)
-        return true;
-      mLocationExplanationShowing = true;
-      new AlertDialog.Builder(requireContext())
-          .setTitle(R.string.in_car_location_access)
-          .setMessage(R.string.in_car_location_background_explanation)
-          .setNegativeButton(R.string.close, null)
-          .setOnDismissListener(dialog -> mLocationExplanationShowing = false)
-          .setPositiveButton(R.string.settings, (dialog, which) -> requestLocationAccess())
-          .show();
-      return true;
-    });
-    getPreference("in_car_location_diagnostics").setOnPreferenceClickListener(preference -> {
-      InCarLocationUi.showDetails(requireActivity());
-      return true;
-    });
-    updateLocationAccess();
-    getViewLifecycleOwner().getLifecycle().addObserver(new androidx.lifecycle.DefaultLifecycleObserver() {
-      @Override
-      public void onResume(@NonNull androidx.lifecycle.LifecycleOwner owner)
-      {
-        updateLocationAccess();
-      }
-    });
-
-    final TwoStatePreference compact = getPreference("in_car_compact_startup");
-    compact.setVisible(app.organicmaps.BuildConfig.IS_IN_CAR);
-    compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
-    compact.setSummary(R.string.in_car_compact_startup_checking);
-    compact.setEnabled(false);
-    compact.setOnPreferenceChangeListener((preference, value) -> {
-      InCarSettingsStore.setCompactStartupEnabled(requireContext(), (boolean) value);
-      return true;
-    });
-
-    final TwoStatePreference edgeWarning = getPreference("in_car_speed_edge_warning");
-    edgeWarning.setChecked(InCarSettingsStore.speedEdgeWarningEnabled(requireContext()));
-    edgeWarning.setOnPreferenceChangeListener((preference, value) -> {
-      InCarSettingsStore.setSpeedEdgeWarningEnabled(requireContext(), (boolean) value);
-      return true;
-    });
-
-    final ListPreference position = getPreference("in_car_control_position");
-    position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
-    position.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-    position.setOnPreferenceChangeListener((preference, value) -> {
-      InCarSettingsStore.setControlPosition(requireContext(), (String) value);
-      return true;
-    });
-    final ListPreference delay = getPreference("in_car_navigation_action_delay");
-    delay.setValue(Integer.toString(InCarSettingsStore.getAutomaticNavigationActionDelaySeconds(requireContext())));
-    delay.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-    delay.setOnPreferenceChangeListener((preference, value) -> {
-      InCarSettingsStore.setAutomaticNavigationActionDelaySeconds(requireContext(), Integer.parseInt((String) value));
-      return true;
-    });
-
-    final TwoStatePreference warning = getPreference(getString(R.string.pref_in_car_location_disabled_warning));
-    warning.setChecked(InCarSettingsStore.showLocationDisabledWarning(requireContext()));
-    warning.setOnPreferenceChangeListener((preference, value) -> {
-      InCarSettingsStore.setShowLocationDisabledWarning(requireContext(), (boolean) value);
-      return true;
-    });
-    getPreference(getString(R.string.pref_in_car_open_location_settings)).setOnPreferenceClickListener(preference -> {
-      final Intent intent = Utils.makeSystemLocationSettingIntent(requireContext());
-      if (intent == null)
-      {
-        Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
-        return false;
-      }
-      try
-      {
-        startActivity(intent);
-        return true;
-      }
-      catch (ActivityNotFoundException e)
-      {
-        Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
-        return false;
-      }
-    });
-
-    // The old MANUAL option depended on a second map-facing camera button. Keep its resource entry
-    // for migration/backward compatibility, but do not expose an impossible mode after that button
-    // has been removed. The runtime policy normalises legacy MANUAL installs to AUTOMATIC.
-    final ListPreference drivingView = getPreference(getString(R.string.pref_in_car_driving_view_mode));
-    filterLegacyManualDrivingView(drivingView);
-
-    final ListPreference expiry = getPreference("in_car_route_resume_minutes");
-    final List<CharSequence> expiryLabels = new ArrayList<>();
-    final List<CharSequence> expiryValues = new ArrayList<>();
-    for (int minutes = 5; minutes <= 90; minutes += 5)
+    if (findPreference("in_car_location_access") != null)
     {
-      expiryLabels.add(getString(R.string.in_car_route_resume_minutes, minutes, getString(R.string.minute)));
-      expiryValues.add(Integer.toString(minutes));
+      mLocationAccessPending = savedInstanceState != null && savedInstanceState.getBoolean("location_access_pending");
+      getPreference("in_car_location_access").setOnPreferenceClickListener(preference -> {
+        if (mLocationAccessPending || mLocationExplanationShowing)
+          return true;
+        mLocationExplanationShowing = true;
+        new AlertDialog.Builder(requireContext())
+            .setTitle(R.string.in_car_location_access)
+            .setMessage(R.string.in_car_location_background_explanation)
+            .setNegativeButton(R.string.close, null)
+            .setOnDismissListener(dialog -> mLocationExplanationShowing = false)
+            .setPositiveButton(R.string.settings, (dialog, which) -> requestLocationAccess())
+            .show();
+        return true;
+      });
+      getPreference("in_car_location_diagnostics").setOnPreferenceClickListener(preference -> {
+        InCarLocationUi.showDetails(requireActivity());
+        return true;
+      });
+      updateLocationAccess();
+      getViewLifecycleOwner().getLifecycle().addObserver(new androidx.lifecycle.DefaultLifecycleObserver() {
+        @Override
+        public void onResume(@NonNull androidx.lifecycle.LifecycleOwner owner)
+        {
+          updateLocationAccess();
+        }
+      });
     }
-    expiry.setEntries(expiryLabels.toArray(new CharSequence[0]));
-    expiry.setEntryValues(expiryValues.toArray(new CharSequence[0]));
-    expiry.setValue(Integer.toString(InCarSettingsStore.routeResumeMinutes(requireContext())));
-    expiry.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-    expiry.setOnPreferenceChangeListener((preference, value) -> {
-      InCarSettingsStore.setRouteResumeMinutes(requireContext(), Integer.parseInt((String) value));
-      return true;
-    });
 
-    final ListPreference fallback = getPreference(getString(R.string.pref_in_car_navigation_fallback_mode));
-    final OfflineNavigationVoicePack.Mode mode = OfflineNavigationVoicePack.getMode(requireContext());
-    fallback.setValue(mode.getPreferenceValue());
-    updateFallbackSummary(fallback, mode);
-    fallback.setOnPreferenceChangeListener((preference, newValue) -> {
-      final OfflineNavigationVoicePack.Mode newMode =
-          OfflineNavigationVoicePack.Mode.fromPreferenceValue((String) newValue);
-      OfflineNavigationVoicePack.setMode(requireContext(), newMode);
-      updateFallbackSummary(fallback, newMode);
-      TtsPlayer.setEnabled(Config.TTS.isEnabled());
-      return true;
-    });
+    if (findPreference("in_car_compact_startup") != null)
+    {
+      final TwoStatePreference compact = getPreference("in_car_compact_startup");
+      compact.setVisible(app.organicmaps.BuildConfig.IS_IN_CAR);
+      compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
+      compact.setSummary(R.string.in_car_compact_startup_checking);
+      compact.setEnabled(false);
+      compact.setOnPreferenceChangeListener((preference, value) -> {
+        InCarSettingsStore.setCompactStartupEnabled(requireContext(), (boolean) value);
+        return true;
+      });
+    }
+
+    if (findPreference("in_car_speed_edge_warning") != null)
+    {
+      final TwoStatePreference edgeWarning = getPreference("in_car_speed_edge_warning");
+      edgeWarning.setChecked(InCarSettingsStore.speedEdgeWarningEnabled(requireContext()));
+      edgeWarning.setOnPreferenceChangeListener((preference, value) -> {
+        InCarSettingsStore.setSpeedEdgeWarningEnabled(requireContext(), (boolean) value);
+        return true;
+      });
+    }
+
+    if (findPreference("in_car_control_position") != null)
+    {
+      final ListPreference position = getPreference("in_car_control_position");
+      position.setValue(InCarSettingsStore.controlsOnLeft(requireContext()) ? "RHD" : "LHD");
+      position.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+      position.setOnPreferenceChangeListener((preference, value) -> {
+        InCarSettingsStore.setControlPosition(requireContext(), (String) value);
+        return true;
+      });
+    }
+
+    if (findPreference("in_car_navigation_action_delay") != null)
+    {
+      final ListPreference delay = getPreference("in_car_navigation_action_delay");
+      delay.setValue(Integer.toString(InCarSettingsStore.getAutomaticNavigationActionDelaySeconds(requireContext())));
+      delay.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+      delay.setOnPreferenceChangeListener((preference, value) -> {
+        InCarSettingsStore.setAutomaticNavigationActionDelaySeconds(requireContext(), Integer.parseInt((String) value));
+        return true;
+      });
+    }
+
+    if (findPreference("in_car_location_access") != null)
+    {
+      final TwoStatePreference warning = getPreference(getString(R.string.pref_in_car_location_disabled_warning));
+      warning.setChecked(InCarSettingsStore.showLocationDisabledWarning(requireContext()));
+      warning.setOnPreferenceChangeListener((preference, value) -> {
+        InCarSettingsStore.setShowLocationDisabledWarning(requireContext(), (boolean) value);
+        return true;
+      });
+      getPreference(getString(R.string.pref_in_car_open_location_settings)).setOnPreferenceClickListener(preference -> {
+        final Intent intent = Utils.makeSystemLocationSettingIntent(requireContext());
+        if (intent == null)
+        {
+          Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
+          return false;
+        }
+        try
+        {
+          startActivity(intent);
+          return true;
+        }
+        catch (ActivityNotFoundException e)
+        {
+          Toast.makeText(requireContext(), R.string.in_car_location_settings_unavailable, Toast.LENGTH_LONG).show();
+          return false;
+        }
+      });
+    }
+
+    if (findPreference(getString(R.string.pref_in_car_driving_view_mode)) != null)
+    {
+      // The old MANUAL option depended on a second map-facing camera button. Keep its resource entry
+      // for migration/backward compatibility, but do not expose an impossible mode after that button
+      // has been removed. The runtime policy normalises legacy MANUAL installs to AUTOMATIC.
+      final ListPreference drivingView = getPreference(getString(R.string.pref_in_car_driving_view_mode));
+      filterLegacyManualDrivingView(drivingView);
+    }
+
+    if (findPreference("in_car_route_resume_minutes") != null)
+    {
+      final ListPreference expiry = getPreference("in_car_route_resume_minutes");
+      final List<CharSequence> expiryLabels = new ArrayList<>();
+      final List<CharSequence> expiryValues = new ArrayList<>();
+      for (int minutes = 5; minutes <= 90; minutes += 5)
+      {
+        expiryLabels.add(getString(R.string.in_car_route_resume_minutes, minutes, getString(R.string.minute)));
+        expiryValues.add(Integer.toString(minutes));
+      }
+      expiry.setEntries(expiryLabels.toArray(new CharSequence[0]));
+      expiry.setEntryValues(expiryValues.toArray(new CharSequence[0]));
+      expiry.setValue(Integer.toString(InCarSettingsStore.routeResumeMinutes(requireContext())));
+      expiry.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+      expiry.setOnPreferenceChangeListener((preference, value) -> {
+        InCarSettingsStore.setRouteResumeMinutes(requireContext(), Integer.parseInt((String) value));
+        return true;
+      });
+    }
+
+    if (findPreference(getString(R.string.pref_in_car_navigation_fallback_mode)) != null)
+    {
+      final ListPreference fallback = getPreference(getString(R.string.pref_in_car_navigation_fallback_mode));
+      final OfflineNavigationVoicePack.Mode mode = OfflineNavigationVoicePack.getMode(requireContext());
+      fallback.setValue(mode.getPreferenceValue());
+      updateFallbackSummary(fallback, mode);
+      fallback.setOnPreferenceChangeListener((preference, newValue) -> {
+        final OfflineNavigationVoicePack.Mode newMode =
+            OfflineNavigationVoicePack.Mode.fromPreferenceValue((String) newValue);
+        OfflineNavigationVoicePack.setMode(requireContext(), newMode);
+        updateFallbackSummary(fallback, newMode);
+        TtsPlayer.setEnabled(Config.TTS.isEnabled());
+        return true;
+      });
+    }
   }
 
   @Override
   public void onResume()
   {
     super.onResume();
+    updateSectionSummaries();
     final int generation = ++mCompactCheckGeneration;
     final View view = getView();
-    if (view == null || !app.organicmaps.BuildConfig.IS_IN_CAR)
+    if (view == null || !app.organicmaps.BuildConfig.IS_IN_CAR || findPreference("in_car_compact_startup") == null)
       return;
     final TwoStatePreference compact = getPreference("in_car_compact_startup");
     compact.setChecked(InCarSettingsStore.compactStartupEnabled(requireContext()));
@@ -198,6 +227,43 @@ public final class InCarSettingsFragment extends BaseXmlSettingsFragment
       compact.setSummary(available ? R.string.in_car_compact_startup_summary
                                    : R.string.in_car_compact_startup_unavailable);
     });
+  }
+
+  /** Read the owning stores each time Settings returns to its root; no mirrored preference state. */
+  private void updateSectionSummaries()
+  {
+    final Preference appearance = findPreference("in_car_section_map_display");
+    if (appearance != null)
+    {
+      final int label = switch (Config.UiTheme.getUiThemePreference())
+      {
+        case LIGHT -> R.string.in_car_ia_theme_light;
+        case DARK -> R.string.in_car_ia_theme_dark;
+        case SCHEDULED -> R.string.in_car_ia_theme_scheduled;
+        case SYSTEM -> R.string.in_car_ia_theme_system;
+      };
+      appearance.setSummary(getString(R.string.in_car_ia_map_display_state, getString(label)));
+    }
+
+    final Preference driving = findPreference("in_car_section_driving");
+    if (driving != null)
+    {
+      final boolean automatic = app.organicmaps.incar.InCarDrivingViewModePolicy.getMode(requireContext())
+                             != app.organicmaps.incar.InCarDrivingViewModePolicy.DrivingViewMode.OFF;
+      driving.setSummary(
+          getString(R.string.in_car_ia_driving_state, getString(automatic ? R.string.on : R.string.off)));
+    }
+
+    final Preference places = findPreference("in_car_section_places");
+    if (places != null)
+    {
+      final boolean homeSet = app.organicmaps.incar.InCarQuickDestinationsStore.getHome(requireContext()) != null;
+      final boolean workSet = app.organicmaps.incar.InCarQuickDestinationsStore.getWork(requireContext()) != null;
+      places.setSummary(
+          getString(R.string.in_car_ia_places_state,
+                    getString(homeSet ? R.string.in_car_quick_configured : R.string.in_car_quick_not_configured),
+                    getString(workSet ? R.string.in_car_quick_configured : R.string.in_car_quick_not_configured)));
+    }
   }
 
   @Override

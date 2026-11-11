@@ -2856,32 +2856,31 @@ public class MwmActivity extends BaseMwmFragmentActivity
     if (id.equals(MAIN_MENU_ID))
     {
       ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
-      items.add(new MenuBottomSheetItem(R.string.placepage_add_place_button, R.drawable.ic_plus,
-                                        this::onAddPlaceOptionSelected));
-      items.add(new MenuBottomSheetItem(R.string.download_maps, R.drawable.ic_download, getDownloadMapsCounter(),
-                                        this::onDownloadMapsOptionSelected));
-
       if (BuildConfig.IS_IN_CAR)
       {
-        // Keep the primary automotive menu task-oriented and stable. These entries reuse the existing
-        // bookmark/layer/settings/share authorities rather than introducing InCar-specific copies.
         items.add(new MenuBottomSheetItem(R.string.bookmarks, R.drawable.ic_bookmarks_and_tracks, () -> {
           closeFloatingPanels();
           showBookmarks();
         }));
+        items.add(new MenuBottomSheetItem(R.string.download_maps, R.drawable.ic_download, getDownloadMapsCounter(),
+                                          this::onDownloadMapsOptionSelected));
         items.add(new MenuBottomSheetItem(R.string.layers_title, R.drawable.ic_layers, () -> {
           closeFloatingPanels();
           showBottomSheet(LAYERS_MENU_ID);
         }));
+        // The presenter inserts the single checkable Track Recording row before Settings.
         items.add(new MenuBottomSheetItem(R.string.settings, R.drawable.ic_settings, this::onSettingsOptionSelected));
-        items.add(new MenuBottomSheetItem(R.string.share_my_location, R.drawable.ic_share,
-                                          this::onShareLocationOptionSelected));
-        items.add(new MenuBottomSheetItem(R.string.in_car_advanced_menu_title, R.drawable.ic_settings, () -> {
+        items.add(new MenuBottomSheetItem(R.string.in_car_more_actions, R.drawable.ic_menu_open, () -> {
           closeBottomSheet(MAIN_MENU_ID);
           showBottomSheet(ADVANCED_MENU_ID);
         }));
         return items;
       }
+
+      items.add(new MenuBottomSheetItem(R.string.placepage_add_place_button, R.drawable.ic_plus,
+                                        this::onAddPlaceOptionSelected));
+      items.add(new MenuBottomSheetItem(R.string.download_maps, R.drawable.ic_download, getDownloadMapsCounter(),
+                                        this::onDownloadMapsOptionSelected));
 
       mDonatesUrl = Utils.getDonateUrl(getApplicationContext());
       if (!TextUtils.isEmpty(mDonatesUrl))
@@ -2898,10 +2897,10 @@ public class MwmActivity extends BaseMwmFragmentActivity
       ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
       if (BuildConfig.IS_IN_CAR)
       {
-        final int trackRecordingTitle = TrackRecorder.nativeIsTrackRecordingEnabled() ? R.string.track_recording_title
-                                                                                      : R.string.start_track_recording;
-        items.add(new MenuBottomSheetItem(trackRecordingTitle, R.drawable.ic_track_recording_off, -1,
-                                          this::onTrackRecordingOptionSelected));
+        items.add(new MenuBottomSheetItem(R.string.placepage_add_place_button, R.drawable.ic_plus,
+                                          this::onAddPlaceOptionSelected));
+        items.add(new MenuBottomSheetItem(R.string.share_my_location, R.drawable.ic_share,
+                                          this::onShareLocationOptionSelected));
       }
       mDonatesUrl = Utils.getDonateUrl(getApplicationContext());
       if (!TextUtils.isEmpty(mDonatesUrl))
