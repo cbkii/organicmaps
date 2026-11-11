@@ -15,7 +15,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-import androidx.annotation.RequiresApi;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -32,7 +31,6 @@ import java.util.Locale;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@RequiresApi(26)
 @SdkSuppress(minSdkVersion = 26)
 @RunWith(AndroidJUnit4.class)
 public class InCarNavigationRibbonTest
