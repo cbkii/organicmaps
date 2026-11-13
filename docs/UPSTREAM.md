@@ -48,3 +48,13 @@ The eleven intervening commits were reviewed against the retained Android automo
 | `751319bc449fef68bd5bc2fdce58d8294a5d61aa` | Exclude | iOS CarPlay bookmark repair; platform is removed. |
 
 The curated source commit is followed by a history-only merge whose first parent is that source commit and second parent is the upstream target. Its tree must equal the curated first-parent tree. This records considered upstream ancestry without importing excluded source or restoring removed platforms. Tree equality and upstream ancestry are separate required verification facts. Preserve this lineage when eventually merging PR #56: **Create a merge commit**, never squash or rebase. This work package leaves the PR unmerged.
+
+## Upstream release intelligence monitoring
+
+A fork-only, monthly/manual upstream release monitor is specified in
+[UPSTREAM_MONITOR.md](UPSTREAM_MONITOR.md). It inspects full published Android release
+commit/file inventories and produces one agent-ready Issue per release, with
+versioned evidence in `automation/upstream-review-evidence`. The monitor never
+merges, cherry-picks, rewrites source, dispatches agents or edits upstream.
+History-only upstream ancestry is **not** proof that upstream code is present.
+Human decisions and selective-import policy above remain authoritative.

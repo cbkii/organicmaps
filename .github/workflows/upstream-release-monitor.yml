@@ -1,0 +1,122 @@
+name: Upstream Release Intelligence (fork-only)
+
+"on":
+  schedule:
+    - cron: "37 3 2 * *" # monthly, second day at 03:37 UTC
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Published upstream Android release tag; blank discovers unreviewed releases"
+        required: false
+        type: string
+      mode:
+        description: "Analyse new releases, explicitly reanalyse a tag, or dry-run without publication"
+        required: true
+        default: analyse
+        type: choice
+        options: [analyse, reanalyse, dry-run]
+
+# Serialise read+publish and prevent concurrent duplicate Issue creation.
+concurrency:
+  group: upstream-release-monitor-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  analyse:
+    name: Read-only comparison and sealed report
+    if: github.repository == 'cbkii/organicmaps'
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Checkout exact fork source without persisted credentials
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            tools/__init__.py
+            tools/upstream_monitor/
+            docs/UPSTREAM_SYNC_2026_10_19.md
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          submodules: false
+
+      - name: Configure Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Offline verification of monitor/security tests
+        run: |
+          python -m compileall -q tools/upstream_monitor
+          python -m unittest discover -s tools/upstream_monitor/tests -p 'test_*.py' -v
+
+      - name: Analyse published releases (strictly read-only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || '' }}
+          MONITOR_MODE: ${{ inputs.mode || 'analyse' }}
+        run: |
+          python -m tools.upstream_monitor analyse \
+            --repo "$GITHUB_WORKSPACE" \
+            --out "$RUNNER_TEMP/upstream-analysis" \
+            --mode "$MONITOR_MODE" \
+            --release-tag "$RELEASE_TAG"
+
+      - name: Attach bounded short-lived run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-analysis-${{ github.run_id }}
+          path: ${{ runner.temp }}/upstream-analysis/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
+  publish:
+    name: Publish evidence and one fork Issue per release
+    needs: analyse
+    if: >-
+      needs.analyse.result == 'success' && github.repository == 'cbkii/organicmaps' &&
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode != 'dry-run'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout publisher (no persisted token or submodules)
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/__init__.py
+            tools/upstream_monitor/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          submodules: false
+
+      - name: Configure Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Download exact analysis result
+        uses: actions/download-artifact@v4
+        with:
+          name: upstream-analysis-${{ github.run_id }}
+          path: ${{ runner.temp }}/upstream-analysis/
+
+      - name: Publish ONLY in this fork (evidence branch + Issues)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python -m tools.upstream_monitor publish \
+            --input "$RUNNER_TEMP/upstream-analysis"

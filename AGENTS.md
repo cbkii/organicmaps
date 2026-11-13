@@ -65,3 +65,7 @@ Import selectively from `organicmaps/organicmaps` and record upstream commit pro
 - Preserve licences, notices and third-party attribution for retained code/data.
 
 See `android/AGENTS.md` for Android implementation conventions and `docs/` for architecture, building, release, scope, upstream and TS18 validation policy.
+
+## Absolute upstream read-only rule
+
+`organicmaps/organicmaps` is a separate, protected, **read-only reference** for this fork. Neither the upstream-monitoring workflow nor any AI agent acting on its Issues may change upstream in any manner. Prohibited upstream operations include pushes, branch/tag changes, PR or Issue creation, comments, reviews, labels, releases, workflow dispatches, repository settings or other API mutations. Fetch and inspect public upstream sources only. All writes and implementation PR targets must be confined to `cbkii/organicmaps` with explicit authorization. The monitor stores its historical evidence in a fork-only evidence branch and prepares Issues for *manual* human agent handoff. See `docs/UPSTREAM_MONITOR.md`.
