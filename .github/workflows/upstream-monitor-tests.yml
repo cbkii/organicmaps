@@ -1,0 +1,39 @@
+name: Upstream Intelligence Tests
+
+"on":
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'tools/upstream_monitor/**'
+      - 'tools/__init__.py'
+      - '.github/workflows/upstream-release-monitor.yml'
+      - '.github/workflows/upstream-monitor-tests.yml'
+      - 'docs/UPSTREAM_MONITOR.md'
+      - 'docs/UPSTREAM.md'
+      - 'AGENTS.md'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/__init__.py
+            tools/upstream_monitor/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Compile and test without network or write credentials
+        run: |
+          python -m compileall -q tools/upstream_monitor
+          python -m unittest discover -s tools/upstream_monitor/tests -p 'test_*.py' -v
