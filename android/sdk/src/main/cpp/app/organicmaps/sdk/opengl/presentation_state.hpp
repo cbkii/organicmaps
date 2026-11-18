@@ -33,19 +33,25 @@ public:
     {
       std::lock_guard<std::mutex> lock(m_mutex);
       m_ready = false;
+      ++m_surfaceGeneration;
       generation = ++m_generation;
       notify = m_handler;
     }
     if (notify)
       notify(false, generation);
   }
-  void Presented(bool ready)
+  uint64_t BeginFrame()
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_surfaceGeneration;
+  }
+  void Presented(bool ready, uint64_t surfaceGeneration)
   {
     Handler notify;
     uint64_t generation;
     {
       std::lock_guard<std::mutex> lock(m_mutex);
-      if (m_ready == ready)
+      if (surfaceGeneration != m_surfaceGeneration || m_ready == ready)
         return;
       m_ready = ready;
       // Every state edge has an ordering token: snapshot callbacks may race the render thread.
@@ -61,5 +67,6 @@ private:
   Handler m_handler;
   bool m_ready = false;
   uint64_t m_generation = 1;
+  uint64_t m_surfaceGeneration = 1;
 };
 }  // namespace android
