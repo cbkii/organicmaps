@@ -306,6 +306,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
       app.organicmaps.incar.InCarCompactStartupState.INSTANCE.presentation(System.identityHashCode(this), ready,
                                                                            generation);
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+      app.organicmaps.util.InCarWindowGeometryCoordinator.onPresentationChanged(this);
     }
   }
 
@@ -322,6 +323,7 @@ public class MwmActivity extends BaseMwmFragmentActivity
     {
       app.organicmaps.incar.InCarCompactStartupState.INSTANCE.nativeReady(System.identityHashCode(this));
       app.organicmaps.incar.InCarCompactStartupProvider.changed(this);
+      app.organicmaps.util.InCarWindowGeometryCoordinator.onPresentationChanged(this);
     }
     ThemeSwitcher.INSTANCE.synchronizeMapStyle(this, mMapController.isRenderingActive());
 

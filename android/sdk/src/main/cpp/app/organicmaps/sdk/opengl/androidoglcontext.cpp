@@ -90,10 +90,13 @@ void AndroidOGLContext::Present()
   if (!m_presentAvailable || !m_surfaceValid)
     return;
   ASSERT(m_surface != EGL_NO_SURFACE, ());
+  // A swap already in flight when the UI resizes/replaces the surface cannot
+  // certify presentation for the new surface generation.
+  auto const generation = m_presentation ? m_presentation->BeginFrame() : 0;
   if (eglSwapBuffers(m_display, m_surface) == EGL_FALSE)
   {
     if (m_presentation)
-      m_presentation->Presented(false);
+      m_presentation->Presented(false, generation);
     EGLint const error = CheckEGL(SRC());
     // Do not repeatedly submit to an invalid native window. Preserve navigation
     // and wait for the existing detach/attach owner to provide a new surface.
@@ -101,7 +104,7 @@ void AndroidOGLContext::Present()
       m_surfaceValid = false;
   }
   else if (m_presentation)
-    m_presentation->Presented(true);
+    m_presentation->Presented(true, generation);
 }
 
 void AndroidOGLContext::SetSurface(EGLSurface surface)

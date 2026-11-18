@@ -61,6 +61,7 @@ virtual void WaitForInitialization(GraphicsContext*){}virtual void SetPresentAva
 ''',
             'EGL/egl.h': '''#pragma once
 #include <cstddef>
+#include <functional>
 struct ANativeWindow;
 using EGLint=int;using EGLDisplay=int;using EGLSurface=int;using EGLContext=int;using EGLConfig=int;
 constexpr int EGL_NO_CONTEXT=0,EGL_NO_SURFACE=0,EGL_NO_DISPLAY=0,EGL_DEFAULT_DISPLAY=1;
@@ -70,6 +71,7 @@ EGL_RENDERABLE_TYPE=10,EGL_SURFACE_TYPE=11,EGL_PBUFFER_BIT=12,EGL_WINDOW_BIT=13,
 EGL_WIDTH=14,EGL_HEIGHT=15,EGL_NATIVE_VISUAL_ID=16,EGL_RENDER_BUFFER=17,EGL_BACK_BUFFER=18,EGL_DRAW=19;
 constexpr int EGL_BAD_SURFACE=20,EGL_BAD_NATIVE_WINDOW=21,EGL_BAD_CURRENT_SURFACE=22,EGL_BAD_ALLOC=23;
 extern int fakeError,queries,destroys,terminates,swaps;extern bool failQuery,failWindow,failSwap;
+extern std::function<void()> onSwap;
 inline int eglGetDisplay(int){return 1;}inline int eglInitialize(int,int*,int*){return 1;}
 inline int eglTerminate(int){++terminates;return 1;}
 inline int eglChooseConfig(int,int*,int* c,int,int* n){*n=1;*c=1;return 1;}
@@ -82,13 +84,14 @@ inline int eglCreateContext(int,int,int,int*){return 4;}
 inline int eglDestroyContext(int,int){return 1;}inline int eglMakeCurrent(int,int,int,int){return 1;}
 inline int eglGetCurrentDisplay(){return 1;}inline int eglGetCurrentSurface(int){return 2;}
 inline int eglGetCurrentContext(){return 4;}
-inline int eglSwapBuffers(int,int){++swaps;return !failSwap;}
+inline int eglSwapBuffers(int,int){++swaps;auto callback=onSwap;if(callback)callback();return !failSwap;}
 ''',
             'owner_test.cpp': '''#include <cassert>
 #include "app/organicmaps/sdk/opengl/androidoglcontextfactory.hpp"
 #include "app/organicmaps/sdk/opengl/android_gl_utils.hpp"
 int fakeError=EGL_BAD_ALLOC,queries=0,destroys=0,terminates=0,releases=0,swaps=0;
 bool failQuery=false,failWindow=false,failSwap=false;
+std::function<void()> onSwap;
 namespace android {
 ConfigComparator::ConfigComparator(EGLDisplay d):m_display(d){}
 bool ConfigComparator::operator()(EGLConfig const&,EGLConfig const&)const{return false;}
@@ -115,6 +118,15 @@ int main(){
   assert(!f.IsValid() && releases==3 && destroys==2 && terminates==0);
   failQuery=false;failSwap=false;f.SetSurface(&env,(void*)1);assert(f.IsValid());
   draw->Present();assert(swaps==3 && draw->Validate() && presented==1 && epoch>1);
+  auto beforeResize=epoch;
+  auto queryCount=queries;
+  f.UpdateSurfaceSize(600,300);assert(epoch>beforeResize && presented==1);
+  auto resizeEpoch=epoch;
+  f.UpdateSurfaceSize(600,300);assert(epoch==resizeEpoch); // Same geometry is not invalidated repeatedly.
+  onSwap=[&]{f.UpdateSurfaceSize(650,350);onSwap=nullptr;};
+  draw->Present();assert(swaps==4 && presented==1); // Old in-flight swap cannot certify the new size.
+  draw->Present();assert(swaps==5 && presented==2 && epoch>resizeEpoch);
+  assert(queries==queryCount); // Resize never queries EGL from the UI thread.
   auto readyEpoch=epoch;
   failSwap=true;fakeError=EGL_BAD_NATIVE_WINDOW;draw->Present();
   assert(!draw->Validate() && invalid>=2 && epoch>readyEpoch);

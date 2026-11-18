@@ -20,13 +20,15 @@ public class PresentationTest {
     var state=new InCarCompactStartupState();
     state.created(7,42);state.coreReady();state.nativeReady(7);
     state.attached(7,true);state.surface(7,800,480);state.activity(7,42,true);
-    state.presentationRequired(7);check(!state.ready());
-    state.presentation(7,true,2);check(state.ready());
+    check(!state.presentationPending(7)); // Unsupported frame evidence does not authorise recovery.
+    state.presentationRequired(7);check(!state.ready());check(state.presentationPending(7));
+    check(!state.presentationPending(8)); // A replaced Activity cannot recover this surface.
+    state.presentation(7,true,2);check(state.ready());check(!state.presentationPending(7));
     state.presentation(7,false,2);check(!state.ready());
     state.activity(7,42,true);check(!state.ready());
     state.presentation(7,true,1);check(!state.ready());
     state.presentation(7,true,3);check(state.ready());
-    state.attached(7,false);check(!state.ready());
+    state.attached(7,false);check(!state.ready());check(!state.presentationPending(7));
     state.presentation(7,true,3);check(!state.ready());
     state.created(8,43);state.nativeReady(8);state.attached(8,true);
     state.surface(8,800,480);state.activity(8,43,true);state.presentationRequired(8);

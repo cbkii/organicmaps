@@ -101,6 +101,12 @@ public final class InCarCompactStartupState
  && (!mPresentationRequired || mPresented);
   }
 
+  /** Only an observed, attached surface owned by this Activity can request frame recovery. */
+  public synchronized boolean presentationPending(int instance)
+  {
+    return mActivity == instance && mNative && mAttached && mPresentationRequired && !mPresented;
+  }
+
   /** One atomic snapshot: structural state and presentation facts belong to the same Activity. */
   public synchronized Object[] row()
   {

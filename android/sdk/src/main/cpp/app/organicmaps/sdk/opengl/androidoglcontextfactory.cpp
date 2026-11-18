@@ -214,8 +214,9 @@ void AndroidOGLContextFactory::UpdateSurfaceSize(int w, int h)
   ASSERT(IsValid(), ());
   // SurfaceHolder supplies the current pixel dimensions. Querying EGL here on
   // the UI thread races the render thread's buffer acquisition on PowerVR.
-  if (w > 0 && h > 0)
+  if (w > 0 && h > 0 && (w != m_surfaceWidth || h != m_surfaceHeight))
   {
+    m_presentation->Reset();
     m_surfaceWidth = w;
     m_surfaceHeight = h;
   }

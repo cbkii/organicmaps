@@ -2,6 +2,7 @@ package app.organicmaps.util;
 
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.os.SystemClock;
 import android.view.SurfaceHolder;
 import android.view.View;
 import androidx.annotation.NonNull;
@@ -33,6 +34,8 @@ public final class InCarWindowGeometryCoordinator
   private static final String TAG = InCarWindowGeometryCoordinator.class.getSimpleName();
   private static final int MAX_INVALID_BOUNDS_RETRIES = 3;
   private static final int MAX_CONVERGENCE_CHECKS = 8;
+  private static final long PRESENTATION_CHECK_MS = 250;
+  private static final long PRESENTATION_STEP_MS = 1500;
 
   private static final Map<FragmentActivity, Observation> OBSERVATIONS = new WeakHashMap<>();
 
@@ -84,6 +87,7 @@ public final class InCarWindowGeometryCoordinator
     boolean surfaceSizeAttempted;
     boolean nativeReapplyAttempted;
     boolean surfaceReattachAttempted;
+    long presentationWaitStarted = -1;
     @Nullable
     View content;
     @Nullable
@@ -97,6 +101,14 @@ public final class InCarWindowGeometryCoordinator
   }
 
   private InCarWindowGeometryCoordinator() {}
+
+  @UiThread
+  public static void onPresentationChanged(@NonNull FragmentActivity activity)
+  {
+    final Observation observation = OBSERVATIONS.get(activity);
+    if (observation != null)
+      scheduleGeometryOnly(activity, observation, "PRESENTATION_CHANGED");
+  }
 
   @UiThread
   public static void reconcile(@NonNull FragmentActivity activity, @NonNull InCarVisuals.TransitionReason reason)
@@ -340,6 +352,7 @@ public final class InCarWindowGeometryCoordinator
         }
         Logger.d(TAG, "Window geometry converged: epoch=" + observation.geometryEpoch + " generation=" + generation
                           + " size=" + observation.expectedWidth + "x" + observation.expectedHeight);
+        verifyPresentation(activity, observation, mapView, generation);
         return;
       }
 
@@ -366,6 +379,58 @@ public final class InCarWindowGeometryCoordinator
     };
     observation.pendingGeometryWork = verification;
     content.postOnAnimation(verification);
+  }
+
+  private static void verifyPresentation(@NonNull FragmentActivity activity, @NonNull Observation observation,
+                                         @NonNull MapView mapView, long generation)
+  {
+    final View content = observation.content;
+    if (content == null)
+      return;
+    // Unsupported presentation observation is unknown, never evidence to disturb a healthy renderer.
+    if (!(activity instanceof app.organicmaps.MwmActivity)
+        || !app.organicmaps.incar.InCarCompactStartupState.INSTANCE.presentationPending(
+            System.identityHashCode(activity)))
+      return;
+    final long now = SystemClock.uptimeMillis();
+    if (observation.presentationWaitStarted < 0)
+      observation.presentationWaitStarted = now;
+    final long elapsed = now - observation.presentationWaitStarted;
+    final RecoveryAction action =
+        choosePresentationRecovery(elapsed, observation.nativeReapplyAttempted, observation.surfaceReattachAttempted,
+                                   canReattachSurface(activity, mapView));
+    performRecovery(action, mapView, content, observation);
+    if (elapsed >= 3 * PRESENTATION_STEP_MS)
+    {
+      Logger.w(TAG, "Frame presentation unconfirmed after bounded recovery: epoch=" + observation.geometryEpoch
+                        + " generation=" + generation);
+      return;
+    }
+    Logger.d(TAG, "Waiting for frame presentation: epoch=" + observation.geometryEpoch + " elapsed=" + elapsed
+                      + " action=" + action);
+    // Re-enter the existing geometry/host/token checks; never retain a stale Surface or task mutation.
+    final Runnable retry = () ->
+    {
+      observation.pendingGeometryWork = null;
+      if (isGenerationCurrent(generation, observation.transitionGeneration) && isActivityAlive(activity))
+        scheduleConvergenceCheck(activity, observation, generation, MAX_CONVERGENCE_CHECKS);
+    };
+    observation.pendingGeometryWork = retry;
+    content.postDelayed(retry, PRESENTATION_CHECK_MS);
+  }
+
+  @NonNull
+  @VisibleForTesting
+  static RecoveryAction choosePresentationRecovery(long elapsed, boolean nativeReapplyAttempted,
+                                                   boolean surfaceReattachAttempted, boolean canReattach)
+  {
+    if (!canReattach || elapsed < PRESENTATION_STEP_MS || elapsed >= 3 * PRESENTATION_STEP_MS)
+      return RecoveryAction.NONE;
+    if (!nativeReapplyAttempted)
+      return RecoveryAction.NATIVE_REAPPLY;
+    if (elapsed >= 2 * PRESENTATION_STEP_MS && !surfaceReattachAttempted)
+      return RecoveryAction.SURFACE_REATTACH;
+    return RecoveryAction.NONE;
   }
 
   private static void performRecovery(@NonNull RecoveryAction action, @NonNull MapView mapView, @NonNull View content,
@@ -414,6 +479,7 @@ public final class InCarWindowGeometryCoordinator
     observation.surfaceSizeAttempted = false;
     observation.nativeReapplyAttempted = false;
     observation.surfaceReattachAttempted = false;
+    observation.presentationWaitStarted = -1;
   }
 
   private static void cancelPendingGeometryWork(@NonNull Observation observation)

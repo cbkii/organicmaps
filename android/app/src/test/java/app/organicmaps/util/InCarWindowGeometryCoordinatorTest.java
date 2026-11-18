@@ -120,4 +120,28 @@ public class InCarWindowGeometryCoordinatorTest
     assertTrue(InCarWindowGeometryCoordinator.isGenerationCurrent(12, 12));
     assertFalse(InCarWindowGeometryCoordinator.isGenerationCurrent(11, 12));
   }
+
+  @Test
+  public void missingFrameWaitsThenUsesDifferentBoundedRepairs()
+  {
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(1499, false, false, true));
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NATIVE_REAPPLY,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(1500, false, false, true));
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(2999, true, false, true));
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.SURFACE_REATTACH,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(3000, true, false, true));
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(3250, true, true, true));
+  }
+
+  @Test
+  public void missingFrameRecoveryRequiresSafeHostAndExpires()
+  {
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(1500, false, false, false));
+    assertEquals(InCarWindowGeometryCoordinator.RecoveryAction.NONE,
+                 InCarWindowGeometryCoordinator.choosePresentationRecovery(4500, false, false, true));
+  }
 }
