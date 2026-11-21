@@ -201,7 +201,10 @@ def reconcile(repository, release_id, expected_group=''):
             if not match:
                 raise ValueError(f'{group}: malformed SHA256SUMS record')
             checksums.append((match.group(2), match.group(1)))
-        required = {info[k] for k in defaults}
+        manifest_keys = ['install_asset', 'debug_asset', 'metadata_asset', 'signer_asset']
+        if 'tones_install_asset' in info:
+            manifest_keys.append('tones_install_asset')
+        required = {info[k] for k in manifest_keys}
         if len(checksums) != len(required) or {name for name, _ in checksums} != required:
             raise ValueError(f'{group}: checksums do not match snapshot contents')
         manifest = dict(checksums)
