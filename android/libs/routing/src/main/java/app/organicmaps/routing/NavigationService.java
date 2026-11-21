@@ -409,7 +409,8 @@ public class NavigationService extends Service implements LocationListener
       return;
 
     final TtsPlayer.State ttsState = TtsPlayer.getState();
-    final OfflineNavigationVoicePack.Mode fallbackMode = OfflineNavigationVoicePack.getMode(this);
+    final OfflineNavigationVoicePack.Mode fallbackMode =
+        Config.isInCar() ? OfflineNavigationVoicePack.getMode(this) : OfflineNavigationVoicePack.Mode.OFF;
     if (!TtsFallbackPolicy.shouldPlayFallback(ttsState, fallbackMode))
       return;
     if (playFallback(fallbackMode, null, Framework.nativeGetRouteFollowingInfo(), event))
@@ -442,7 +443,8 @@ public class NavigationService extends Service implements LocationListener
     final String[] turnNotifications = notification == null ? null : notification.getTexts();
     final RoutingInfo routingInfo = Framework.nativeGetRouteFollowingInfo();
     final TtsPlayer.State ttsState = TtsPlayer.getState();
-    final OfflineNavigationVoicePack.Mode mode = OfflineNavigationVoicePack.getMode(this);
+    final OfflineNavigationVoicePack.Mode mode =
+        Config.isInCar() ? OfflineNavigationVoicePack.getMode(this) : OfflineNavigationVoicePack.Mode.OFF;
     boolean queuedFallback = false;
 
     if (OfflineNavigationVoicePack.hasNotifications(turnNotifications)
