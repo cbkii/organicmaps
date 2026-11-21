@@ -1,3 +1,9 @@
+// The recorded offline pack is optional; both InCar builds retain Android system TTS and tones.
+def inCarVoicePackChoice = (findProperty('inCarVoicePack') ?: 'enabled').toString()
+if (!(inCarVoicePackChoice in ['enabled', 'disabled']))
+  throw new GradleException("inCarVoicePack must be 'enabled' or 'disabled'")
+def inCarVoicePackEnabled = inCarVoicePackChoice == 'enabled'
+
 // Detect flavors from the task name.
 def taskName = getGradle().getStartParameter().getTaskRequests().toString().toLowerCase()
 def isFdroid = taskName.contains('fdroid')
@@ -69,6 +75,7 @@ android {
     applicationId rootProject.ext.appId
     buildConfigField 'String', 'SUPPORT_MAIL', '"android@organicmaps.app"'
     buildConfigField 'boolean', 'IS_IN_CAR', 'false'
+    buildConfigField 'boolean', 'HAS_OFFLINE_VOICE_PACK', 'false'
     // Should be customized in flavors.
     buildConfigField 'String', 'REVIEW_URL', '""'
     resourceConfigurations += [project.ext.supportedLocalizations]
@@ -122,12 +129,15 @@ android {
       versionName = android.defaultConfig.versionName + '-InCar'
       buildConfigField 'String', 'SUPPORT_MAIL', '"apk@organicmaps.app"'
       buildConfigField 'boolean', 'IS_IN_CAR', 'true'
+      buildConfigField 'boolean', 'HAS_OFFLINE_VOICE_PACK', inCarVoicePackEnabled ? 'true' : 'false'
     }
   }
 
   // Keep the WorkManager-backed OSM upload implementation out of the inCar source set so the
   // direct-display APK has no hard bytecode references to androidx.work.
   sourceSets {
+    if (inCarVoicePackEnabled)
+      inCar.assets.srcDir 'src/inCarVoice/assets'
     def workManagerSourceDir = 'src/withWorkManager/java'
     google.java.srcDir workManagerSourceDir
     web.java.srcDir workManagerSourceDir
@@ -253,7 +263,9 @@ android {
   // as the drawing rules, are still compressed.
   androidResources {
     ignoreAssetsPattern = '!.svn:!.git:!.DS_Store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~'
-    noCompress = ['png', 'mwm', 'ttf', 'packed_polygons.bin']
+    // MediaPlayerWrapper opens a raw AssetFileDescriptor; compressed raw audio
+    // yields no descriptor and used to fail silently in tone-only navigation.
+    noCompress = ['png', 'mwm', 'ttf', 'packed_polygons.bin', 'wav', 'ogg', 'm4a']
   }
 
   compileOptions {
