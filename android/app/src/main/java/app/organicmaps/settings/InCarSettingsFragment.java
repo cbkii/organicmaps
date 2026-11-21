@@ -352,16 +352,16 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
   {
     if (mTonePreviewDialog != null && mTonePreviewDialog.isShowing())
       return;
-    final int[] resources = {
-        R.raw.in_car_nav_advance, R.raw.in_car_nav_left, R.raw.in_car_nav_right,
-        R.raw.in_car_nav_complex, R.raw.in_car_nav_route, R.raw.in_car_nav_gps};
+    final int[] resources = {R.raw.in_car_nav_advance, R.raw.in_car_nav_left,  R.raw.in_car_nav_right,
+                             R.raw.in_car_nav_complex, R.raw.in_car_nav_route, R.raw.in_car_nav_gps};
     final MediaPlayerWrapper player = new MediaPlayerWrapper(requireContext().getApplicationContext());
     final AlertDialog dialog = new AlertDialog.Builder(requireContext())
                                    .setTitle(R.string.in_car_test_navigation_tones)
-                                   .setSingleChoiceItems(R.array.in_car_test_tone_labels, -1, (unused, index) -> {
-                                     if (index >= 0 && index < resources.length)
-                                       player.playback(resources[index], true);
-                                   })
+                                   .setSingleChoiceItems(R.array.in_car_test_tone_labels, -1,
+                                                         (unused, index) -> {
+                                                           if (index >= 0 && index < resources.length)
+                                                             player.playback(resources[index], true);
+                                                         })
                                    .setNegativeButton(R.string.close, null)
                                    .create();
     mTonePreviewDialog = dialog;

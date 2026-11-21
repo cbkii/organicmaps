@@ -69,8 +69,7 @@ public class MediaPlayerWrapper
 
   public boolean isResourceActive(@RawRes int streamResId)
   {
-    return mStreamKey != null && mStreamKey.startsWith("res:" + streamResId + ":")
-        && (mIsPreparing || mIsInitialized);
+    return mStreamKey != null && mStreamKey.startsWith("res:" + streamResId + ":") && (mIsPreparing || mIsInitialized);
   }
 
   public boolean playback(@NonNull File file)
