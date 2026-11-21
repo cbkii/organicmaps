@@ -134,7 +134,7 @@ jobs:
           release_apk_count() {
             local output
             if output="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$1" \
-                --jq '[.assets[].name | select(test("^OrganicMaps-InCar-v.*-arm64-v8a\\.apk$"))] | length' 2>&1)"; then
+                --jq '[.assets[].name | select(test("^OrganicMaps-InCar-(Voice-|Tones-)?v.*-arm64-v8a\\.apk$"))] | length' 2>&1)"; then
               printf '%s\n' "${output}"
             elif grep -q 'HTTP 404' <<< "${output}"; then
               printf 'missing\n'
@@ -150,7 +150,7 @@ jobs:
               while IFS= read -r candidate; do
                 [[ -n "${candidate}" && "${candidate}" != "${previous_tag}" ]] || continue
                 candidate_state="$(release_apk_count "${candidate}")"
-                if [[ "${candidate_state}" == 1 ]]; then
+                if [[ "${candidate_state}" == 1 || "${candidate_state}" == 2 ]]; then
                   anchor="${candidate}"
                   break
                 fi
@@ -332,7 +332,7 @@ jobs:
           echo "keystore=${keystore}" >> "${GITHUB_OUTPUT}"
           echo "cert_sha256=${cert_sha256}" >> "${GITHUB_OUTPUT}"
 
-      - name: Build signed arm64 InCarRelease APK
+      - name: Build signed arm64 Voice and Tones InCarRelease APKs
         shell: bash
         env:
           KEYSTORE_PATH: ${{ steps.signing.outputs.keystore }}
@@ -343,22 +343,29 @@ jobs:
           RELEASE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
           set -euo pipefail
-
           export ORG_GRADLE_PROJECT_spropStoreFile="${KEYSTORE_PATH}"
           export ORG_GRADLE_PROJECT_spropStorePassword="${KEYSTORE_PASSWORD}"
           export ORG_GRADLE_PROJECT_spropKeyAlias="${KEY_ALIAS}"
           export ORG_GRADLE_PROJECT_spropKeyPassword="${KEY_PASSWORD}"
-
           cd android
           chmod +x ./gradlew
-          ./gradlew --no-daemon --stacktrace \
-            -Parm64 \
-            -PinCarReleaseVersionName="${RELEASE_VERSION}" \
-            -PinCarReleaseVersionCode="${RELEASE_VERSION_CODE}" \
-            assembleInCarRelease
+          for variant in enabled disabled; do
+            ./gradlew --no-daemon --stacktrace \
+              -Parm64 \
+              -PinCarReleaseVersionName="${RELEASE_VERSION}" \
+              -PinCarReleaseVersionCode="${RELEASE_VERSION_CODE}" \
+              -PinCarVoicePack="${variant}" \
+              assembleInCarRelease
+            mapfile -t built < <(find app/build/outputs/apk/inCar/release -maxdepth 1 -name '*.apk' -type f -print)
+            if [[ "${#built[@]}" -ne 1 ]]; then
+              echo "::error::Expected exactly one InCarRelease APK per build; found ${#built[@]}."
+              exit 1
+            fi
+            cp "${built[0]}" "${RUNNER_TEMP}/incar-${variant}.apk"
+          done
           rm -f app/secure.properties
 
-      - name: Verify release APK and prepare assets
+      - name: Verify both release APKs and prepare assets
         id: apk
         shell: bash
         env:
@@ -370,80 +377,90 @@ jobs:
           PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
         run: |
           set -euo pipefail
-
-          output_dir="android/app/build/outputs/apk/inCar/release"
           proof_dir="${RUNNER_TEMP}/in-car-release-proof"
           verification_summary="${RUNNER_TEMP}/in-car-release-verification.md"
           signer_continuity="not-applicable"
           mkdir -p "${proof_dir}"
           : > "${verification_summary}"
-
-          mapfile -t apks < <(find "${output_dir}" -maxdepth 1 -type f -name '*.apk' -print | sort)
-          if [[ "${#apks[@]}" -ne 1 ]]; then
-            echo "::error::Expected exactly one InCarRelease APK in ${output_dir}, found ${#apks[@]}."
-            printf '%s\n' "${apks[@]:-}"
-            exit 1
-          fi
-
-          apk_name="OrganicMaps-InCar-v${RELEASE_VERSION}-arm64-v8a.apk"
+          apk_name="OrganicMaps-InCar-Voice-v${RELEASE_VERSION}-arm64-v8a.apk"
+          tones_apk_name="OrganicMaps-InCar-Tones-v${RELEASE_VERSION}-arm64-v8a.apk"
           apk_path="${RUNNER_TEMP}/${apk_name}"
-          cp "${apks[0]}" "${apk_path}"
-
+          tones_apk_path="${RUNNER_TEMP}/${tones_apk_name}"
+          cp "${RUNNER_TEMP}/incar-enabled.apk" "${apk_path}"
+          cp "${RUNNER_TEMP}/incar-disabled.apk" "${tones_apk_path}"
           bash android/tools/verify_in_car_apk.sh \
             --apk "${apk_path}" \
             --expected-package app.organicmaps.incar \
             --expected-version-name "${EXPECTED_VERSION_NAME}" \
             --expected-version-code "${EXPECTED_VERSION_CODE}" \
             --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
-            --proof-dir "${proof_dir}" \
+            --proof-dir "${proof_dir}/voice" \
             --summary-file "${verification_summary}" \
             --github-output "${GITHUB_OUTPUT}"
-
+          bash android/tools/verify_in_car_apk.sh \
+            --apk "${tones_apk_path}" \
+            --expected-package app.organicmaps.incar \
+            --expected-version-name "${EXPECTED_VERSION_NAME}" \
+            --expected-version-code "${EXPECTED_VERSION_CODE}" \
+            --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
+            --proof-dir "${proof_dir}/tones" \
+            --summary-file "${verification_summary}"
+          python3 android/tools/verify_offline_navigation_voice_pack.py --apk "${apk_path}" --expect present
+          python3 android/tools/verify_offline_navigation_voice_pack.py --apk "${tones_apk_path}" --expect absent
+          python3 android/tools/verify_navigation_tones.py --source-dir android/app/src/main/res/raw --apk "${apk_path}"
+          python3 android/tools/verify_navigation_tones.py --source-dir android/app/src/main/res/raw --apk "${tones_apk_path}"
           if [[ -n "${PREVIOUS_TAG}" ]]; then
             previous_dir="${proof_dir}/previous"
             mkdir -p "${previous_dir}"
-            if ! gh release download "${PREVIOUS_TAG}" \
-                --repo "${GITHUB_REPOSITORY}" \
-                --pattern 'OrganicMaps-InCar-v*-arm64-v8a.apk' \
-                --dir "${previous_dir}"; then
-              echo "::error::Unable to download the previous in-car release APK from ${PREVIOUS_TAG}."
-              exit 1
-            fi
+            gh release download "${PREVIOUS_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --pattern 'OrganicMaps-InCar-*-arm64-v8a.apk' \
+              --dir "${previous_dir}"
             mapfile -t previous_apks < <(find "${previous_dir}" -maxdepth 1 -type f -name '*.apk' -print | sort)
-            if [[ "${#previous_apks[@]}" -ne 1 ]]; then
-              echo "::error::Expected exactly one previous in-car APK for signer continuity; found ${#previous_apks[@]}."
+            if [[ "${#previous_apks[@]}" -lt 1 || "${#previous_apks[@]}" -gt 2 ]]; then
+              echo "::error::Expected one historical APK or two dual-variant APKs for continuity."
               exit 1
             fi
-
-            bash android/tools/verify_in_car_apk.sh \
-              --apk "${previous_apks[0]}" \
-              --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
-              --proof-dir "${previous_dir}/signer-proof" \
-              --signature-only
+            for prior in "${previous_apks[@]}"; do
+              bash android/tools/verify_in_car_apk.sh \
+                --apk "${prior}" \
+                --expected-cert-sha256 "${EXPECTED_CERT_SHA256}" \
+                --proof-dir "${previous_dir}/signer-$(basename "${prior}" .apk)" \
+                --signature-only
+            done
             signer_continuity="verified"
             echo "- Signer continuity with \`${PREVIOUS_TAG}\`: verified" >> "${verification_summary}"
           fi
-
           checksum_name="${apk_name}.sha256"
+          tones_checksum_name="${tones_apk_name}.sha256"
           checksum_path="${RUNNER_TEMP}/${checksum_name}"
+          tones_checksum_path="${RUNNER_TEMP}/${tones_checksum_name}"
           (
             cd "${RUNNER_TEMP}"
             sha256sum "${apk_name}" > "${checksum_name}"
+            sha256sum "${tones_apk_name}" > "${tones_checksum_name}"
+            sha256sum -c "${checksum_name}" "${tones_checksum_name}"
           )
-
           apk_size_bytes="$(stat -c '%s' "${apk_path}")"
-          [[ "${apk_size_bytes}" =~ ^[0-9]+$ ]] || {
-            echo "::error::Unable to resolve APK byte size."
-            exit 1
-          }
-
-          echo "apk_name=${apk_name}" >> "${GITHUB_OUTPUT}"
-          echo "apk_path=${apk_path}" >> "${GITHUB_OUTPUT}"
-          echo "apk_size_bytes=${apk_size_bytes}" >> "${GITHUB_OUTPUT}"
-          echo "checksum_name=${checksum_name}" >> "${GITHUB_OUTPUT}"
-          echo "checksum_path=${checksum_path}" >> "${GITHUB_OUTPUT}"
-          echo "signer_continuity=${signer_continuity}" >> "${GITHUB_OUTPUT}"
-          echo "verification_summary=${verification_summary}" >> "${GITHUB_OUTPUT}"
+          tones_apk_size_bytes="$(stat -c '%s' "${tones_apk_path}")"
+          tones_apk_sha256="$(sha256sum "${tones_apk_path}" | awk '{print toupper($1)}')"
+          [[ "${apk_size_bytes}" =~ ^[0-9]+$ && "${tones_apk_size_bytes}" =~ ^[0-9]+$ ]]
+          [[ "${tones_apk_sha256}" =~ ^[0-9A-F]{64}$ ]]
+          {
+            echo "apk_name=${apk_name}"
+            echo "apk_path=${apk_path}"
+            echo "apk_size_bytes=${apk_size_bytes}"
+            echo "checksum_name=${checksum_name}"
+            echo "checksum_path=${checksum_path}"
+            echo "tones_apk_name=${tones_apk_name}"
+            echo "tones_apk_path=${tones_apk_path}"
+            echo "tones_apk_size_bytes=${tones_apk_size_bytes}"
+            echo "tones_apk_sha256=${tones_apk_sha256}"
+            echo "tones_checksum_name=${tones_checksum_name}"
+            echo "tones_checksum_path=${tones_checksum_path}"
+            echo "signer_continuity=${signer_continuity}"
+            echo "verification_summary=${verification_summary}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Remove temporary signing material
         if: always()
