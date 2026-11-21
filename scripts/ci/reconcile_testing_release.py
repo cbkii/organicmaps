@@ -69,8 +69,8 @@ def render(repository, snapshots):
     product = 'Organic Maps InCar' if repository.endswith('/organicmaps') else 'TS18 standalone launcher'
     out = [f'**TESTING ONLY.** {product} development snapshots for physical/engineering validation, not production releases.',
            '', '## Current TESTING builds', '',
-           '| Snapshot | Install | Debug | Source | Built |',
-           '| --- | --- | --- | --- | --- |']
+           '| Snapshot | Voice / install | Tones | Debug | Source | Built |',
+           '| --- | --- | --- | --- | --- | --- |']
     details = []
     for index, (group, info, assets, checksums) in enumerate(snapshots, 1):
         source, built = info['source_sha'], info['built_sha']
@@ -79,13 +79,16 @@ def render(repository, snapshots):
         by_name = {a['name']: a for a in assets}
         def url(key):
             return by_name[info[key]]['browser_download_url']
-        out.append(f'| `{group}` | [TESTING APK]({url("install_asset")}) | [DEBUG APK]({url("debug_asset")}) | {src} | {link(built, repository)} |')
+        tones = ('[Tones APK](' + url("tones_install_asset") + ')') if 'tones_install_asset' in info else '—'
+        out.append(f'| `{group}` | [TESTING APK]({url("install_asset")}) | {tones} | [DEBUG APK]({url("debug_asset")}) | {src} | {link(built, repository)} |')
         detail = [f'### {index}. {clean(group)}', '',
                   f'- **Install:** [{clean(info["install_asset"])}]({url("install_asset")})',
                   f'- **Debug:** [{clean(info["debug_asset"])}]({url("debug_asset")})',
                   f'- **Snapshot source:** {link(source, repository)}',
                   f'- **Built SHA:** {link(built, repository)}',
                   f'- **Version:** `{clean(info.get("testing_version_name", "unknown"))}` / code `{clean(info.get("testing_version_code", "unknown"))}`']
+        if 'tones_install_asset' in info:
+            detail.append(f'- **Tones-only:** [{clean(info["tones_install_asset"])}]({url("tones_install_asset")})')
         if pr.isdecimal() and int(pr) > 0:
             detail.append(f'- **PR at build request:** [#{pr}](https://github.com/{repository}/pull/{pr})')
             if SHA.fullmatch(info.get('pr_base_sha', '')):
@@ -174,6 +177,12 @@ def reconcile(repository, release_id, expected_group=''):
                     'signer_asset': f'SIGNER{suffix}.txt',
                     'checksums_asset': f'SHA256SUMS{suffix}.txt',
                     'metadata_asset': info_name}
+        if info.get('testing_audio_variants') == 'voice,tones':
+            if not repository.endswith('/organicmaps') or group == 'LEGACY':
+                raise ValueError(f'{group}: dual variants require modern Organic Maps snapshot')
+            defaults['tones_install_asset'] = f'OrganicMaps-InCar-TONES-TESTING{suffix}.apk'
+        elif 'tones_install_asset' in info:
+            raise ValueError(f'{group}: tones asset without dual-variant contract')
         for key, default in defaults.items():
             info.setdefault(key, default)
             if info[key] != default:
@@ -192,8 +201,8 @@ def reconcile(repository, release_id, expected_group=''):
             if not match:
                 raise ValueError(f'{group}: malformed SHA256SUMS record')
             checksums.append((match.group(2), match.group(1)))
-        required = {info[k] for k in ('install_asset', 'debug_asset', 'metadata_asset', 'signer_asset')}
-        if len(checksums) != 4 or {name for name, _ in checksums} != required:
+        required = {info[k] for k in defaults}
+        if len(checksums) != len(required) or {name for name, _ in checksums} != required:
             raise ValueError(f'{group}: checksums do not match snapshot contents')
         manifest = dict(checksums)
         if hashlib.sha256(info_raw).hexdigest() != manifest[info_name]:
@@ -201,12 +210,14 @@ def reconcile(repository, release_id, expected_group=''):
         signer_raw = download(repository, by_name[info['signer_asset']])
         if hashlib.sha256(signer_raw).hexdigest() != manifest[info['signer_asset']]:
             raise ValueError(f'{group}: SIGNER checksum mismatch')
-        for k in ('install_asset', 'debug_asset'):
+        for k in ('install_asset', 'debug_asset', 'tones_install_asset'):
+            if k not in info:
+                continue
             digest = by_name[info[k]].get('digest')
             if digest and digest != 'sha256:' + manifest[info[k]]:
                 raise ValueError(f'{group}: APK digest disagrees with SHA256SUMS')
         snapshots.append((group, info, assets, checksums))
-    managed_names = re.compile(rf'(?:BUILD_INFO|SHA256SUMS|SIGNER)-(?:{GROUP})\.txt|(?:OrganicMaps-InCar|TS18-Standalone-Launcher)-(?:TESTING|DEBUG)-(?:{GROUP})\.apk|(?:BUILD_INFO|SHA256SUMS|SIGNER)\.txt|(?:OrganicMaps-InCar|TS18-Standalone-Launcher)-(?:TESTING|DEBUG)\.apk')
+    managed_names = re.compile(rf'(?:BUILD_INFO|SHA256SUMS|SIGNER)-(?:{GROUP})\.txt|(?:OrganicMaps-InCar|TS18-Standalone-Launcher)-(?:TESTING|DEBUG)-(?:{GROUP})\.apk|OrganicMaps-InCar-TONES-TESTING-(?:{GROUP})\.apk|(?:BUILD_INFO|SHA256SUMS|SIGNER)\.txt|(?:OrganicMaps-InCar|TS18-Standalone-Launcher)-(?:TESTING|DEBUG)\.apk')
     leftovers = [name for name in by_name if managed_names.fullmatch(name) and name not in allowed]
     if leftovers:
         raise ValueError(f'Orphaned managed assets require cleanup: {leftovers}')
