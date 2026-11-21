@@ -19,8 +19,7 @@ public final class NavigationTonePolicy
 
   private NavigationTonePolicy() {}
 
-  public static int selectToneIndex(@Nullable NavigationNotification notification,
-                                    @Nullable RoutingInfo info,
+  public static int selectToneIndex(@Nullable NavigationNotification notification, @Nullable RoutingInfo info,
                                     @NonNull OfflineNavigationVoicePack.GpsSignalEvent gps)
   {
     if (gps == OfflineNavigationVoicePack.GpsSignalEvent.LOST)
@@ -44,8 +43,9 @@ public final class NavigationTonePolicy
     {
       case TurnLeft, TurnSlightLeft, TurnSharpLeft -> LEFT;
       case TurnRight, TurnSlightRight, TurnSharpRight -> RIGHT;
-      case UTurnLeft, UTurnRight, EnterRoundAbout, LeaveRoundAbout, StayOnRoundAbout,
-           ExitHighwayToLeft, ExitHighwayToRight -> COMPLEX;
+      case UTurnLeft, UTurnRight, EnterRoundAbout, LeaveRoundAbout, StayOnRoundAbout, ExitHighwayToLeft,
+          ExitHighwayToRight ->
+        COMPLEX;
       case ReachedYourDestination -> ROUTE;
       default -> ADVANCE;
     };

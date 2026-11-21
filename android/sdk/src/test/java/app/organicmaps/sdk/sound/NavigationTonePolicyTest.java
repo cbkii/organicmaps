@@ -26,12 +26,9 @@ public class NavigationTonePolicyTest
   public void gpsTransitionAndMissingEventSelection()
   {
     assertEquals(NavigationTonePolicy.GPS,
-                 NavigationTonePolicy.selectToneIndex(null, null,
-                     OfflineNavigationVoicePack.GpsSignalEvent.LOST));
+                 NavigationTonePolicy.selectToneIndex(null, null, OfflineNavigationVoicePack.GpsSignalEvent.LOST));
     assertEquals(NavigationTonePolicy.ROUTE,
-                 NavigationTonePolicy.selectToneIndex(null, null,
-                     OfflineNavigationVoicePack.GpsSignalEvent.RESTORED));
-    assertEquals(-1, NavigationTonePolicy.selectToneIndex(null, null,
-                      OfflineNavigationVoicePack.GpsSignalEvent.NONE));
+                 NavigationTonePolicy.selectToneIndex(null, null, OfflineNavigationVoicePack.GpsSignalEvent.RESTORED));
+    assertEquals(-1, NavigationTonePolicy.selectToneIndex(null, null, OfflineNavigationVoicePack.GpsSignalEvent.NONE));
   }
 }

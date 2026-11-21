@@ -115,19 +115,17 @@ public class NavigationService extends Service implements LocationListener
   public static void setNavigationToneResources(@NonNull @RawRes int[] toneResIds)
   {
     // A coherent six-entry catalogue is installed once by the application.
-    sNavigationToneResIds = toneResIds.length == NavigationTonePolicy.TONE_COUNT
-        ? toneResIds.clone() : new int[0];
+    sNavigationToneResIds = toneResIds.length == NavigationTonePolicy.TONE_COUNT ? toneResIds.clone() : new int[0];
   }
 
-  private boolean playSelectedTone(@Nullable NavigationNotification notification,
-                                   @Nullable RoutingInfo routingInfo,
+  private boolean playSelectedTone(@Nullable NavigationNotification notification, @Nullable RoutingInfo routingInfo,
                                    @NonNull OfflineNavigationVoicePack.GpsSignalEvent gpsEvent)
   {
     final int index = NavigationTonePolicy.selectToneIndex(notification, routingInfo, gpsEvent);
     if (index < 0)
       return false;
-    final int resId = sNavigationToneResIds.length == NavigationTonePolicy.TONE_COUNT
-        ? sNavigationToneResIds[index] : sTtsFallbackSoundResId;
+    final int resId = sNavigationToneResIds.length == NavigationTonePolicy.TONE_COUNT ? sNavigationToneResIds[index]
+                                                                                      : sTtsFallbackSoundResId;
     if (resId == 0)
     {
       Logger.w(TAG, "Navigation tone resource unavailable: index=" + index);

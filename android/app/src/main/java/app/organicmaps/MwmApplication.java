@@ -422,12 +422,12 @@ public class MwmApplication extends Application implements Application.ActivityL
     NavigationService.createNotificationChannel(this);
     NavigationService.setOrganicMaps(getOrganicMaps());
     NavigationService.setTtsFallbackSoundResource(BuildConfig.IS_IN_CAR ? R.raw.in_car_tts_fallback : 0);
-    app.organicmaps.sdk.sound.OfflineNavigationVoicePack.setVoicePackAvailable(
-        BuildConfig.IS_IN_CAR && BuildConfig.HAS_OFFLINE_VOICE_PACK);
-    NavigationService.setNavigationToneResources(BuildConfig.IS_IN_CAR
-        ? new int[] {R.raw.in_car_nav_advance, R.raw.in_car_nav_left, R.raw.in_car_nav_right,
-                     R.raw.in_car_nav_complex, R.raw.in_car_nav_route, R.raw.in_car_nav_gps}
-        : new int[0]);
+    app.organicmaps.sdk.sound.OfflineNavigationVoicePack.setVoicePackAvailable(BuildConfig.IS_IN_CAR
+                                                                               && BuildConfig.HAS_OFFLINE_VOICE_PACK);
+    NavigationService.setNavigationToneResources(
+        BuildConfig.IS_IN_CAR ? new int[] {R.raw.in_car_nav_advance, R.raw.in_car_nav_left, R.raw.in_car_nav_right,
+                                           R.raw.in_car_nav_complex, R.raw.in_car_nav_route, R.raw.in_car_nav_gps}
+                              : new int[0]);
 
     final int FLAG_IMMUTABLE = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ? 0 : PendingIntent.FLAG_IMMUTABLE;
     final Intent contentIntent = new Intent(this, MwmActivity.class);

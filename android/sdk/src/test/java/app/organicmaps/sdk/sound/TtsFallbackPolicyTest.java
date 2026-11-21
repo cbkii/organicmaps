@@ -27,7 +27,7 @@ public class TtsFallbackPolicyTest
     {
       assertFalse(TtsFallbackPolicy.shouldPlayFallback(state, OfflineNavigationVoicePack.Mode.OFF));
       assertTrue(TtsFallbackPolicy.shouldUseSystemTts(state, OfflineNavigationVoicePack.Mode.OFF)
-                     == (state == TtsPlayer.State.READY_ON));
+                 == (state == TtsPlayer.State.READY_ON));
     }
   }
 
