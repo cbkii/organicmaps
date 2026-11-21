@@ -121,12 +121,26 @@ def parse_args() -> argparse.Namespace:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--asset-root", type=Path, help="InCar assets directory")
     source.add_argument("--apk", type=Path, help="Built InCar APK")
+    parser.add_argument("--expect", choices=("present", "absent"), default="present",
+                        help="Require or forbid the bundled voice archive")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
+        if args.expect == "absent":
+            if args.asset_root is not None:
+                if (args.asset_root / PACK_DIRECTORY).exists():
+                    raise RuntimeError("Offline voice pack must not be packaged")
+            else:
+                with zipfile.ZipFile(args.apk) as archive:
+                    members = [x.filename for x in archive.infolist()
+                               if x.filename.startswith(f"assets/{PACK_DIRECTORY}/")]
+                    if members:
+                        raise RuntimeError(f"Voice asset leaked into tones-only APK: {members}")
+            print("offline navigation voice pack correctly absent")
+            return 0
         pack = (
             read_from_source(args.asset_root)
             if args.asset_root is not None
