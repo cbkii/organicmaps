@@ -132,7 +132,7 @@ public class NavigationService extends Service implements LocationListener
       return false;
     }
     Logger.d(TAG, "Queue navigation tone index=" + index);
-    return mPlayer.playback(resId);
+    return mPlayer.playback(resId, true);
   }
 
   /**

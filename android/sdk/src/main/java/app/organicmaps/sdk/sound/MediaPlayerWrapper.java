@@ -22,6 +22,7 @@ public class MediaPlayerWrapper
   @NonNull
   private final AudioFocusManager mAudioFocusManager;
   private boolean mHasAudioFocus;
+  private boolean mRequestAudioFocus;
   @NonNull
   private final ArrayDeque<File> mQueuedFiles = new ArrayDeque<>();
 
@@ -47,16 +48,23 @@ public class MediaPlayerWrapper
     mPlayer.release();
   }
 
+  /** Legacy resource playback, including the existing camera beep, keeps its original focus behaviour. */
   public boolean playback(@RawRes int streamResId)
   {
+    return playback(streamResId, false);
+  }
+
+  /** New navigation tones opt into transient focus without changing legacy warning playback. */
+  public boolean playback(@RawRes int streamResId, boolean requestAudioFocus)
+  {
     clearSequence();
-    final String key = "res:" + streamResId;
+    final String key = "res:" + streamResId + ":focus=" + requestAudioFocus;
     if (isActive(key))
     {
       startIfPrepared();
       return true;
     }
-    return initialize(streamResId, key);
+    return initialize(streamResId, key, requestAudioFocus);
   }
 
   public boolean playback(@NonNull File file)
@@ -100,9 +108,10 @@ public class MediaPlayerWrapper
     clearSequence();
   }
 
-  private boolean initialize(@RawRes int streamResId, @NonNull String key)
+  private boolean initialize(@RawRes int streamResId, @NonNull String key, boolean requestAudioFocus)
   {
     resetForInitialization();
+    mRequestAudioFocus = requestAudioFocus;
     try (final AssetFileDescriptor afd = mContext.getResources().openRawResourceFd(streamResId))
     {
       if (afd == null)
@@ -132,6 +141,7 @@ public class MediaPlayerWrapper
   private boolean initialize(@NonNull File file, @NonNull String key)
   {
     resetForInitialization();
+    mRequestAudioFocus = true;
     try
     {
       mPlayer.setDataSource(file.getAbsolutePath());
@@ -221,13 +231,16 @@ public class MediaPlayerWrapper
     mIsInitialized = true;
     try
     {
-      if (!mAudioFocusManager.requestAudioFocus())
+      if (mRequestAudioFocus)
       {
-        Logger.w(TAG, "Navigation sound suppressed: audio focus denied");
-        stop();
-        return;
+        if (!mAudioFocusManager.requestAudioFocus())
+        {
+          Logger.w(TAG, "Navigation sound suppressed: audio focus denied");
+          stop();
+          return;
+        }
+        mHasAudioFocus = true;
       }
-      mHasAudioFocus = true;
       mPlayer.start();
       Logger.d(TAG, "Navigation sound started: " + mStreamKey);
     }
@@ -269,6 +282,7 @@ public class MediaPlayerWrapper
     }
     mIsInitialized = false;
     mIsPreparing = false;
+    mRequestAudioFocus = false;
     mStreamKey = null;
   }
 
