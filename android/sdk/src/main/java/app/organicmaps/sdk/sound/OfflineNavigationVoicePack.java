@@ -47,7 +47,7 @@ public final class OfflineNavigationVoicePack
   private static boolean sExtractionStarted;
   // Set by the packaging application on startup. A prior voice installation's extracted
   // cache must never enable recorded playback in the tones-only APK.
-  private static volatile boolean sVoicePackAvailable = true;
+  private static volatile boolean sVoicePackAvailable;
 
   public static void setVoicePackAvailable(boolean available)
   {
