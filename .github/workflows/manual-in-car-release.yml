@@ -480,6 +480,10 @@ jobs:
           PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
           APK_PATH: ${{ steps.apk.outputs.apk_path }}
           APK_NAME: ${{ steps.apk.outputs.apk_name }}
+          TONES_APK_PATH: ${{ steps.apk.outputs.tones_apk_path }}
+          TONES_APK_NAME: ${{ steps.apk.outputs.tones_apk_name }}
+          TONES_APK_SIZE_BYTES: ${{ steps.apk.outputs.tones_apk_size_bytes }}
+          TONES_APK_SHA256: ${{ steps.apk.outputs.tones_apk_sha256 }}
           APK_SIZE_BYTES: ${{ steps.apk.outputs.apk_size_bytes }}
           APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
           PACKAGE_NAME: ${{ steps.apk.outputs.package_name }}
@@ -487,6 +491,8 @@ jobs:
           VERSION_CODE: ${{ steps.apk.outputs.version_code }}
           CHECKSUM_PATH: ${{ steps.apk.outputs.checksum_path }}
           CHECKSUM_NAME: ${{ steps.apk.outputs.checksum_name }}
+          TONES_CHECKSUM_PATH: ${{ steps.apk.outputs.tones_checksum_path }}
+          TONES_CHECKSUM_NAME: ${{ steps.apk.outputs.tones_checksum_name }}
           SIGNER_CONTINUITY: ${{ steps.apk.outputs.signer_continuity }}
           VERIFICATION_SUMMARY: ${{ steps.apk.outputs.verification_summary }}
           INPUT_BUMP: ${{ inputs.bump }}
@@ -500,6 +506,8 @@ jobs:
             "${RELEASE_TAG}"
             "${APK_PATH}"
             "${CHECKSUM_PATH}"
+            "${TONES_APK_PATH}"
+            "${TONES_CHECKSUM_PATH}"
             --repo "${GITHUB_REPOSITORY}"
             --target "${GITHUB_SHA}"
             --title "Organic Maps In-Car v${RELEASE_VERSION}"
@@ -529,6 +537,9 @@ jobs:
           apk_url="$(jq -r --arg name "${APK_NAME}" '.assets[] | select(.name == $name) | .url' <<< "${release_json}" | head -n1)"
           checksum_url="$(jq -r --arg name "${CHECKSUM_NAME}" '.assets[] | select(.name == $name) | .url' <<< "${release_json}" | head -n1)"
           release_apk_size="$(jq -r --arg name "${APK_NAME}" '.assets[] | select(.name == $name) | .size' <<< "${release_json}" | head -n1)"
+          tones_apk_url="$(jq -r --arg name "${TONES_APK_NAME}" '.assets[] | select(.name == $name) | .url' <<< "${release_json}" | head -n1)"
+          tones_checksum_url="$(jq -r --arg name "${TONES_CHECKSUM_NAME}" '.assets[] | select(.name == $name) | .url' <<< "${release_json}" | head -n1)"
+          release_tones_size="$(jq -r --arg name "${TONES_APK_NAME}" '.assets[] | select(.name == $name) | .size' <<< "${release_json}" | head -n1)"
 
           [[ "${actual_tag}" == "${RELEASE_TAG}" ]] || {
             echo "::error::Staged release tag mismatch: expected ${RELEASE_TAG}, found ${actual_tag:-none}."
@@ -550,8 +561,8 @@ jobs:
             echo "::error::Staged release target mismatch: expected ${GITHUB_SHA}, found ${actual_target:-none}."
             exit 1
           }
-          [[ -n "${apk_url}" && -n "${checksum_url}" ]] || {
-            echo "::error::Unable to resolve direct links for both staged release assets."
+          [[ -n "${apk_url}" && -n "${checksum_url}" && -n "${tones_apk_url}" && -n "${tones_checksum_url}" ]] || {
+            echo "::error::Unable to resolve direct links for all four staged release assets."
             exit 1
           }
           [[ "${release_apk_size}" =~ ^[0-9]+$ && "${release_apk_size}" == "${APK_SIZE_BYTES}" ]] || {
@@ -559,7 +570,12 @@ jobs:
             exit 1
           }
 
+          [[ "${release_tones_size}" =~ ^[0-9]+$ && "${release_tones_size}" == "${TONES_APK_SIZE_BYTES}" ]] || {
+            echo "::error::Staged tones APK size mismatch: local=${TONES_APK_SIZE_BYTES}, release=${release_tones_size:-unknown}."
+            exit 1
+          }
           apk_size_human="$(numfmt --to=iec-i --suffix=B "${release_apk_size}")"
+          tones_size_human="$(numfmt --to=iec-i --suffix=B "${release_tones_size}")"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           source_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
           triggering_actor="${GITHUB_TRIGGERING_ACTOR:-${GITHUB_ACTOR}}"
@@ -607,13 +623,18 @@ jobs:
 
             echo
             echo '### Assets'
-            printf -- '- [%s](%s) · `%s`\n' "${APK_NAME}" "${apk_url}" "${apk_size_human}"
+            printf -- '- Voice: [%s](%s) · `%s`\n' "${APK_NAME}" "${apk_url}" "${apk_size_human}"
             printf -- '- [%s](%s)\n' "${CHECKSUM_NAME}" "${checksum_url}"
-            printf -- '- APK SHA-256: `%s`\n' "${APK_SHA256}"
+            printf -- '- Voice SHA-256: `%s`\n' "${APK_SHA256}"
+            printf -- '- Tones: [%s](%s) · `%s`\n' "${TONES_APK_NAME}" "${tones_apk_url}" "${tones_size_human}"
+            printf -- '- [%s](%s)\n' "${TONES_CHECKSUM_NAME}" "${tones_checksum_url}"
+            printf -- '- Tones SHA-256: `%s`\n' "${TONES_APK_SHA256}"
+            echo '- Both APKs retain Android system TTS and the six-tone guidance engine; only Voice includes the recorded offline pack.'
 
             echo
             echo '### Verification'
-            echo '- Release APK package, version, signature and runtime boundaries: verified'
+            echo '- Both APKs: package, version, signer and runtime boundaries verified'
+            echo '- Voice pack is present only in Voice APK; six navigation-tone payloads verified in both APKs'
             if [[ "${SIGNER_CONTINUITY}" == "verified" ]]; then
               printf -- '- Signer continuity with `%s`: verified\n' "${PREVIOUS_TAG}"
             fi
