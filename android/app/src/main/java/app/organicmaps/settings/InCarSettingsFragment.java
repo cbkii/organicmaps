@@ -25,6 +25,7 @@ import app.organicmaps.incar.InCarSettingsStore;
 import app.organicmaps.location.InCarLocationPermissionPolicy;
 import app.organicmaps.location.InCarLocationUi;
 import app.organicmaps.sdk.location.LocationUtils;
+import app.organicmaps.sdk.sound.MediaPlayerWrapper;
 import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsPlayer;
 import app.organicmaps.sdk.util.Config;
@@ -37,6 +38,8 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
   private int mCompactCheckGeneration;
   private boolean mLocationAccessPending;
   private boolean mLocationExplanationShowing;
+  @Nullable
+  private AlertDialog mTonePreviewDialog;
   private final ActivityResultLauncher<String> mBackgroundLocationRequest =
       registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
         mLocationAccessPending = false;
@@ -190,6 +193,12 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
       });
     }
 
+    if (findPreference("in_car_test_navigation_tones") != null)
+      getPreference("in_car_test_navigation_tones").setOnPreferenceClickListener(preference -> {
+        showTonePreview();
+        return true;
+      });
+
     if (findPreference(getString(R.string.pref_in_car_navigation_fallback_mode)) != null)
     {
       final ListPreference fallback = getPreference(getString(R.string.pref_in_car_navigation_fallback_mode));
@@ -337,6 +346,39 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
     }
     preference.setEntries(filteredEntries.toArray(new CharSequence[0]));
     preference.setEntryValues(filteredValues.toArray(new CharSequence[0]));
+  }
+
+  private void showTonePreview()
+  {
+    if (mTonePreviewDialog != null && mTonePreviewDialog.isShowing())
+      return;
+    final int[] resources = {
+        R.raw.in_car_nav_advance, R.raw.in_car_nav_left, R.raw.in_car_nav_right,
+        R.raw.in_car_nav_complex, R.raw.in_car_nav_route, R.raw.in_car_nav_gps};
+    final MediaPlayerWrapper player = new MediaPlayerWrapper(requireContext().getApplicationContext());
+    final AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                                   .setTitle(R.string.in_car_test_navigation_tones)
+                                   .setSingleChoiceItems(R.array.in_car_test_tone_labels, -1, (unused, index) -> {
+                                     if (index >= 0 && index < resources.length)
+                                       player.playback(resources[index], true);
+                                   })
+                                   .setNegativeButton(R.string.close, null)
+                                   .create();
+    mTonePreviewDialog = dialog;
+    dialog.setOnDismissListener(unused -> {
+      player.release();
+      if (mTonePreviewDialog == dialog)
+        mTonePreviewDialog = null;
+    });
+    dialog.show();
+  }
+
+  @Override
+  public void onDestroyView()
+  {
+    if (mTonePreviewDialog != null)
+      mTonePreviewDialog.dismiss();
+    super.onDestroyView();
   }
 
   private static void filterVoiceMode(@NonNull ListPreference preference)

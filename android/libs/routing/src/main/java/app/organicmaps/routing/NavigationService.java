@@ -354,6 +354,13 @@ public class NavigationService extends Service implements LocationListener
     final boolean cameraWarning = engineWarning || speedCameraEvent;
     final boolean criticalEvent = cameraWarning || gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST;
 
+    // Do not let an ordinary guidance cue interrupt the known-good camera-warning beep.
+    if (!cameraWarning && mPlayer.isResourceActive(R.raw.speed_cams_beep))
+    {
+      Logger.d(TAG, "Navigation cue deferred/dropped while camera-warning audio is active");
+      return false;
+    }
+
     if (mode == OfflineNavigationVoicePack.Mode.VOICE)
     {
       // The fallback resource is the product-level enable sentinel; keep this path InCar-only.

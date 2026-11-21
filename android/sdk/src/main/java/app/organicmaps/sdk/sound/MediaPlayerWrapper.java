@@ -67,6 +67,12 @@ public class MediaPlayerWrapper
     return initialize(streamResId, key, requestAudioFocus);
   }
 
+  public boolean isResourceActive(@RawRes int streamResId)
+  {
+    return mStreamKey != null && mStreamKey.startsWith("res:" + streamResId + ":")
+        && (mIsPreparing || mIsInitialized);
+  }
+
   public boolean playback(@NonNull File file)
   {
     clearSequence();
