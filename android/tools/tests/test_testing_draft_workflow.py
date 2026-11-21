@@ -89,6 +89,8 @@ class TestingDraftWorkflowTests(unittest.TestCase):
         self.assertIn("does not match source artifact run", PUBLISH)
         self.assertIn("incar-debug.apk", PUBLISH)
         self.assertIn("incar-release.apk", PUBLISH)
+        self.assertIn("incar-tones-release.apk", PUBLISH)
+        self.assertIn('testing_audio_variants "voice,tones"', HELPER)
 
     def test_install_apk_is_re_signed_and_verified_as_incar(self):
         self.assertIn("organicmaps-incar-testing.jks", PUBLISH)

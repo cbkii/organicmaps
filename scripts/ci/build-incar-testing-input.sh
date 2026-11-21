@@ -77,6 +77,17 @@ chmod +x ./gradlew
   -Parm64 \
   -PinCarReleaseVersionName="$base_version_name" \
   -PinCarReleaseVersionCode="$version_code" \
+  -PinCarVoicePack=enabled \
+  :app:assembleInCarRelease
+mapfile -t voice_built < <(find app/build/outputs/apk/inCar/release -maxdepth 1 -type f -name '*.apk' -print | sort)
+[[ "${#voice_built[@]}" -eq 1 ]]
+cp "${voice_built[0]}" "${RUNNER_TEMP}/incar-testing-voice.apk"
+
+./gradlew --no-daemon --stacktrace --configure-on-demand \
+  -Parm64 \
+  -PinCarReleaseVersionName="$base_version_name" \
+  -PinCarReleaseVersionCode="$version_code" \
+  -PinCarVoicePack=disabled \
   :app:assembleInCarRelease
 
 cd "$repo_dir"
@@ -95,13 +106,20 @@ mapfile -t release_apks < <(find android/app/build/outputs/apk/inCar/release -ma
 }
 
 debug_apk="${debug_apks[0]}"
-release_apk="${release_apks[0]}"
+release_apk="${RUNNER_TEMP}/incar-testing-voice.apk"
+tones_apk="${release_apks[0]}"
 test -s "$debug_apk"
 test -s "$release_apk"
+test -s "$tones_apk"
 
 apksigner="${ANDROID_SDK_ROOT}/build-tools/36.0.0/apksigner"
 test -x "$apksigner"
 "$apksigner" verify --verbose "$release_apk" >/dev/null
+"$apksigner" verify --verbose "$tones_apk" >/dev/null
+python3 android/tools/verify_offline_navigation_voice_pack.py --apk "$release_apk" --expect present
+python3 android/tools/verify_offline_navigation_voice_pack.py --apk "$tones_apk" --expect absent
+python3 android/tools/verify_navigation_tones.py --source-dir android/app/src/main/res/raw --apk "$release_apk"
+python3 android/tools/verify_navigation_tones.py --source-dir android/app/src/main/res/raw --apk "$tones_apk"
 
 apkanalyzer="$(command -v apkanalyzer || true)"
 if [[ -z "$apkanalyzer" ]]; then
@@ -109,15 +127,18 @@ if [[ -z "$apkanalyzer" ]]; then
 fi
 test -x "$apkanalyzer"
 
-actual_package="$($apkanalyzer manifest application-id "$release_apk")"
-actual_version_name="$($apkanalyzer manifest version-name "$release_apk")"
-actual_version_code="$($apkanalyzer manifest version-code "$release_apk")"
-[[ "$actual_package" == "app.organicmaps.incar" ]]
-[[ "$actual_version_name" == "$version_name" ]]
-[[ "$actual_version_code" == "$version_code" ]]
+for built_apk in "$release_apk" "$tones_apk"; do
+  actual_package="$($apkanalyzer manifest application-id "$built_apk")"
+  actual_version_name="$($apkanalyzer manifest version-name "$built_apk")"
+  actual_version_code="$($apkanalyzer manifest version-code "$built_apk")"
+  [[ "$actual_package" == "app.organicmaps.incar" ]]
+  [[ "$actual_version_name" == "$version_name" ]]
+  [[ "$actual_version_code" == "$version_code" ]]
+done
 
 cp "$debug_apk" "$out_dir/incar-debug.apk"
 cp "$release_apk" "$out_dir/incar-release.apk"
+cp "$tones_apk" "$out_dir/incar-tones-release.apk"
 
 field() {
   local key="$1" value="${2:-}"
@@ -143,6 +164,7 @@ field() {
   field testing_version_name "$version_name"
   field testing_version_code "$version_code"
   field testing_abi "arm64-v8a"
+  field testing_audio_variants "voice,tones"
   field build_run_id "${GITHUB_RUN_ID:-}"
   field build_run_number "${GITHUB_RUN_NUMBER:-}"
   field build_run_url "${TESTING_BUILD_RUN_URL:-https://github.com/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-}}"
