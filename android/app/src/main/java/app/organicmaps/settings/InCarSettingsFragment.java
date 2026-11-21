@@ -194,6 +194,8 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
     {
       final ListPreference fallback = getPreference(getString(R.string.pref_in_car_navigation_fallback_mode));
       final OfflineNavigationVoicePack.Mode mode = OfflineNavigationVoicePack.getMode(requireContext());
+      if (!app.organicmaps.BuildConfig.HAS_OFFLINE_VOICE_PACK)
+        filterVoiceMode(fallback);
       fallback.setValue(mode.getPreferenceValue());
       updateFallbackSummary(fallback, mode);
       fallback.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -329,6 +331,25 @@ public final class InCarSettingsFragment extends SettingsPrefsFragment
     for (int i = 0; i < values.length; ++i)
     {
       if ("MANUAL".contentEquals(values[i]))
+        continue;
+      filteredEntries.add(entries[i]);
+      filteredValues.add(values[i]);
+    }
+    preference.setEntries(filteredEntries.toArray(new CharSequence[0]));
+    preference.setEntryValues(filteredValues.toArray(new CharSequence[0]));
+  }
+
+  private static void filterVoiceMode(@NonNull ListPreference preference)
+  {
+    final CharSequence[] entries = preference.getEntries();
+    final CharSequence[] values = preference.getEntryValues();
+    if (entries == null || values == null || entries.length != values.length)
+      return;
+    final List<CharSequence> filteredEntries = new ArrayList<>();
+    final List<CharSequence> filteredValues = new ArrayList<>();
+    for (int i = 0; i < values.length; ++i)
+    {
+      if ("voice".contentEquals(values[i]))
         continue;
       filteredEntries.add(entries[i]);
       filteredValues.add(values[i]);

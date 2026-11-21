@@ -45,6 +45,21 @@ public final class OfflineNavigationVoicePack
   @Nullable
   private static volatile File sCacheDirectory;
   private static boolean sExtractionStarted;
+  // Set by the packaging application on startup. A prior voice installation's extracted
+  // cache must never enable recorded playback in the tones-only APK.
+  private static volatile boolean sVoicePackAvailable = true;
+
+  public static void setVoicePackAvailable(boolean available)
+  {
+    sVoicePackAvailable = available;
+    if (!available)
+      sCacheDirectory = null;
+  }
+
+  public static boolean isVoicePackAvailable()
+  {
+    return sVoicePackAvailable;
+  }
 
   private static final Set<String> PACK_CLIPS = new HashSet<>(Arrays.asList(
       "02_navigation_started_lets_roll.ogg", "05_continue_straight_nice_easy.ogg", "07_turn_left.ogg",
@@ -133,7 +148,8 @@ public final class OfflineNavigationVoicePack
     final String modeValue = hasMode ? preferences.getString(PREFERENCE_MODE_KEY, null) : null;
     final Boolean legacyEnabled =
         preferences.contains(LEGACY_PREFERENCE_KEY) ? preferences.getBoolean(LEGACY_PREFERENCE_KEY, true) : null;
-    return resolveMode(hasMode, modeValue, legacyEnabled);
+    final Mode selected = resolveMode(hasMode, modeValue, legacyEnabled);
+    return selected == Mode.VOICE && !sVoicePackAvailable ? Mode.TONE_ALL : selected;
   }
 
   @NonNull
@@ -192,6 +208,9 @@ public final class OfflineNavigationVoicePack
   public static List<File> resolveCurrentCues(@NonNull Context context, @Nullable RoutingInfo routingInfo,
                                               @NonNull Cue cue)
   {
+    if (!sVoicePackAvailable)
+      return Collections.emptyList();
+
     final CarDirection direction = routingInfo == null ? null : routingInfo.carDirection;
     final int exitNumber = routingInfo == null ? 0 : routingInfo.exitNum;
     final List<String> names = selectClipNames(direction, exitNumber, cue);
