@@ -39,6 +39,7 @@ import app.organicmaps.sdk.routing.NavigationNotification;
 import app.organicmaps.sdk.routing.RoutingController;
 import app.organicmaps.sdk.routing.RoutingInfo;
 import app.organicmaps.sdk.sound.MediaPlayerWrapper;
+import app.organicmaps.sdk.sound.NavigationTonePolicy;
 import app.organicmaps.sdk.sound.OfflineNavigationVoicePack;
 import app.organicmaps.sdk.sound.TtsFallbackPolicy;
 import app.organicmaps.sdk.sound.TtsPlayer;
@@ -66,6 +67,8 @@ public class NavigationService extends Service implements LocationListener
   private static PendingIntent sOpenAppPendingIntent;
   @RawRes
   private static int sTtsFallbackSoundResId;
+  @NonNull
+  private static int[] sNavigationToneResIds = new int[0];
 
   @SuppressWarnings("NotNullFieldNotInitialized")
   @NonNull
@@ -107,6 +110,29 @@ public class NavigationService extends Service implements LocationListener
   public static void setTtsFallbackSoundResource(@RawRes int soundResId)
   {
     sTtsFallbackSoundResId = soundResId;
+  }
+
+  public static void setNavigationToneResources(@NonNull @RawRes int[] toneResIds)
+  {
+    // A coherent six-entry catalogue is installed once by the application.
+    sNavigationToneResIds = toneResIds.length == NavigationTonePolicy.TONE_COUNT ? toneResIds.clone() : new int[0];
+  }
+
+  private boolean playSelectedTone(@Nullable NavigationNotification notification, @Nullable RoutingInfo routingInfo,
+                                   @NonNull OfflineNavigationVoicePack.GpsSignalEvent gpsEvent)
+  {
+    final int index = NavigationTonePolicy.selectToneIndex(notification, routingInfo, gpsEvent);
+    if (index < 0)
+      return false;
+    final int resId = sNavigationToneResIds.length == NavigationTonePolicy.TONE_COUNT ? sNavigationToneResIds[index]
+                                                                                      : sTtsFallbackSoundResId;
+    if (resId == 0)
+    {
+      Logger.w(TAG, "Navigation tone resource unavailable: index=" + index);
+      return false;
+    }
+    Logger.d(TAG, "Queue navigation tone index=" + index);
+    return mPlayer.playback(resId, true);
   }
 
   /**
@@ -328,6 +354,13 @@ public class NavigationService extends Service implements LocationListener
     final boolean cameraWarning = engineWarning || speedCameraEvent;
     final boolean criticalEvent = cameraWarning || gpsSignalEvent == OfflineNavigationVoicePack.GpsSignalEvent.LOST;
 
+    // Do not let an ordinary guidance cue interrupt the known-good camera-warning beep.
+    if (!cameraWarning && mPlayer.isResourceActive(R.raw.speed_cams_beep))
+    {
+      Logger.d(TAG, "Navigation cue deferred/dropped while camera-warning audio is active");
+      return false;
+    }
+
     if (mode == OfflineNavigationVoicePack.Mode.VOICE)
     {
       // The fallback resource is the product-level enable sentinel; keep this path InCar-only.
@@ -359,19 +392,18 @@ public class NavigationService extends Service implements LocationListener
 
       // Voice mode deliberately falls back to the one-tone alert for an unmapped
       // event or a pack-integrity/extraction failure.
-      if ((hasRoutingEvent || hasGpsEvent) && sTtsFallbackSoundResId != 0)
-        return mPlayer.playback(sTtsFallbackSoundResId);
+      if (hasRoutingEvent || hasGpsEvent)
+        return playSelectedTone(notification, routingInfo, gpsSignalEvent);
       return false;
     }
 
-    if (sTtsFallbackSoundResId == 0
-        || !OfflineNavigationVoicePack.shouldPlayTone(mode, hasRoutingEvent || hasGpsEvent, criticalEvent))
+    if (!OfflineNavigationVoicePack.shouldPlayTone(mode, hasRoutingEvent || hasGpsEvent, criticalEvent))
       return false;
 
     if (cameraWarning)
       return mPlayer.playback(R.raw.speed_cams_beep);
 
-    return mPlayer.playback(sTtsFallbackSoundResId);
+    return playSelectedTone(notification, routingInfo, gpsSignalEvent);
   }
 
   private void onLocationUnavailable()
@@ -384,10 +416,10 @@ public class NavigationService extends Service implements LocationListener
       return;
 
     final TtsPlayer.State ttsState = TtsPlayer.getState();
-    if (!TtsFallbackPolicy.shouldPlayFallback(ttsState, OfflineNavigationVoicePack.isFallbackEnabled(this)))
+    final OfflineNavigationVoicePack.Mode fallbackMode =
+        Config.isInCar() ? OfflineNavigationVoicePack.getMode(this) : OfflineNavigationVoicePack.Mode.OFF;
+    if (!TtsFallbackPolicy.shouldPlayFallback(ttsState, fallbackMode))
       return;
-
-    final OfflineNavigationVoicePack.Mode fallbackMode = OfflineNavigationVoicePack.getMode(this);
     if (playFallback(fallbackMode, null, Framework.nativeGetRouteFollowingInfo(), event))
       Logger.d(TAG, "Played GPS-loss fallback; mode=" + fallbackMode + ", state=" + ttsState);
   }
@@ -418,21 +450,19 @@ public class NavigationService extends Service implements LocationListener
     final String[] turnNotifications = notification == null ? null : notification.getTexts();
     final RoutingInfo routingInfo = Framework.nativeGetRouteFollowingInfo();
     final TtsPlayer.State ttsState = TtsPlayer.getState();
-    boolean playedTtsFallback = false;
+    final OfflineNavigationVoicePack.Mode mode =
+        Config.isInCar() ? OfflineNavigationVoicePack.getMode(this) : OfflineNavigationVoicePack.Mode.OFF;
+    boolean queuedFallback = false;
 
-    if (OfflineNavigationVoicePack.hasNotifications(turnNotifications) && ttsState == TtsPlayer.State.READY_ON)
-    {
+    if (OfflineNavigationVoicePack.hasNotifications(turnNotifications)
+        && TtsFallbackPolicy.shouldUseSystemTts(ttsState, mode))
       TtsPlayer.INSTANCE.playTurnNotifications(turnNotifications);
-    }
-    else
+    else if (TtsFallbackPolicy.shouldPlayFallback(ttsState, mode))
     {
-      final OfflineNavigationVoicePack.Mode fallbackMode = OfflineNavigationVoicePack.getMode(this);
-      if (TtsFallbackPolicy.shouldPlayFallback(ttsState, OfflineNavigationVoicePack.isFallbackEnabled(this)))
-      {
-        playedTtsFallback = playFallback(fallbackMode, notification, routingInfo, gpsSignalEvent);
-        if (playedTtsFallback)
-          Logger.d(TAG, "Played navigation fallback; mode=" + fallbackMode + ", state=" + ttsState);
-      }
+      queuedFallback = playFallback(mode, notification, routingInfo, gpsSignalEvent);
+      if (queuedFallback)
+        Logger.d(TAG, "Queued navigation audio; mode=" + mode + ", state=" + ttsState
+                          + ", event=" + (notification == null ? "none" : notification.getEvent()));
     }
 
     // TODO: consider to create callback mechanism to transfer 'ROUTE_IS_FINISHED' event from
@@ -450,7 +480,7 @@ public class NavigationService extends Service implements LocationListener
     if (routingInfo == null)
       return;
 
-    if (!playedTtsFallback && routingInfo.shouldPlayWarningSignal())
+    if (!queuedFallback && routingInfo.shouldPlayWarningSignal())
       mPlayer.playback(R.raw.speed_cams_beep);
 
     // Don't spend time on updating RemoteView if notifications are not allowed.

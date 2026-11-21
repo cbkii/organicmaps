@@ -54,7 +54,9 @@ jobs:
         run: |
           python3 -m py_compile android/tools/verify_offline_navigation_voice_pack.py
           python3 android/tools/verify_offline_navigation_voice_pack.py \
-            --asset-root android/app/src/inCar/assets
+            --asset-root android/app/src/inCarVoice/assets
+          python3 android/tools/verify_navigation_tones.py \
+            --source-dir android/app/src/main/res/raw
 
       - name: Verify InCar engineering tools
         shell: bash
@@ -197,7 +199,9 @@ jobs:
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
           python3 android/tools/verify_offline_navigation_voice_pack.py \
-            --apk "${in_car_apks[0]}"
+            --apk "${in_car_apks[0]}" --expect present
+          python3 android/tools/verify_navigation_tones.py \
+            --source-dir android/app/src/main/res/raw --apk "${in_car_apks[0]}"
 
       - name: Upload InCarProfileable APK
         uses: actions/upload-artifact@v7
@@ -323,6 +327,16 @@ jobs:
             -Parm64 \
             -PinCarReleaseVersionName="${CI_IN_CAR_RELEASE_VERSION}" \
             -PinCarReleaseVersionCode="${CI_IN_CAR_RELEASE_VERSION_CODE}" \
+            -PinCarVoicePack=enabled \
+            assembleInCarRelease
+          mapfile -t voice_apks < <(find app/build/outputs/apk/inCar/release -maxdepth 1 -name '*.apk' -type f -print)
+          test "${#voice_apks[@]}" -eq 1
+          cp "${voice_apks[0]}" "${RUNNER_TEMP}/ci-in-car-voice.apk"
+          ./gradlew --no-daemon --stacktrace \
+            -Parm64 \
+            -PinCarReleaseVersionName="${CI_IN_CAR_RELEASE_VERSION}" \
+            -PinCarReleaseVersionCode="${CI_IN_CAR_RELEASE_VERSION_CODE}" \
+            -PinCarVoicePack=disabled \
             assembleInCarRelease
 
       - name: Verify release-equivalent InCarRelease
@@ -346,7 +360,20 @@ jobs:
             --proof-dir "${proof_dir}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
           python3 android/tools/verify_offline_navigation_voice_pack.py \
-            --apk "${release_apks[0]}"
+            --apk "${release_apks[0]}" --expect absent
+          python3 android/tools/verify_navigation_tones.py \
+            --source-dir android/app/src/main/res/raw --apk "${release_apks[0]}"
+          bash android/tools/verify_in_car_apk.sh \
+            --apk "${RUNNER_TEMP}/ci-in-car-voice.apk" \
+            --expected-package app.organicmaps.incar \
+            --expected-version-name "${CI_IN_CAR_RELEASE_VERSION}-InCar" \
+            --expected-version-code "${CI_IN_CAR_RELEASE_VERSION_CODE}" \
+            --expected-cert-sha256 "${{ steps.ci_release_signing.outputs.cert_sha256 }}" \
+            --proof-dir "${proof_dir}/voice"
+          python3 android/tools/verify_offline_navigation_voice_pack.py \
+            --apk "${RUNNER_TEMP}/ci-in-car-voice.apk" --expect present
+          python3 android/tools/verify_navigation_tones.py \
+            --source-dir android/app/src/main/res/raw --apk "${RUNNER_TEMP}/ci-in-car-voice.apk"
           python3 android/tools/report_in_car_apk_metrics.py \
             --apk "${release_apks[0]}" \
             --output-json "${RUNNER_TEMP}/in-car-release-ci-metrics.json" \
@@ -356,7 +383,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: android-InCarRelease-ci
-          path: android/app/build/outputs/apk/inCar/release/OrganicMaps-*.apk
+          path: |
+            android/app/build/outputs/apk/inCar/release/OrganicMaps-*.apk
+            ${{ runner.temp }}/ci-in-car-voice.apk
           if-no-files-found: error
           retention-days: 7
 

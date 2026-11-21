@@ -49,6 +49,12 @@
       android:persistent="false"
       >
       </Preference>
+      <Preference
+      android:key="in_car_test_navigation_tones"
+      android:title="@string/in_car_test_navigation_tones"
+      android:summary="@string/in_car_test_navigation_tones_summary"
+      android:persistent="false"
+      app:singleLineTitle="false" />
       <ListPreference
       android:defaultValue="tone_all"
       android:dialogTitle="@string/in_car_navigation_fallback_title"

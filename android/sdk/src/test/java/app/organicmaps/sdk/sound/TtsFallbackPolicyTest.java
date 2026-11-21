@@ -8,25 +8,27 @@ import org.junit.Test;
 public class TtsFallbackPolicyTest
 {
   @Test
-  public void enabledFallbackCoversEveryNonSpeakingState()
-  {
-    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.INITIALIZING, true));
-    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.UNAVAILABLE, true));
-    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.NEEDS_LANGUAGE, true));
-    assertTrue(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.READY_OFF, true));
-  }
-
-  @Test
-  public void readySystemTtsRemainsPreferred()
-  {
-    assertFalse(TtsFallbackPolicy.shouldPlayFallback(TtsPlayer.State.READY_ON, true));
-  }
-
-  @Test
-  public void disabledFallbackNeverPlays()
+  public void selectedToneOrVoiceModeWinsOverEverySystemTtsState()
   {
     for (TtsPlayer.State state : TtsPlayer.State.values())
-      assertFalse(TtsFallbackPolicy.shouldPlayFallback(state, false));
+      for (OfflineNavigationVoicePack.Mode mode : new OfflineNavigationVoicePack.Mode[] {
+               OfflineNavigationVoicePack.Mode.TONE_ALL, OfflineNavigationVoicePack.Mode.TONE_ALERTS,
+               OfflineNavigationVoicePack.Mode.VOICE})
+      {
+        assertTrue(TtsFallbackPolicy.shouldPlayFallback(state, mode));
+        assertFalse(TtsFallbackPolicy.shouldUseSystemTts(state, mode));
+      }
+  }
+
+  @Test
+  public void systemTtsOnlyIsUnchangedByFallbackModes()
+  {
+    for (TtsPlayer.State state : TtsPlayer.State.values())
+    {
+      assertFalse(TtsFallbackPolicy.shouldPlayFallback(state, OfflineNavigationVoicePack.Mode.OFF));
+      assertTrue(TtsFallbackPolicy.shouldUseSystemTts(state, OfflineNavigationVoicePack.Mode.OFF)
+                 == (state == TtsPlayer.State.READY_ON));
+    }
   }
 
   @Test

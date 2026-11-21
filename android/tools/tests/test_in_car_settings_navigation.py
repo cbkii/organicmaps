@@ -15,7 +15,7 @@ CATEGORIES = {
     "navigation": ["@string/pref_3d", "@string/pref_auto_zoom",
                    "@string/prefs_routing", "in_car_navigation_action_delay",
                    "in_car_route_resume_minutes", "@string/pref_tts_screen",
-                   "@string/pref_in_car_navigation_fallback_mode", "in_car_speed_edge_warning"],
+                   "in_car_test_navigation_tones", "@string/pref_in_car_navigation_fallback_mode", "in_car_speed_edge_warning"],
     "driving": ["@string/pref_in_car_driving_view_mode", "@string/pref_in_car_auto_return_driving_view",
                 "@string/pref_auto_follow_location_on_launch", "@string/pref_in_car_startup_map_view",
                 "in_car_compact_startup", "in_car_location_access",
@@ -65,7 +65,7 @@ class InCarSettingsNavigationTest(unittest.TestCase):
                     found.append(item.attrib[ANDROID_KEY])
             self.assertEqual(found, CATEGORIES[section], section)
             keys.extend(found)
-        self.assertEqual(len(keys), 43)
+        self.assertEqual(len(keys), 44)
         self.assertEqual(len(keys), len(set(keys)))
         originals = {x.attrib[ANDROID_KEY] for root in (self.main, self.vehicle)
                      for x in root.iter() if ANDROID_KEY in x.attrib}

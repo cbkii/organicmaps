@@ -111,5 +111,52 @@ class TestingReleaseNoteReconciliationTests(unittest.TestCase):
             self.run_fixture(body=f'{notes.MANAGED}\n{notes.BEGIN}\n')
 
 
+
+    def test_dual_audio_snapshot_reconciles_six_assets_and_detects_tampering(self):
+        repository = "cbkii/organicmaps"
+        group = "PR87-ccccccc"
+        names = [f"OrganicMaps-InCar-TESTING-{group}.apk",
+                 f"OrganicMaps-InCar-TONES-TESTING-{group}.apk",
+                 f"OrganicMaps-InCar-DEBUG-{group}.apk",
+                 f"BUILD_INFO-{group}.txt", f"SIGNER-{group}.txt",
+                 f"SHA256SUMS-{group}.txt"]
+        fields = {"repository": repository, "source_sha": "c" * 40, "built_sha": "c" * 40,
+                  "pr_number": "87", "group_id": group, "testing_audio_variants": "voice,tones",
+                  "install_asset": names[0], "tones_install_asset": names[1],
+                  "debug_asset": names[2], "metadata_asset": names[3],
+                  "signer_asset": names[4], "checksums_asset": names[5]}
+        data = "".join(f"{k}={v}\n" for k, v in fields.items()).encode()
+        blobs = {1: b"voice", 2: b"tones", 3: b"debug", 4: data, 5: b"signer"}
+        blobs[6] = "".join(f"{hashlib.sha256(blobs[i]).hexdigest()}  {names[i - 1]}\n"
+                           for i in range(1, 6)).encode()
+        assets = [{"name": name, "id": i, "state": "uploaded", "size": len(blobs[i]),
+                   "created_at": "2026-11-22T00:00:00Z",
+                   "browser_download_url":
+                   f"https://github.com/{repository}/releases/download/untagged-abc/{name}",
+                   "digest": "sha256:" + hashlib.sha256(blobs[i]).hexdigest()}
+                  for i, name in enumerate(names, 1)]
+        release = {"draft": True, "name": "000 Testing Only Version",
+                   "tag_name": "untagged-31fecdcb8d777c1a4184",
+                   "body": f"{notes.MANAGED}\nDo not publish this draft\n"}
+        writes = []
+
+        def gh(path, *, patch=None):
+            if patch is not None:
+                writes.append(patch)
+                release.update(patch)
+            return assets if path.endswith("/assets?per_page=100") else release
+
+        with patch.object(notes, "gh", gh), patch.object(
+                notes, "download", lambda _, asset: blobs[asset["id"]]):
+            notes.reconcile(repository, 6)
+            notes.reconcile(repository, 6)
+            self.assertEqual(len(writes), 1)
+            self.assertIn("Tones APK](", release["body"])
+            self.assertIn(names[0], release["body"])
+            self.assertIn(names[1], release["body"])
+            assets[1]["digest"] = "sha256:" + "0" * 64
+            with self.assertRaisesRegex(ValueError, "APK digest disagrees"):
+                notes.reconcile(repository, 6)
+
 if __name__ == '__main__':
     unittest.main()

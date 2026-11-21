@@ -143,6 +143,8 @@ jobs:
           bash scripts/ci/build-incar-testing-input.sh . "$RUNNER_TEMP/testing-input"
           test -s "$RUNNER_TEMP/testing-input/incar-debug.apk"
           test -s "$RUNNER_TEMP/testing-input/incar-release.apk"
+          test -s "$RUNNER_TEMP/testing-input/incar-tones-release.apk"
+          grep -Fxq 'testing_audio_variants=voice,tones' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
           grep -Fxq 'testing_package=app.organicmaps.incar' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
           grep -Fxq 'testing_version_name=0.0.0-InCar' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"
           grep -Fxq 'testing_version_code=2100000000' "$RUNNER_TEMP/testing-input/BUILD_INFO.txt"

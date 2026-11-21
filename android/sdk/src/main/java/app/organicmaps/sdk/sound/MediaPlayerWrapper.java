@@ -20,6 +20,10 @@ public class MediaPlayerWrapper
   @NonNull
   private final MediaPlayer mPlayer;
   @NonNull
+  private final AudioFocusManager mAudioFocusManager;
+  private boolean mHasAudioFocus;
+  private boolean mRequestAudioFocus;
+  @NonNull
   private final ArrayDeque<File> mQueuedFiles = new ArrayDeque<>();
 
   private boolean mIsInitialized;
@@ -33,6 +37,7 @@ public class MediaPlayerWrapper
       mContext = context.createAttributionContext("media_playback");
     else
       mContext = context;
+    mAudioFocusManager = new AudioFocusManager(mContext, this::stop);
     mPlayer = new MediaPlayer();
     configurePlayer();
   }
@@ -43,16 +48,28 @@ public class MediaPlayerWrapper
     mPlayer.release();
   }
 
+  /** Legacy resource playback, including the existing camera beep, keeps its original focus behaviour. */
   public boolean playback(@RawRes int streamResId)
   {
+    return playback(streamResId, false);
+  }
+
+  /** New navigation tones opt into transient focus without changing legacy warning playback. */
+  public boolean playback(@RawRes int streamResId, boolean requestAudioFocus)
+  {
     clearSequence();
-    final String key = "res:" + streamResId;
+    final String key = "res:" + streamResId + ":focus=" + requestAudioFocus;
     if (isActive(key))
     {
       startIfPrepared();
       return true;
     }
-    return initialize(streamResId, key);
+    return initialize(streamResId, key, requestAudioFocus);
+  }
+
+  public boolean isResourceActive(@RawRes int streamResId)
+  {
+    return mStreamKey != null && mStreamKey.startsWith("res:" + streamResId + ":") && (mIsPreparing || mIsInitialized);
   }
 
   public boolean playback(@NonNull File file)
@@ -96,13 +113,17 @@ public class MediaPlayerWrapper
     clearSequence();
   }
 
-  private boolean initialize(@RawRes int streamResId, @NonNull String key)
+  private boolean initialize(@RawRes int streamResId, @NonNull String key, boolean requestAudioFocus)
   {
     resetForInitialization();
+    mRequestAudioFocus = requestAudioFocus;
     try (final AssetFileDescriptor afd = mContext.getResources().openRawResourceFd(streamResId))
     {
       if (afd == null)
+      {
+        Logger.w(TAG, "Navigation sound resource has no readable file descriptor: res=" + streamResId);
         return false;
+      }
       mPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
       return prepareAsync(key);
     }
@@ -125,6 +146,7 @@ public class MediaPlayerWrapper
   private boolean initialize(@NonNull File file, @NonNull String key)
   {
     resetForInitialization();
+    mRequestAudioFocus = true;
     try
     {
       mPlayer.setDataSource(file.getAbsolutePath());
@@ -181,6 +203,7 @@ public class MediaPlayerWrapper
   {
     mStreamKey = key;
     mIsPreparing = true;
+    Logger.d(TAG, "Navigation sound queued for asynchronous preparation: " + key);
     mPlayer.prepareAsync();
     return true;
   }
@@ -207,17 +230,29 @@ public class MediaPlayerWrapper
 
   private void onPrepared(@NonNull MediaPlayer unused)
   {
+    if (!mIsPreparing)
+      return;
     mIsPreparing = false;
     mIsInitialized = true;
     try
     {
+      if (mRequestAudioFocus)
+      {
+        if (!mAudioFocusManager.requestAudioFocus())
+        {
+          Logger.w(TAG, "Navigation sound suppressed: audio focus denied");
+          stop();
+          return;
+        }
+        mHasAudioFocus = true;
+      }
       mPlayer.start();
+      Logger.d(TAG, "Navigation sound started: " + mStreamKey);
     }
-    catch (IllegalStateException e)
+    catch (RuntimeException e)
     {
-      Logger.w(TAG, "MediaPlayer cannot start after preparation", e);
-      clearPlaybackState();
-      clearSequence();
+      Logger.w(TAG, "Navigation sound failed during audio-focus/start", e);
+      stop();
     }
   }
 
@@ -238,8 +273,21 @@ public class MediaPlayerWrapper
 
   private void clearPlaybackState()
   {
+    if (mHasAudioFocus)
+    {
+      mHasAudioFocus = false;
+      try
+      {
+        mAudioFocusManager.releaseAudioFocus();
+      }
+      catch (RuntimeException e)
+      {
+        Logger.w(TAG, "Navigation audio-focus release failed", e);
+      }
+    }
     mIsInitialized = false;
     mIsPreparing = false;
+    mRequestAudioFocus = false;
     mStreamKey = null;
   }
 
