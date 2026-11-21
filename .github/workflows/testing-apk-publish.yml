@@ -75,7 +75,7 @@ jobs:
           SOURCE_RUN_ID: ${{ inputs.artifact_run_id }}
         run: |
           set -euo pipefail
-          expected=(BUILD_INFO.txt incar-debug.apk incar-release.apk)
+          expected=(BUILD_INFO.txt incar-debug.apk incar-release.apk incar-tones-release.apk)
           mapfile -t actual < <(find incoming -maxdepth 1 -type f -printf '%f\n' | sort)
           mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
           [[ "${actual[*]}" == "${wanted[*]}" ]] || {
@@ -85,12 +85,14 @@ jobs:
           }
           test -s incoming/incar-debug.apk
           test -s incoming/incar-release.apk
+          test -s incoming/incar-tones-release.apk
           grep -Eq '^source_sha=[0-9a-f]{40}$' incoming/BUILD_INFO.txt
           grep -Eq '^built_sha=[0-9a-f]{40}$' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_package=app.organicmaps.incar' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_version_name=0.0.0-InCar' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_version_code=2100000000' incoming/BUILD_INFO.txt
           grep -Fxq 'testing_abi=arm64-v8a' incoming/BUILD_INFO.txt
+          grep -Fxq 'testing_audio_variants=voice,tones' incoming/BUILD_INFO.txt
           recorded_run="$(sed -n 's/^build_run_id=//p' incoming/BUILD_INFO.txt | head -n 1)"
           [[ "$recorded_run" == "$SOURCE_RUN_ID" ]] || {
             echo "::error::BUILD_INFO build_run_id '$recorded_run' does not match source artifact run '$SOURCE_RUN_ID'."
@@ -145,6 +147,7 @@ jobs:
           fi
 
           install_name="OrganicMaps-InCar-TESTING-${group_id}.apk"
+          tones_name="OrganicMaps-InCar-TONES-TESTING-${group_id}.apk"
           debug_name="OrganicMaps-InCar-DEBUG-${group_id}.apk"
           info_name="BUILD_INFO-${group_id}.txt"
           signer_name="SIGNER-${group_id}.txt"
@@ -168,18 +171,45 @@ jobs:
             --v3-signing-enabled false \
             --out "outgoing/$install_name" \
             incoming/incar-release.apk
+          "$apksigner" sign \
+            --ks "$RUNNER_TEMP/organicmaps-incar-testing.jks" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled false \
+            --out "outgoing/$tones_name" \
+            incoming/incar-tones-release.apk
 
           "$apksigner" verify --verbose "outgoing/$debug_name"
           "$apksigner" verify --verbose --print-certs "outgoing/$install_name" \
             | tee "outgoing/$signer_name"
           signer_sha256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/{print $2; exit}' "outgoing/$signer_name")"
           test -n "$signer_sha256"
+          tones_signer_sha256="$("$apksigner" verify --verbose --print-certs "outgoing/$tones_name" \
+            | awk -F': ' '/Signer #1 certificate SHA-256 digest:/{print $2; exit}')"
+          [[ -n "$tones_signer_sha256" && "$tones_signer_sha256" == "$signer_sha256" ]] || {
+            echo "::error::Voice/Tones TESTING signing identities disagree."
+            exit 1
+          }
 
           badging="$($aapt dump badging "outgoing/$install_name" | head -n 1)"
           grep -Fq "package: name='app.organicmaps.incar'" <<<"$badging"
           grep -Fq "versionCode='2100000000'" <<<"$badging"
           grep -Fq "versionName='0.0.0-InCar'" <<<"$badging"
           unzip -l "outgoing/$install_name" | grep -Fq 'lib/arm64-v8a/liborganicmaps.so'
+          tones_badging="$($aapt dump badging "outgoing/$tones_name" | head -n 1)"
+          [[ "$tones_badging" == "$badging" ]] || {
+            echo "::error::Both TESTING APK variants must share package/version identity."
+            exit 1
+          }
+          unzip -l "outgoing/$tones_name" | grep -Fq 'lib/arm64-v8a/liborganicmaps.so'
+          unzip -Z1 "outgoing/$install_name" | grep -Fxq 'assets/offline_navigation_voice_pack_v2/pack.zip'
+          if unzip -Z1 "outgoing/$tones_name" | grep -Fq 'assets/offline_navigation_voice_pack_v2/'; then
+            echo "::error::Tones-only TESTING APK must not include the recorded voice pack."
+            exit 1
+          fi
 
           cp incoming/BUILD_INFO.txt "outgoing/$info_name"
           cat >> "outgoing/$info_name" <<INFO
@@ -191,6 +221,8 @@ jobs:
           group_id=$group_id
           install_asset=$install_name
           install_asset_signer_sha256=$signer_sha256
+          tones_install_asset=$tones_name
+          tones_install_asset_signer_sha256=$tones_signer_sha256
           debug_asset=$debug_name
           debug_asset_note=CI debug signer and debug package identity; use the TESTING APK for normal reinstall/update testing
           metadata_asset=$info_name
@@ -223,12 +255,13 @@ jobs:
 
           (
             cd outgoing
-            sha256sum "$install_name" "$debug_name" "$info_name" "$signer_name" > "$sums_name"
+            sha256sum "$install_name" "$tones_name" "$debug_name" "$info_name" "$signer_name" > "$sums_name"
             sha256sum -c "$sums_name"
           )
 
           printf 'group_id=%s\n' "$group_id" >> "$GITHUB_OUTPUT"
           printf 'install_name=%s\n' "$install_name" >> "$GITHUB_OUTPUT"
+          printf 'tones_name=%s\n' "$tones_name" >> "$GITHUB_OUTPUT"
           printf 'debug_name=%s\n' "$debug_name" >> "$GITHUB_OUTPUT"
           printf 'info_name=%s\n' "$info_name" >> "$GITHUB_OUTPUT"
           printf 'signer_name=%s\n' "$signer_name" >> "$GITHUB_OUTPUT"
@@ -240,6 +273,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GROUP_ID: ${{ steps.assets.outputs.group_id }}
           INSTALL_NAME: ${{ steps.assets.outputs.install_name }}
+          TONES_NAME: ${{ steps.assets.outputs.tones_name }}
           DEBUG_NAME: ${{ steps.assets.outputs.debug_name }}
           INFO_NAME: ${{ steps.assets.outputs.info_name }}
           SIGNER_NAME: ${{ steps.assets.outputs.signer_name }}
@@ -308,6 +342,10 @@ jobs:
             while IFS= read -r name; do
               delete_asset_by_name "$release_id" "$name"
             done < <(group_names "$group_id")
+            # Preserve old five-asset groups; clean a sixth tone asset when present.
+            if [[ "$group_id" != LEGACY ]]; then
+              delete_asset_by_name "$release_id" "OrganicMaps-InCar-TONES-TESTING-${group_id}.apk"
+            fi
           }
 
           group_complete() {
@@ -441,6 +479,10 @@ jobs:
               OrganicMaps-InCar-TESTING.apk|OrganicMaps-InCar-DEBUG.apk|BUILD_INFO.txt|SIGNER.txt|SHA256SUMS.txt)
                 legacy_seen=true
                 ;;
+              OrganicMaps-InCar-TONES-TESTING-*.apk)
+                group="${name#OrganicMaps-InCar-TONES-TESTING-}"
+                group="${group%.apk}"
+                ;;
               OrganicMaps-InCar-TESTING-*.apk)
                 group="${name#OrganicMaps-InCar-TESTING-}"
                 group="${group%.apk}"
@@ -482,14 +524,15 @@ jobs:
 
           delete_group "$release_id" "$GROUP_ID"
           upload_asset "$release_id" "outgoing/$INSTALL_NAME"
+          upload_asset "$release_id" "outgoing/$TONES_NAME"
           upload_asset "$release_id" "outgoing/$DEBUG_NAME"
           upload_asset "$release_id" "outgoing/$SIGNER_NAME"
           upload_asset "$release_id" "outgoing/$SUMS_NAME"
           upload_asset "$release_id" "outgoing/$INFO_NAME"
 
           release_assets_json "$release_id" > "$assets_json"
-          group_complete "$assets_json" "$GROUP_ID" || {
-            echo "::error::New TESTING snapshot '$GROUP_ID' is incomplete after upload."
+          group_complete "$assets_json" "$GROUP_ID" && asset_is_uploaded "$assets_json" "$TONES_NAME" || {
+            echo "::error::New dual-APK TESTING snapshot '$GROUP_ID' is incomplete after upload."
             exit 1
           }
 
